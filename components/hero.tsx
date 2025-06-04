@@ -125,7 +125,7 @@ export default function Hero() {
         className="relative z-10 w-full max-w-4xl mx-auto mt-16"
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: isLoaded ? 1 : 0, y: isLoaded ? 0 : 40 }}
-        transition={{ duration: 1, delay: 1.4 }}
+        transition={{ duration: 1, delay: 0.8 }}
       >
         <div className="relative w-full bg-[#121215] rounded-xl overflow-hidden shadow-2xl border border-[#1E1E24]">
           <div className="bg-[#161619] px-4 py-3 flex items-center gap-2">
