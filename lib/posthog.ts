@@ -5,8 +5,19 @@ import { PostHog } from "posthog-node"
  * You can call this in server-side code to capture events.
  */
 export default function PostHogClient() {
-  const posthogClient = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
-    host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+  // Return null if required environment variables are missing
+  if (!process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('PostHog API key not found. Server-side analytics tracking is disabled.');
+    }
+    return null;
+  }
+
+  // Default host if not provided
+  const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
+
+  const posthogClient = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY, {
+    host,
     // Adjust flush settings as needed
     flushAt: 1,
     flushInterval: 0,

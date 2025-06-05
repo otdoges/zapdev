@@ -1,12 +1,10 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider';
-import {
-  ClerkProvider,
-  SignedIn,
-  UserButton,
-} from '@clerk/nextjs';
+import { ClerkProvider } from '@clerk/nextjs';
 import { PostHogProvider } from '@/components/PostHogProvider'
+import ConvexClientProvider from '@/components/ConvexClientProvider';
+import { Navbar } from '@/components/ui/navbar';
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -28,17 +26,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} font-sans`} suppressHydrationWarning>
-      <body className="min-h-screen bg-[#0D0D10] text-[#EAEAEA]">
+      <body className="min-h-screen flex flex-col bg-[#0D0D10] text-[#EAEAEA]">
         <ClerkProvider
           publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
           afterSignInUrl="/chat"
           afterSignUpUrl="/chat"
         >
-          <PostHogProvider>
-            <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-              {children}
-            </ThemeProvider>
-          </PostHogProvider>
+          <ConvexClientProvider>
+            <PostHogProvider>
+              <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+                <Navbar />
+                <main className="flex-1">
+                  {children}
+                </main>
+              </ThemeProvider>
+            </PostHogProvider>
+          </ConvexClientProvider>
         </ClerkProvider>
       </body>
     </html>
