@@ -1,6 +1,6 @@
-# Animated AI Chat
+# ZapDev
 
-Welcome to Animated AI Chat! This is a web application that provides an engaging and interactive chat experience powered by various AI models through OpenRouter, featuring smooth animations and user authentication.
+Welcome to ZapDev! This is a web application that provides an engaging and interactive chat experience powered by various AI models through OpenRouter, featuring smooth animations and user authentication.
 
 ## Features
 
