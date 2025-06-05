@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion";
 import dynamic from 'next/dynamic';
 import Hero from "@/components/hero";
-// import FinalCTA from "@/components/final-cta"; // Still commented out
+import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import FinalCTA from "@/components/final-cta"; 
 
 const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
 const VisualShowcase = dynamic(() => import('@/components/visual-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
@@ -24,22 +25,28 @@ export default function Home() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        <motion.button
-          onClick={() => router.push("/auth?tab=login")}
-          className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Sign In
-        </motion.button>
-        <motion.button
-          onClick={() => router.push("/auth?tab=signup")}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Sign Up
-        </motion.button>
+        <div>
+          <SignInButton mode="redirect" fallbackRedirectUrl="/chat">
+          <motion.button
+            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Sign In
+          </motion.button>
+          </SignInButton>
+        </div>
+        <div>
+          <SignUpButton mode="redirect" fallbackRedirectUrl="/chat">
+          <motion.button
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Sign Up
+          </motion.button>
+          </SignUpButton>
+        </div>
       </motion.div>
       
       {/* Try it now button that navigates to chat */}
