@@ -5,7 +5,6 @@ import { motion } from "framer-motion"
 import { useRouter, useParams } from "next/navigation"
 import { useUser, UserButton, SignedIn } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
-import { Share2 } from "lucide-react"
 
 export default function ChatSessionPage() {
   const router = useRouter()
@@ -13,7 +12,6 @@ export default function ChatSessionPage() {
   const chatId = params.id as string
   const { user, isLoaded } = useUser()
   const [isValidSession, setIsValidSession] = useState(true)
-  const [showShareTooltip, setShowShareTooltip] = useState(false)
   
   useEffect(() => {
     // Ensure user and chatId are available
@@ -25,13 +23,12 @@ export default function ChatSessionPage() {
       router.push('/');
       return;
     }
+
+    // When a new chat is created, we'll assume it's valid
+    // This skips validation for newly created chat sessions
+    // The chat system will create the database record when needed
+    
   }, [chatId, user, isLoaded, router])
-  
-  const handleShareChat = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/chat/${chatId}`);
-    setShowShareTooltip(true);
-    setTimeout(() => setShowShareTooltip(false), 2000);
-  }
   
   return (
     <div className="min-h-screen flex flex-col w-full items-center justify-center bg-[#0D0D10] text-white relative overflow-hidden">
@@ -80,32 +77,26 @@ export default function ChatSessionPage() {
         </motion.button>
       </motion.div>
 
-      {/* Share button */}
+      {/* Session ID indicator */}
       <motion.div
         className="absolute top-6 right-20 z-50"
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <div className="relative">
+        <div className="px-3 py-1 rounded-lg bg-white/5 text-xs flex items-center gap-1">
+          <span>Chat ID: {chatId}</span>
           <button
-            onClick={handleShareChat}
-            className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-xs flex items-center gap-1"
+            onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/chat/${chatId}`);
+              alert("Chat link copied to clipboard!");
+            }}
+            className="ml-2 text-white/60 hover:text-white/100 transition-colors"
           >
-            <Share2 className="w-3 h-3" />
-            <span>Share Chat</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 16H6C4.89543 16 4 15.1046 4 14V6C4 4.89543 4.89543 4 6 4H14C15.1046 4 16 4.89543 16 6V8M10 20H18C19.1046 20 20 19.1046 20 18V10C20 8.89543 19.1046 8 18 8H10C8.89543 8 8 8.89543 8 10V18C8 19.1046 8.89543 20 10 20Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
-          
-          {showShareTooltip && (
-            <motion.div
-              className="absolute right-0 top-full mt-2 bg-green-500 text-white px-3 py-1 rounded-md text-xs"
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-            >
-              Link copied!
-            </motion.div>
-          )}
         </div>
       </motion.div>
 

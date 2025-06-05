@@ -19,13 +19,7 @@ export default clerkMiddleware(async (auth, req) => {
     await auth.protect();
   }
   
-  // Redirect to /chat if user is signed in and on home page
-  const { userId } = await auth();
-  if (req.nextUrl.pathname === '/' && userId) {
-    return NextResponse.redirect(new URL('/chat', req.url));
-  }
-
-  return NextResponse.next();
+  // No automatic redirection from home page to chat
 });
 
 export const config = {

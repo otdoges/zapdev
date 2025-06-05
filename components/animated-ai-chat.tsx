@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useTransition } from "react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { Paperclip, Command, SendIcon, XIcon, LoaderIcon, Sparkles, ImageIcon, Figma, MonitorIcon, Share2 } from "lucide-react"
+import { Paperclip, Command, SendIcon, XIcon, LoaderIcon, Sparkles, ImageIcon, Figma, MonitorIcon } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import * as React from "react"
 import { Message } from "@/lib/openrouter"
@@ -96,7 +96,9 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {props.onChange && (
           <div
             className="absolute bottom-2 right-2 opacity-0 w-2 h-2 bg-violet-500 rounded-full"
-            style={{ animation: "none" }}
+            style={{
+              animation: "none",
+            }}
             id="textarea-ripple"
           />
         )}
@@ -110,17 +112,9 @@ interface AnimatedAIChatProps {
   chatId?: string;
 }
 
-interface FileAttachment {
-  id: string;
-  name: string;
-  type: string;
-  url: string;
-  file: File;
-}
-
 export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
   const [value, setValue] = useState("")
-  const [attachments, setAttachments] = useState<FileAttachment[]>([])
+  const [attachments, setAttachments] = useState<string[]>([])
   const [isTyping, setIsTyping] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [activeSuggestion, setActiveSuggestion] = useState<number>(-1)
@@ -131,11 +125,10 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
     minHeight: 60,
     maxHeight: 200,
   })
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [inputFocused, setInputFocused] = useState(false)
   const commandPaletteRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<Message[]>([])
-  const [showShareTooltip, setShowShareTooltip] = useState(false)
+  const [isSplitScreen, setIsSplitScreen] = useState(false)
 
   const commandSuggestions: CommandSuggestion[] = [
     {
@@ -235,77 +228,64 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
       }
     } else if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      if (value.trim() || attachments.length > 0) {
+      if (value.trim()) {
         handleSendMessage()
       }
     }
   }
 
   const handleSendMessage = async () => {
-    if (value.trim() || attachments.length > 0) {
+    if (value.trim()) {
       const userMessage = value.trim();
       setValue("");
       adjustHeight(true);
       
-      // Create message content with file information if there are attachments
-      let messageContent = userMessage;
-      
-      // If we have attachments, add them to the message
-      if (attachments.length > 0) {
-        const fileList = attachments.map(attachment => 
-          `[File: ${attachment.name}]`
-        ).join('\n');
-        
-        messageContent = messageContent ? `${messageContent}\n\n${fileList}` : fileList;
-      }
-      
       // Add user message to chat
       const newUserMessage: Message = {
         role: "user",
-        content: messageContent
+        content: userMessage
       };
       
       setMessages(prev => [...prev, newUserMessage]);
       setIsTyping(true);
       
+      // Enable split screen mode when message is sent
+      setIsSplitScreen(true);
+      
       try {
-        const formData = new FormData();
-        formData.append('messages', JSON.stringify([...messages, newUserMessage]));
-        formData.append('chatId', chatId);
-        
-        // Append each file to the form data
-        attachments.forEach((attachment, index) => {
-          formData.append(`file${index}`, attachment.file);
+        // Call API to get AI response
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messages: [...messages, newUserMessage],
+            chatId
+          }),
         });
         
-        // Clear attachments after sending
-        setAttachments([]);
-        
-        // Call the API endpoint with FormData to support file uploads
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!response.ok) throw new Error('Failed to get response from AI');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Request failed with status ${response.status}`);
+        }
         
         const data = await response.json();
         
-        // Add AI response to messages
-        if (data.response) {
-          const aiMessage: Message = {
-            role: "assistant",
-            content: data.response
-          };
-          
-          setMessages(prev => [...prev, aiMessage]);
-        }
+        // Add AI response to chat
+        const aiMessage: Message = {
+          role: "model",
+          content: data.response
+        };
+        
+        setMessages(prev => [...prev, aiMessage]);
       } catch (error) {
-        console.error("Error sending message:", error);
-        // Add error message to chat
+        console.error("Error getting AI response:", error);
+        
+        // Add error message to chat with more specific info
         const errorMessage: Message = {
-          role: "assistant",
-          content: "Sorry, I encountered an error while processing your request."
+          role: "model",
+          content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : "Failed to fetch response"}`
         };
         
         setMessages(prev => [...prev, errorMessage]);
@@ -316,219 +296,356 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
   }
 
   const handleAttachFile = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+    const mockFileName = `file-${Math.floor(Math.random() * 1000)}.pdf`
+    setAttachments((prev) => [...prev, mockFileName])
   }
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    
-    // Process each selected file
-    Array.from(files).forEach(file => {
-      // Create URL for preview
-      const url = URL.createObjectURL(file);
-      
-      // Add file to attachments
-      setAttachments(prev => [
-        ...prev,
-        {
-          id: Math.random().toString(36).substring(2, 11),
-          name: file.name,
-          type: file.type,
-          url: url,
-          file: file
-        }
-      ]);
-    });
-    
-    // Clear the input value to allow selecting the same file again
-    e.target.value = '';
-  };
 
-  const removeAttachment = (id: string) => {
-    setAttachments(prev => {
-      const updated = prev.filter(attachment => attachment.id !== id);
-      
-      // Revoke object URLs to avoid memory leaks
-      const removed = prev.find(attachment => attachment.id === id);
-      if (removed) {
-        URL.revokeObjectURL(removed.url);
-      }
-      
-      return updated;
-    });
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index))
   }
-  
-  const handleShareChat = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/chat/${chatId}`);
-    setShowShareTooltip(true);
-    setTimeout(() => setShowShareTooltip(false), 2000);
+
+  const selectCommandSuggestion = (index: number) => {
+    const selectedCommand = commandSuggestions[index]
+    setValue(selectedCommand.prefix + " ")
+    setShowCommandPalette(false)
+
+    setRecentCommand(selectedCommand.label)
+    setTimeout(() => setRecentCommand(null), 2000)
   }
 
   return (
-    <div className="flex flex-col w-full h-full max-w-4xl mx-auto">
-      {/* Button for sharing the chat */}
-      <div className="flex justify-end p-4">
-        <div className="relative">
-          <button 
-            onClick={handleShareChat}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-md text-sm transition-colors"
-          >
-            <Share2 className="w-4 h-4" />
-            <span>Share chat</span>
-          </button>
-          
-          {showShareTooltip && (
-            <motion.div
-              className="absolute right-0 top-full mt-2 bg-green-500 text-white px-3 py-1 rounded-md text-sm"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+    <div className="min-h-screen flex flex-col w-full items-center justify-center bg-transparent text-white p-6 relative overflow-hidden">
+      <div className="absolute inset-0 w-full h-full overflow-hidden">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse delay-700" />
+        <div className="absolute top-1/4 right-1/3 w-64 h-64 bg-fuchsia-500/10 rounded-full mix-blend-normal filter blur-[96px] animate-pulse delay-1000" />
+      </div>
+      
+      <div className={cn(
+        "w-full mx-auto relative transition-all duration-500 ease-in-out",
+        isSplitScreen ? "max-w-5xl flex flex-row gap-6" : "max-w-2xl"
+      )}>
+        <motion.div
+          className={cn(
+            "relative z-10 space-y-12",
+            isSplitScreen ? "flex-1" : ""
+          )}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
+          <AnimatePresence>
+            {!isSplitScreen && (
+              <motion.div 
+                className="text-center space-y-3"
+                initial={{ opacity: 1 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                  className="inline-block"
+                >
+                  <h1 className="text-3xl font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white/90 to-white/40 pb-1">
+                    How can I help today?
+                  </h1>
+                  <motion.div
+                    className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: "100%", opacity: 1 }}
+                    transition={{ delay: 0.5, duration: 0.8 }}
+                  />
+                </motion.div>
+                <motion.p
+                  className="text-sm text-white/40"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  Type a command or ask a question
+                </motion.p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Display messages */}
+          {messages.length > 0 && (
+            <motion.div 
+              className="space-y-8 mb-8"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
             >
-              Link copied!
+              {messages.map((message, index) => (
+                <motion.div
+                  key={index}
+                  className={cn(
+                    "flex",
+                    message.role === "user" ? "justify-end" : "justify-start"
+                  )}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <div
+                    className={cn(
+                      "max-w-[80%] rounded-2xl px-4 py-3",
+                      message.role === "user"
+                        ? "bg-gradient-to-br from-[#6C52A0]/80 to-[#A0527C]/80 text-white"
+                        : "bg-white/[0.03] border border-white/[0.05]"
+                    )}
+                  >
+                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  </div>
+                </motion.div>
+              ))}
             </motion.div>
           )}
-        </div>
-      </div>
-      
-      {/* Message display area */}
-      <div className="flex-1 flex flex-col space-y-4 p-4 overflow-y-auto">
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={cn(
-              "p-4 rounded-lg max-w-[80%] text-sm",
-              message.role === "user"
-                ? "bg-purple-500/10 ml-auto border border-purple-500/20 text-white"
-                : "bg-white/10 border border-white/10"
-            )}
+
+          <motion.div
+            className="relative backdrop-blur-2xl bg-white/[0.02] rounded-2xl border border-white/[0.05] shadow-2xl"
+            initial={{ scale: 0.98 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.1 }}
           >
-            <div className="font-medium mb-1">{message.role === "user" ? "You" : "AI"}</div>
-            <div className="whitespace-pre-wrap">{message.content}</div>
-          </div>
-        ))}
-        
-        {isTyping && <TypingDots />}
-      </div>
-      
-      {/* File attachments */}
-      {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 p-2 bg-white/5 rounded-md mx-4 mb-2">
-          {attachments.map((attachment) => (
-            <div key={attachment.id} className="flex items-center bg-white/10 rounded px-2 py-1 text-xs">
-              <span className="truncate max-w-[100px]">{attachment.name}</span>
-              <button
-                onClick={() => removeAttachment(attachment.id)}
-                className="ml-1 text-white/60 hover:text-white"
-              >
-                <XIcon className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      
-      {/* Input area */}
-      <div className="p-4 bg-white/5 backdrop-blur-lg rounded-lg m-4">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-          multiple
-        />
-        
-        <div className="relative flex items-end">
-          <Textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => {
-              setValue(e.target.value)
-              adjustHeight()
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            className="bg-white/10 border-white/10 text-white placeholder:text-white/50 pr-24"
-            containerClassName="flex-1"
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
-          />
-          
-          <div className="absolute bottom-3 right-3 flex items-center space-x-2">
-            <button
-              onClick={handleAttachFile}
-              className={cn(
-                "p-1.5 rounded-md transition-colors",
-                "bg-white/10 hover:bg-white/20 text-white/80 hover:text-white"
+            <AnimatePresence>
+              {showCommandPalette && (
+                <motion.div
+                  ref={commandPaletteRef}
+                  className="absolute left-4 right-4 bottom-full mb-2 backdrop-blur-xl bg-black/90 rounded-lg z-50 shadow-lg border border-white/10 overflow-hidden"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <div className="py-1 bg-black/95">
+                    {commandSuggestions.map((suggestion, index) => (
+                      <motion.div
+                        key={suggestion.prefix}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 text-xs transition-colors cursor-pointer",
+                          activeSuggestion === index ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5",
+                        )}
+                        onClick={() => selectCommandSuggestion(index)}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.03 }}
+                      >
+                        <div className="w-5 h-5 flex items-center justify-center text-white/60">{suggestion.icon}</div>
+                        <div className="font-medium">{suggestion.label}</div>
+                        <div className="text-white/40 text-xs ml-1">{suggestion.prefix}</div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
               )}
-              title="Attach file"
-            >
-              <Paperclip className="w-4 h-4" />
-            </button>
-            
-            <button
-              onClick={() => {
-                if (!isPending) {
-                  startTransition(() => {
-                    handleSendMessage();
-                  });
-                }
-              }}
-              disabled={isPending || (!value.trim() && attachments.length === 0)}
-              className={cn(
-                "p-1.5 rounded-md transition-colors text-white/80 hover:text-white",
-                isPending || (!value.trim() && attachments.length === 0)
-                  ? "bg-white/10 cursor-not-allowed"
-                  : "bg-purple-600 hover:bg-purple-700"
-              )}
-              aria-label="Send message"
-            >
-              {isPending ? (
-                <LoaderIcon className="w-4 h-4 animate-spin" />
-              ) : (
-                <SendIcon className="w-4 h-4" />
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Command palette */}
-      {showCommandPalette && (
-        <div
-          ref={commandPaletteRef}
-          className="absolute bottom-24 left-4 right-4 max-w-md mx-auto bg-black/90 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden"
-        >
-          <div className="p-4 border-b border-white/10">
-            <h3 className="text-sm font-medium text-white/70">Commands</h3>
-          </div>
-          <div className="max-h-60 overflow-y-auto">
-            {commandSuggestions.map((suggestion, index) => (
-              <div
-                key={index}
-                className={cn(
-                  "flex items-start gap-3 p-3 transition-colors",
-                  activeSuggestion === index
-                    ? "bg-white/[0.07]"
-                    : "hover:bg-white/[0.03] cursor-pointer"
-                )}
-                onClick={() => {
-                  setValue(suggestion.prefix + " ")
-                  setShowCommandPalette(false)
+            </AnimatePresence>
+
+            <div className="p-4">
+              <Textarea
+                ref={textareaRef}
+                value={value}
+                onChange={(e) => {
+                  setValue(e.target.value)
+                  adjustHeight()
                 }}
-                onMouseEnter={() => setActiveSuggestion(index)}
-              >
-                <div className="mt-0.5 p-1 bg-white/10 rounded-md text-white/90">{suggestion.icon}</div>
-                <div>
-                  <h4 className="font-medium text-white/90">{suggestion.label}</h4>
-                  <p className="text-sm text-white/50">{suggestion.description}</p>
-                </div>
+                onKeyDown={handleKeyDown}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                placeholder="Ask zap a question..."
+                containerClassName="w-full"
+                className={cn(
+                  "w-full px-4 py-3",
+                  "resize-none",
+                  "bg-transparent",
+                  "border-none",
+                  "text-white/90 text-sm",
+                  "focus:outline-none",
+                  "placeholder:text-white/20",
+                  "min-h-[60px]",
+                )}
+                style={{
+                  overflow: "hidden",
+                }}
+                showRing={false}
+              />
+            </div>
+
+            <AnimatePresence>
+              {attachments.length > 0 && (
+                <motion.div
+                  className="px-4 pb-3 flex gap-2 flex-wrap"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  {attachments.map((file, index) => (
+                    <motion.div
+                      key={index}
+                      className="flex items-center gap-2 text-xs bg-white/[0.03] py-1.5 px-3 rounded-lg text-white/70"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                    >
+                      <span>{file}</span>
+                      <button
+                        onClick={() => removeAttachment(index)}
+                        className="text-white/40 hover:text-white transition-colors"
+                      >
+                        <XIcon className="w-3 h-3" />
+                      </button>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="p-4 border-t border-white/[0.05] flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <motion.button
+                  type="button"
+                  onClick={handleAttachFile}
+                  whileTap={{ scale: 0.94 }}
+                  className="p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group"
+                >
+                  <Paperclip className="w-4 h-4" />
+                  <motion.span
+                    className="absolute inset-0 bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    layoutId="button-highlight"
+                  />
+                </motion.button>
+                <motion.button
+                  type="button"
+                  data-command-button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowCommandPalette((prev) => !prev)
+                  }}
+                  whileTap={{ scale: 0.94 }}
+                  className={cn(
+                    "p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group",
+                    showCommandPalette && "bg-white/10 text-white/90",
+                  )}
+                >
+                  <Command className="w-4 h-4" />
+                  <motion.span
+                    className="absolute inset-0 bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    layoutId="button-highlight"
+                  />
+                </motion.button>
               </div>
+
+              <motion.button
+                type="button"
+                onClick={handleSendMessage}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                disabled={isTyping || !value.trim()}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                  "flex items-center gap-2",
+                  value.trim() ? "bg-white text-[#0A0A0B] shadow-lg shadow-white/10" : "bg-white/[0.05] text-white/40",
+                )}
+              >
+                {isTyping ? (
+                  <LoaderIcon className="w-4 h-4 animate-[spin_2s_linear_infinite]" />
+                ) : (
+                  <SendIcon className="w-4 h-4" />
+                )}
+                <span>Send</span>
+              </motion.button>
+            </div>
+          </motion.div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {commandSuggestions.map((suggestion, index) => (
+              <motion.button
+                key={suggestion.prefix}
+                onClick={() => selectCommandSuggestion(index)}
+                className="flex items-center gap-2 px-3 py-2 bg-white/[0.02] hover:bg-white/[0.05] rounded-lg text-sm text-white/60 hover:text-white/90 transition-all relative group"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                {suggestion.icon}
+                <span>{suggestion.label}</span>
+                <motion.div
+                  className="absolute inset-0 border border-white/[0.05] rounded-lg"
+                  initial={false}
+                  animate={{
+                    opacity: [0, 1],
+                    scale: [0.98, 1],
+                  }}
+                  transition={{
+                    duration: 0.3,
+                    ease: "easeOut",
+                  }}
+                />
+              </motion.button>
             ))}
           </div>
-        </div>
+        </motion.div>
+        
+        {/* Preview panel */}
+        {isSplitScreen && (
+          <motion.div 
+            className="flex-1 backdrop-blur-sm bg-white/[0.02] rounded-2xl border border-white/[0.05] shadow-2xl p-6 hidden md:block"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+          >
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 flex items-center justify-center">
+                  <Sparkles className="w-8 h-8 text-white/70" />
+                </div>
+                <h3 className="text-xl font-medium text-white/80">Preview Panel</h3>
+                <p className="text-sm text-white/50 max-w-xs">
+                  Visual outputs and generated content will appear here
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {isTyping && (
+          <motion.div
+            className="fixed bottom-8 left-1/2 mx-auto transform -translate-x-1/2 backdrop-blur-2xl bg-white/[0.02] rounded-full px-4 py-2 shadow-lg border border-white/[0.05]"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-7 rounded-full bg-white/[0.05] flex items-center justify-center text-center">
+                <span className="text-xs font-medium text-white/90 mb-0.5">zap</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-white/70">
+                <span>Thinking</span>
+                <TypingDots />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {inputFocused && (
+        <motion.div
+          className="fixed w-[50rem] h-[50rem] rounded-full pointer-events-none z-0 opacity-[0.02] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-indigo-500 blur-[96px]"
+          animate={{
+            x: mousePosition.x - 400,
+            y: mousePosition.y - 400,
+          }}
+          transition={{
+            type: "spring",
+            damping: 25,
+            stiffness: 150,
+            mass: 0.5,
+          }}
+        />
       )}
     </div>
   )
@@ -536,25 +653,40 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
 
 function TypingDots() {
   return (
-    <div className="flex items-center space-x-1 p-3 max-w-[80px] rounded-lg bg-white/10 border border-white/10">
-      <motion.div
-        className="w-2 h-2 rounded-full bg-white"
-        initial={{ scale: 0.8, opacity: 0.4 }}
-        animate={{ scale: [0.8, 1, 0.8], opacity: [0.4, 1, 0.4] }}
-        transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="w-2 h-2 rounded-full bg-white"
-        initial={{ scale: 0.8, opacity: 0.4 }}
-        animate={{ scale: [0.8, 1, 0.8], opacity: [0.4, 1, 0.4] }}
-        transition={{ duration: 1, delay: 0.33, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="w-2 h-2 rounded-full bg-white"
-        initial={{ scale: 0.8, opacity: 0.4 }}
-        animate={{ scale: [0.8, 1, 0.8], opacity: [0.4, 1, 0.4] }}
-        transition={{ duration: 1, delay: 0.66, repeat: Infinity, ease: "easeInOut" }}
-      />
+    <div className="flex items-center ml-1">
+      {[1, 2, 3].map((dot) => (
+        <motion.div
+          key={dot}
+          className="w-1.5 h-1.5 bg-white/90 rounded-full mx-0.5"
+          initial={{ opacity: 0.3 }}
+          animate={{
+            opacity: [0.3, 0.9, 0.3],
+            scale: [0.85, 1.1, 0.85],
+          }}
+          transition={{
+            duration: 1.2,
+            repeat: Number.POSITIVE_INFINITY,
+            delay: dot * 0.15,
+            ease: "easeInOut",
+          }}
+          style={{
+            boxShadow: "0 0 4px rgba(255, 255, 255, 0.3)",
+          }}
+        />
+      ))}
     </div>
   )
+}
+
+const rippleKeyframes = `
+@keyframes ripple {
+  0% { transform: scale(0.5); opacity: 0.6; }
+  100% { transform: scale(2); opacity: 0; }
+}
+`
+
+if (typeof document !== "undefined") {
+  const style = document.createElement("style")
+  style.innerHTML = rippleKeyframes
+  document.head.appendChild(style)
 }
