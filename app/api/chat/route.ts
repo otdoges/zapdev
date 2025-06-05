@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { generateResponse, ChatHistory } from "@/lib/gemini";
+import { generateOpenRouterResponse, ChatHistory } from "@/lib/openrouter";
+import { getSequentialThinkingSteps } from "@/lib/sequential-thinker";
 
 export async function POST(req: Request) {
   try {
     // Parse request body
-    const { messages, chatId } = await req.json();
+    const { messages, chatId, modelId } = await req.json(); // Optionally allow frontend to specify modelId
     
     // Validate input
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -14,13 +15,26 @@ export async function POST(req: Request) {
       );
     }
     
-    // Optional system prompt for Gemini
-    const systemPrompt = `You are ZapDev AI, a helpful AI assistant focused on programming and design tasks.
+// Generate sequential thinking steps
+let thinkingSteps: string | null = null;
+try {
+  thinkingSteps = await getSequentialThinkingSteps(messages[messages.length - 1].content, modelId);
+} catch (error) {
+  console.error("Failed to generate sequential thinking steps:", error);
+  // Continue without thinking steps
+}
+
+    // Optional system prompt
+    let systemPrompt = `You are ZapDev AI, a helpful AI assistant focused on programming and design tasks.
     Current conversation ID: ${chatId || "unknown"}
     Today's date: ${new Date().toLocaleDateString()}`;
+
+    if (thinkingSteps) {
+      systemPrompt += `\n\n## AI's Internal Thought Process (for context):\n${thinkingSteps}`;
+    }
     
     // Generate response using Gemini
-    const response = await generateResponse(messages as ChatHistory, systemPrompt);
+    const response = await generateOpenRouterResponse(messages as ChatHistory, systemPrompt, modelId);
     
     // Return the response
     return NextResponse.json({ response });
