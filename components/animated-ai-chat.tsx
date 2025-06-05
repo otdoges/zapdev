@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { Paperclip, Command, SendIcon, XIcon, LoaderIcon, Sparkles, ImageIcon, Figma, MonitorIcon } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import * as React from "react"
-import { Message } from "@/lib/gemini"
+import { Message } from "@/lib/openrouter"
 
 interface UseAutoResizeTextareaProps {
   minHeight: number
