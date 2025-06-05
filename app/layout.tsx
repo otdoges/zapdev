@@ -3,10 +3,7 @@ import { Inter } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider';
 import {
   ClerkProvider,
-  SignInButton,
-  SignUpButton,
   SignedIn,
-  SignedOut,
   UserButton,
 } from '@clerk/nextjs';
 import { PostHogProvider } from '@/components/PostHogProvider'
@@ -40,12 +37,6 @@ export default function RootLayout({
           <PostHogProvider>
             <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
               <header style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                <SignedOut>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <SignInButton mode="modal" />
-                    <SignUpButton mode="modal" />
-                  </div>
-                </SignedOut>
                 <SignedIn>
                   <UserButton afterSignOutUrl="/" />
                 </SignedIn>
