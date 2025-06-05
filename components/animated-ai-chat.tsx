@@ -128,6 +128,7 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
   const [inputFocused, setInputFocused] = useState(false)
   const commandPaletteRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<Message[]>([])
+  const [isSplitScreen, setIsSplitScreen] = useState(false)
 
   const commandSuggestions: CommandSuggestion[] = [
     {
@@ -248,6 +249,9 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
       setMessages(prev => [...prev, newUserMessage]);
       setIsTyping(true);
       
+      // Enable split screen mode when message is sent
+      setIsSplitScreen(true);
+      
       try {
         // Call API to get AI response
         const response = await fetch("/api/chat", {
@@ -262,7 +266,8 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
         });
         
         if (!response.ok) {
-          throw new Error("Failed to get response");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Request failed with status ${response.status}`);
         }
         
         const data = await response.json();
@@ -277,10 +282,10 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
       } catch (error) {
         console.error("Error getting AI response:", error);
         
-        // Add error message to chat
+        // Add error message to chat with more specific info
         const errorMessage: Message = {
           role: "model",
-          content: "Sorry, I encountered an error while processing your request."
+          content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : "Failed to fetch response"}`
         };
         
         setMessages(prev => [...prev, errorMessage]);
@@ -315,39 +320,55 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse delay-700" />
         <div className="absolute top-1/4 right-1/3 w-64 h-64 bg-fuchsia-500/10 rounded-full mix-blend-normal filter blur-[96px] animate-pulse delay-1000" />
       </div>
-      <div className="w-full max-w-2xl mx-auto relative">
+      
+      <div className={cn(
+        "w-full mx-auto relative transition-all duration-500 ease-in-out",
+        isSplitScreen ? "max-w-5xl flex flex-row gap-6" : "max-w-2xl"
+      )}>
         <motion.div
-          className="relative z-10 space-y-12"
+          className={cn(
+            "relative z-10 space-y-12",
+            isSplitScreen ? "flex-1" : ""
+          )}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
-          <div className="text-center space-y-3">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-              className="inline-block"
-            >
-              <h1 className="text-3xl font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white/90 to-white/40 pb-1">
-                How can I help today?
-              </h1>
-              <motion.div
-                className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: "100%", opacity: 1 }}
-                transition={{ delay: 0.5, duration: 0.8 }}
-              />
-            </motion.div>
-            <motion.p
-              className="text-sm text-white/40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              Type a command or ask a question
-            </motion.p>
-          </div>
+          <AnimatePresence>
+            {!isSplitScreen && (
+              <motion.div 
+                className="text-center space-y-3"
+                initial={{ opacity: 1 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                  className="inline-block"
+                >
+                  <h1 className="text-3xl font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white/90 to-white/40 pb-1">
+                    How can I help today?
+                  </h1>
+                  <motion.div
+                    className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: "100%", opacity: 1 }}
+                    transition={{ delay: 0.5, duration: 0.8 }}
+                  />
+                </motion.div>
+                <motion.p
+                  className="text-sm text-white/40"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  Type a command or ask a question
+                </motion.p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Display messages */}
           {messages.length > 0 && (
@@ -566,6 +587,28 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
             ))}
           </div>
         </motion.div>
+        
+        {/* Preview panel */}
+        {isSplitScreen && (
+          <motion.div 
+            className="flex-1 backdrop-blur-sm bg-white/[0.02] rounded-2xl border border-white/[0.05] shadow-2xl p-6 hidden md:block"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+          >
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 flex items-center justify-center">
+                  <Sparkles className="w-8 h-8 text-white/70" />
+                </div>
+                <h3 className="text-xl font-medium text-white/80">Preview Panel</h3>
+                <p className="text-sm text-white/50 max-w-xs">
+                  Visual outputs and generated content will appear here
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       <AnimatePresence>
