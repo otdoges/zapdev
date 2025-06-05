@@ -16,7 +16,7 @@ const publicRoutes = [
 export default clerkMiddleware(async (auth, req) => {
   // For routes that require authentication, protect them
   if (isProtectedRoute(req)) {
-    auth.protect();
+    await auth.protect();
   }
 
   // Handle auth redirection
