@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion";
 import dynamic from 'next/dynamic';
 import Hero from "@/components/hero";
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton, SignInButton, SignUpButton } from "@clerk/nextjs";
 import FinalCTA from "@/components/final-cta"; 
 
 const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
@@ -40,22 +40,24 @@ export default function Home() {
         </SignedIn>
         <SignedOut>
           <div className="flex items-center gap-4">
-            <motion.button
-              onClick={() => router.push("/sign-in")}
-              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-all text-sm font-medium"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Sign In
-            </motion.button>
-            <motion.button
-              onClick={() => router.push("/sign-up")}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Sign Up
-            </motion.button>
+            <SignInButton mode="redirect">
+              <motion.button
+                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-all text-sm font-medium"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Sign In
+              </motion.button>
+            </SignInButton>
+            <SignUpButton mode="redirect">
+              <motion.button
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Sign Up
+              </motion.button>
+            </SignUpButton>
           </div>
         </SignedOut>
       </motion.div>
@@ -82,18 +84,19 @@ export default function Home() {
           </motion.button>
         </SignedIn>
         <SignedOut>
-          <motion.button
-            onClick={() => router.push("/sign-up")}
-            className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <span className="font-medium">Try ZapDev Now</span>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3.33337 8H12.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.66663 4L12.6666 8L8.66663 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </motion.button>
+          <SignUpButton mode="redirect">
+            <motion.button
+              className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <span className="font-medium">Try ZapDev Now</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3.33337 8H12.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8.66663 4L12.6666 8L8.66663 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </motion.button>
+          </SignUpButton>
         </SignedOut>
       </motion.div>
       
