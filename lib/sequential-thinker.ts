@@ -57,7 +57,7 @@ export async function clearHistoryInMcp() {
  */
 async function generateInitialThoughts(userPrompt: string, modelId: string = 'deepseek/deepseek-chat:free'): Promise<GeneratedThoughtStructure | null> {
   const model = openrouterProvider.chat(modelId);
-  const systemPrompt = `You are an analytical assistant. Your task is to break down the given user's request into a sequence of structured thoughts. 
+  const systemPrompt = `You are an analytical assistant. Your task is to break down the given user's request into a sequence of structured thoughts. While doing so, adhere to the core principles and guidelines expected of the ZapDev AI (as defined in its main system prompt, especially regarding planning, code excellence, and architecture). 
   Each thought must have a 'thought' (the textual content of the thought) and a 'stage'.
   The available stages are: "Problem Definition", "Research", "Analysis", "Synthesis", "Conclusion".
   Estimate the total number of thoughts needed for a comprehensive thinking process around the user's request.

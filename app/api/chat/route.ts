@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateOpenRouterResponse, ChatHistory } from "@/lib/openrouter";
 import { getSequentialThinkingSteps } from "@/lib/sequential-thinker";
+import { systemPrompt as zapDevSystemPrompt } from "@/lib/systemprompt";
 
 export async function POST(req: Request) {
   try {
@@ -24,10 +25,13 @@ try {
   // Continue without thinking steps
 }
 
-    // Optional system prompt
-    let systemPrompt = `You are ZapDev AI, a helpful AI assistant focused on programming and design tasks.
+    // Base system prompt
+    let baseSystemPrompt = `You are ZapDev AI, a helpful AI assistant focused on programming and design tasks.
     Current conversation ID: ${chatId || "unknown"}
     Today's date: ${new Date().toLocaleDateString()}`;
+
+    // Combine the detailed system prompt, base prompt, and thinking steps
+    let systemPrompt = `${zapDevSystemPrompt}\n\n## Current Task Context\n${baseSystemPrompt}\n    Current conversation ID: ${chatId || "unknown"}\n    Today's date: ${new Date().toLocaleDateString()}`;
 
     if (thinkingSteps) {
       systemPrompt += `\n\n## AI's Internal Thought Process (for context):\n${thinkingSteps}`;
