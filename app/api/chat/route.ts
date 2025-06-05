@@ -3,6 +3,14 @@ import { generateOpenRouterResponse, ChatHistory } from "@/lib/openrouter";
 import { getSequentialThinkingSteps } from "@/lib/sequential-thinker";
 import { systemPrompt as zapDevSystemPrompt } from "@/lib/systemprompt";
 
+  /**
+   * API route for generating AI chat responses.
+   * @param req The incoming request, expected to contain a JSON body with the following properties:
+   * - `messages`: An array of messages in the chat, where each message is an object with `role` and `content` properties.
+   * - `chatId`: The ID of the chat, used to generate a unique system prompt.
+   * - `modelId`: The ID of the AI model to use for generating responses, if specified.
+   * @returns A JSON response containing the generated AI response.
+   */
 export async function POST(req: Request) {
   try {
     // Parse request body

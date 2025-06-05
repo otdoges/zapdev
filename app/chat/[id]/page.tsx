@@ -3,61 +3,45 @@
 import { AnimatedAIChat } from "@/components/animated-ai-chat"
 import { motion } from "framer-motion"
 import { useRouter, useParams } from "next/navigation"
+import { useUser, UserButton, SignedIn } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
 
 export default function ChatSessionPage() {
   const router = useRouter()
   const params = useParams()
   const chatId = params.id as string
+  const { user, isLoaded } = useUser()
   const [isValidSession, setIsValidSession] = useState(true)
   
   useEffect(() => {
-    // In a real app, validate if this chat session exists/belongs to user
-    // For now, we'll assume all sessions are valid
-    setIsValidSession(true)
-  }, [chatId])
-  
-  if (!isValidSession) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D10] text-white">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Chat session not found</h2>
-          <button 
-            onClick={() => router.push("/chat")}
-            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-          >
-            Return to Chat
-          </button>
-        </div>
-      </div>
-    )
-  }
+    // Ensure user and chatId are available
+    if (!isLoaded || !chatId) {
+      return;
+    }
+
+    if (!user) {
+      router.push('/');
+      return;
+    }
+
+    // When a new chat is created, we'll assume it's valid
+    // This skips validation for newly created chat sessions
+    // The chat system will create the database record when needed
+    
+  }, [chatId, user, isLoaded, router])
   
   return (
     <div className="min-h-screen flex flex-col w-full items-center justify-center bg-[#0D0D10] text-white relative overflow-hidden">
-      {/* Auth buttons */}
+      {/* Auth button */}
       <motion.div 
         className="absolute top-4 right-4 flex gap-4 z-50"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        <motion.button
-          onClick={() => router.push("/auth?tab=login")}
-          className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Sign In
-        </motion.button>
-        <motion.button
-          onClick={() => router.push("/auth?tab=signup")}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Sign Up
-        </motion.button>
+        <SignedIn>
+          <UserButton afterSignOutUrl="/" />
+        </SignedIn>
       </motion.div>
       
       {/* ZapDev branding */}
@@ -95,7 +79,7 @@ export default function ChatSessionPage() {
 
       {/* Session ID indicator */}
       <motion.div
-        className="absolute top-6 right-60 z-50"
+        className="absolute top-6 right-20 z-50"
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.3 }}

@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
 
 // Define routes that require authentication
 const isProtectedRoute = createRouteMatcher([
@@ -6,11 +7,19 @@ const isProtectedRoute = createRouteMatcher([
   // Add any other routes you want to protect here
 ]);
 
-export default clerkMiddleware((auth, req) => {
+const publicRoutes = [
+  '/',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+];
+
+export default clerkMiddleware(async (auth, req) => {
   // For routes that require authentication, protect them
   if (isProtectedRoute(req)) {
-    auth.protect();
+    await auth.protect();
   }
+  
+  // No automatic redirection from home page to chat
 });
 
 export const config = {
