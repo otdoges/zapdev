@@ -36,11 +36,6 @@ export default function RootLayout({
         >
           <PostHogProvider>
             <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-              <header style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                <SignedIn>
-                  <UserButton afterSignOutUrl="/" />
-                </SignedIn>
-              </header>
               {children}
             </ThemeProvider>
           </PostHogProvider>
