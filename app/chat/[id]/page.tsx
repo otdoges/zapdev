@@ -3,7 +3,7 @@
 import { AnimatedAIChat } from "@/components/animated-ai-chat"
 import { motion } from "framer-motion"
 import { useRouter, useParams } from "next/navigation"
-import { useUser } from "@clerk/nextjs"
+import { useUser, SignInButton, SignUpButton, UserButton, SignedIn, SignedOut } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
 
 export default function ChatSessionPage() {
@@ -15,8 +15,6 @@ export default function ChatSessionPage() {
   
   useEffect(() => {
     // Ensure user and chatId (represented as 'id' from the route) are available before validation.
-    // Assumes 'user', 'isLoaded' (from useUser()), 'id' (from useParams() or props),
-    // and 'setIsValidSession' (from useState()) are defined in the component's scope.
     if (!isLoaded || !chatId) {
       setIsValidSession(false);
       return;
@@ -77,22 +75,33 @@ export default function ChatSessionPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        <motion.button
-          onClick={() => router.push("/auth?tab=login")}
-          className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Sign In
-        </motion.button>
-        <motion.button
-          onClick={() => router.push("/auth?tab=signup")}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Sign Up
-        </motion.button>
+        <SignedOut>
+          <div>
+            <SignInButton mode="modal">
+              <motion.button
+                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Sign In
+              </motion.button>
+            </SignInButton>
+          </div>
+          <div>
+            <SignUpButton mode="modal">
+              <motion.button
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Sign Up
+              </motion.button>
+            </SignUpButton>
+          </div>
+        </SignedOut>
+        <SignedIn>
+          <UserButton afterSignOutUrl="/" />
+        </SignedIn>
       </motion.div>
       
       {/* ZapDev branding */}

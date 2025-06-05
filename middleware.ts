@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
 
 // Define routes that require authentication
 const isProtectedRoute = createRouteMatcher([
@@ -6,10 +7,26 @@ const isProtectedRoute = createRouteMatcher([
   // Add any other routes you want to protect here
 ]);
 
-export default clerkMiddleware((auth, req) => {
+const publicRoutes = [
+  '/',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+];
+
+export default clerkMiddleware(async (auth, req) => {
   // For routes that require authentication, protect them
   if (isProtectedRoute(req)) {
     auth.protect();
+  }
+
+  // Handle auth redirection
+  const { userId } = await auth();
+  const isHomePage = req.nextUrl.pathname === '/';
+
+  // If user is signed in and on the homepage, redirect to chat
+  if (userId && isHomePage) {
+    const url = new URL('/chat', req.url);
+    return NextResponse.redirect(url);
   }
 });
 
