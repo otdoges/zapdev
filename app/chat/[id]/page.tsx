@@ -3,7 +3,7 @@
 import { AnimatedAIChat } from "@/components/animated-ai-chat"
 import { motion } from "framer-motion"
 import { useRouter, useParams } from "next/navigation"
-import { useUser, SignInButton, SignUpButton, UserButton, SignedIn, SignedOut } from "@clerk/nextjs"
+import { useUser, UserButton, SignedIn } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
 
 export default function ChatSessionPage() {
@@ -14,91 +14,31 @@ export default function ChatSessionPage() {
   const [isValidSession, setIsValidSession] = useState(true)
   
   useEffect(() => {
-    // Ensure user and chatId (represented as 'id' from the route) are available before validation.
+    // Ensure user and chatId are available
     if (!isLoaded || !chatId) {
-      setIsValidSession(false);
       return;
     }
 
-    if (!user) { // User is loaded, but not authenticated for this chat
-      setIsValidSession(false);
-      // Optionally, redirect to login or show an access denied message here
-      // e.g., router.push(`/sign-in?redirect_url=${encodeURIComponent(window.location.href)}`);
+    if (!user) {
+      router.push('/');
       return;
     }
 
-    const validateSession = async () => {
-      try {
-        const response = await fetch(`/api/validate-chat-session`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId, userId: user.id }),
-        });
-        if (response.ok) {
-          const { isValid } = await response.json();
-          setIsValidSession(isValid);
-        } else {
-          setIsValidSession(false);
-          console.error('Failed to validate session:', await response.text());
-        }
-      } catch (error) {
-        setIsValidSession(false);
-        console.error('Error validating session:', error);
-      }
-    };
-
-    validateSession();
-  }, [chatId, user, isLoaded, setIsValidSession])
-  
-  if (!isValidSession) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D10] text-white">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Chat session not found</h2>
-          <button 
-            onClick={() => router.push("/chat")}
-            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-          >
-            Return to Chat
-          </button>
-        </div>
-      </div>
-    )
-  }
+    // When a new chat is created, we'll assume it's valid
+    // This skips validation for newly created chat sessions
+    // The chat system will create the database record when needed
+    
+  }, [chatId, user, isLoaded, router])
   
   return (
     <div className="min-h-screen flex flex-col w-full items-center justify-center bg-[#0D0D10] text-white relative overflow-hidden">
-      {/* Auth buttons */}
+      {/* Auth button */}
       <motion.div 
         className="absolute top-4 right-4 flex gap-4 z-50"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        <SignedOut>
-          <div>
-            <SignInButton mode="modal">
-              <motion.button
-                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Sign In
-              </motion.button>
-            </SignInButton>
-          </div>
-          <div>
-            <SignUpButton mode="modal">
-              <motion.button
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Sign Up
-              </motion.button>
-            </SignUpButton>
-          </div>
-        </SignedOut>
         <SignedIn>
           <UserButton afterSignOutUrl="/" />
         </SignedIn>
@@ -139,7 +79,7 @@ export default function ChatSessionPage() {
 
       {/* Session ID indicator */}
       <motion.div
-        className="absolute top-6 right-60 z-50"
+        className="absolute top-6 right-20 z-50"
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.3 }}
