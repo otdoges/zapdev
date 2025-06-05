@@ -24,14 +24,13 @@ try {
   console.error("Failed to generate sequential thinking steps:", error);
   // Continue without thinking steps
 }
-
-    // Base system prompt
+// Base system prompt
     let baseSystemPrompt = `You are ZapDev AI, a helpful AI assistant focused on programming and design tasks.
     Current conversation ID: ${chatId || "unknown"}
     Today's date: ${new Date().toLocaleDateString()}`;
 
-    // Combine the detailed system prompt, base prompt, and thinking steps
-    let systemPrompt = `${zapDevSystemPrompt}\n\n## Current Task Context\n${baseSystemPrompt}\n    Current conversation ID: ${chatId || "unknown"}\n    Today's date: ${new Date().toLocaleDateString()}`;
+     // Combine the detailed system prompt, base prompt, and thinking steps
+    let systemPrompt = `${zapDevSystemPrompt}\n\n## Current Task Context\n${baseSystemPrompt}`;
 
     if (thinkingSteps) {
       systemPrompt += `\n\n## AI's Internal Thought Process (for context):\n${thinkingSteps}`;

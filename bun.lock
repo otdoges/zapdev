@@ -4,7 +4,7 @@
     "": {
       "name": "my-v0-project",
       "dependencies": {
-        "@clerk/nextjs": "^6.21.0",
+        "@clerk/nextjs": "^6.12.6",
         "@emotion/is-prop-valid": "latest",
         "@hookform/resolvers": "^3.9.1",
         "@openrouter/ai-sdk-provider": "^0.7.1",
