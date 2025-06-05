@@ -19,9 +19,9 @@ export type ChatHistory = Message[];
 
 
 const getOpenRouterApiKey = () => {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.NEXT_OPENROUTER_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY environment variable is not set. Please add it to your .env file.");
+    throw new Error("NEXT_OPENROUTER_API_KEY environment variable is not set. Please add it to your .env file.");
   }
   return apiKey;
 };
@@ -66,7 +66,7 @@ export async function generateOpenRouterResponse(
     console.error("Error generating response from OpenRouter:", error);
     let errorMessage = "Sorry, I encountered an error while processing your request with OpenRouter.";
     if (error instanceof Error) {
-      errorMessage = error.message.includes("OPENROUTER_API_KEY") 
+      errorMessage = error.message.includes("NEXT_OPENROUTER_API_KEY") 
         ? error.message 
         : `OpenRouter Error: ${error.message}`;
     }
