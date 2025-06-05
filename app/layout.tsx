@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider } from '@/components/theme-provider'
+import { PostHogProvider } from '@/components/PostHogProvider'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -23,9 +24,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} font-sans`} suppressHydrationWarning>
       <body className="min-h-screen bg-[#0D0D10] text-[#EAEAEA]">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          {children}
-        </ThemeProvider>
+        <PostHogProvider>
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+            {children}
+          </ThemeProvider>
+        </PostHogProvider>
       </body>
     </html>
   )
