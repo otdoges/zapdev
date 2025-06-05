@@ -3,19 +3,54 @@
 import { AnimatedAIChat } from "@/components/animated-ai-chat"
 import { motion } from "framer-motion"
 import { useRouter, useParams } from "next/navigation"
+import { useUser } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
 
 export default function ChatSessionPage() {
   const router = useRouter()
   const params = useParams()
   const chatId = params.id as string
+  const { user, isLoaded } = useUser()
   const [isValidSession, setIsValidSession] = useState(true)
   
   useEffect(() => {
-    // In a real app, validate if this chat session exists/belongs to user
-    // For now, we'll assume all sessions are valid
-    setIsValidSession(true)
-  }, [chatId])
+    // Ensure user and chatId (represented as 'id' from the route) are available before validation.
+    // Assumes 'user', 'isLoaded' (from useUser()), 'id' (from useParams() or props),
+    // and 'setIsValidSession' (from useState()) are defined in the component's scope.
+    if (!isLoaded || !chatId) {
+      setIsValidSession(false);
+      return;
+    }
+
+    if (!user) { // User is loaded, but not authenticated for this chat
+      setIsValidSession(false);
+      // Optionally, redirect to login or show an access denied message here
+      // e.g., router.push(`/sign-in?redirect_url=${encodeURIComponent(window.location.href)}`);
+      return;
+    }
+
+    const validateSession = async () => {
+      try {
+        const response = await fetch(`/api/validate-chat-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId, userId: user.id }),
+        });
+        if (response.ok) {
+          const { isValid } = await response.json();
+          setIsValidSession(isValid);
+        } else {
+          setIsValidSession(false);
+          console.error('Failed to validate session:', await response.text());
+        }
+      } catch (error) {
+        setIsValidSession(false);
+        console.error('Error validating session:', error);
+      }
+    };
+
+    validateSession();
+  }, [chatId, user, isLoaded, setIsValidSession])
   
   if (!isValidSession) {
     return (
