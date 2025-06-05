@@ -12,7 +12,7 @@ const modelIds = [
 // Define Message and ChatHistory types compatible with the existing structure
 // and Vercel AI SDK's CoreMessage
 export interface Message {
-  role: "user" | "model"; 
+  role: "user" | "model" | "assistant"; 
   content: string;
 }
 export type ChatHistory = Message[];
