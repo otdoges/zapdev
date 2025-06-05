@@ -1,14 +1,16 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { motion } from "framer-motion"
-import Hero from "@/components/hero"
-import FeaturesShowcase from "@/components/features-showcase"
-import VisualShowcase from "@/components/visual-showcase"
-import VibeToReality from "@/components/vibe-to-reality"
-import Audience from "@/components/audience"
-import Testimonials from "@/components/testimonials"
-import FinalCTA from "@/components/final-cta"
+import { motion } from "framer-motion";
+import dynamic from 'next/dynamic';
+import Hero from "@/components/hero";
+// import FinalCTA from "@/components/final-cta"; // Still commented out
+
+const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
+const VisualShowcase = dynamic(() => import('@/components/visual-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
+const VibeToReality = dynamic(() => import('@/components/vibe-to-reality'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
+const Audience = dynamic(() => import('@/components/audience'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
+const Testimonials = dynamic(() => import('@/components/testimonials'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
 
 export default function Home() {
   const router = useRouter()

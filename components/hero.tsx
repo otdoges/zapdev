@@ -2,17 +2,22 @@
 
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
-import { Button } from "./ui/button"
+import { Button } from "./ui/button";
+import { useRouter } from 'next/navigation';
+import useIsMobile from '@/hooks/useIsMobile';
 
 export default function Hero() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isLoaded, setIsLoaded] = useState(false)
-  const particlesRef = useRef<HTMLDivElement>(null)
+  const particlesRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const isMobile = useIsMobile();
   
   useEffect(() => {
     setIsLoaded(true)
     
     const handleMouseMove = (e: MouseEvent) => {
+      if (isMobile) return;
       setMousePosition({ x: e.clientX, y: e.clientY })
       
       if (particlesRef.current) {
@@ -41,9 +46,13 @@ export default function Hero() {
       }
     }
     
-    window.addEventListener('mousemove', handleMouseMove)
+    if (!isMobile) {
+      window.addEventListener('mousemove', handleMouseMove);
+    }
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
+      if (!isMobile) {
+        window.removeEventListener('mousemove', handleMouseMove);
+      }
     }
   }, [])
   
@@ -51,7 +60,7 @@ export default function Hero() {
     <section className="relative min-h-screen overflow-hidden flex flex-col items-center justify-center px-4 py-20 md:py-32">
       {/* Background particles */}
       <div ref={particlesRef} className="absolute inset-0 z-0">
-        {Array.from({ length: 50 }).map((_, i) => (
+        {Array.from({ length: isMobile ? 15 : 50 }).map((_, i) => (
           <div 
             key={i}
             className="absolute w-1 h-1 md:w-2 md:h-2 rounded-full bg-deep-violet opacity-20"
@@ -70,13 +79,15 @@ export default function Hero() {
       </div>
       
       {/* Mouse glow effect */}
-      <div
-        className="mouse-glow"
-        style={{
-          left: `${mousePosition.x}px`,
-          top: `${mousePosition.y}px`,
-        }}
-      />
+      {!isMobile && (
+        <div
+          className="mouse-glow"
+          style={{
+            left: `${mousePosition.x}px`,
+            top: `${mousePosition.y}px`,
+          }}
+        />
+      )}
       
       {/* Content */}
       <motion.div 
@@ -111,10 +122,17 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 1.1 }}
           className="flex flex-col sm:flex-row gap-4 justify-center"
         >
-          <Button className="text-lg py-6 px-8 bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] rounded-full">
+          <Button 
+            className="text-lg py-6 px-8 bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] rounded-full"
+            onClick={() => router.push('/chat')}
+          >
             Start Weaving Your Web
           </Button>
-          <Button variant="outline" className="text-lg py-6 px-8 rounded-full border-[#4F3A75] hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50">
+          <Button 
+            variant="outline" 
+            className="text-lg py-6 px-8 rounded-full border-[#4F3A75] hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
+            onClick={() => router.push('/#examples')}
+          >
             Explore Examples
           </Button>
         </motion.div>
