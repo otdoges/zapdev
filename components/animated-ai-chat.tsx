@@ -677,7 +677,6 @@ const TypingDots = React.memo(function TypingDots() {
     </div>
   )
 })
-
 const rippleKeyframes = `
 @keyframes ripple {
   0% { transform: scale(0.5); opacity: 0.6; }
@@ -690,3 +689,4 @@ if (typeof document !== "undefined") {
   style.innerHTML = rippleKeyframes
   document.head.appendChild(style)
 }
+
