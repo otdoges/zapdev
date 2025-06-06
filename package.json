@@ -54,6 +54,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "convex": "^1.24.8",
+    "critters": "^0.0.19",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
     "framer-motion": "latest",
