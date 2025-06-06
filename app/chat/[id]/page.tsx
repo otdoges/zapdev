@@ -1,6 +1,7 @@
 "use client"
 
 import { AnimatedAIChat } from "@/components/animated-ai-chat"
+import CodePreview from "@/components/code-preview"
 import { motion } from "framer-motion"
 import { useRouter, useParams } from "next/navigation"
 import { useUser, UserButton, SignedIn } from "@clerk/nextjs"
@@ -95,13 +96,10 @@ export default function ChatSessionPage() {
           <AnimatedAIChat chatId={chatId} onFirstMessageSent={() => setIsChatStarted(true)} />
         </div>
 
-        {/* Right Card: Desktop Preview (conditionally rendered) */}
+        {/* Right Card: Code Preview (conditionally rendered) */}
         {isChatStarted && (
-          <div className="md:w-1/2 flex-grow flex flex-col bg-slate-900/50 rounded-lg border border-slate-800 items-center justify-center will-change-transform">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-2">Desktop Preview</h2>
-              <p className="text-slate-400">The UI preview will appear here.</p>
-            </div>
+          <div className="md:w-1/2 flex-grow flex flex-col bg-slate-900/50 rounded-lg border border-slate-800 will-change-transform">
+            {/* This div is now managed by the AnimatedAIChat component which will populate it with the Monaco editor */}
           </div>
         )}
       </div>
