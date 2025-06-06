@@ -1,12 +1,27 @@
 "use client"
 
-import { useEffect, useRef, useCallback, useTransition } from "react"
+import { useEffect, useRef, useCallback, useTransition, useMemo } from "react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Paperclip, Command, SendIcon, XIcon, LoaderIcon, Sparkles, ImageIcon, Figma, MonitorIcon } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import * as React from "react"
 import { useChat, type Message } from "ai/react"
+
+// Throttle function for performance optimization
+function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle: boolean = false;
+  return function(this: any, ...args: Parameters<T>): void {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
 
 interface UseAutoResizeTextareaProps {
   minHeight: number
@@ -42,7 +57,15 @@ function useAutoResizeTextarea({ minHeight, maxHeight }: UseAutoResizeTextareaPr
   }, [minHeight])
 
   useEffect(() => {
-    const handleResize = () => adjustHeight()
+    // Debounce the resize event for better performance
+    const handleResize = () => {
+      if (window.requestAnimationFrame) {
+        window.requestAnimationFrame(() => adjustHeight());
+      } else {
+        setTimeout(adjustHeight, 66); // ~15fps
+      }
+    };
+    
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
   }, [adjustHeight])
@@ -62,7 +85,8 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
   showRing?: boolean
 }
 
-const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+// Memoize the Textarea component for better performance
+const Textarea = React.memo(React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, containerClassName, showRing = true, ...props }, ref) => {
     const [isFocused, setIsFocused] = React.useState(false)
 
@@ -104,14 +128,42 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         )}
       </div>
     )
-  },
-)
+  }
+))
 Textarea.displayName = "Textarea"
 
 interface AnimatedAIChatProps {
   chatId?: string;
   onFirstMessageSent?: () => void;
 }
+
+// Memoize command suggestions to prevent unnecessary recreations
+const commandSuggestions: CommandSuggestion[] = [
+  {
+    icon: <ImageIcon className="w-4 h-4" />,
+    label: "Clone UI",
+    description: "Generate a UI from a screenshot",
+    prefix: "/clone",
+  },
+  {
+    icon: <Figma className="w-4 h-4" />,
+    label: "Import Figma",
+    description: "Import a design from Figma",
+    prefix: "/figma",
+  },
+  {
+    icon: <MonitorIcon className="w-4 h-4" />,
+    label: "Create Page",
+    description: "Generate a new web page",
+    prefix: "/page",
+  },
+  {
+    icon: <Sparkles className="w-4 h-4" />,
+    label: "Improve",
+    description: "Improve existing UI design",
+    prefix: "/improve",
+  },
+];
 
 export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: AnimatedAIChatProps) {
   const [value, setValue] = useState("")
@@ -140,33 +192,6 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
     },
   })
 
-  const commandSuggestions: CommandSuggestion[] = [
-    {
-      icon: <ImageIcon className="w-4 h-4" />,
-      label: "Clone UI",
-      description: "Generate a UI from a screenshot",
-      prefix: "/clone",
-    },
-    {
-      icon: <Figma className="w-4 h-4" />,
-      label: "Import Figma",
-      description: "Import a design from Figma",
-      prefix: "/figma",
-    },
-    {
-      icon: <MonitorIcon className="w-4 h-4" />,
-      label: "Create Page",
-      description: "Generate a new web page",
-      prefix: "/page",
-    },
-    {
-      icon: <Sparkles className="w-4 h-4" />,
-      label: "Improve",
-      description: "Improve existing UI design",
-      prefix: "/improve",
-    },
-  ]
-
   useEffect(() => {
     if (value.startsWith("/") && !value.includes(" ")) {
       setShowCommandPalette(true)
@@ -184,15 +209,18 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
   }, [value])
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
-    }
+    // Throttle mouse move event to improve performance
+    const handleMouseMove = throttle((e: MouseEvent) => {
+      if (inputFocused) { // Only update when input is focused
+        setMousePosition({ x: e.clientX, y: e.clientY });
+      }
+    }, 50); // Update at most every 50ms
 
     window.addEventListener("mousemove", handleMouseMove)
     return () => {
       window.removeEventListener("mousemove", handleMouseMove)
     }
-  }, [])
+  }, [inputFocused])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -299,6 +327,15 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
     setTimeout(() => setRecentCommand(null), 2000)
   }
 
+  // Memoize the background gradient elements to prevent unnecessary re-renders
+  const backgroundGradients = useMemo(() => (
+    <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none">
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full mix-blend-normal filter blur-[128px] opacity-60" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full mix-blend-normal filter blur-[128px] opacity-60" />
+      <div className="absolute top-1/4 right-1/3 w-64 h-64 bg-fuchsia-500/10 rounded-full mix-blend-normal filter blur-[96px] opacity-60" />
+    </div>
+  ), []);
+
   return (
     <div className="flex flex-col h-full w-full bg-[#0D0D10]">
       {/* Messages area */}
@@ -330,7 +367,11 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
                 )}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ 
+                  delay: Math.min(0.1 * index, 0.5), // Cap the delay for better performance with many messages
+                  duration: 0.3 
+                }}
+                layout={false} // Disable layout animations for better performance
               >
                 <div
                   className={cn(
@@ -348,11 +389,8 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
         )}
       </div>
 
-      <div className="absolute inset-0 w-full h-full overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse delay-700" />
-        <div className="absolute top-1/4 right-1/3 w-64 h-64 bg-fuchsia-500/10 rounded-full mix-blend-normal filter blur-[96px] animate-pulse delay-1000" />
-      </div>
+      {/* Background gradients - optimized by using opacity instead of animation */}
+      {backgroundGradients}
       
       <div className={cn(
         "w-full mx-auto relative transition-all duration-500 ease-in-out",
@@ -366,6 +404,7 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
+          layout={false} // Disable layout animations
         >
           <AnimatePresence>
             {!isSplitScreen && (
@@ -408,6 +447,7 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
             initial={{ scale: 0.98 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.1 }}
+            layout={false} // Disable layout animations
           >
             <AnimatePresence>
               {showCommandPalette && (
@@ -430,7 +470,7 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
                         onClick={() => selectCommandSuggestion(index)}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: index * 0.03 }}
+                        transition={{ delay: Math.min(0.03 * index, 0.1) }} // Cap the delay
                       >
                         <div className="w-5 h-5 flex items-center justify-center text-white/60">{suggestion.icon}</div>
                         <div className="font-medium">{suggestion.label}</div>
@@ -566,7 +606,7 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
                 className="flex items-center gap-2 px-3 py-2 bg-white/[0.02] hover:bg-white/[0.05] rounded-lg text-sm text-white/60 hover:text-white/90 transition-all relative group"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: Math.min(0.1 * index, 0.3) }} // Cap the delay
               >
                 {suggestion.icon}
                 <span>{suggestion.label}</span>
@@ -594,6 +634,7 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
+            layout={false} // Disable layout animations
           >
             <div className="h-full flex items-center justify-center">
               <div className="text-center space-y-4">
@@ -610,6 +651,7 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
         )}
       </div>
 
+      {/* Show typing indicator only when needed */}
       <AnimatePresence>
         {isTyping && (
           <motion.div
@@ -631,10 +673,11 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
         )}
       </AnimatePresence>
 
+      {/* Conditionally render mouse tracking effects only when input is focused */}
       {inputFocused && (
         <motion.div
           className="fixed w-[50rem] h-[50rem] rounded-full pointer-events-none z-0 opacity-[0.02] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-indigo-500 blur-[96px]"
-          animate={{
+          style={{
             x: mousePosition.x - 400,
             y: mousePosition.y - 400,
           }}
@@ -650,7 +693,8 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
   )
 }
 
-function TypingDots() {
+// Memoize the TypingDots component to prevent unnecessary re-renders
+const TypingDots = React.memo(function TypingDots() {
   return (
     <div className="flex items-center ml-1">
       {[1, 2, 3].map((dot) => (
@@ -675,7 +719,7 @@ function TypingDots() {
       ))}
     </div>
   )
-}
+})
 
 const rippleKeyframes = `
 @keyframes ripple {
