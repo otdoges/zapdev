@@ -33,9 +33,9 @@ export default function ChatSessionPage() {
   }, [chatId, user, isLoaded, router])
   
   return (
-    <div className="min-h-screen w-full flex flex-col bg-[#0D0D10] text-white overflow-hidden">
+    <div className="flex flex-col min-h-screen w-full bg-[#0D0D10] text-white overflow-hidden">
       {/* Header elements */}
-      <header className="fixed top-0 left-0 right-0 z-50 p-6 flex items-center justify-between bg-[#0D0D10]">
+      <header className="sticky top-0 left-0 right-0 z-50 p-6 flex items-center justify-between bg-[#0D0D10]">
         <div className="flex items-center gap-4">
           {/* Back button */}
           <motion.button
@@ -80,11 +80,11 @@ export default function ChatSessionPage() {
         </motion.div>
       </header>
 
-      {/* Main content with conditional layout */}
-      <div className="flex-1 flex flex-col md:flex-row gap-6 w-full h-screen pt-24 pb-8 px-6">
+      {/* Main content with conditional layout - fills the remaining height */}
+      <div className="flex-grow flex flex-col md:flex-row gap-6 w-full px-6 pb-8">
         {/* Left Card / Full Width Card: Chat Interface */}
         <div className={cn(
-          "h-full flex flex-col bg-slate-900/50 rounded-lg border border-slate-800",
+          "flex-grow flex flex-col bg-slate-900/50 rounded-lg border border-slate-800",
           isChatStarted ? "md:w-1/2" : "md:w-full"
         )}>
           <AnimatedAIChat chatId={chatId} onFirstMessageSent={() => setIsChatStarted(true)} />
@@ -92,7 +92,7 @@ export default function ChatSessionPage() {
 
         {/* Right Card: Desktop Preview (conditionally rendered) */}
         {isChatStarted && (
-          <div className="md:w-1/2 h-full flex flex-col bg-slate-900/50 rounded-lg border border-slate-800 items-center justify-center">
+          <div className="md:w-1/2 flex-grow flex flex-col bg-slate-900/50 rounded-lg border border-slate-800 items-center justify-center">
             <div className="text-center">
               <h2 className="text-2xl font-bold mb-2">Desktop Preview</h2>
               <p className="text-slate-400">The UI preview will appear here.</p>

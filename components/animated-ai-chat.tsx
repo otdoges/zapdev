@@ -329,24 +329,34 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
 
   // Memoize the background gradient elements to prevent unnecessary re-renders
   const backgroundGradients = useMemo(() => (
-    <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none">
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full mix-blend-normal filter blur-[128px] opacity-60" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full mix-blend-normal filter blur-[128px] opacity-60" />
-      <div className="absolute top-1/4 right-1/3 w-64 h-64 bg-fuchsia-500/10 rounded-full mix-blend-normal filter blur-[96px] opacity-60" />
+    <div className="pointer-events-none">
+      <div className="absolute top-24 -left-20 w-[500px] h-[500px] bg-[#6C52A0]/10 rounded-full blur-[150px]" />
+      <div className="absolute bottom-24 -right-20 w-[500px] h-[500px] bg-[#A0527C]/10 rounded-full blur-[150px]" />
     </div>
-  ), []);
+  ), [])
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#0D0D10]">
-      {/* Messages area */}
-      <div className="flex-grow overflow-y-auto px-4 py-6 space-y-6 w-full">
+    <div className="flex flex-col h-full w-full overflow-hidden">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        onChange={handleFileChange}
+        accept="image/*"
+      />
+
+      {/* Message list - flexible height container that grows to fill available space */}
+      <div className="flex-grow overflow-y-auto p-6 space-y-6">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-zinc-400">
-            <div className="w-20 h-20 mb-4 rounded-full bg-gradient-to-r from-[#6C52A0]/10 to-[#A0527C]/10 flex items-center justify-center">
-              <Sparkles className="w-10 h-10 text-[#A0527C]/50" />
+            <div className="w-20 h-20 mb-6 rounded-full bg-gradient-to-r from-[#6C52A0]/20 to-[#A0527C]/20 flex items-center justify-center">
+              <Sparkles className="w-10 h-10 text-white/40" />
             </div>
-            <h3 className="text-xl font-medium mb-2">ZapDev Studio</h3>
-            <p className="max-w-sm text-sm">
+            <h2 className="text-2xl font-medium mb-2 text-white/80">
+              ZapDev Studio
+            </h2>
+            <p className="max-w-sm text-white/60 text-sm leading-relaxed">
               Ask me to build a website, design a UI, or explain tech concepts. I'll help translate your
               ideas into code and design.
             </p>
@@ -392,265 +402,209 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
       {/* Background gradients - optimized by using opacity instead of animation */}
       {backgroundGradients}
       
-      <div className={cn(
-        "w-full mx-auto relative transition-all duration-500 ease-in-out",
-        isSplitScreen ? "max-w-5xl flex flex-row gap-6" : "max-w-2xl"
-      )}>
-        <motion.div
-          className={cn(
-            "relative z-10 space-y-12",
-            isSplitScreen ? "flex-1" : ""
-          )}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          layout={false} // Disable layout animations
-        >
-          <AnimatePresence>
-            {!isSplitScreen && (
-              <motion.div 
-                className="text-center space-y-3"
-                initial={{ opacity: 1 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.5 }}
-                  className="inline-block"
-                >
-                  <h1 className="text-3xl font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white/90 to-white/40 pb-1">
-                    How can I help today?
-                  </h1>
-                  <motion.div
-                    className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: "100%", opacity: 1 }}
-                    transition={{ delay: 0.5, duration: 0.8 }}
-                  />
-                </motion.div>
-                <motion.p
-                  className="text-sm text-white/40"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  Type a command or ask a question
-                </motion.p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
+      {/* Input area - fixed at the bottom */}
+      <div className="w-full mx-auto p-4">
+        <div className={cn(
+          "w-full mx-auto relative transition-all duration-500 ease-in-out",
+          isSplitScreen ? "max-w-5xl flex flex-row gap-6" : "max-w-2xl"
+        )}>
           <motion.div
-            className="relative backdrop-blur-2xl bg-white/[0.02] rounded-2xl border border-white/[0.05] shadow-2xl"
-            initial={{ scale: 0.98 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.1 }}
+            className={cn(
+              "relative z-10 space-y-6 w-full",
+              isSplitScreen ? "flex-1" : ""
+            )}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
             layout={false} // Disable layout animations
           >
-            <AnimatePresence>
-              {showCommandPalette && (
-                <motion.div
-                  ref={commandPaletteRef}
-                  className="absolute left-4 right-4 bottom-full mb-2 backdrop-blur-xl bg-black/90 rounded-lg z-50 shadow-lg border border-white/10 overflow-hidden"
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 5 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <div className="py-1 bg-black/95">
-                    {commandSuggestions.map((suggestion, index) => (
+            <motion.div
+              className="relative backdrop-blur-2xl bg-white/[0.02] rounded-2xl border border-white/[0.05] shadow-2xl"
+              initial={{ scale: 0.98 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.1 }}
+              layout={false} // Disable layout animations
+            >
+              <AnimatePresence>
+                {showCommandPalette && (
+                  <motion.div
+                    ref={commandPaletteRef}
+                    className="absolute left-4 right-4 bottom-full mb-2 backdrop-blur-xl bg-black/90 rounded-lg z-50 shadow-lg border border-white/10 overflow-hidden"
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 5 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <div className="py-1 bg-black/95">
+                      {commandSuggestions.map((suggestion, index) => (
+                        <motion.div
+                          key={suggestion.prefix}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 text-xs transition-colors cursor-pointer",
+                            activeSuggestion === index ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5",
+                          )}
+                          onClick={() => selectCommandSuggestion(index)}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: Math.min(0.03 * index, 0.1) }} // Cap the delay
+                        >
+                          <div className="w-5 h-5 flex items-center justify-center text-white/60">{suggestion.icon}</div>
+                          <div className="font-medium">{suggestion.label}</div>
+                          <div className="text-white/40 text-xs ml-1">{suggestion.prefix}</div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="p-4">
+                <Textarea
+                  ref={textareaRef}
+                  value={value}
+                  onChange={(e) => {
+                    setValue(e.target.value)
+                    adjustHeight()
+                  }}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  placeholder="Ask zap a question..."
+                  containerClassName="w-full"
+                  className={cn(
+                    "w-full px-4 py-3",
+                    "resize-none",
+                    "bg-transparent",
+                    "border-none",
+                    "text-white/90 text-sm",
+                    "focus:outline-none",
+                    "placeholder:text-white/20",
+                    "min-h-[60px]",
+                  )}
+                  style={{
+                    overflow: "hidden",
+                  }}
+                  showRing={false}
+                />
+              </div>
+
+              <AnimatePresence>
+                {attachments.length > 0 && (
+                  <motion.div
+                    className="px-4 pb-3 flex gap-2 flex-wrap"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                  >
+                    {attachments.map((file, index) => (
                       <motion.div
-                        key={suggestion.prefix}
-                        className={cn(
-                          "flex items-center gap-2 px-3 py-2 text-xs transition-colors cursor-pointer",
-                          activeSuggestion === index ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5",
-                        )}
-                        onClick={() => selectCommandSuggestion(index)}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: Math.min(0.03 * index, 0.1) }} // Cap the delay
+                        key={index}
+                        className="flex items-center gap-2 text-xs bg-white/[0.03] py-1.5 px-3 rounded-lg text-white/70"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
                       >
-                        <div className="w-5 h-5 flex items-center justify-center text-white/60">{suggestion.icon}</div>
-                        <div className="font-medium">{suggestion.label}</div>
-                        <div className="text-white/40 text-xs ml-1">{suggestion.prefix}</div>
+                        <span>{file}</span>
+                        <button
+                          onClick={() => removeAttachment(index)}
+                          className="text-white/40 hover:text-white transition-colors"
+                        >
+                          <XIcon className="w-3 h-3" />
+                        </button>
                       </motion.div>
                     ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="p-4">
-              <Textarea
-                ref={textareaRef}
-                value={value}
-                onChange={(e) => {
-                  setValue(e.target.value)
-                  adjustHeight()
-                }}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
-                placeholder="Ask zap a question..."
-                containerClassName="w-full"
-                className={cn(
-                  "w-full px-4 py-3",
-                  "resize-none",
-                  "bg-transparent",
-                  "border-none",
-                  "text-white/90 text-sm",
-                  "focus:outline-none",
-                  "placeholder:text-white/20",
-                  "min-h-[60px]",
+                  </motion.div>
                 )}
-                style={{
-                  overflow: "hidden",
-                }}
-                showRing={false}
-              />
-            </div>
+              </AnimatePresence>
 
-            <AnimatePresence>
-              {attachments.length > 0 && (
-                <motion.div
-                  className="px-4 pb-3 flex gap-2 flex-wrap"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  {attachments.map((file, index) => (
-                    <motion.div
-                      key={index}
-                      className="flex items-center gap-2 text-xs bg-white/[0.03] py-1.5 px-3 rounded-lg text-white/70"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                    >
-                      <span>{file}</span>
-                      <button
-                        onClick={() => removeAttachment(index)}
-                        className="text-white/40 hover:text-white transition-colors"
-                      >
-                        <XIcon className="w-3 h-3" />
-                      </button>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
+              <div className="p-4 border-t border-white/[0.05] flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <motion.button
+                    type="button"
+                    onClick={handleAttachFile}
+                    whileTap={{ scale: 0.94 }}
+                    className="p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                    <motion.span
+                      className="absolute inset-0 bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      layoutId="button-highlight"
+                    />
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    data-command-button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowCommandPalette((prev) => !prev)
+                    }}
+                    whileTap={{ scale: 0.94 }}
+                    className={cn(
+                      "p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group",
+                      showCommandPalette && "bg-white/10 text-white/90",
+                    )}
+                  >
+                    <Command className="w-4 h-4" />
+                    <motion.span
+                      className="absolute inset-0 bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      layoutId="button-highlight"
+                    />
+                  </motion.button>
+                </div>
 
-            <div className="p-4 border-t border-white/[0.05] flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
                 <motion.button
                   type="button"
-                  onClick={handleAttachFile}
-                  whileTap={{ scale: 0.94 }}
-                  className="p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group"
-                >
-                  <Paperclip className="w-4 h-4" />
-                  <motion.span
-                    className="absolute inset-0 bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                    layoutId="button-highlight"
-                  />
-                </motion.button>
-                <motion.button
-                  type="button"
-                  data-command-button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowCommandPalette((prev) => !prev)
-                  }}
-                  whileTap={{ scale: 0.94 }}
+                  onClick={handleSendMessage}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={isTyping || !value.trim()}
                   className={cn(
-                    "p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group",
-                    showCommandPalette && "bg-white/10 text-white/90",
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                    "flex items-center gap-2",
+                    value.trim() ? "bg-white text-[#0A0A0B] shadow-lg shadow-white/10" : "bg-white/[0.05] text-white/40",
                   )}
                 >
-                  <Command className="w-4 h-4" />
-                  <motion.span
-                    className="absolute inset-0 bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                    layoutId="button-highlight"
-                  />
+                  {isTyping ? (
+                    <LoaderIcon className="w-4 h-4 animate-[spin_2s_linear_infinite]" />
+                  ) : (
+                    <SendIcon className="w-4 h-4" />
+                  )}
+                  <span>Send</span>
                 </motion.button>
               </div>
+            </motion.div>
 
-              <motion.button
-                type="button"
-                onClick={handleSendMessage}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                disabled={isTyping || !value.trim()}
-                className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-                  "flex items-center gap-2",
-                  value.trim() ? "bg-white text-[#0A0A0B] shadow-lg shadow-white/10" : "bg-white/[0.05] text-white/40",
-                )}
-              >
-                {isTyping ? (
-                  <LoaderIcon className="w-4 h-4 animate-[spin_2s_linear_infinite]" />
-                ) : (
-                  <SendIcon className="w-4 h-4" />
-                )}
-                <span>Send</span>
-              </motion.button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {commandSuggestions.map((suggestion, index) => (
+                <motion.button
+                  key={suggestion.prefix}
+                  onClick={() => selectCommandSuggestion(index)}
+                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.02] hover:bg-white/[0.05] rounded-lg text-sm text-white/60 hover:text-white/90 transition-all relative group"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(0.1 * index, 0.3) }} // Cap the delay
+                >
+                  {suggestion.icon}
+                  <span>{suggestion.label}</span>
+                  <motion.div
+                    className="absolute inset-0 border border-white/[0.05] rounded-lg"
+                    initial={false}
+                    animate={{
+                      opacity: [0, 1],
+                      scale: [0.98, 1],
+                    }}
+                    transition={{
+                      duration: 0.3,
+                      ease: "easeOut",
+                    }}
+                  />
+                </motion.button>
+              ))}
             </div>
           </motion.div>
-
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {commandSuggestions.map((suggestion, index) => (
-              <motion.button
-                key={suggestion.prefix}
-                onClick={() => selectCommandSuggestion(index)}
-                className="flex items-center gap-2 px-3 py-2 bg-white/[0.02] hover:bg-white/[0.05] rounded-lg text-sm text-white/60 hover:text-white/90 transition-all relative group"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(0.1 * index, 0.3) }} // Cap the delay
-              >
-                {suggestion.icon}
-                <span>{suggestion.label}</span>
-                <motion.div
-                  className="absolute inset-0 border border-white/[0.05] rounded-lg"
-                  initial={false}
-                  animate={{
-                    opacity: [0, 1],
-                    scale: [0.98, 1],
-                  }}
-                  transition={{
-                    duration: 0.3,
-                    ease: "easeOut",
-                  }}
-                />
-              </motion.button>
-            ))}
-          </div>
-        </motion.div>
-        
-        {/* Preview panel */}
-        {isSplitScreen && (
-          <motion.div 
-            className="flex-1 backdrop-blur-sm bg-white/[0.02] rounded-2xl border border-white/[0.05] shadow-2xl p-6 hidden md:block"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4 }}
-            layout={false} // Disable layout animations
-          >
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 text-white/70" />
-                </div>
-                <h3 className="text-xl font-medium text-white/80">Preview Panel</h3>
-                <p className="text-sm text-white/50 max-w-xs">
-                  Visual outputs and generated content will appear here
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
+        </div>
       </div>
-
+      
       {/* Show typing indicator only when needed */}
       <AnimatePresence>
         {isTyping && (
