@@ -25,7 +25,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} font-sans`} suppressHydrationWarning>
-      <body className="min-h-screen flex flex-col bg-[#0D0D10] text-[#EAEAEA]">
+      <body className="min-h-screen w-full flex flex-col bg-[#0D0D10] text-[#EAEAEA] overflow-x-hidden m-0 p-0">
+        <div className="full-screen-bg" />
+        
         <ClerkProvider
           publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
           afterSignInUrl="/chat"
@@ -34,7 +36,7 @@ export default function RootLayout({
           <ConvexClientProvider>
             <PostHogProvider>
               <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-                <main className="flex-1">
+                <main className="flex-1 w-full">
                   {children}
                 </main>
               </ThemeProvider>

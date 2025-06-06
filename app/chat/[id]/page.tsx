@@ -33,9 +33,9 @@ export default function ChatSessionPage() {
   }, [chatId, user, isLoaded, router])
   
   return (
-    <div className="min-h-screen flex flex-col bg-[#0D0D10] text-white relative overflow-hidden">
+    <div className="min-h-screen w-full flex flex-col bg-[#0D0D10] text-white overflow-hidden">
       {/* Header elements */}
-      <header className="absolute top-0 left-0 right-0 z-50 p-6 flex items-center justify-between">
+      <header className="fixed top-0 left-0 right-0 z-50 p-6 flex items-center justify-between bg-[#0D0D10]">
         <div className="flex items-center gap-4">
           {/* Back button */}
           <motion.button
@@ -81,7 +81,7 @@ export default function ChatSessionPage() {
       </header>
 
       {/* Main content with conditional layout */}
-      <div className="flex-1 flex flex-col md:flex-row gap-6 w-full max-w-screen-2xl mx-auto pt-24 pb-8 px-6">
+      <div className="flex-1 flex flex-col md:flex-row gap-6 w-full h-screen pt-24 pb-8 px-6">
         {/* Left Card / Full Width Card: Chat Interface */}
         <div className={cn(
           "h-full flex flex-col bg-slate-900/50 rounded-lg border border-slate-800",

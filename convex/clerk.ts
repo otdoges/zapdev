@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, httpAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // This internal mutation will be called to sync user data
 export const syncUser = internalMutation({
@@ -85,4 +86,46 @@ export const deleteUser = internalMutation({
     // Delete the user
     return await ctx.db.delete(user._id);
   },
+});
+
+export const fulfill = httpAction(async (ctx, request) => {
+  const payload = await request.text();
+  const headers = request.headers;
+  
+  try {
+    // Parse the webhook payload
+    const payloadJson = JSON.parse(payload);
+    const event = payloadJson.type;
+    const data = payloadJson.data;
+
+    // Ensure we have a valid ID
+    if (!data.id) {
+      return new Response("Missing ID in webhook data", { status: 400 });
+    }
+
+    const userId = data.id as string;
+
+    if (event === "user.created" || event === "user.updated") {
+      // Extract user data with safe type handling
+      let email: string | undefined;
+      if (data.email_addresses && data.email_addresses.length > 0) {
+        email = data.email_addresses[0].email_address;
+      }
+
+      await ctx.runMutation(internal.clerk.syncUser, {
+        clerkId: userId,
+        email: email,
+        firstName: data.first_name === null ? undefined : data.first_name,
+        lastName: data.last_name === null ? undefined : data.last_name,
+        avatarUrl: data.image_url || undefined,
+      });
+    } else if (event === "user.deleted") {
+      await ctx.runMutation(internal.clerk.deleteUser, { clerkId: userId });
+    }
+
+    return new Response(null, { status: 200 });
+  } catch (err) {
+    console.error("Error processing webhook:", err);
+    return new Response("Error processing webhook", { status: 400 });
+  }
 }); 
