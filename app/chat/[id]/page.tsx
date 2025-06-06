@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { useRouter, useParams } from "next/navigation"
 import { useUser, UserButton, SignedIn } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
+import { cn } from "@/lib/utils"
 
 export default function ChatSessionPage() {
   const router = useRouter()
@@ -12,6 +13,7 @@ export default function ChatSessionPage() {
   const chatId = params.id as string
   const { user, isLoaded } = useUser()
   const [isValidSession, setIsValidSession] = useState(true)
+  const [isChatStarted, setIsChatStarted] = useState(false)
   
   useEffect(() => {
     // Ensure user and chatId are available
@@ -31,77 +33,73 @@ export default function ChatSessionPage() {
   }, [chatId, user, isLoaded, router])
   
   return (
-    <div className="min-h-screen flex flex-col w-full items-center justify-center bg-[#0D0D10] text-white relative overflow-hidden">
-      {/* Auth button */}
-      <motion.div 
-        className="absolute top-4 right-4 flex gap-4 z-50"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-      >
-        <SignedIn>
-          <UserButton afterSignOutUrl="/" />
-        </SignedIn>
-      </motion.div>
-      
-      {/* ZapDev branding */}
-      <motion.div
-        className="absolute top-6 left-6 flex items-center gap-2 z-50"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <span className="text-xl font-bold">
-          <span className="text-gradient">ZapDev</span> Studio
-        </span>
-      </motion.div>
-
-      {/* Back button */}
-      <motion.div
-        className="absolute top-6 left-40 flex items-center gap-2 z-50"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <motion.button
-          onClick={() => router.push("/")}
-          className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-xs flex items-center gap-1"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12.6666 8H3.33329" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M7.33329 4L3.33329 8L7.33329 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span>Back to Home</span>
-        </motion.button>
-      </motion.div>
-
-      {/* Session ID indicator */}
-      <motion.div
-        className="absolute top-6 right-20 z-50"
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <div className="px-3 py-1 rounded-lg bg-white/5 text-xs flex items-center gap-1">
-          <span>Chat ID: {chatId}</span>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/chat/${chatId}`);
-              alert("Chat link copied to clipboard!");
-            }}
-            className="ml-2 text-white/60 hover:text-white/100 transition-colors"
+    <div className="min-h-screen flex flex-col bg-[#0D0D10] text-white relative overflow-hidden">
+      {/* Header elements */}
+      <header className="absolute top-0 left-0 right-0 z-50 p-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {/* Back button */}
+          <motion.button
+            onClick={() => router.push("/")}
+            className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            aria-label="Back to Home"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 16H6C4.89543 16 4 15.1046 4 14V6C4 4.89543 4.89543 4 6 4H14C15.1046 4 16 4.89543 16 6V8M10 20H18C19.1046 20 20 19.1046 20 18V10C20 8.89543 19.1046 8 18 8H10C8.89543 8 8 8.89543 8 10V18C8 19.1046 8.89543 20 10 20Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 12H5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 19L5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-          </button>
+          </motion.button>
+          
+          {/* ZapDev branding */}
+          <motion.div
+            className="flex items-center gap-2"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <span className="text-xl font-bold">
+              <span className="text-gradient">ZapDev</span> Studio
+            </span>
+          </motion.div>
         </div>
-      </motion.div>
 
-      {/* Chat interface */}
-      <AnimatedAIChat chatId={chatId} />
+        {/* Auth button */}
+        <motion.div 
+          className="flex gap-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
+        </motion.div>
+      </header>
+
+      {/* Main content with conditional layout */}
+      <div className="flex-1 flex flex-col md:flex-row gap-6 w-full max-w-screen-2xl mx-auto pt-24 pb-8 px-6">
+        {/* Left Card / Full Width Card: Chat Interface */}
+        <div className={cn(
+          "h-full flex flex-col bg-slate-900/50 rounded-lg border border-slate-800",
+          isChatStarted ? "md:w-1/2" : "md:w-full"
+        )}>
+          <AnimatedAIChat chatId={chatId} onFirstMessageSent={() => setIsChatStarted(true)} />
+        </div>
+
+        {/* Right Card: Desktop Preview (conditionally rendered) */}
+        {isChatStarted && (
+          <div className="md:w-1/2 h-full flex flex-col bg-slate-900/50 rounded-lg border border-slate-800 items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-2">Desktop Preview</h2>
+              <p className="text-slate-400">The UI preview will appear here.</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 } 

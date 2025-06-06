@@ -10,7 +10,7 @@ export default function ChatPage() {
   
   useEffect(() => {
     // Generate a new unique chat ID and redirect
-    const chatId = uuidv4().substring(0, 8)
+    const chatId = uuidv4()
     router.push(`/chat/${chatId}`)
   }, [router])
   

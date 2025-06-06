@@ -110,9 +110,10 @@ Textarea.displayName = "Textarea"
 
 interface AnimatedAIChatProps {
   chatId?: string;
+  onFirstMessageSent?: () => void;
 }
 
-export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
+export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: AnimatedAIChatProps) {
   const [value, setValue] = useState("")
   const [attachments, setAttachments] = useState<string[]>([])
   const [isTyping, setIsTyping] = useState(false)
@@ -129,6 +130,7 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
   const commandPaletteRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [isSplitScreen, setIsSplitScreen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const commandSuggestions: CommandSuggestion[] = [
     {
@@ -240,6 +242,10 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
       setValue("");
       adjustHeight(true);
       
+      if (messages.length === 0 && onFirstMessageSent) {
+        onFirstMessageSent();
+      }
+
       // Add user message to chat
       const newUserMessage: Message = {
         role: "user",
@@ -296,8 +302,24 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
   }
 
   const handleAttachFile = () => {
-    const mockFileName = `file-${Math.floor(Math.random() * 1000)}.pdf`
-    setAttachments((prev) => [...prev, mockFileName])
+    // Trigger the hidden file input click event
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files && files.length > 0) {
+      // Add each selected file to attachments
+      Array.from(files).forEach(file => {
+        setAttachments(prev => [...prev, file.name])
+      })
+    }
+    // Reset the file input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   const removeAttachment = (index: number) => {
@@ -315,6 +337,15 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
 
   return (
     <div className="min-h-screen flex flex-col w-full items-center justify-center bg-transparent text-white p-6 relative overflow-hidden">
+      {/* Hidden file input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        style={{ display: 'none' }} 
+        multiple
+      />
+
       <div className="absolute inset-0 w-full h-full overflow-hidden">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse delay-700" />
