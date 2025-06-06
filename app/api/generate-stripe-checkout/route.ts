@@ -1,5 +1,5 @@
 import { getAuth, currentUser } from "@clerk/nextjs/server";
-import { stripe } from "@/lib/stripe";
+import { getStripeClient } from "@/lib/stripe";
 import { type NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
@@ -13,6 +13,8 @@ export async function GET(req: NextRequest) {
   if (!userId || !user) {
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const stripe = getStripeClient();
 
   let stripeCustomerId = await convex.query(api.stripe.getStripeCustomerId, { clerkId: userId });
 
@@ -29,6 +31,13 @@ export async function GET(req: NextRequest) {
       clerkId: userId,
       stripeCustomerId,
     });
+  }
+
+  if (!stripeCustomerId) {
+    return NextResponse.json(
+      { error: "Stripe customer ID not found" },
+      { status: 500 }
+    );
   }
 
   const successUrl = `${process.env.NEXT_PUBLIC_APP_URL}/success`;

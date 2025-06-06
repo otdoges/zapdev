@@ -4,10 +4,18 @@ import { api } from "@/convex/_generated/api";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+let stripe: Stripe;
+
+export const getStripeClient = () => {
+  if (!stripe) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  }
+  return stripe;
+};
 
 export async function syncStripeDataToConvex(customerId: string) {
-  const subscriptions = await stripe.subscriptions.list({
+  const stripeClient = getStripeClient();
+  const subscriptions = await stripeClient.subscriptions.list({
     customer: customerId,
     limit: 1,
     status: "all",
