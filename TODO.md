@@ -2,18 +2,18 @@
 
 ## High Priority
 
-- [ ] **Fix AI Chat Implementation**
-  - Implement Vercel AI SDK to handle streaming responses
-  - Fix issue with tool calls being visible to users
-  - Ensure proper streaming of AI responses with typing indicators
-  - Add proper error handling for failed AI requests
+- [X] **Fix AI Chat Implementation**
+  - [X] Implement Vercel AI SDK to handle streaming responses
+  - [X] Fix issue with tool calls being visible to users
+  - [X] Ensure proper streaming of AI responses with typing indicators
+  - [ ] Add proper error handling for failed AI requests
 
 - [ ] **Improve GUI and User Experience**
-  - Polish the two-card layout in chat view
-  - Enhance desktop preview functionality
-  - Add loading states and transitions between pages
-  - Improve responsiveness on mobile devices
-  - Add dark/light mode toggle
+  - [X] Polish the two-card layout in chat view
+  - [ ] Enhance desktop preview functionality
+  - [ ] Add loading states and transitions between pages
+  - [ ] Improve responsiveness on mobile devices
+  - [ ] Add dark/light mode toggle
 
 ## Backend Improvements
 
@@ -50,4 +50,21 @@
   - Document codebase architecture
   - Create contribution guidelines
   - Add setup instructions for local development
+
+## Completed Items
+
+### AI Chat Implementation
+- Integrated Vercel AI SDK for streaming chat responses
+- Implemented proper response streaming with typing indicators
+- Fixed issues with tool call visibility
+- Created an env setup guide for configuring API keys
+
+### Two-Card Layout
+- Added a two-card layout when chat starts
+- Made sure the layout only shows when first message is sent
+- Improved styling for better visual appeal
+
+### Documentation
+- Added ENV-SETUP.md with instructions for configuring API keys
+- Updated project structure documentation
 

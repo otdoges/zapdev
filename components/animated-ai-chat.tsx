@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { Paperclip, Command, SendIcon, XIcon, LoaderIcon, Sparkles, ImageIcon, Figma, MonitorIcon } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import * as React from "react"
-import { Message } from "@/lib/openrouter"
+import { useChat, type Message } from "ai/react"
 
 interface UseAutoResizeTextareaProps {
   minHeight: number
@@ -116,7 +116,6 @@ interface AnimatedAIChatProps {
 export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: AnimatedAIChatProps) {
   const [value, setValue] = useState("")
   const [attachments, setAttachments] = useState<string[]>([])
-  const [isTyping, setIsTyping] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [activeSuggestion, setActiveSuggestion] = useState<number>(-1)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
@@ -128,9 +127,18 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
   })
   const [inputFocused, setInputFocused] = useState(false)
   const commandPaletteRef = useRef<HTMLDivElement>(null)
-  const [messages, setMessages] = useState<Message[]>([])
   const [isSplitScreen, setIsSplitScreen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Use Vercel AI SDK's useChat hook
+  const { messages, isLoading: isTyping, append } = useChat({
+    api: "/api/chat",
+    id: chatId,
+    initialMessages: [],
+    body: {
+      chatId,
+    },
+  })
 
   const commandSuggestions: CommandSuggestion[] = [
     {
@@ -246,58 +254,14 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
         onFirstMessageSent();
       }
 
-      // Add user message to chat
-      const newUserMessage: Message = {
-        role: "user",
-        content: userMessage
-      };
-      
-      setMessages(prev => [...prev, newUserMessage]);
-      setIsTyping(true);
-      
       // Enable split screen mode when message is sent
       setIsSplitScreen(true);
       
-      try {
-        // Call API to get AI response
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messages: [...messages, newUserMessage],
-            chatId
-          }),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Request failed with status ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Add AI response to chat
-        const aiMessage: Message = {
-          role: "model",
-          content: data.response
-        };
-        
-        setMessages(prev => [...prev, aiMessage]);
-      } catch (error) {
-        console.error("Error getting AI response:", error);
-        
-        // Add error message to chat with more specific info
-        const errorMessage: Message = {
-          role: "model",
-          content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : "Failed to fetch response"}`
-        };
-        
-        setMessages(prev => [...prev, errorMessage]);
-      } finally {
-        setIsTyping(false);
-      }
+      // Use the append function from useChat to send the message
+      await append({
+        role: "user",
+        content: userMessage,
+      });
     }
   }
 
@@ -336,15 +300,53 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
   }
 
   return (
-    <div className="min-h-screen flex flex-col w-full items-center justify-center bg-transparent text-white p-6 relative overflow-hidden">
-      {/* Hidden file input */}
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileChange} 
-        style={{ display: 'none' }} 
-        multiple
-      />
+    <div className="flex flex-col h-full w-full bg-[#0D0D10]">
+      {/* Messages area */}
+      <div className="flex-grow overflow-y-auto px-4 py-6 space-y-6 w-full">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center text-zinc-400">
+            <div className="w-20 h-20 mb-4 rounded-full bg-gradient-to-r from-[#6C52A0]/10 to-[#A0527C]/10 flex items-center justify-center">
+              <Sparkles className="w-10 h-10 text-[#A0527C]/50" />
+            </div>
+            <h3 className="text-xl font-medium mb-2">ZapDev Studio</h3>
+            <p className="max-w-sm text-sm">
+              Ask me to build a website, design a UI, or explain tech concepts. I'll help translate your
+              ideas into code and design.
+            </p>
+          </div>
+        ) : (
+          <motion.div 
+            className="space-y-8 mb-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            {messages.map((message, index) => (
+              <motion.div
+                key={index}
+                className={cn(
+                  "flex",
+                  message.role === "user" ? "justify-end" : "justify-start"
+                )}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <div
+                  className={cn(
+                    "max-w-[80%] rounded-2xl px-4 py-3",
+                    message.role === "user"
+                      ? "bg-gradient-to-br from-[#6C52A0]/80 to-[#A0527C]/80 text-white"
+                      : "bg-white/[0.03] border border-white/[0.05]"
+                  )}
+                >
+                  <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </div>
 
       <div className="absolute inset-0 w-full h-full overflow-hidden">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse" />
@@ -400,40 +402,6 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Display messages */}
-          {messages.length > 0 && (
-            <motion.div 
-              className="space-y-8 mb-8"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              {messages.map((message, index) => (
-                <motion.div
-                  key={index}
-                  className={cn(
-                    "flex",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <div
-                    className={cn(
-                      "max-w-[80%] rounded-2xl px-4 py-3",
-                      message.role === "user"
-                        ? "bg-gradient-to-br from-[#6C52A0]/80 to-[#A0527C]/80 text-white"
-                        : "bg-white/[0.03] border border-white/[0.05]"
-                    )}
-                  >
-                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
 
           <motion.div
             className="relative backdrop-blur-2xl bg-white/[0.02] rounded-2xl border border-white/[0.05] shadow-2xl"
