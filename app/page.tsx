@@ -12,6 +12,7 @@ const VisualShowcase = dynamic(() => import('@/components/visual-showcase'), { l
 const VibeToReality = dynamic(() => import('@/components/vibe-to-reality'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
 const Audience = dynamic(() => import('@/components/audience'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
 const Testimonials = dynamic(() => import('@/components/testimonials'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
+const Pricing = dynamic(() => import('@/components/pricing'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
 
 export default function Home() {
   const router = useRouter()
@@ -34,6 +35,16 @@ export default function Home() {
               whileTap={{ scale: 0.95 }}
             >
               Go to Chat
+            </motion.button>
+            <motion.button
+              onClick={() => {
+                window.location.href = "/api/generate-stripe-checkout";
+              }}
+              className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 transition-all text-sm font-medium"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Subscribe
             </motion.button>
             <UserButton afterSignOutUrl="/" />
           </div>
@@ -106,6 +117,7 @@ export default function Home() {
       <VisualShowcase />
       <VibeToReality />
       <Audience />
+      <Pricing />
       <Testimonials />
       {/* <FinalCTA onGetStarted={() => router.push("/chat")} /> */}
     </div>
