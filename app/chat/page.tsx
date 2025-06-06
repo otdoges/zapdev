@@ -3,23 +3,14 @@
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-
-function generateRandomString(length: number): string {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  const charactersLength = characters.length;
-  for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * charactersLength));
-  }
-  return result;
-}
+import { v4 as uuidv4 } from 'uuid'
 
 export default function ChatPage() {
   const router = useRouter()
   
   useEffect(() => {
     // Generate a new unique chat ID and redirect
-    const chatId = generateRandomString(25);
+    const chatId = uuidv4()
     router.push(`/chat/${chatId}`)
   }, [router])
   
