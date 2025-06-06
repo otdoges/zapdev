@@ -574,33 +574,36 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
               </div>
             </motion.div>
 
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {commandSuggestions.map((suggestion, index) => (
-                <motion.button
-                  key={suggestion.prefix}
-                  onClick={() => selectCommandSuggestion(index)}
-                  className="flex items-center gap-2 px-3 py-2 bg-white/[0.02] hover:bg-white/[0.05] rounded-lg text-sm text-white/60 hover:text-white/90 transition-all relative group"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(0.1 * index, 0.3) }} // Cap the delay
-                >
-                  {suggestion.icon}
-                  <span>{suggestion.label}</span>
-                  <motion.div
-                    className="absolute inset-0 border border-white/[0.05] rounded-lg"
-                    initial={false}
-                    animate={{
-                      opacity: [0, 1],
-                      scale: [0.98, 1],
-                    }}
-                    transition={{
-                      duration: 0.3,
-                      ease: "easeOut",
-                    }}
-                  />
-                </motion.button>
-              ))}
-            </div>
+            {/* Only show command suggestion buttons when there are no messages */}
+            {messages.length === 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {commandSuggestions.map((suggestion, index) => (
+                  <motion.button
+                    key={suggestion.prefix}
+                    onClick={() => selectCommandSuggestion(index)}
+                    className="flex items-center gap-2 px-3 py-2 bg-white/[0.02] hover:bg-white/[0.05] rounded-lg text-sm text-white/60 hover:text-white/90 transition-all relative group"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(0.1 * index, 0.3) }} // Cap the delay
+                  >
+                    {suggestion.icon}
+                    <span>{suggestion.label}</span>
+                    <motion.div
+                      className="absolute inset-0 border border-white/[0.05] rounded-lg"
+                      initial={false}
+                      animate={{
+                        opacity: [0, 1],
+                        scale: [0.98, 1],
+                      }}
+                      transition={{
+                        duration: 0.3,
+                        ease: "easeOut",
+                      }}
+                    />
+                  </motion.button>
+                ))}
+              </div>
+            )}
           </motion.div>
         </div>
       </div>
