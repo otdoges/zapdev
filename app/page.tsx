@@ -6,18 +6,28 @@ import dynamic from 'next/dynamic';
 import Hero from "@/components/hero";
 import { SignedIn, SignedOut, UserButton, SignInButton, SignUpButton } from "@clerk/nextjs";
 import FinalCTA from "@/components/final-cta"; 
+import SchemaMarkup from "@/components/schema-markup";
 
-const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
-const VisualShowcase = dynamic(() => import('@/components/visual-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
-const VibeToReality = dynamic(() => import('@/components/vibe-to-reality'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
-const Audience = dynamic(() => import('@/components/audience'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
-const Testimonials = dynamic(() => import('@/components/testimonials'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
+// Using dynamic imports for improved initial load performance
+const DetailedFeatures = dynamic(() => import('@/components/detailed-features'), { ssr: true });
+const HowItWorks = dynamic(() => import('@/components/how-it-works'), { ssr: true });
+const UseCases = dynamic(() => import('@/components/use-cases'), { ssr: true });
+const FaqSection = dynamic(() => import('@/components/faq-section'), { ssr: true });
+const BlogTeaser = dynamic(() => import('@/components/blog-teaser'), { ssr: true });
+const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), { ssr: true });
+const VisualShowcase = dynamic(() => import('@/components/visual-showcase'), { ssr: true });
+const VibeToReality = dynamic(() => import('@/components/vibe-to-reality'), { ssr: true });
+const Audience = dynamic(() => import('@/components/audience'), { ssr: true });
+const Testimonials = dynamic(() => import('@/components/testimonials'), { ssr: true });
 
 export default function Home() {
   const router = useRouter()
   
   return (
     <div className="min-h-screen bg-[#0D0D10] text-white">
+      {/* Add schema markup for SEO */}
+      <SchemaMarkup />
+      
       {/* Auth buttons */}
       <motion.div 
         className="fixed top-4 right-4 flex gap-4 z-50"
@@ -103,11 +113,16 @@ export default function Home() {
       {/* Homepage sections */}
       <Hero />
       <FeaturesShowcase />
+      <DetailedFeatures />
+      <HowItWorks />
+      <UseCases />
       <VisualShowcase />
       <VibeToReality />
       <Audience />
       <Testimonials />
-      {/* <FinalCTA onGetStarted={() => router.push("/chat")} /> */}
+      <FaqSection />
+      <BlogTeaser />
+      <FinalCTA onGetStarted={() => router.push("/chat")} />
     </div>
   )
 }
