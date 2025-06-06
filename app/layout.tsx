@@ -4,7 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { PostHogProvider } from '@/components/PostHogProvider'
 import ConvexClientProvider from '@/components/ConvexClientProvider';
-import { Navbar } from '@/components/ui/navbar';
+import Navbar from '@/components/navbar';
 import './globals.css'
 
 export const metadata: Metadata = {
