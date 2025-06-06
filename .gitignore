@@ -35,3 +35,6 @@ systemprompt-example.txt
 enhance-prompt.txt
 
 .env.local
+
+# clerk configuration (can include secrets)
+/.clerk/
