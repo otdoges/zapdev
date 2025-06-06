@@ -11,6 +11,12 @@ export default defineSchema({
     avatarUrl: v.optional(v.string()),
     createdAt: v.number(), // Unix timestamp
     updatedAt: v.number(), // Unix timestamp
+    // Stripe fields
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    stripeSubscriptionStatus: v.optional(v.string()),
+    stripeCurrentPeriodEnd: v.optional(v.number()),
+    stripePriceId: v.optional(v.string()),
   }).index("by_clerk_id", ["clerkId"]),
 
   // Chats table to store chat information

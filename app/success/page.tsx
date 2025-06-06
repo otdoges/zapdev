@@ -1,21 +1,30 @@
-import { auth } from "@clerk/nextjs/server";
-import { kv } from "@vercel/kv";
-import { redirect } from "next/navigation";
-import { syncStripeDataToKV } from "@/lib/stripe";
+"use client";
 
-export default async function SuccessPage() {
-  const { userId } = await auth();
+import { useAuth } from "@clerk/nextjs";
+import { redirect } from "next/navigation";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useEffect } from "react";
+import { syncStripeDataToConvex } from "@/lib/stripe";
+
+export default function SuccessPage() {
+  const { userId } = useAuth();
+  const stripeCustomerId = useQuery(api.stripe.getStripeCustomerId, userId ? { clerkId: userId } : "skip");
+
+  useEffect(() => {
+    if (stripeCustomerId) {
+      syncStripeDataToConvex(stripeCustomerId);
+    }
+  }, [stripeCustomerId]);
+  
   if (!userId) {
     return redirect("/");
   }
 
-  const stripeCustomerId = await kv.get<string>(`stripe:user:${userId}`);
-  if (!stripeCustomerId) {
-    return redirect("/");
+  // You can add a loading state here while waiting for the redirect
+  if (stripeCustomerId) {
+    redirect("/");
   }
 
-  await syncStripeDataToKV(stripeCustomerId);
-
-  // Redirect to a dashboard or home page
-  return redirect("/");
+  return <div>Syncing your subscription...</div>;
 } 
