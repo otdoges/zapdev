@@ -110,9 +110,10 @@ Textarea.displayName = "Textarea"
 
 interface AnimatedAIChatProps {
   chatId?: string;
+  onFirstMessageSent?: () => void;
 }
 
-export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
+export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: AnimatedAIChatProps) {
   const [value, setValue] = useState("")
   const [attachments, setAttachments] = useState<string[]>([])
   const [isTyping, setIsTyping] = useState(false)
@@ -241,6 +242,10 @@ export function AnimatedAIChat({ chatId = "default" }: AnimatedAIChatProps) {
       setValue("");
       adjustHeight(true);
       
+      if (messages.length === 0 && onFirstMessageSent) {
+        onFirstMessageSent();
+      }
+
       // Add user message to chat
       const newUserMessage: Message = {
         role: "user",

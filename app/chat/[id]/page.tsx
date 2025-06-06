@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { useRouter, useParams } from "next/navigation"
 import { useUser, UserButton, SignedIn } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
+import { cn } from "@/lib/utils"
 
 export default function ChatSessionPage() {
   const router = useRouter()
@@ -12,6 +13,7 @@ export default function ChatSessionPage() {
   const chatId = params.id as string
   const { user, isLoaded } = useUser()
   const [isValidSession, setIsValidSession] = useState(true)
+  const [isChatStarted, setIsChatStarted] = useState(false)
   
   useEffect(() => {
     // Ensure user and chatId are available
@@ -78,20 +80,25 @@ export default function ChatSessionPage() {
         </motion.div>
       </header>
 
-      {/* Main content with 2-card layout */}
+      {/* Main content with conditional layout */}
       <div className="flex-1 flex flex-col md:flex-row gap-6 w-full max-w-screen-2xl mx-auto pt-24 pb-8 px-6">
-        {/* Left Card: Chat Interface */}
-        <div className="md:w-1/2 h-full flex flex-col bg-slate-900/50 rounded-lg border border-slate-800">
-          <AnimatedAIChat chatId={chatId} />
+        {/* Left Card / Full Width Card: Chat Interface */}
+        <div className={cn(
+          "h-full flex flex-col bg-slate-900/50 rounded-lg border border-slate-800",
+          isChatStarted ? "md:w-1/2" : "md:w-full"
+        )}>
+          <AnimatedAIChat chatId={chatId} onFirstMessageSent={() => setIsChatStarted(true)} />
         </div>
 
-        {/* Right Card: Desktop Preview */}
-        <div className="md:w-1/2 h-full flex flex-col bg-slate-900/50 rounded-lg border border-slate-800 items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-2">Desktop Preview</h2>
-            <p className="text-slate-400">The UI preview will appear here.</p>
+        {/* Right Card: Desktop Preview (conditionally rendered) */}
+        {isChatStarted && (
+          <div className="md:w-1/2 h-full flex flex-col bg-slate-900/50 rounded-lg border border-slate-800 items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-2">Desktop Preview</h2>
+              <p className="text-slate-400">The UI preview will appear here.</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
