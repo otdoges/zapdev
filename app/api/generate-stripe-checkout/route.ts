@@ -4,65 +4,111 @@ import { type NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 
+export const dynamic = 'force-dynamic';
+
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
+// Map frontend price IDs to product names for easier lookup
+const PRODUCT_MAP = {
+  price_basic: "Basic Plan",
+  price_pro: "Pro Plan",
+  price_enterprise: "Enterprise Plan"
+};
+
+// Helper function to ensure user exists in the database
+async function ensureUserExists(clerkId: string, userInfo: any) {
+  try {
+    // Use the public createOrUpdateUser function
+    await convex.mutation(api.users.createOrUpdateUser, {
+      clerkId,
+      email: userInfo.primaryEmailAddress?.emailAddress,
+      firstName: userInfo.firstName ?? undefined,
+      lastName: userInfo.lastName ?? undefined,
+      avatarUrl: userInfo.imageUrl,
+    });
+    return true;
+  } catch (error) {
+    console.error("Error ensuring user exists:", error);
+    return false;
+  }
+}
+
 export async function GET(req: NextRequest) {
-  const { userId } = getAuth(req);
-  const user = await currentUser();
+  try {
+    const { userId } = getAuth(req);
+    const user = await currentUser();
 
-  if (!userId || !user) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+    if (!userId || !user) {
+      return new Response("Unauthorized", { status: 401 });
+    }
 
-  const stripe = getStripeClient();
+    // Get the priceId from the URL query parameters
+    const url = new URL(req.url);
+    const priceType = url.searchParams.get("priceId") || "price_pro"; // Default to pro if not specified
+    
+    const stripe = getStripeClient();
 
-  if (!process.env.NEXT_PUBLIC_APP_URL) {
-    return NextResponse.json(
-      { error: "Missing NEXT_PUBLIC_APP_URL environment variable" },
-      { status: 500 }
-    );
-  }
-
-  let stripeCustomerId = await convex.query(api.stripe.getStripeCustomerId, { clerkId: userId });
-
-  if (!stripeCustomerId) {
-    const newCustomer = await stripe.customers.create({
+    // Get the product name from our map
+    const productName = PRODUCT_MAP[priceType as keyof typeof PRODUCT_MAP] || "Pro Plan";
+    
+    // Fetch all prices from Stripe
+    const prices = await stripe.prices.list({
+      active: true,
+      expand: ['data.product'],
+      limit: 100,
+    });
+    
+    // Find the price that matches our product name
+    const price = prices.data.find(p => {
+      const product = p.product as any;
+      return product.name === productName && p.active;
+    });
+    
+    if (!price) {
+      throw new Error(`No active price found for product: ${productName}`);
+    }
+    
+    // Create a customer directly in Stripe without requiring a user in Convex first
+    const customer = await stripe.customers.create({
       email: user.primaryEmailAddress?.emailAddress,
+      name: `${user.firstName} ${user.lastName}`.trim(),
       metadata: {
         userId: userId,
       },
     });
-    
-    stripeCustomerId = newCustomer.id;
-    await convex.mutation(api.stripe.setStripeCustomerId, {
-      clerkId: userId,
-      stripeCustomerId,
+
+    // Now create the checkout session
+    const successUrl = `${req.nextUrl.origin}/success?plan=${priceType}`;
+    const cancelUrl = `${req.nextUrl.origin}/pricing`;
+
+    const checkout = await stripe.checkout.sessions.create({
+      customer: customer.id,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      line_items: [
+        { price: price.id, quantity: 1 },
+      ],
+      mode: "subscription",
+      allow_promotion_codes: true,
+      billing_address_collection: "auto",
+      payment_method_types: ["card"],
+      metadata: {
+        userId,
+        priceType,
+        stripeCustomerId: customer.id
+      }
     });
-  }
 
-  if (!stripeCustomerId) {
+    if (!checkout.url) {
+      throw new Error("Failed to create checkout session");
+    }
+
+    return NextResponse.redirect(checkout.url);
+  } catch (error) {
+    console.error("Checkout error:", error);
     return NextResponse.json(
-      { error: "Stripe customer ID not found" },
+      { error: "Failed to create checkout session" },
       { status: 500 }
     );
   }
-
-  const successUrl = `${process.env.NEXT_PUBLIC_APP_URL}/success`;
-  const checkout = await stripe.checkout.sessions.create({
-    customer: stripeCustomerId,
-    success_url: successUrl,
-    line_items: [
-        { price: "price_1...", quantity: 1 },
-    ],
-    mode: "subscription"
-  });
-
-  if (!checkout.url) {
-    return NextResponse.json(
-      { error: "Error creating checkout session" },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.redirect(checkout.url);
 } 

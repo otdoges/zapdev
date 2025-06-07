@@ -55,6 +55,10 @@ export default function Hero() {
       }
     }
   }, [])
+
+  const goToPricingPage = () => {
+    router.push('/pricing');
+  };
   
   return (
     <section className="relative min-h-screen overflow-hidden flex flex-col items-center justify-center px-4 py-20 md:py-32">
@@ -135,6 +139,27 @@ export default function Hero() {
           >
             Explore Examples
           </Button>
+        </motion.div>
+
+        {/* Subscribe Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1.4 }}
+          className="mt-8"
+        >
+          <Button 
+            className="text-lg py-6 px-10 bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] rounded-full shadow-lg shadow-[#6C52A0]/20 flex items-center gap-2 relative overflow-hidden group"
+            onClick={goToPricingPage}
+          >
+            <span className="relative z-10 font-medium">Subscribe Now</span>
+            <svg className="w-5 h-5 relative z-10" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+            <span className="absolute inset-0 bg-gradient-to-r from-[#B0627C] to-[#7C62B0] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            <span className="absolute -top-12 -right-12 w-24 h-24 bg-white/10 rounded-full blur-xl transform scale-0 group-hover:scale-100 transition-transform duration-500"></span>
+          </Button>
+          <div className="mt-2 text-sm text-[#EAEAEA]/50">Unlock full features and support</div>
         </motion.div>
       </motion.div>
       
