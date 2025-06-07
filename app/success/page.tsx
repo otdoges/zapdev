@@ -1,94 +1,71 @@
-"use client";
+import { redirect } from 'next/navigation';
+import { getStripeClient } from '../../lib/stripe'; // Adjusted path
+import Link from 'next/link';
 
-import { useAuth } from "@clerk/nextjs";
-import { redirect, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
+// Define the expected shape of searchParams for type safety
+interface SuccessPageProps {
+  searchParams: {
+    session_id?: string;
+  };
+}
 
-export default function SuccessPage() {
-  const { userId } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const planId = searchParams.get("plan") || "price_pro";
-  const [isLoading, setIsLoading] = useState(true);
-  
-  useEffect(() => {
-    // Simulate loading for a better UX
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
-    
-    return () => clearTimeout(timer);
-  }, []);
-  
-  if (!userId) {
-    return redirect("/");
+export default async function SuccessPage({ searchParams }: SuccessPageProps) {
+  const sessionId = searchParams.session_id;
+  const stripe = getStripeClient();
+
+  if (!sessionId) {
+    console.error('Missing session_id in success page query parameters.');
+    // Optionally, redirect to an error page or home with a message
+    return redirect('/?error=missing_session_id');
   }
 
-  // Map plan IDs to human-readable names
-  const planNames = {
-    price_basic: "Basic",
-    price_pro: "Pro",
-    price_enterprise: "Enterprise"
-  };
-  
-  const planName = planNames[planId as keyof typeof planNames] || "Pro";
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['line_items', 'payment_intent', 'customer'],
+    });
 
-  return (
-    <div className="min-h-screen bg-[#0D0D10] text-white flex flex-col items-center justify-center p-4">
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#6C52A0] rounded-full filter blur-[120px]" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#A0527C] rounded-full filter blur-[120px]" />
-      </div>
-      
-      <motion.div 
-        className="max-w-md w-full bg-[#121215] border border-[#1E1E24] rounded-xl p-8 shadow-xl relative z-10"
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 bg-gradient-to-r from-[#6C52A0] to-[#A0527C] rounded-full flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
+    // Safely access customer email
+    const customerEmail = session.customer_details?.email || 
+                          (session.customer && typeof session.customer === 'object' && 'email' in session.customer ? session.customer.email : null) || 
+                          'your email address';
+
+    if (session.status === 'open') {
+      // This session is still active, perhaps the user navigated back.
+      // Redirecting to home or the cart page might be appropriate.
+      console.warn(`Stripe session ${sessionId} is still open. Redirecting to home.`);
+      return redirect('/');
+    }
+
+    if (session.status === 'complete') {
+      return (
+        <div style={{ fontFamily: 'Arial, sans-serif', padding: '40px', textAlign: 'center', backgroundColor: '#f0f2f5', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+            <h1 style={{ color: '#333', fontSize: '24px', marginBottom: '20px' }}>Payment Successful!</h1>
+            <p style={{ color: '#555', fontSize: '16px', lineHeight: '1.6' }}>
+              We appreciate your business! A confirmation email has been sent to{' '}
+              <strong style={{ color: '#007bff' }}>{customerEmail}</strong>.
+            </p>
+            <p style={{ color: '#555', fontSize: '16px', lineHeight: '1.6', marginTop: '10px' }}>
+              If you have any questions, please email{' '}
+              <a href="mailto:orders@example.com" style={{ color: '#007bff', textDecoration: 'none' }}>
+                orders@example.com
+              </a>.
+            </p>
+            <Link href="/" style={{ display: 'inline-block', marginTop: '30px', padding: '10px 20px', backgroundColor: '#007bff', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
+              Return to Homepage
+            </Link>
           </div>
         </div>
-        
-        <h1 className="text-3xl font-bold text-center mb-2">Subscription Successful!</h1>
-        <p className="text-[#EAEAEA]/70 text-center mb-8">
-          {isLoading ? (
-            "Finalizing your subscription..."
-          ) : (
-            <>You are now subscribed to the <span className="text-[#A0527C] font-medium">{planName} Plan</span>.</>
-          )}
-        </p>
-        
-        {isLoading ? (
-          <div className="flex justify-center mb-6">
-            <svg className="animate-spin h-8 w-8 text-[#6C52A0]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4">
-            <Button 
-              className="w-full py-6 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C]"
-              onClick={() => router.push("/chat")}
-            >
-              Go to Chat
-            </Button>
-            <Button 
-              className="w-full py-6 rounded-full bg-[#1A1A1F] hover:bg-[#22222A] border border-[#2A2A35]"
-              onClick={() => router.push("/")}
-            >
-              Return to Home
-            </Button>
-          </div>
-        )}
-      </motion.div>
-    </div>
-  );
-} 
+      );
+    }
+
+    // Fallback for other statuses or if status is not 'complete' or 'open'
+    console.warn(`Stripe session ${sessionId} has status: ${session.status}. Redirecting to home with error.`);
+    return redirect('/?error=payment_not_completed');
+
+  } catch (error: any) {
+    console.error(`Error retrieving Stripe session ${sessionId}:`, error.message);
+    // Redirect to an error page or home with a generic error message
+    return redirect('/?error=session_retrieval_failed');
+  }
+}
