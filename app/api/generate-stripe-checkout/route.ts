@@ -16,6 +16,13 @@ export async function GET(req: NextRequest) {
 
   const stripe = getStripeClient();
 
+  if (!process.env.NEXT_PUBLIC_APP_URL) {
+    return NextResponse.json(
+      { error: "Missing NEXT_PUBLIC_APP_URL environment variable" },
+      { status: 500 }
+    );
+  }
+
   let stripeCustomerId = await convex.query(api.stripe.getStripeCustomerId, { clerkId: userId });
 
   if (!stripeCustomerId) {

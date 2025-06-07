@@ -2,13 +2,19 @@ import Stripe from "stripe";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
+  throw new Error("Missing NEXT_PUBLIC_CONVEX_URL environment variable");
+}
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL);
 
 let stripe: Stripe;
 
 export const getStripeClient = () => {
   if (!stripe) {
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error("Missing STRIPE_SECRET_KEY environment variable");
+    }
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   }
   return stripe;
 };
