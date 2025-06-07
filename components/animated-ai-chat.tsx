@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import * as React from "react"
 import { useChat, type Message } from "ai/react"
 import { modelIds } from "@/lib/openrouter"
+import { InteractiveDisplay } from "./interactive-display"
 
 // Throttle function for performance optimization
 function throttle<T extends (...args: any[]) => any>(
@@ -182,23 +183,23 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
   const commandPaletteRef = useRef<HTMLDivElement>(null)
   const [isSplitScreen, setIsSplitScreen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const fallbackModel = 'openrouter/auto'; // or whatever default is safe
-const [selectedModel, setSelectedModel] = useState(modelIds[0] ?? fallbackModel)
+  const [selectedModel, setSelectedModel] = useState(modelIds[0] ?? fallbackModel)
   const [useThinking, setUseThinking] = useState(false)
   
   // Use Vercel AI SDK's useChat hook
-  const { messages, isLoading: isTyping, append } = useChat({
+  const { messages, isLoading: isTyping, append, setMessages } = useChat({
     api: "/api/chat",
     id: chatId,
     initialMessages: [],
-    body: {
-      chatId,
-      modelId: selectedModel,
-      useThinking,
+    onFinish: async (message) => {
+      // When the stream is finished, we can process the final response
+      // For now, we assume the final message content is the code
+      setGeneratedCode(message.content);
     },
-    // @ts-ignore - streamMode is supported in AI SDK v4.3+
-    streamMode: "text",
-  })
+    // We are not using streamMode: "text" anymore as we get a single response
+  });
 
   useEffect(() => {
     if (value.startsWith("/") && !value.includes(" ")) {
@@ -282,9 +283,10 @@ const [selectedModel, setSelectedModel] = useState(modelIds[0] ?? fallbackModel)
 
   const handleSendMessage = async () => {
     if (value.trim()) {
-      const userMessage = value.trim();
+      append({ role: "user", content: value });
       setValue("");
       adjustHeight(true);
+      setGeneratedCode(null);
       
       if (messages.length === 0 && onFirstMessageSent) {
         onFirstMessageSent();
@@ -292,14 +294,6 @@ const [selectedModel, setSelectedModel] = useState(modelIds[0] ?? fallbackModel)
 
       // Enable split screen mode when message is sent
       setIsSplitScreen(true);
-      
-      // Use the append function from useChat to send the message
-      await append(
-        { role: "user", content: userMessage },
-        {
-          body: { chatId, modelId: selectedModel, useThinking },
-        },
-      );
     }
   }
 
@@ -402,6 +396,16 @@ const [selectedModel, setSelectedModel] = useState(modelIds[0] ?? fallbackModel)
                   )}
                 >
                   <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  {index === messages.length - 1 && generatedCode && (
+                    <motion.div
+                      className="mt-4"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <InteractiveDisplay code={generatedCode} />
+                    </motion.div>
+                  )}
                 </div>
               </motion.div>
             ))}

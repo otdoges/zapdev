@@ -1,5 +1,6 @@
 import { openrouterProvider } from './openrouter';
 import { CoreMessage, generateText } from 'ai';
+import { ChatHistory } from '@/lib/types';
 
 const MCP_SERVER_URL = process.env.MCP_SEQUENTIAL_THINKING_URL;
 
@@ -99,6 +100,56 @@ async function generateInitialThoughts(userPrompt: string, modelId: string = 'de
     console.error('Error generating initial thoughts with LLM:', error);
     return null;
   }
+}
+
+// Define the models for each stage
+const reasoningModelId = "microsoft/phi-4-reasoning-plus:free";
+const codingModelId = "qwen/qwen3-32b:free";
+const refinementModelId = "deepseek/deepseek-r1-0528:free";
+const finalRefinementModelId = "deepseek/deepseek-v3-base:free";
+
+// Helper to generate text with a specific model
+async function generateWithModel(modelId: string, messages: CoreMessage[]): Promise<string> {
+  const model = openrouterProvider.chat(modelId);
+  const { text } = await generateText({
+    model,
+    messages,
+  });
+  return text;
+}
+
+export async function sequentialThinking(chatHistory: ChatHistory): Promise<string> {
+  const userPrompt = chatHistory[chatHistory.length - 1].content;
+
+  // 1. Reasoning Stage (Phi-4)
+  const reasoningMessages: CoreMessage[] = [
+    { role: 'system', content: 'You are a senior software architect. Your task is to analyze the following user prompt and create a detailed plan for implementation. Break down the problem into smaller, manageable steps.' },
+    { role: 'user', content: userPrompt }
+  ];
+  const plan = await generateWithModel(reasoningModelId, reasoningMessages);
+
+  // 2. Coding Stage (Qwen3)
+  const codingMessages: CoreMessage[] = [
+    { role: 'system', content: 'You are a senior software engineer. Your task is to write the base code for the following plan. The code should be well-structured and easy to read.' },
+    { role: 'user', content: `Based on the following plan, please write the necessary code:\n\n${plan}` }
+  ];
+  const baseCode = await generateWithModel(codingModelId, codingMessages);
+
+  // 3. Refinement Stage (Deepseek R1)
+  const refinementMessages: CoreMessage[] = [
+    { role: 'system', content: 'You are a code refactoring expert. Your task is to review the following code and improve it. Look for potential bugs, performance issues, or areas where the code could be made more elegant.' },
+    { role: 'user', content: `Please review and refine the following code:\n\n${baseCode}` }
+  ];
+  const refinedCode = await generateWithModel(refinementModelId, refinementMessages);
+
+  // 4. Final Refinement Stage (Deepseek V3)
+  const finalRefinementMessages: CoreMessage[] = [
+    { role: 'system', content: 'You are a senior principal engineer. Your task is to perform a final review of the following code and make any necessary improvements to ensure it is production-ready. Focus on clarity, performance, and best practices.' },
+    { role: 'user', content: `Please perform a final review and refinement of the following code:\n\n${refinedCode}` }
+  ];
+  const finalCode = await generateWithModel(finalRefinementModelId, finalRefinementMessages);
+
+  return finalCode;
 }
 
 /**
