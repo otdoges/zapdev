@@ -1,5 +1,6 @@
 import { OpenRouter } from '@openrouter/ai-sdk-provider';
-import { CoreMessage, streamText, generateText } from 'ai';
+import { streamText, generateText, CoreMessage, Message } from 'ai';
+import { systemPrompt } from './systemprompt';
 
 // Model IDs available for selection
 export const modelIds = [
@@ -9,15 +10,13 @@ export const modelIds = [
   "deepseek/deepseek-r1-0528:free"
 ];
 
-// Define Message and ChatHistory types compatible with the existing structure
-// and Vercel AI SDK's CoreMessage
-export interface Message {
-  role: "user" | "model"; 
-  content: string;
+export function getModelId(modelIdFromParam?: string) {
+  return modelIdFromParam || "openrouter/auto";
 }
+
 export type ChatHistory = Message[];
 
-
+// Function to get the API key from environment variables
 const getOpenRouterApiKey = () => {
   const apiKey = process.env.NEXT_OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -26,36 +25,28 @@ const getOpenRouterApiKey = () => {
   return apiKey;
 };
 
-// Initialize the OpenRouter provider
-export const openrouterProvider = new OpenRouter({
-  apiKey: getOpenRouterApiKey(),
-});
+// Initialize the OpenRouter provider lazily
+let openrouterProviderInstance: OpenRouter | null = null;
 
-// --- System Prompts ---
-const defaultSystemPrompt = `You are a world-class AI assistant. Provide concise, helpful, and accurate responses.`;
+const getOpenRouterInstance = () => {
+  if (!openrouterProviderInstance) {
+    openrouterProviderInstance = new OpenRouter({
+      apiKey: getOpenRouterApiKey(),
+    });
+  }
+  return openrouterProviderInstance;
+}
 
-const thinkingSystemPrompt = `You are a powerful AI assistant that thinks step-by-step to arrive at the best possible response. 
-Before providing your final answer, outline your thought process. 
-For example:
-1.  **Analyze the Request**: Break down the user's query.
-2.  **Formulate a Plan**: Create a plan to address the query.
-3.  **Execute the Plan**: Follow the plan to generate the response.
-4.  **Final Answer**: Provide the final, polished answer.
-This helps the user understand your reasoning and improves the quality of your response.`;
+function prepareMessages(chatHistory: ChatHistory, systemPromptText: string): CoreMessage[] {
+    const messages: CoreMessage[] = [{ role: "system", content: systemPromptText }];
 
-
-function prepareMessages(chatHistory: ChatHistory, systemPrompt?: string): CoreMessage[] {
-    const messages: CoreMessage[] = [];
-
-    if (systemPrompt) {
-      messages.push({ role: "system", content: systemPrompt });
-    }
-
-    chatHistory.forEach(msg => {
-      messages.push({
-        role: msg.role === "model" ? "assistant" : msg.role,
-        content: msg.content,
-      });
+    chatHistory.forEach((msg) => {
+      if (msg.role === 'user' || msg.role === 'assistant') {
+        messages.push({
+          role: msg.role,
+          content: msg.content,
+        });
+      }
     });
 
     return messages;
@@ -65,23 +56,20 @@ function prepareMessages(chatHistory: ChatHistory, systemPrompt?: string): CoreM
 export async function streamOpenRouterResponse({
     chatHistory,
     modelId,
-    useThinking,
    temperature = 0.7,
    maxTokens = 4096,
 }: {
     chatHistory: ChatHistory;
     modelId?: string;
-    useThinking?: boolean;
    temperature?: number;
    maxTokens?: number;
 }) {
     if (!modelId && modelIds.length === 0) {
         throw new Error("No model ID provided and no default models available");
     }
-    const selectedModelId = modelId || modelIds[0];
-    const model = openrouterProvider.chat(selectedModelId);
+    const selectedModelId = getModelId(modelId);
+    const model = getOpenRouterInstance().chat(selectedModelId);
     
-    const systemPrompt = useThinking ? thinkingSystemPrompt : defaultSystemPrompt;
     const messages = prepareMessages(chatHistory, systemPrompt);
 
     return await streamText({
@@ -94,12 +82,11 @@ export async function streamOpenRouterResponse({
 
 export async function generateOpenRouterResponse(
   chatHistory: ChatHistory,
-  systemPrompt?: string,
   modelIdFromParam?: string 
 ): Promise<string> {
   try {
-    const selectedModelId = modelIdFromParam || (modelIds.length > 0 ? modelIds[0] : "deepseek/deepseek-chat:free");
-    const model = openrouterProvider.chat(selectedModelId);
+    const selectedModelId = getModelId(modelIdFromParam);
+    const model = getOpenRouterInstance().chat(selectedModelId);
 
     const messages = prepareMessages(chatHistory, systemPrompt);
 
