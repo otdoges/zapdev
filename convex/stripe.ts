@@ -17,7 +17,7 @@ export const getMyStripeCustomerId = query({
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
     
-    return user?.stripeCustomerId;
+    return user ? { hasCustomer: Boolean(user.stripeCustomerId) } : null;
   },
 });
 

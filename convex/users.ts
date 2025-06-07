@@ -73,27 +73,23 @@ export const getCurrentUser = query({
   },
 });
 
-// Public mutation to create or update a user
+// Public mutation to create or update a user.
+// It is safe because it uses the user's identity from the session token.
 export const createOrUpdateUser = mutation({
   args: {
-    clerkId: v.string(),
     email: v.optional(v.string()),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Security check: Users can only update their own data
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Not authenticated");
+      throw new Error("Cannot create or update user: not authenticated.");
     }
-    
-    if (identity.subject !== args.clerkId) {
-      throw new Error("Unauthorized: You can only update your own user data");
-    }
-    
-    const { clerkId, email, firstName, lastName, avatarUrl } = args;
+
+    // Use the authenticated user's Clerk ID from the session token
+    const clerkId = identity.subject;
 
     const existingUser = await ctx.db
       .query("users")
@@ -103,24 +99,19 @@ export const createOrUpdateUser = mutation({
     const now = Date.now();
 
     if (existingUser) {
-      return await ctx.db.patch(existingUser._id, {
-        email,
-        firstName,
-        lastName,
-        avatarUrl,
+      // Only update the fields passed in args
+      await ctx.db.patch(existingUser._id, {
+        ...args,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("users", {
+        clerkId, // from identity
+        ...args,
+        createdAt: now,
         updatedAt: now,
       });
     }
-
-    return await ctx.db.insert("users", {
-      clerkId,
-      email,
-      firstName,
-      lastName,
-      avatarUrl,
-      createdAt: now,
-      updatedAt: now,
-    });
   },
 });
 
