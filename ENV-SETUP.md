@@ -8,7 +8,7 @@ Create a `.env.local` file in the root of your project with the following variab
 
 ```
 # OpenRouter API key for the AI chat functionality
-OPENROUTER_API_KEY=your_openrouter_key_here
+NEXT_OPENROUTER_API_KEY=your_openrouter_key_here
 
 # Gemini API key for prompt enhancement
 GEMINI_API_KEY=your_gemini_key_here

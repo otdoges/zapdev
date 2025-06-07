@@ -6,8 +6,8 @@ import { type NextRequest } from 'next/server';
 export const runtime = 'edge';
 
 // Check for OpenRouter API key
-if (!process.env.OPENROUTER_API_KEY) {
-  console.warn('OPENROUTER_API_KEY is not set. API calls may fail.');
+if (!process.env.NEXT_OPENROUTER_API_KEY) {
+  console.warn('NEXT_OPENROUTER_API_KEY is not set. API calls may fail.');
 }
 
 export async function POST(req: NextRequest) {
