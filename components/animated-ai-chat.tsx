@@ -7,6 +7,7 @@ import { Paperclip, Command, SendIcon, XIcon, LoaderIcon, Sparkles, ImageIcon, F
 import { motion, AnimatePresence } from "framer-motion"
 import * as React from "react"
 import { useChat, type Message } from "ai/react"
+import { modelIds } from "@/lib/openrouter"
 
 // Throttle function for performance optimization
 function throttle<T extends (...args: any[]) => any>(
@@ -181,6 +182,9 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
   const commandPaletteRef = useRef<HTMLDivElement>(null)
   const [isSplitScreen, setIsSplitScreen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const fallbackModel = 'openrouter/auto'; // or whatever default is safe
+const [selectedModel, setSelectedModel] = useState(modelIds[0] ?? fallbackModel)
+  const [useThinking, setUseThinking] = useState(false)
   
   // Use Vercel AI SDK's useChat hook
   const { messages, isLoading: isTyping, append } = useChat({
@@ -189,7 +193,11 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
     initialMessages: [],
     body: {
       chatId,
+      modelId: selectedModel,
+      useThinking,
     },
+    // @ts-ignore - streamMode is supported in AI SDK v4.3+
+    streamMode: "text",
   })
 
   useEffect(() => {
@@ -286,10 +294,12 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
       setIsSplitScreen(true);
       
       // Use the append function from useChat to send the message
-      await append({
-        role: "user",
-        content: userMessage,
-      });
+      await append(
+        { role: "user", content: userMessage },
+        {
+          body: { chatId, modelId: selectedModel, useThinking },
+        },
+      );
     }
   }
 
@@ -550,6 +560,32 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
                       layoutId="button-highlight"
                     />
                   </motion.button>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  {/* Model Selector */}
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="bg-slate-800/70 text-white text-xs rounded-md p-2 border border-slate-700 focus:ring-2 focus:ring-violet-500/50 focus:outline-none"
+                  >
+                    {modelIds.map((modelId) => (
+                      <option key={modelId} value={modelId}>
+                        {modelId.split('/')[1] || modelId}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Thinking Toggle */}
+                  <label className="flex items-center gap-2 text-xs text-white/70 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useThinking}
+                      onChange={(e) => setUseThinking(e.target.checked)}
+                      className="appearance-none w-4 h-4 rounded-sm bg-slate-800/70 border border-slate-700 checked:bg-violet-500 checked:border-transparent focus:outline-none"
+                    />
+                    <span>Use Thinking</span>
+                  </label>
                 </div>
 
                 <motion.button

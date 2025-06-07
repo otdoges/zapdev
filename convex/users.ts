@@ -1,38 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
-
-export const getOrCreateUser = internalMutation({
-  args: {
-    clerkId: v.string(),
-    email: v.optional(v.string()),
-    firstName: v.optional(v.string()),
-    lastName: v.optional(v.string()),
-    avatarUrl: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const { clerkId, email, firstName, lastName, avatarUrl } = args;
-
-    const existingUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
-      .first();
-
-    if (existingUser) {
-      return existingUser;
-    }
-
-    const now = Date.now();
-    return await ctx.db.insert("users", {
-      clerkId,
-      email,
-      firstName,
-      lastName,
-      avatarUrl,
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
-});
+import { internalMutation, query } from "./_generated/server";
 
 // Get user by clerk ID - can only get your own user data
 export const getUserByClerkId = query({
@@ -73,105 +40,88 @@ export const getCurrentUser = query({
   },
 });
 
-// Public mutation to create or update a user.
-// It is safe because it uses the user's identity from the session token.
-export const createOrUpdateUser = mutation({
+// --- Internal mutations for Clerk webhooks ---
+
+export const createUser = internalMutation({
   args: {
+    clerkId: v.string(),
     email: v.optional(v.string()),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Cannot create or update user: not authenticated.");
-    }
-
-    // Use the authenticated user's Clerk ID from the session token
-    const clerkId = identity.subject;
+    const { clerkId, email, firstName, lastName, avatarUrl } = args;
 
     const existingUser = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
       .first();
-
-    const now = Date.now();
 
     if (existingUser) {
-      // Only update the fields passed in args
-      await ctx.db.patch(existingUser._id, {
-        ...args,
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("users", {
-        clerkId, // from identity
-        ...args,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-  },
-});
-
-// INTERNAL: Update user subscription details from webhook
-// This should only be called by the Stripe webhook handler
-export const updateUserSubscription = internalMutation({
-  args: {
-    clerkId: v.string(),
-    stripeCustomerId: v.string(),
-    stripeSubscriptionId: v.string(),
-    planType: v.string(),
-    isActive: v.boolean(),
-  },
-  handler: async (ctx, args) => {
-    const { clerkId, stripeCustomerId, stripeSubscriptionId, planType, isActive } = args;
-
-    const existingUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
-      .first();
-
-    if (!existingUser) {
-      throw new Error("User not found");
+        console.warn(`User with Clerk ID ${clerkId} already exists. Skipping creation.`);
+        return existingUser._id;
     }
 
-    return await ctx.db.patch(existingUser._id, {
-      stripeCustomerId,
-      stripeSubscriptionId,
-      stripeSubscriptionStatus: isActive ? "active" : "inactive",
-      stripePriceId: planType,
-      updatedAt: Date.now(),
+    const now = Date.now();
+    return await ctx.db.insert("users", {
+      clerkId,
+      email,
+      firstName,
+      lastName,
+      avatarUrl,
+      createdAt: now,
+      updatedAt: now,
     });
   },
 });
 
-// INTERNAL: Update subscription status only
-// This should only be called by the Stripe webhook handler
-export const updateSubscriptionStatus = internalMutation({
-  args: {
-    stripeSubscriptionId: v.string(),
-    isActive: v.boolean(),
-  },
-  handler: async (ctx, args) => {
-    const { stripeSubscriptionId, isActive } = args;
+export const updateUser = internalMutation({
+    args: {
+        clerkId: v.string(),
+        email: v.optional(v.string()),
+        firstName: v.optional(v.string()),
+        lastName: v.optional(v.string()),
+        avatarUrl: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const { clerkId, ...rest } = args;
 
-    // Use the index for better performance
-    const existingUser = await ctx.db
-      .query("users")
-      .withIndex("by_stripe_subscription_id", (q) => 
-        q.eq("stripeSubscriptionId", stripeSubscriptionId)
-      )
-      .first();
+        const existingUser = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+            .first();
 
-    if (!existingUser) {
-      throw new Error("User with this subscription ID not found");
+        if (!existingUser) {
+            console.error(`User with Clerk ID ${clerkId} not found. Cannot update.`);
+            return;
+        }
+        
+        const updates = Object.fromEntries(
+            Object.entries(rest).filter(([, v]) => v !== undefined)
+        );
+        await ctx.db.patch(existingUser._id, {
+            ...updates,
+            updatedAt: Date.now(),
+        });
     }
+});
 
-    return await ctx.db.patch(existingUser._id, {
-      stripeSubscriptionStatus: isActive ? "active" : "inactive",
-      updatedAt: Date.now(),
-    });
-  },
+export const deleteUser = internalMutation({
+    args: {
+      clerkId: v.string(),
+    },
+    handler: async (ctx, { clerkId }) => {
+        const existingUser = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+            .first();
+
+        if (!existingUser) {
+            console.warn(`User with Clerk ID ${clerkId} not found for deletion.`);
+            return;
+        }
+
+        await ctx.db.delete(existingUser._id);
+    },
 });

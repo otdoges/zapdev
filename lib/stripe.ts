@@ -14,6 +14,7 @@ export const getStripeClient = () => {
     if (!process.env.STRIPE_SECRET_KEY) {
       throw new Error("Missing STRIPE_SECRET_KEY environment variable");
     }
+
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   }
   return stripe;
@@ -33,7 +34,8 @@ export async function syncStripeDataToConvex(customerId: string) {
 
   const subscription = subscriptions.data[0];
 
-  await convex.mutation(api.stripe.updateUserSubscription, {
+  // The correct mutation is likely 'updateUserStripeSubscription' based on lint error and naming conventions
+  await convex.mutation(api.stripe.updateUserStripeSubscription, {
     stripeCustomerId: customerId,
     stripeSubscriptionId: subscription.id,
     stripeSubscriptionStatus: subscription.status,

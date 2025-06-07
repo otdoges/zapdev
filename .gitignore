@@ -40,3 +40,8 @@ enhance-prompt.txt
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# Cursor Ignore
+
+.cursorrules 
+.cursorignore

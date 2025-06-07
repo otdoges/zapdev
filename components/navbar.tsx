@@ -13,7 +13,7 @@ export async function Navbar() {
         <div className="flex items-center">
           <Link href="/" className="flex items-center">
             <span className="font-bold text-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-transparent bg-clip-text">
-              ZapAI
+              ZapDev
             </span>
           </Link>
         </div>

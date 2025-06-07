@@ -1,8 +1,8 @@
 import { OpenRouter } from '@openrouter/ai-sdk-provider';
-import { CoreMessage, generateText } from 'ai';
+import { CoreMessage, streamText, generateText } from 'ai';
 
-// Model IDs provided by the user
-const modelIds = [
+// Model IDs available for selection
+export const modelIds = [
   "deepseek/deepseek-chat:free",
   "microsoft/phi-4-reasoning-plus:free",
   "qwen/qwen3-32b:free",
@@ -19,9 +19,9 @@ export type ChatHistory = Message[];
 
 
 const getOpenRouterApiKey = () => {
-  const apiKey = process.env.NEXT_OPENROUTER_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    throw new Error("NEXT_OPENROUTER_API_KEY environment variable is not set. Please add it to your .env file.");
+    throw new Error("OPENROUTER_API_KEY environment variable is not set. Please add it to your .env file.");
   }
   return apiKey;
 };
@@ -31,15 +31,20 @@ export const openrouterProvider = new OpenRouter({
   apiKey: getOpenRouterApiKey(),
 });
 
-export async function generateOpenRouterResponse(
-  chatHistory: ChatHistory,
-  systemPrompt?: string,
-  modelIdFromParam?: string 
-): Promise<string> {
-  try {
-    const selectedModelId = modelIdFromParam || modelIds[0];
-    const model = openrouterProvider.chat(selectedModelId);
+// --- System Prompts ---
+const defaultSystemPrompt = `You are a world-class AI assistant. Provide concise, helpful, and accurate responses.`;
 
+const thinkingSystemPrompt = `You are a powerful AI assistant that thinks step-by-step to arrive at the best possible response. 
+Before providing your final answer, outline your thought process. 
+For example:
+1.  **Analyze the Request**: Break down the user's query.
+2.  **Formulate a Plan**: Create a plan to address the query.
+3.  **Execute the Plan**: Follow the plan to generate the response.
+4.  **Final Answer**: Provide the final, polished answer.
+This helps the user understand your reasoning and improves the quality of your response.`;
+
+
+function prepareMessages(chatHistory: ChatHistory, systemPrompt?: string): CoreMessage[] {
     const messages: CoreMessage[] = [];
 
     if (systemPrompt) {
@@ -53,12 +58,54 @@ export async function generateOpenRouterResponse(
       });
     });
 
+    return messages;
+}
+
+
+export async function streamOpenRouterResponse({
+    chatHistory,
+    modelId,
+    useThinking,
+   temperature = 0.7,
+   maxTokens = 4096,
+}: {
+    chatHistory: ChatHistory;
+    modelId?: string;
+    useThinking?: boolean;
+   temperature?: number;
+   maxTokens?: number;
+}) {
+    if (!modelId && modelIds.length === 0) {
+        throw new Error("No model ID provided and no default models available");
+    }
+    const selectedModelId = modelId || modelIds[0];
+    const model = openrouterProvider.chat(selectedModelId);
+    
+    const systemPrompt = useThinking ? thinkingSystemPrompt : defaultSystemPrompt;
+    const messages = prepareMessages(chatHistory, systemPrompt);
+
+    return await streamText({
+        model,
+        messages,
+       temperature,
+       maxTokens,
+    });
+}
+
+export async function generateOpenRouterResponse(
+  chatHistory: ChatHistory,
+  systemPrompt?: string,
+  modelIdFromParam?: string 
+): Promise<string> {
+  try {
+    const selectedModelId = modelIdFromParam || (modelIds.length > 0 ? modelIds[0] : "deepseek/deepseek-chat:free");
+    const model = openrouterProvider.chat(selectedModelId);
+
+    const messages = prepareMessages(chatHistory, systemPrompt);
+
     const { text } = await generateText({
       model: model,
       messages: messages,
-      // Optional: Add parameters like temperature, maxTokens if needed
-      // temperature: 0.7,
-      // maxTokens: 4096, // Example value
     });
     
     return text;
@@ -66,12 +113,10 @@ export async function generateOpenRouterResponse(
     console.error("Error generating response from OpenRouter:", error);
     let errorMessage = "Sorry, I encountered an error while processing your request with OpenRouter.";
     if (error instanceof Error) {
-      errorMessage = error.message.includes("NEXT_OPENROUTER_API_KEY") 
+      errorMessage = error.message.includes("OPENROUTER_API_KEY") 
         ? error.message 
         : `OpenRouter Error: ${error.message}`;
     }
-    // For more detailed error reporting, you might inspect the error object further
-    // if (error.cause) console.error("Cause:", error.cause)
     return errorMessage;
   }
 }

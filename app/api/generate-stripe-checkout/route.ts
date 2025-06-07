@@ -15,24 +15,6 @@ const PRODUCT_MAP = {
   price_enterprise: "Enterprise Plan"
 };
 
-// Helper function to ensure user exists in the database
-async function ensureUserExists(clerkId: string, userInfo: any) {
-  try {
-    // Use the public createOrUpdateUser function
-    await convex.mutation(api.users.createOrUpdateUser, {
-      clerkId,
-      email: userInfo.primaryEmailAddress?.emailAddress,
-      firstName: userInfo.firstName ?? undefined,
-      lastName: userInfo.lastName ?? undefined,
-      avatarUrl: userInfo.imageUrl,
-    });
-    return true;
-  } catch (error) {
-    console.error("Error ensuring user exists:", error);
-    return false;
-  }
-}
-
 export async function GET(req: NextRequest) {
   try {
     const { userId } = getAuth(req);
@@ -106,8 +88,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(checkout.url);
   } catch (error) {
     console.error("Checkout error:", error);
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: "Failed to create checkout session", details: errorMessage },
       { status: 500 }
     );
   }
