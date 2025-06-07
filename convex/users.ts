@@ -34,6 +34,45 @@ export const getOrCreateUser = internalMutation({
   },
 });
 
+// Get user by clerk ID - can only get your own user data
+export const getUserByClerkId = query({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    
+    // Security check: Users can only get their own data
+    if (identity.subject !== args.clerkId) {
+      throw new Error("Unauthorized: You can only access your own user data");
+    }
+    
+    return await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+  },
+});
+
+// Get the current user's profile
+export const getCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+    
+    return await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+  },
+});
+
 // Public mutation to create or update a user
 export const createOrUpdateUser = mutation({
   args: {
@@ -44,6 +83,16 @@ export const createOrUpdateUser = mutation({
     avatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Security check: Users can only update their own data
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    
+    if (identity.subject !== args.clerkId) {
+      throw new Error("Unauthorized: You can only update your own user data");
+    }
+    
     const { clerkId, email, firstName, lastName, avatarUrl } = args;
 
     const existingUser = await ctx.db
@@ -75,8 +124,9 @@ export const createOrUpdateUser = mutation({
   },
 });
 
-// Update user subscription details from webhook
-export const updateUserSubscription = mutation({
+// INTERNAL: Update user subscription details from webhook
+// This should only be called by the Stripe webhook handler
+export const updateUserSubscription = internalMutation({
   args: {
     clerkId: v.string(),
     stripeCustomerId: v.string(),
@@ -106,8 +156,9 @@ export const updateUserSubscription = mutation({
   },
 });
 
-// Update subscription status only
-export const updateSubscriptionStatus = mutation({
+// INTERNAL: Update subscription status only
+// This should only be called by the Stripe webhook handler
+export const updateSubscriptionStatus = internalMutation({
   args: {
     stripeSubscriptionId: v.string(),
     isActive: v.boolean(),
@@ -115,9 +166,12 @@ export const updateSubscriptionStatus = mutation({
   handler: async (ctx, args) => {
     const { stripeSubscriptionId, isActive } = args;
 
+    // Use the index for better performance
     const existingUser = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("stripeSubscriptionId"), stripeSubscriptionId))
+      .withIndex("by_stripe_subscription_id", (q) => 
+        q.eq("stripeSubscriptionId", stripeSubscriptionId)
+      )
       .first();
 
     if (!existingUser) {
@@ -129,4 +183,4 @@ export const updateSubscriptionStatus = mutation({
       updatedAt: Date.now(),
     });
   },
-}); 
+});

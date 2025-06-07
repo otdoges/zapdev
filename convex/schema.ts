@@ -17,7 +17,10 @@ export default defineSchema({
     stripeSubscriptionStatus: v.optional(v.string()),
     stripeCurrentPeriodEnd: v.optional(v.number()),
     stripePriceId: v.optional(v.string()),
-  }).index("by_clerk_id", ["clerkId"]),
+  })
+  .index("by_clerk_id", ["clerkId"])
+  .index("by_stripe_customer_id", ["stripeCustomerId"])
+  .index("by_stripe_subscription_id", ["stripeSubscriptionId"]),
 
   // Chats table to store chat information
   chats: defineTable({
