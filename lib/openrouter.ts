@@ -37,7 +37,9 @@ const getOpenRouterInstance = () => {
   return openrouterProviderInstance;
 }
 
-export const openrouterProvider = getOpenRouterInstance();
+export const openrouterProvider = {
+  chat: (modelId: string) => getOpenRouterInstance().chat(modelId),
+};
 
 function prepareMessages(chatHistory: ChatHistory, systemPromptText: string): CoreMessage[] {
     const messages: CoreMessage[] = [{ role: "system", content: systemPromptText }];
