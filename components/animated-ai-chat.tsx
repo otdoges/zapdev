@@ -566,32 +566,6 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
                   </motion.button>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  {/* Model Selector */}
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="bg-slate-800/70 text-white text-xs rounded-md p-2 border border-slate-700 focus:ring-2 focus:ring-violet-500/50 focus:outline-none"
-                  >
-                    {modelIds.map((modelId) => (
-                      <option key={modelId} value={modelId}>
-                        {modelId.split('/')[1] || modelId}
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Thinking Toggle */}
-                  <label className="flex items-center gap-2 text-xs text-white/70 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={useThinking}
-                      onChange={(e) => setUseThinking(e.target.checked)}
-                      className="appearance-none w-4 h-4 rounded-sm bg-slate-800/70 border border-slate-700 checked:bg-violet-500 checked:border-transparent focus:outline-none"
-                    />
-                    <span>Use Thinking</span>
-                  </label>
-                </div>
-
                 <motion.button
                   type="button"
                   onClick={handleSendMessage}
