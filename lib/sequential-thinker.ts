@@ -1,5 +1,5 @@
 import { openrouterProvider } from './openrouter';
-import { CoreMessage, generateText } from 'ai';
+import { CoreMessage, generateText, streamText, StreamData } from 'ai';
 import { ChatHistory } from '@/lib/types';
 
 const MCP_SERVER_URL = process.env.MCP_SEQUENTIAL_THINKING_URL;
@@ -110,46 +110,67 @@ const finalRefinementModelId = "deepseek/deepseek-v3-base:free";
 
 // Helper to generate text with a specific model
 async function generateWithModel(modelId: string, messages: CoreMessage[]): Promise<string> {
-  const model = openrouterProvider.chat(modelId);
   const { text } = await generateText({
-    model,
+    model: openrouterProvider.chat(modelId),
     messages,
   });
   return text;
 }
 
-export async function sequentialThinking(chatHistory: ChatHistory): Promise<string> {
+export async function streamSequentialThinking({
+  chatHistory,
+  data,
+}: {
+  chatHistory: ChatHistory;
+  data: StreamData;
+}) {
   const userPrompt = chatHistory[chatHistory.length - 1].content;
 
-  // 1. Reasoning Stage (Phi-4)
-  const reasoningMessages: CoreMessage[] = [
-    { role: 'system', content: 'You are a senior software architect. Your task is to analyze the following user prompt and create a detailed plan for implementation. Break down the problem into smaller, manageable steps.' },
-    { role: 'user', content: userPrompt }
-  ];
-  const plan = await generateWithModel(reasoningModelId, reasoningMessages);
+  try {
+    // Stage 1: Planning
+    data.append(JSON.stringify({ type: 'stage', content: 'Planning...' }));
+    const plan = await generateWithModel(reasoningModelId, [
+      { role: 'system', content: 'You are a senior software architect. Your task is to analyze the following user prompt and create a detailed plan for implementation. Break down the problem into smaller, manageable steps.' },
+      { role: 'user', content: userPrompt }
+    ]);
+    data.append(JSON.stringify({ type: 'plan', content: plan }));
 
-  // 2. Coding Stage (Qwen3)
-  const codingMessages: CoreMessage[] = [
-    { role: 'system', content: 'You are a senior software engineer. Your task is to write the base code for the following plan. The code should be well-structured and easy to read.' },
-    { role: 'user', content: `Based on the following plan, please write the necessary code:\n\n${plan}` }
-  ];
-  const baseCode = await generateWithModel(codingModelId, codingMessages);
+    // Stage 2: Coding
+    data.append(JSON.stringify({ type: 'stage', content: 'Generating base code...' }));
+    const baseCode = await generateWithModel(codingModelId, [
+        { role: 'system', content: 'You are a senior software engineer. Your task is to write the base code for the following plan. The code should be well-structured and easy to read.' },
+        { role: 'user', content: `Based on the following plan, please write the necessary code:\n\n${plan}` }
+    ]);
+    data.append(JSON.stringify({ type: 'code', content: baseCode }));
 
-  // 3. Refinement Stage (Deepseek R1)
-  const refinementMessages: CoreMessage[] = [
-    { role: 'system', content: 'You are a code refactoring expert. Your task is to review the following code and improve it. Look for potential bugs, performance issues, or areas where the code could be made more elegant.' },
-    { role: 'user', content: `Please review and refine the following code:\n\n${baseCode}` }
-  ];
-  const refinedCode = await generateWithModel(refinementModelId, refinementMessages);
+    // Stage 3: Refinement
+    data.append(JSON.stringify({ type: 'stage', content: 'Refining code...' }));
+    const refinedCode = await generateWithModel(refinementModelId, [
+        { role: 'system', content: 'You are a code refactoring expert. Your task is to review the following code and improve it. Look for potential bugs, performance issues, or areas where the code could be made more elegant.' },
+        { role: 'user', content: `Please review and refine the following code:\n\n${baseCode}` }
+    ]);
+    data.append(JSON.stringify({ type: 'refinedCode', content: refinedCode }));
+    
+    // Stage 4: Final Refinement & Streaming Output
+    data.append(JSON.stringify({ type: 'stage', content: 'Performing final review and streaming...' }));
+    const finalCodeResult = await streamText({
+      model: openrouterProvider.chat(finalRefinementModelId),
+      messages: [
+        { role: 'system', content: 'You are a senior principal engineer. Your task is to perform a final review of the following code and make any necessary improvements to ensure it is production-ready. Focus on clarity, performance, and best practices. Output only the final code.' },
+        { role: 'user', content: `Please perform a final review and refinement of the following code:\n\n${refinedCode}` }
+      ],
+      onFinish() {
+        data.close();
+      }
+    });
 
-  // 4. Final Refinement Stage (Deepseek V3)
-  const finalRefinementMessages: CoreMessage[] = [
-    { role: 'system', content: 'You are a senior principal engineer. Your task is to perform a final review of the following code and make any necessary improvements to ensure it is production-ready. Focus on clarity, performance, and best practices.' },
-    { role: 'user', content: `Please perform a final review and refinement of the following code:\n\n${refinedCode}` }
-  ];
-  const finalCode = await generateWithModel(finalRefinementModelId, finalRefinementMessages);
-
-  return finalCode;
+    return finalCodeResult.textStream;
+  } catch (error) {
+    console.error("Error in sequential thinking process:", error);
+    data.append(JSON.stringify({ type: 'error', content: 'An error occurred during generation.' }));
+    data.close();
+    throw error;
+  }
 }
 
 /**

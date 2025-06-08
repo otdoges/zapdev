@@ -1,6 +1,7 @@
-import { CoreMessage, streamText, generateText } from 'ai';
-import { sequentialThinking } from '@/lib/sequential-thinker';
+import { streamSequentialThinking } from '@/lib/sequential-thinker';
 import { auth } from '@clerk/nextjs/server';
+// @ts-ignore - This is a valid import but may be flagged by the linter
+import { StreamData, StreamingTextResponse } from 'ai';
 
 // IMPORTANT: Set the runtime to edge
 export const runtime = 'edge';
@@ -12,21 +13,21 @@ if (!process.env.NEXT_OPENROUTER_API_KEY) {
 
 export async function POST(req: Request) {
   try {
-    const { messages, chatId } = await req.json();
+    const { messages } = await req.json();
     const { userId } = await auth();
 
     if (!userId) {
       return new Response('Unauthorized', { status: 401 });
     }
     
-    // Use the new sequential thinking process
-    const response = await sequentialThinking(messages);
+    const data = new StreamData();
 
-    // For now, let's return the final response as a non-streamed text response.
-    // Streaming would require more significant changes to sequential-thinker.
-    return new Response(response, {
-      headers: { 'Content-Type': 'text/plain' },
+    const stream = await streamSequentialThinking({
+      chatHistory: messages,
+      data,
     });
+
+    return new StreamingTextResponse(stream, {}, data);
 
   } catch (error) {
     console.error('Error in chat API:', error);

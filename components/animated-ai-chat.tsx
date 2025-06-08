@@ -183,22 +183,20 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
   const commandPaletteRef = useRef<HTMLDivElement>(null)
   const [isSplitScreen, setIsSplitScreen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [generatedCode, setGeneratedCode] = useState<string>("");
+  const [currentStage, setCurrentStage] = useState<string | null>(null);
   const fallbackModel = 'openrouter/auto'; // or whatever default is safe
   const [selectedModel, setSelectedModel] = useState(modelIds[0] ?? fallbackModel)
   const [useThinking, setUseThinking] = useState(false)
   
   // Use Vercel AI SDK's useChat hook
-  const { messages, isLoading: isTyping, append, setMessages } = useChat({
+  const { messages, isLoading: isTyping, append, setMessages, data } = useChat({
     api: "/api/chat",
     id: chatId,
     initialMessages: [],
-    onFinish: async (message) => {
-      // When the stream is finished, we can process the final response
-      // For now, we assume the final message content is the code
-      setGeneratedCode(message.content);
+    onFinish: (message) => {
+      setCurrentStage(null);
     },
-    // We are not using streamMode: "text" anymore as we get a single response
   });
 
   useEffect(() => {
@@ -251,6 +249,24 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
     }
   }, [])
 
+  useEffect(() => {
+    if (data && data.length > 0) {
+      const lastDataPoint = data[data.length - 1];
+      try {
+        const parsedData = JSON.parse(lastDataPoint as string);
+        if (parsedData.type === 'stage') {
+          setCurrentStage(parsedData.content);
+        } else if (parsedData.type === 'code') {
+          setGeneratedCode(parsedData.content);
+        } else if (parsedData.type === 'refinedCode') {
+          setGeneratedCode(parsedData.content);
+        }
+      } catch (error) {
+        // Not a JSON object, likely the final stream
+      }
+    }
+  }, [data]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (showCommandPalette) {
       if (e.key === "ArrowDown") {
@@ -283,10 +299,11 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
 
   const handleSendMessage = async () => {
     if (value.trim()) {
+      setGeneratedCode("");
+      setCurrentStage("Starting...");
       append({ role: "user", content: value });
       setValue("");
       adjustHeight(true);
-      setGeneratedCode(null);
       
       if (messages.length === 0 && onFirstMessageSent) {
         onFirstMessageSent();
@@ -396,14 +413,15 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
                   )}
                 >
                   <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                  {index === messages.length - 1 && generatedCode && (
+                  {index === messages.length - 1 && (isTyping || generatedCode) && (
                     <motion.div
                       className="mt-4"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3 }}
                     >
-                      <InteractiveDisplay code={generatedCode} />
+                      {currentStage && <div className="text-xs text-white/50 mb-2">{currentStage}</div>}
+                      <InteractiveDisplay code={message.role === 'assistant' ? message.content : generatedCode} />
                     </motion.div>
                   )}
                 </div>
@@ -624,7 +642,7 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
       
       {/* Show typing indicator only when needed */}
       <AnimatePresence>
-        {isTyping && (
+        {isTyping && currentStage && (
           <motion.div
             className="fixed bottom-8 left-1/2 mx-auto transform -translate-x-1/2 backdrop-blur-2xl bg-white/[0.02] rounded-full px-4 py-2 shadow-lg border border-white/[0.05]"
             initial={{ opacity: 0, y: 20 }}
@@ -636,7 +654,7 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
                 <span className="text-xs font-medium text-white/90 mb-0.5">zap</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-white/70">
-                <span>Thinking</span>
+                <span>{currentStage}</span>
                 <TypingDots />
               </div>
             </div>
