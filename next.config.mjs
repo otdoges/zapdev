@@ -77,6 +77,12 @@ const nextConfig = {
   },
   // This is required to support PostHog trailing slash API requests
   skipTrailingSlashRedirect: true,
+  publicRuntimeConfig: {
+    APP_VERSION: packageJson.version,
+  },
 };
+
+// Make sure the version is included in the build output
+console.log(`Building ZapDev version ${packageJson.version}`);
 
 export default withBundleAnalyzer(nextConfig);
