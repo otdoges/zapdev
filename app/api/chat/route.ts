@@ -8,6 +8,10 @@ export const runtime = 'edge';
 export async function POST(req: Request) {
   try {
     const { messages, modelId } = await req.json();
+    
+    if (!modelId || typeof modelId !== 'string') {
+      return new Response('Invalid or missing modelId', { status: 400 });
+    }
     const { userId } = await auth();
 
     if (!userId) {
