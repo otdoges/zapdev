@@ -36,7 +36,26 @@ const nextConfig = {
     optimizePackageImports: ['framer-motion', 'lucide-react'],
   },
   async headers() {
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev",
+      "connect-src 'self' https://api.github.com https://funky-humpback-59.clerk.accounts.dev",
+      "img-src 'self' data: blob:",
+      "style-src 'self' 'unsafe-inline'",
+      "frame-src 'self' https://clerk.accounts.dev",
+      "font-src 'self' data:",
+    ].join('; ');
+
     return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: csp,
+          },
+        ],
+      },
       {
         source: '/:path*.(jpg|jpeg|png|webp|avif|ico|svg)',
         headers: [
