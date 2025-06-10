@@ -193,6 +193,9 @@ export function AnimatedAIChat({ chatId = "default", onFirstMessageSent }: Anima
   const { messages, isLoading: isTyping, append, setMessages, data } = useChat({
     api: "/api/chat",
     id: chatId,
+    body: {
+      modelId: selectedModel,
+    },
     initialMessages: [],
     onFinish: (message) => {
       setCurrentStage(null);
