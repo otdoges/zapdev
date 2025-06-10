@@ -5,7 +5,7 @@
         "headers": [
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self';"
+            "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://img.clerk.com https://images.clerk.dev; font-src 'self'; connect-src 'self' https://api.github.com https://funky-humpback-59.clerk.accounts.dev;"
           },
           {
             "key": "X-Content-Type-Options",
