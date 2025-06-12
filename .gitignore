@@ -35,13 +35,9 @@ systemprompt-example.txt
 # Ehnhance Prompt example 
 
 enhance-prompt.txt
+
 .env.local
 .env.development
 
 # clerk configuration (can include secrets)
 /.clerk/
-
-# Cursor Ignore
-
-.cursorrules 
-.cursorignore

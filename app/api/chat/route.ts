@@ -12,6 +12,10 @@ export async function POST(req: Request) {
     if (!modelId || typeof modelId !== 'string') {
       return new Response('Invalid or missing modelId', { status: 400 });
     }
+    
+    if (!modelId || typeof modelId !== 'string') {
+      return new Response('Invalid or missing modelId', { status: 400 });
+    }
     const { userId } = await auth();
 
     if (!userId) {
