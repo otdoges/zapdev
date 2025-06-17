@@ -1,47 +1,39 @@
-import { openai } from '@ai-sdk/openai';
-import { streamText } from 'ai';
+import { streamOpenRouterResponse } from '@/lib/openrouter';
+import { auth } from '@clerk/nextjs/server';
+
 
 // IMPORTANT: Set the runtime to edge
 export const runtime = 'edge';
 
-if (!process.env.OPENAI_API_KEY) {
-  console.warn('OPENAI_API_KEY is not set. Using a mock API for development.');
-}
-
 export async function POST(req: Request) {
-  // Extract the `messages` from the body of the request
-  const { messages, chatId } = await req.json();
-  
   try {
-    // Create text stream using the AI SDK
-    const textStream = streamText({
-      model: openai('gpt-4o'),
-      messages: messages.map((message: any) => ({
-        role: message.role === 'model' ? 'assistant' : message.role,
-        content: message.content,
-      })),
-      temperature: 0.7,
-      maxTokens: 1500,
+    const { messages, modelId } = await req.json();
+    
+    if (!modelId || typeof modelId !== 'string') {
+      return new Response('Invalid or missing modelId', { status: 400 });
+    }
+    
+    if (!modelId || typeof modelId !== 'string') {
+      return new Response('Invalid or missing modelId', { status: 400 });
+    }
+    const { userId } = await auth();
+
+    if (!userId) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    const result = await streamOpenRouterResponse({
+      chatHistory: messages,
+      modelId,
     });
 
-    // Convert the text stream to a response with the appropriate headers
-    return new Response(textStream.textStream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
-      },
-    });
+    return result.toDataStreamResponse();
+
   } catch (error) {
-    // If we hit an error, return a 500 error with the error message
-    console.error('Error in chat API route:', error);
-    return new Response(
-      JSON.stringify({
-        error: 'There was an error processing your request. Please make sure you have set up your OpenAI API key correctly.'
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
+    console.error('Error in chat API:', error);
+    if (error instanceof Error) {
+      return new Response(error.message, { status: 500 });
+    }
+    return new Response('An unknown error occurred', { status: 500 });
   }
 } 

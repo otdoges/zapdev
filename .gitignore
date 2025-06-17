@@ -18,6 +18,8 @@ yarn-error.log*
 
 # env files
 .env
+.env.local
+.env.development
 
 # vercel
 .vercel
@@ -35,6 +37,7 @@ systemprompt-example.txt
 enhance-prompt.txt
 
 .env.local
+.env.development
 
 # clerk configuration (can include secrets)
 /.clerk/

@@ -7,8 +7,11 @@ This project requires several API keys to work properly. Follow these steps to s
 Create a `.env.local` file in the root of your project with the following variables:
 
 ```
-# OpenAI API key for the AI chat functionality
-OPENAI_API_KEY=your_openai_key_here
+# OpenRouter API key for the AI chat functionality
+NEXT_OPENROUTER_API_KEY=your_openrouter_key_here
+
+# Gemini API key for prompt enhancement
+GEMINI_API_KEY=your_gemini_key_here
 
 # Clerk authentication keys
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
@@ -21,10 +24,16 @@ NEXT_PUBLIC_CONVEX_URL=your_convex_url
 
 ## Getting API Keys
 
-### OpenAI API Key
-1. Go to [OpenAI Platform](https://platform.openai.com/api-keys)
+### OpenRouter API Key
+1. Go to [OpenRouter](https://openrouter.ai/)
 2. Sign in or create an account
 3. Create a new API key
+4. Copy the key and paste it in your `.env.local` file
+
+### Gemini API Key
+1. Go to [Google AI Studio](https://ai.google.dev/)
+2. Sign in or create an account
+3. Get an API key from the API keys section
 4. Copy the key and paste it in your `.env.local` file
 
 ### Clerk Authentication Keys
@@ -44,10 +53,6 @@ NEXT_PUBLIC_CONVEX_URL=your_convex_url
 After setting up your environment variables, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
 bun run dev
 ```
 
