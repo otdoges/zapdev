@@ -1,0 +1,229 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global reset styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+:root {
+  --background: 240 9% 6%;
+  --foreground: 0 0% 92%;
+  --card: 240 10% 4%;
+  --card-foreground: 0 0% 92%;
+  --popover: 240 10% 4%;
+  --popover-foreground: 0 0% 92%;
+  --primary: 270 34% 35%;
+  --primary-foreground: 0 0% 92%;
+  --secondary: 282 32% 36%;
+  --secondary-foreground: 0 0% 92%;
+  --muted: 240 5% 15%;
+  --muted-foreground: 0 0% 70%;
+  --accent: 282 32% 36%;
+  --accent-foreground: 0 0% 92%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 92%;
+  --border: 240 5% 15%;
+  --input: 240 5% 15%;
+  --ring: 270 34% 35%;
+
+  /* ZapDev Specific Colors */
+  --charcoal: #0D0D10;
+  --off-white: #EAEAEA;
+  --deep-violet: #4F3A75;
+  --muted-magenta: #7A3F6D;
+  --bright-violet: #6C52A0;
+  --rose-magenta: #A0527C;
+}
+
+body {
+  background-color: var(--charcoal);
+  color: var(--off-white);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  width: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#__next {
+  height: 100%;
+  width: 100%;
+}
+
+/* Improved scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(108, 82, 160, 0.3);
+  color: white;
+}
+
+::-moz-selection {
+  background: rgba(108, 82, 160, 0.3);
+  color: white;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(108, 82, 160, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(108, 82, 160, 0.8), 0 0 30px rgba(160, 82, 124, 0.4);
+  }
+}
+
+.primary-gradient {
+  background: linear-gradient(135deg, var(--deep-violet), var(--muted-magenta), transparent);
+}
+
+.cta-gradient {
+  background: linear-gradient(135deg, var(--bright-violet), var(--rose-magenta));
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--off-white), var(--deep-violet) 70%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.shimmer-effect {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+}
+
+.mouse-glow {
+  pointer-events: none;
+  position: fixed;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(79, 58, 117, 0.15), transparent 70%);
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+.glass-effect {
+  backdrop-filter: blur(12px) saturate(180%);
+  background-color: rgba(13, 13, 16, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.modern-shadow {
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.button-hover-effect {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.button-hover-effect:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(108, 82, 160, 0.3);
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Full screen background class */
+.full-screen-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--charcoal);
+  z-index: -1;
+}
+
+/* Code syntax highlighting improvements */
+.monaco-editor {
+  font-family: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace !important;
+}
+
+/* Focus styles */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(108, 82, 160, 0.8);
+  border-radius: 8px;
+}
+
+/* Improved text rendering */
+.text-smooth {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
