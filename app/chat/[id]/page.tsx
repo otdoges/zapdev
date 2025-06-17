@@ -2,14 +2,14 @@
 
 import { AnimatedAIChat } from "@/components/animated-ai-chat"
 import CodePreview from "@/components/code-preview"
-import WebContainerComponent from "@/components/web-container"
 import { motion } from "framer-motion"
 import { useRouter, useParams } from "next/navigation"
 import { useUser, UserButton, SignedIn } from "@clerk/nextjs"
 import { useEffect, useState, useMemo } from "react"
 import { cn } from "@/lib/utils"
-import { Code, Eye, Maximize2, Minimize2, ArrowLeft, Zap, Settings, BarChart3 } from "lucide-react"
+import { Code, Eye, Maximize2, Minimize2, ArrowLeft, Settings, BarChart3, Brain } from "lucide-react"
 import { getTokenUsageStats } from "@/lib/openrouter"
+import { useConvexChat } from "@/components/ConvexChatProvider"
 
 // Memoize static components for better performance
 const BackButton = ({ onClick }: { onClick: () => void }) => (
@@ -23,10 +23,28 @@ const BackButton = ({ onClick }: { onClick: () => void }) => (
   </motion.button>
 )
 
+// Thinking indicator component
+const ThinkingIndicator = ({ isThinking }: { isThinking: boolean }) => {
+  if (!isThinking) return null;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      className="flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30"
+    >
+      <Brain className="w-4 h-4 text-violet-400 animate-pulse" />
+      <span className="text-xs text-violet-300">AI is thinking...</span>
+    </motion.div>
+  )
+}
+
 // Memoized header component
-const ChatHeader = ({ onBack, tokenStats }: { 
+const ChatHeader = ({ onBack, tokenStats, isThinking }: { 
   onBack: () => void, 
-  tokenStats: { used: number, remaining: number, percentage: number, availableModels: number } 
+  tokenStats: { used: number, remaining: number, percentage: number, availableModels: number },
+  isThinking: boolean
 }) => (
   <motion.div 
     className="flex items-center justify-between p-4 bg-black/20 backdrop-blur-sm border-b border-white/10"
@@ -40,6 +58,7 @@ const ChatHeader = ({ onBack, tokenStats }: {
         <h1 className="text-xl font-bold text-white">ZapDev Studio</h1>
         <p className="text-sm text-gray-400">AI-Powered Development</p>
       </div>
+      <ThinkingIndicator isThinking={isThinking} />
     </div>
     
     <div className="flex items-center gap-4">
@@ -62,7 +81,7 @@ const ChatHeader = ({ onBack, tokenStats }: {
       
       {/* Available Models */}
       <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-        <Zap className="w-4 h-4 text-blue-400" />
+        <Settings className="w-4 h-4 text-blue-400" />
         <span className="text-xs text-gray-300">
           {tokenStats.availableModels} models
         </span>
@@ -86,8 +105,9 @@ export default function ChatPage() {
   const router = useRouter()
   const params = useParams()
   const { user } = useUser()
+  const { isThinking, currentResponse } = useConvexChat()
   const [generatedCode, setGeneratedCode] = useState<string>("")
-  const [activeView, setActiveView] = useState<"preview" | "code" | "webcontainer">("preview")
+  const [activeView, setActiveView] = useState<"preview" | "code">("preview")
   const [isMaximized, setIsMaximized] = useState(false)
   const [tokenStats, setTokenStats] = useState({ used: 0, remaining: 50000, percentage: 0, availableModels: 5 })
   
@@ -127,10 +147,10 @@ export default function ChatPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      <ChatHeader onBack={handleBack} tokenStats={tokenStats} />
+      <ChatHeader onBack={handleBack} tokenStats={tokenStats} isThinking={isThinking} />
       
       <div className="flex h-[calc(100vh-80px)]">
-        {/* Left Panel - Preview/Code/WebContainer */}
+        {/* Left Panel - Preview/Code */}
         <motion.div
           className={cn(
             "bg-gray-900/50 backdrop-blur-sm border-r border-white/10 transition-all duration-300",
@@ -165,18 +185,6 @@ export default function ChatPage() {
                 <Code className="w-4 h-4" />
                 Code
               </button>
-              <button
-                onClick={() => setActiveView("webcontainer")}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                  activeView === "webcontainer"
-                    ? "bg-violet-600 text-white"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
-                )}
-              >
-                <Zap className="w-4 h-4" />
-                Container
-              </button>
             </div>
             
             <button
@@ -203,51 +211,25 @@ export default function ChatPage() {
                 </div>
               </div>
             )}
-            {activeView === "webcontainer" && (
-              <WebContainerComponent
-                code={generatedCode}
-                onCodeChange={handleCodeChange}
-                className="h-full"
-              />
-            )}
           </div>
         </motion.div>
 
         {/* Right Panel - Chat */}
         {!isMaximized && (
           <motion.div
-            className="w-1/2 bg-gray-900/30 backdrop-blur-sm flex flex-col"
+            className="w-1/2 bg-gray-900/50 backdrop-blur-sm flex flex-col"
             layout
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <AnimatedAIChat
+            <AnimatedAIChat 
               chatId={chatId}
               onCodeGenerated={handleCodeGenerated}
-              onFirstMessageSent={() => {
-                // Handle first message if needed
-              }}
-              useMultipleModels={true} // Enable multiple models
-              className="h-full"
+              showThinking={true}
+              currentResponse={currentResponse}
+              isThinking={isThinking}
             />
           </motion.div>
         )}
       </div>
-
-      {/* Floating maximize button when right panel is hidden */}
-      {isMaximized && (
-        <motion.button
-          onClick={() => setIsMaximized(false)}
-          className="fixed bottom-6 right-6 p-3 bg-violet-600 hover:bg-violet-700 text-white rounded-full shadow-lg transition-colors z-50"
-          initial={{ scale: 0, rotate: -90 }}
-          animate={{ scale: 1, rotate: 0 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <Settings className="w-5 h-5" />
-        </motion.button>
-      )}
     </div>
   )
 } 

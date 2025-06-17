@@ -20,10 +20,10 @@ export async function POST(req: Request) {
 
     // Check token usage before proceeding
     const tokenStats = getTokenUsageStats();
-    if (tokenStats.percentage > 90) {
+    if (tokenStats.percentage > 95) {
       return new Response(
         JSON.stringify({ 
-          error: 'Token limit nearly reached', 
+          error: 'Token limit reached. Please try again later.', 
           usage: tokenStats 
         }), 
         { 
@@ -33,28 +33,44 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create or ensure chat exists in Convex
-    let finalChatId = null;
+    // Ensure we have a valid chat ID
+    let finalChatId = chatId;
     
-    // Check if chatId is a valid Convex ID format or a UUID
+    // Validate if it's a proper Convex ID format
     const isValidConvexId = chatId && !chatId.includes('-') && chatId.length > 10;
     
-    if (chatId && isValidConvexId) {
-      // It's already a valid Convex ID
-      finalChatId = chatId;
-    } else {
-      // Either no chatId or it's a UUID, create a new chat in Convex
+    if (!isValidConvexId) {
+      // Create a new chat in Convex
       try {
         const title = messages.length > 0 
           ? messages[0].content?.slice(0, 50) + '...' 
           : 'New Chat';
         
-        // For now, we'll skip Convex chat creation until user management is properly set up
-        console.log('Would create chat with title:', title, 'for user:', userId);
-        // finalChatId will remain null, which is handled gracefully
+        finalChatId = await convex.mutation(api.chats.createChat, {
+          userId: userId as any,
+          title
+        });
+        
+        console.log('Created new chat:', finalChatId);
       } catch (error) {
         console.error('Failed to create chat in Convex:', error);
         // Continue without chat ID for now
+      }
+    }
+
+    // Save user message to Convex if we have a valid chat ID
+    if (finalChatId && messages.length > 0) {
+      try {
+        const userMessage = messages[messages.length - 1];
+        if (userMessage.role === 'user') {
+          await convex.mutation(api.chats.addMessage, {
+            chatId: finalChatId,
+            content: userMessage.content,
+            role: 'user'
+          });
+        }
+      } catch (error) {
+        console.error('Failed to save user message:', error);
       }
     }
 
@@ -67,11 +83,21 @@ export async function POST(req: Request) {
           maxTokens: 1024
         });
 
-        // Return the best response (first successful one)
+        // Get the best response (first successful one)
         const bestResponse = multiModelResponses.find(r => r.success);
         if (bestResponse && bestResponse.response) {
-          // Message saving disabled for now until user management is set up
-          console.log('Would save messages to Convex chat:', finalChatId);
+          // Save AI response to Convex
+          if (finalChatId) {
+            try {
+              await convex.mutation(api.chats.addMessage, {
+                chatId: finalChatId,
+                content: bestResponse.response,
+                role: 'assistant'
+              });
+            } catch (error) {
+              console.error('Failed to save AI response:', error);
+            }
+          }
 
           return new Response(
             JSON.stringify({
@@ -94,31 +120,64 @@ export async function POST(req: Request) {
       }
     }
 
-    // Message saving disabled for now
-    console.log('Would save user message to Convex chat:', finalChatId);
-
-    // Single model response (default)
+    // Single model streaming response
     const result = await streamOpenRouterResponse({
       chatHistory: messages,
       modelId,
-      maxTokens: 1024 // Conservative limit
+      maxTokens: 1024
     });
 
-    // Return the stream response
-    const response = result.toDataStreamResponse();
+    // Create a transform stream to intercept and save the response
+    let fullResponse = '';
+    const { readable, writable } = new TransformStream({
+      transform(chunk, controller) {
+        const text = new TextDecoder().decode(chunk);
+        fullResponse += text;
+        controller.enqueue(chunk);
+      },
+      flush() {
+        // Save the complete AI response to Convex when streaming is done
+        if (finalChatId && fullResponse.trim()) {
+          convex.mutation(api.chats.addMessage, {
+            chatId: finalChatId,
+            content: fullResponse,
+            role: 'assistant'
+          }).catch(error => {
+            console.error('Failed to save streamed response:', error);
+          });
+        }
+      }
+    });
+
+    // Get the stream response and pipe through our transform
+    const streamResponse = result.toDataStreamResponse();
     
     // Add chat ID to response headers if available
+    const headers = new Headers(streamResponse.headers);
     if (finalChatId) {
-      response.headers.set('X-Chat-ID', finalChatId.toString());
+      headers.set('X-Chat-ID', finalChatId.toString());
     }
+    
+    // Add thinking indicator headers for real-time display
+    headers.set('X-Thinking', 'true');
+    headers.set('X-Model', modelId || 'auto');
 
-    return response;
+    return new Response(streamResponse.body?.pipeThrough(new TransformStream()), {
+      headers,
+      status: streamResponse.status
+    });
 
   } catch (error) {
     console.error('Error in chat API:', error);
     if (error instanceof Error) {
-      return new Response(error.message, { status: 500 });
+      return new Response(JSON.stringify({ error: error.message }), { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
-    return new Response('An unknown error occurred', { status: 500 });
+    return new Response(JSON.stringify({ error: 'An unknown error occurred' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 } 

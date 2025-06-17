@@ -139,6 +139,9 @@ interface AnimatedAIChatProps {
   onCodeGenerated?: (code: string) => void;
   className?: string;
   useMultipleModels?: boolean;
+  showThinking?: boolean;
+  currentResponse?: string;
+  isThinking?: boolean;
 }
 
 // Memoize command suggestions to prevent unnecessary recreations
@@ -214,7 +217,10 @@ export function AnimatedAIChat({
   onFirstMessageSent, 
   onCodeGenerated, 
   className,
-  useMultipleModels = false 
+  useMultipleModels = false,
+  showThinking = false,
+  currentResponse = "",
+  isThinking = false
 }: AnimatedAIChatProps) {
   const [value, setValue] = useState("")
   const [attachments, setAttachments] = useState<string[]>([])

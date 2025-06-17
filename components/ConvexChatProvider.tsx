@@ -13,6 +13,8 @@ type ConvexChatContextType = {
   messages: any[] | undefined;
   sendMessage: (content: string) => Promise<void>;
   isLoading: boolean;
+  isThinking: boolean;
+  currentResponse: string;
 };
 
 // Create context with default values
@@ -22,6 +24,8 @@ const ConvexChatContext = createContext<ConvexChatContextType>({
   messages: undefined,
   sendMessage: async () => {},
   isLoading: true,
+  isThinking: false,
+  currentResponse: "",
 });
 
 // Hook to use the chat context
@@ -38,6 +42,8 @@ export default function ConvexChatProvider({
   const userId = useConvexUser();
   const [currentChatId, setCurrentChatId] = useState<Id<"chats"> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isThinking, setIsThinking] = useState(false);
+  const [currentResponse, setCurrentResponse] = useState("");
 
   // Convex mutations and queries
   const createChatMutation = useMutation(api.chats.createChat);
@@ -81,28 +87,72 @@ export default function ConvexChatProvider({
     }
   }, [userId, chatId, createChatMutation]);
 
-  // Function to send a message
+  // Function to send a message with real-time AI response
   const sendMessage = async (content: string) => {
-    if (!currentChatId || !content.trim()) return;
+    if (!content.trim()) return;
+    
+    setIsThinking(true);
+    setCurrentResponse("");
     
     try {
-      await addMessageMutation({
-        chatId: currentChatId,
-        content,
-        role: "user",
-      });
+      // Get chat history for context
+      const chatHistory = messages || [];
+      const historyForAPI = chatHistory.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
       
-      // Here you would typically trigger an AI response
-      // For demo, let's just add an echo response after a short delay
-      setTimeout(async () => {
-        await addMessageMutation({
+      // Add the new user message to history
+      historyForAPI.push({ role: 'user', content });
+
+      // Send to API with streaming response
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: historyForAPI,
           chatId: currentChatId,
-          content: `Echo: ${content}`,
-          role: "assistant",
-        });
-      }, 1000);
+          modelId: "deepseek/deepseek-chat:free", // Default model
+          useMultipleModels: false
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      // Handle streaming response
+      if (response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          fullResponse += chunk;
+          setCurrentResponse(fullResponse);
+        }
+
+        // Get the updated chat ID from headers if it was created
+        const newChatId = response.headers.get('X-Chat-ID');
+        if (newChatId && newChatId !== currentChatId) {
+          setCurrentChatId(newChatId as Id<"chats">);
+        }
+      }
+      
     } catch (error) {
       console.error("Failed to send message:", error);
+      setCurrentResponse("Sorry, I encountered an error. Please try again.");
+    } finally {
+      setIsThinking(false);
+      // Clear the current response after a brief delay to let the UI update
+      setTimeout(() => setCurrentResponse(""), 100);
     }
   };
 
@@ -114,6 +164,8 @@ export default function ConvexChatProvider({
         messages,
         sendMessage,
         isLoading,
+        isThinking,
+        currentResponse,
       }}
     >
       {children}
