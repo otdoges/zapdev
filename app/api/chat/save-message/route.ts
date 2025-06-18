@@ -8,15 +8,15 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(req: Request) {
   try {
-  const session = await auth.api.getSession({ headers: req.headers });
+    const session = await auth.api.getSession({ headers: req.headers });
 
-  if (!session?.user) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+    if (!session?.user) {
+      return new Response("Unauthorized", { status: 401 });
+    }
 
-  const { chatId, content, role } = await req.json();
-      headers: req.headers
-    // Removed stray closing brace and duplicate session check.
+    const { chatId, content, role } = await req.json();
+    
+    // Validate chat ID format
     const isValidConvexId = chatId && !chatId.includes('-') && chatId.length > 10;
     
     if (!isValidConvexId) {

@@ -10,14 +10,13 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(req: Request) {
   try {
-  const session = await auth.api.getSession({ headers: req.headers });
+    const session = await auth.api.getSession({ headers: req.headers });
 
-  if (!session?.user) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+    if (!session?.user) {
+      return new Response("Unauthorized", { status: 401 });
+    }
 
-  const { messages, modelId, chatId, useMultipleModels = false } = await req.json();
-      headers: req.headers
+    const { messages, modelId, chatId, useMultipleModels = false } = await req.json();
     const userId = session.user.id;
 
     // Check token usage before proceeding
@@ -48,8 +47,8 @@ export async function POST(req: Request) {
           ? messages[0].content?.slice(0, 50) + '...' 
           : 'New Chat';
         
-        finalChatId = await convex.mutation(api.chats.createChat, {
-          userId: userId as any,
+        finalChatId = await convex.mutation(api.chats.createChatWithStringUserId, {
+          userId: userId,
           title
         });
         
@@ -122,6 +121,9 @@ export async function POST(req: Request) {
       }
     }
 
+    // Create a transform stream to intercept and save the response
+    let fullResponse = '';
+    
     // Single model streaming response
     const result = await streamOpenRouterResponse({
       chatHistory: messages,
@@ -129,9 +131,21 @@ export async function POST(req: Request) {
       maxTokens: 1024
     });
 
-    // Create a transform stream to intercept and save the response
-    let fullResponse = '';
-    const { readable, writable } = new TransformStream({
+    // Get the stream response and pipe through our transform
+    const streamResponse = result.toDataStreamResponse();
+    
+    // Add chat ID to response headers if available
+    const headers = new Headers(streamResponse.headers);
+    if (finalChatId) {
+      headers.set('X-Chat-ID', finalChatId.toString());
+    }
+    
+    // Add thinking indicator headers for real-time display
+    headers.set('X-Thinking', 'true');
+    headers.set('X-Model', modelId || 'auto');
+
+    // Pipe the response through our transform stream
+    const transformedBody = streamResponse.body?.pipeThrough(new TransformStream({
       transform(chunk, controller) {
         const text = new TextDecoder().decode(chunk);
         fullResponse += text;
@@ -149,22 +163,9 @@ export async function POST(req: Request) {
           });
         }
       }
-    });
+    }));
 
-    // Get the stream response and pipe through our transform
-    const streamResponse = result.toDataStreamResponse();
-    
-    // Add chat ID to response headers if available
-    const headers = new Headers(streamResponse.headers);
-    if (finalChatId) {
-      headers.set('X-Chat-ID', finalChatId.toString());
-    }
-    
-    // Add thinking indicator headers for real-time display
-    headers.set('X-Thinking', 'true');
-    headers.set('X-Model', modelId || 'auto');
-
-    return new Response(streamResponse.body?.pipeThrough(new TransformStream()), {
+    return new Response(transformedBody, {
       headers,
       status: streamResponse.status
     });

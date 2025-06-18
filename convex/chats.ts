@@ -112,4 +112,32 @@ export const addMessage = mutation({
       createdAt: now,
     });
   },
+});
+
+// Create a new chat with string user ID (for Better Auth integration)
+export const createChatWithStringUserId = mutation({
+  args: {
+    userId: v.string(),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId, title } = args;
+    
+    // Find the user by string ID
+    const users = await ctx.db.query("users").collect();
+    const user = users.find(u => u._id.toString() === userId);
+    
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    const now = Date.now();
+    
+    return await ctx.db.insert("chats", {
+      userId: user._id,
+      title,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
 }); 

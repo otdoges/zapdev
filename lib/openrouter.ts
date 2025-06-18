@@ -52,25 +52,50 @@ interface TokenUsage {
   timestamp: number;
 }
 
+// In-memory storage for server-side (resets on server restart)
 let dailyTokenUsage: TokenUsage[] = [];
 const MAX_DAILY_TOKENS = 50000; // Adjust based on your OpenRouter limits
+
+// Safe localStorage access with fallback
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return localStorage.getItem(key);
+    }
+    return null;
+  },
+  setItem: (key: string, value: string): void => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem(key, value);
+    }
+  }
+};
 
 // Reset daily usage if it's a new day
 function resetDailyUsageIfNeeded() {
   const now = new Date();
   const today = now.toDateString();
-  const lastReset = localStorage?.getItem('tokenUsageResetDate');
+  const lastReset = safeLocalStorage.getItem('tokenUsageResetDate');
   
   if (lastReset !== today) {
     dailyTokenUsage = [];
-    localStorage?.setItem('tokenUsageResetDate', today);
+    safeLocalStorage.setItem('tokenUsageResetDate', today);
+  } else if (typeof window !== 'undefined') {
+    // Load from localStorage on client-side
+    const stored = safeLocalStorage.getItem('dailyTokenUsage');
+    if (stored) {
+      try {
+        dailyTokenUsage = JSON.parse(stored);
+      } catch (error) {
+        console.error('Failed to parse stored token usage:', error);
+        dailyTokenUsage = [];
+      }
+    }
   }
 }
 
 // Get available models within token limits
 function getAvailableModels(): typeof modelConfigs {
-  if (typeof window === 'undefined') return modelConfigs; // Server-side, return all
-  
   resetDailyUsageIfNeeded();
   
   const totalUsed = dailyTokenUsage.reduce((sum, usage) => sum + usage.tokensUsed, 0);
@@ -81,16 +106,16 @@ function getAvailableModels(): typeof modelConfigs {
 
 // Track token usage
 function trackTokenUsage(modelId: string, tokens: number) {
-  if (typeof window === 'undefined') return; // Server-side, skip tracking
-  
   dailyTokenUsage.push({
     modelId,
     tokensUsed: tokens,
     timestamp: Date.now()
   });
   
-  // Store in localStorage for persistence
-  localStorage.setItem('dailyTokenUsage', JSON.stringify(dailyTokenUsage));
+  // Store in localStorage only on client-side
+  if (typeof window !== 'undefined') {
+    safeLocalStorage.setItem('dailyTokenUsage', JSON.stringify(dailyTokenUsage));
+  }
 }
 
 export function getModelId(modelIdFromParam?: string) {
@@ -293,8 +318,6 @@ export async function generateOpenRouterResponse(
 
 // Get current token usage stats
 export function getTokenUsageStats() {
-  if (typeof window === 'undefined') return { used: 0, remaining: MAX_DAILY_TOKENS, percentage: 0 };
-  
   resetDailyUsageIfNeeded();
   
   const totalUsed = dailyTokenUsage.reduce((sum, usage) => sum + usage.tokensUsed, 0);

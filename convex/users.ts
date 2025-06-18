@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 
 // Get user by email
 export const getUserByEmail = query({
@@ -21,6 +22,19 @@ export const getUserById = query({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.userId);
+  },
+});
+
+// Get user by string ID (for Better Auth integration)
+export const getUserByStringId = query({
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Try to find user by iterating through all users
+    // This is a fallback for string-based IDs from Better Auth
+    const users = await ctx.db.query("users").collect();
+    return users.find(user => user._id.toString() === args.userId) || null;
   },
 });
 
@@ -154,5 +168,42 @@ export const getUserStats = query({
       joinedAt: user.createdAt,
       lastActive: user.lastLogin,
     };
+  },
+});
+
+// Create chat with string user ID (for Better Auth integration)
+export const createChatWithStringUserId = mutation({
+  args: {
+    userId: v.string(),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId, title } = args;
+    
+    // Look up the user to get the proper Convex ID
+    let userRecord = null;
+    
+    // First try to get user directly if it's a valid Convex ID
+    try {
+      const convexId = userId as any; // Cast to Convex ID type
+      userRecord = await ctx.db.get(convexId);
+    } catch (error) {
+      // Not a valid Convex ID, try other lookup methods
+      const users = await ctx.db.query("users").collect();
+      userRecord = users.find(user => user._id.toString() === userId) || null;
+    }
+    
+    if (!userRecord) {
+      throw new Error("User not found");
+    }
+    
+    const now = Date.now();
+    
+    return await ctx.db.insert("chats", {
+      userId: userRecord._id,
+      title,
+      createdAt: now,
+      updatedAt: now,
+    });
   },
 });
