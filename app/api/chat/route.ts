@@ -1,5 +1,5 @@
 import { streamOpenRouterResponse, getMultiModelResponses, getTokenUsageStats } from '@/lib/openrouter';
-import { auth } from '@clerk/nextjs/server';
+import { auth } from '@/lib/auth';
 import { api } from "@/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 
@@ -12,11 +12,15 @@ export async function POST(req: Request) {
   try {
     const { messages, modelId, chatId, useMultipleModels = false } = await req.json();
     
-    const { userId } = await auth();
+    const session = await auth.api.getSession({
+      headers: req.headers
+    });
 
-    if (!userId) {
+    if (!session?.user) {
       return new Response('Unauthorized', { status: 401 });
     }
+
+    const userId = session.user.id;
 
     // Check token usage before proceeding
     const tokenStats = getTokenUsageStats();

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuth } from '@clerk/nextjs/server';
+import { auth } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
@@ -25,12 +25,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { userId: authUserId } = getAuth(req);
+    const session = await auth.api.getSession({
+      headers: req.headers
+    });
     const { chatId, userId: clientUserId } = await req.json();
 
-    if (!authUserId) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'User not authenticated.' }, { status: 401 });
     }
+
+    const authUserId = session.user.id;
 
     // Ensure the userId from the client matches the authenticated user's ID
     if (authUserId !== clientUserId) {

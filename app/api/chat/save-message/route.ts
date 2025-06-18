@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth } from '@/lib/auth';
 import { api } from "@/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 
@@ -10,9 +10,11 @@ export async function POST(req: Request) {
   try {
     const { chatId, content, role } = await req.json();
     
-    const { userId } = await auth();
+    const session = await auth.api.getSession({
+      headers: req.headers
+    });
 
-    if (!userId) {
+    if (!session?.user) {
       return new Response('Unauthorized', { status: 401 });
     }
 

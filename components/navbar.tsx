@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { Button } from "@/components/ui/button";
+import { AuthButtons } from "@/components/auth-buttons";
 
 export async function Navbar() {
-  const { userId } = await auth();
-  const isSignedIn = !!userId;
+  const session = await auth.api.getSession({
+    headers: await headers()
+  });
+  
+  const isSignedIn = !!session?.user;
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-gradient-to-b from-black to-zinc-950/80 backdrop-blur-md border-b border-zinc-800">
@@ -24,18 +28,7 @@ export async function Navbar() {
           </Link>
           
           {!isSignedIn ? (
-            <div className="flex items-center gap-2">
-              <SignInButton mode="modal">
-                <Button variant="ghost" className="text-zinc-300 hover:text-white hover:bg-zinc-800">
-                  Login
-                </Button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
-                  Sign Up
-                </Button>
-              </SignUpButton>
-            </div>
+            <AuthButtons />
           ) : (
             <div className="flex items-center gap-2">
               <Link href="/dashboard">
@@ -43,7 +36,7 @@ export async function Navbar() {
                   Dashboard
                 </Button>
               </Link>
-              <UserButton afterSignOutUrl="/" />
+              <AuthButtons />
             </div>
           )}
         </div>

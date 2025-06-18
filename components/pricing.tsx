@@ -4,12 +4,13 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
-import { SignedIn, SignedOut, useAuth } from "@clerk/nextjs";
+import { useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
 
 export default function Pricing() {
   const router = useRouter();
-  const { isSignedIn } = useAuth();
+  const { data: session } = useSession();
+  const isSignedIn = !!session?.user;
   const [isLoading, setIsLoading] = useState<number | null>(null);
 
   const handleSubscribe = async (priceId: string, tier: number) => {
@@ -139,7 +140,7 @@ export default function Pricing() {
                   </li>
                 ))}
               </ul>
-              <SignedIn>
+              {isSignedIn ? (
                 <Button
                   className={`w-full py-6 px-8 ${plan.tier === 2 
                     ? 'bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C]' 
@@ -160,18 +161,17 @@ export default function Pricing() {
                     "Subscribe Now"
                   )}
                 </Button>
-              </SignedIn>
-              <SignedOut>
+              ) : (
                 <Button
                   className={`w-full py-6 px-8 ${plan.tier === 2 
                     ? 'bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C]' 
                     : 'bg-[#1A1A1F] hover:bg-[#22222A] border border-[#2A2A35]'} 
                     rounded-full transition-all duration-300`}
-                  onClick={() => router.push("/sign-up")}
+                  onClick={() => router.push("/auth")}
                 >
                   Sign Up to Subscribe
                 </Button>
-              </SignedOut>
+              )}
             </motion.div>
           ))}
         </motion.div>
@@ -201,7 +201,7 @@ function CheckIcon() {
       strokeLinejoin="round"
       className="text-[#6C52A0]"
     >
-      <path d="M20 6 9 17l-5-5" />
+      <polyline points="20,6 9,17 4,12" />
     </svg>
   );
 } 
