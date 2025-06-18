@@ -8,8 +8,6 @@ import { useEffect, useState, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { Code, Eye, Maximize2, Minimize2, ArrowLeft, Settings, BarChart3, Brain } from "lucide-react"
 import { getTokenUsageStats } from "@/lib/openrouter"
-import { useConvexChat } from "@/components/ConvexChatProvider"
-import ConvexChatProvider from "@/components/ConvexChatProvider"
 import { useAuthUser } from "@/lib/actions"
 
 // Memoize static components for better performance
@@ -41,36 +39,18 @@ const StatsDisplay = ({ stats }: { stats: any }) => (
   </motion.div>
 )
 
-function ChatPageContent() {
+export default function ChatPage() {
   const router = useRouter()
   const params = useParams()
   const chatId = params.id as string
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false)
   const [tokenStats, setTokenStats] = useState<any>(null)
+  const [generatedCode, setGeneratedCode] = useState<string>("")
   const { user, isAuthenticated, isLoading } = useAuthUser()
-  
-  const { 
-    currentChat, 
-    messages, 
-    isLoading: chatLoading, 
-    isThinking,
-    currentResponse,
-    sendMessage, 
-    setCurrentChatId,
-    regenerateLastMessage,
-    canRegenerate 
-  } = useConvexChat()
 
   // Memoized handlers
   const handleBack = useMemo(() => () => router.push('/chat'), [router])
   const togglePreview = useMemo(() => () => setIsPreviewExpanded(prev => !prev), [])
-
-  // Set chat ID when component mounts or chatId changes
-  useEffect(() => {
-    if (chatId && chatId !== 'new') {
-      setCurrentChatId(chatId as any) // Cast to avoid type issues for now
-    }
-  }, [chatId, setCurrentChatId])
 
   // Load token usage stats
   useEffect(() => {
@@ -111,7 +91,7 @@ function ChatPageContent() {
           <BackButton onClick={handleBack} />
           <div className="flex flex-col">
             <h1 className="text-lg font-semibold">
-              {currentChat?.title || 'New Chat'}
+              Chat Session
             </h1>
             <StatsDisplay stats={tokenStats} />
           </div>
@@ -158,17 +138,12 @@ function ChatPageContent() {
           <AnimatedAIChat
             chatId={chatId === 'new' ? undefined : chatId}
             onFirstMessageSent={() => {
-              if (chatId === 'new') {
-                // Will be handled by the provider when a new chat is created
-              }
+              console.log('First message sent')
             }}
             onCodeGenerated={(code) => {
-              console.log('Code generated:', code)
+              setGeneratedCode(code)
             }}
             useMultipleModels={false}
-            showThinking={isThinking}
-            currentResponse={currentResponse}
-            isThinking={isThinking}
           />
         </div>
 
@@ -183,26 +158,11 @@ function ChatPageContent() {
           isPreviewExpanded ? "w-full opacity-100" : "w-1/2 opacity-100"
         )}>
           <WebContainerComponent 
-            code={
-              messages?.reverse().find(msg => 
-                msg.role === 'assistant' && 
-                (msg.content.includes('<') || msg.content.includes('html'))
-              )?.content || ''
-            }
+            code={generatedCode}
+            onCodeChange={setGeneratedCode}
           />
         </div>
       </div>
     </div>
-  )
-}
-
-export default function ChatPage() {
-  const params = useParams()
-  const chatId = params.id as string
-  
-  return (
-    <ConvexChatProvider chatId={chatId}>
-      <ChatPageContent />
-    </ConvexChatProvider>
   )
 } 

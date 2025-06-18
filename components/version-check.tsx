@@ -18,27 +18,54 @@ export function VersionCheck() {
         const current = process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0';
         setCurrentVersion(current);
 
-        // Fetch latest version from GitHub API
+        // Only check for updates in production or if explicitly enabled
+        if (process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_ENABLE_VERSION_CHECK !== 'true') {
+          setIsLoading(false);
+          return;
+        }
+
+        // Fetch latest version from GitHub API with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
         const response = await fetch('https://api.github.com/repos/otdoges/zapdev/releases/latest', {
           headers: {
             'Accept': 'application/vnd.github.v3+json'
           },
           // Add cache control to prevent stale data
-          cache: 'no-store'
+          cache: 'no-store',
+          signal: controller.signal
         });
 
-        if (!response.ok) throw new Error('Failed to fetch latest version');
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          console.warn('Failed to fetch latest version:', response.status, response.statusText);
+          return;
+        }
 
         const data = await response.json();
-        const latest = data.tag_name.replace(/^v/, '').trim(); // Remove 'v' prefix and trim whitespace
-        setLatestVersion(latest);
-
-        // Compare versions (simple string comparison works for semantic versioning)
-        if (latest !== current) {
-          setUpdateAvailable(true);
+        const latest = data.tag_name?.replace(/^v/, '').trim(); // Remove 'v' prefix and trim whitespace
+        
+        if (latest) {
+          setLatestVersion(latest);
+          
+          // Compare versions (simple string comparison works for semantic versioning)
+          if (latest !== current) {
+            setUpdateAvailable(true);
+          }
         }
       } catch (error) {
-        console.error('Error checking for updates:', error);
+        // Silently fail for network errors during development
+        if (error instanceof Error) {
+          if (error.name === 'AbortError') {
+            console.warn('Version check timed out');
+          } else {
+            console.warn('Error checking for updates:', error.message);
+          }
+        } else {
+          console.warn('Error checking for updates:', String(error));
+        }
       } finally {
         setIsLoading(false);
       }
