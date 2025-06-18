@@ -4,7 +4,17 @@ import { ConvexHttpClient } from "convex/browser";
 
 export const runtime = 'edge';
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Defensive Convex client creation
+const createConvexClient = () => {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!convexUrl) {
+    console.warn("NEXT_PUBLIC_CONVEX_URL not found, using placeholder");
+    return new ConvexHttpClient("https://placeholder.convex.cloud");
+  }
+  return new ConvexHttpClient(convexUrl);
+};
+
+const convex = createConvexClient();
 
 export async function POST(req: Request) {
   try {

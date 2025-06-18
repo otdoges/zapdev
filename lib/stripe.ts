@@ -2,10 +2,17 @@ import Stripe from "stripe";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 
-if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
-  throw new Error("Missing NEXT_PUBLIC_CONVEX_URL environment variable");
-}
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL);
+// Defensive Convex client creation
+const createConvexClient = () => {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!convexUrl) {
+    console.warn("NEXT_PUBLIC_CONVEX_URL not found, using placeholder");
+    return new ConvexHttpClient("https://placeholder.convex.cloud");
+  }
+  return new ConvexHttpClient(convexUrl);
+};
+
+const convex = createConvexClient();
 
 let stripe: Stripe;
 

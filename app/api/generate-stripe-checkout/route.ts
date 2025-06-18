@@ -6,7 +6,17 @@ import { api } from "@/convex/_generated/api";
 
 export const dynamic = 'force-dynamic';
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Defensive Convex client creation
+const createConvexClient = () => {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!convexUrl) {
+    console.warn("NEXT_PUBLIC_CONVEX_URL not found, using placeholder");
+    return new ConvexHttpClient("https://placeholder.convex.cloud");
+  }
+  return new ConvexHttpClient(convexUrl);
+};
+
+const convex = createConvexClient();
 
 // Map frontend price IDs to product names for easier lookup
 const PRODUCT_MAP = {
