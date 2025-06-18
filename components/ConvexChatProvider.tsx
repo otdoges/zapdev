@@ -2,7 +2,7 @@
 
 import { ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/convex/_generated/api";
-import { useConvexUser } from "@/lib/actions";
+import { useAuthUser } from "@/lib/actions";
 import { useMutation, useQuery } from "convex/react";
 import { Id } from "@/convex/_generated/dataModel";
 
@@ -15,6 +15,10 @@ type ConvexChatContextType = {
   isLoading: boolean;
   isThinking: boolean;
   currentResponse: string;
+  setCurrentChatId: (chatId: Id<"chats"> | null) => void;
+  currentChat: any;
+  regenerateLastMessage: () => Promise<void>;
+  canRegenerate: boolean;
 };
 
 // Create context with default values
@@ -26,6 +30,10 @@ const ConvexChatContext = createContext<ConvexChatContextType>({
   isLoading: true,
   isThinking: false,
   currentResponse: "",
+  setCurrentChatId: () => {},
+  currentChat: null,
+  regenerateLastMessage: async () => {},
+  canRegenerate: false,
 });
 
 // Hook to use the chat context
@@ -39,9 +47,10 @@ export default function ConvexChatProvider({
   children: ReactNode;
   chatId?: string;
 }) {
-  const userId = useConvexUser();
+  const { user } = useAuthUser();
+  const userId = user?.id as Id<"users"> | null;
   const [currentChatId, setCurrentChatId] = useState<Id<"chats"> | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [currentResponse, setCurrentResponse] = useState("");
 
@@ -55,37 +64,36 @@ export default function ConvexChatProvider({
     currentChatId ? { chatId: currentChatId } : "skip"
   );
 
-  // Create a new chat or load existing one
-  useEffect(() => {
-    const initializeChat = async () => {
-      if (!userId) return;
-      
-      // If we have a chatId from props, validate it's a proper Convex ID
-      if (chatId && !chatId.includes('-') && chatId.length > 10) {
-        // It's a valid Convex ID format
-        setCurrentChatId(chatId as Id<"chats">);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Otherwise, create a new chat
-      try {
-        const newChatId = await createChatMutation({
-          userId,
-          title: "New Chat",
-        });
-        setCurrentChatId(newChatId);
-      } catch (error) {
-        console.error("Failed to create chat:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Query for current chat details
+  const currentChat = useQuery(
+    api.chats.getChatById,
+    currentChatId ? { chatId: currentChatId } : "skip"
+  );
 
-    if (userId) {
-      initializeChat();
+  // Function to regenerate last message
+  const regenerateLastMessage = async () => {
+    if (!messages || messages.length === 0) return;
+    
+    // Find the last user message
+    const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user');
+    if (lastUserMessage) {
+      await sendMessage(lastUserMessage.content);
     }
-  }, [userId, chatId, createChatMutation]);
+  };
+
+  // Check if we can regenerate (has messages and not currently thinking)
+  const canRegenerate = Boolean(messages && messages.length > 0 && !isThinking);
+
+  // Load existing chat if chatId is provided
+  useEffect(() => {
+    if (chatId && !chatId.includes('-') && chatId.length > 10) {
+      // It's a valid Convex ID format
+      setCurrentChatId(chatId as Id<"chats">);
+    } else {
+      // No valid chat ID, will create one when first message is sent
+      setCurrentChatId(null);
+    }
+  }, [chatId]);
 
   // Function to send a message with real-time AI response
   const sendMessage = async (content: string) => {
@@ -95,6 +103,26 @@ export default function ConvexChatProvider({
     setCurrentResponse("");
     
     try {
+      let workingChatId = currentChatId;
+      
+      // Create chat if it doesn't exist yet
+      if (!workingChatId && userId) {
+        setIsLoading(true);
+        try {
+          const title = content.slice(0, 50) + (content.length > 50 ? '...' : '');
+          workingChatId = await createChatMutation({
+            userId,
+            title,
+          });
+          setCurrentChatId(workingChatId);
+        } catch (error) {
+          console.error("Failed to create chat:", error);
+          throw new Error("Failed to create chat");
+        } finally {
+          setIsLoading(false);
+        }
+      }
+
       // Get chat history for context
       const chatHistory = messages || [];
       const historyForAPI = chatHistory.map(msg => ({
@@ -113,7 +141,7 @@ export default function ConvexChatProvider({
         },
         body: JSON.stringify({
           messages: historyForAPI,
-          chatId: currentChatId,
+          chatId: workingChatId,
           modelId: "deepseek/deepseek-chat:free", // Default model
           useMultipleModels: false
         }),
@@ -141,7 +169,7 @@ export default function ConvexChatProvider({
 
         // Get the updated chat ID from headers if it was created
         const newChatId = response.headers.get('X-Chat-ID');
-        if (newChatId && newChatId !== currentChatId) {
+        if (newChatId && newChatId !== workingChatId) {
           setCurrentChatId(newChatId as Id<"chats">);
         }
       }
@@ -166,6 +194,10 @@ export default function ConvexChatProvider({
         isLoading,
         isThinking,
         currentResponse,
+        setCurrentChatId,
+        currentChat,
+        regenerateLastMessage,
+        canRegenerate,
       }}
     >
       {children}

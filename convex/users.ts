@@ -1,127 +1,158 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 
-// Get user by clerk ID - can only get your own user data
-export const getUserByClerkId = query({
+// Get user by email
+export const getUserByEmail = query({
   args: {
-    clerkId: v.string(),
+    email: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    
-    // Security check: Users can only get their own data
-    if (identity.subject !== args.clerkId) {
-      throw new Error("Unauthorized: You can only access your own user data");
-    }
-    
     return await ctx.db
       .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
   },
 });
 
-// Get the current user's profile
-export const getCurrentUser = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
-    
-    return await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .first();
+// Get user by ID
+export const getUserById = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.userId);
   },
 });
 
-// --- Internal mutations for Clerk webhooks ---
-
-export const createUser = internalMutation({
+// Create or update user from OAuth provider
+export const createOrUpdateUser = mutation({
   args: {
-    clerkId: v.string(),
-    email: v.optional(v.string()),
-    firstName: v.optional(v.string()),
-    lastName: v.optional(v.string()),
-    avatarUrl: v.optional(v.string()),
+    email: v.string(),
+    name: v.string(),
+    avatar: v.string(),
+    provider: v.string(),
   },
   handler: async (ctx, args) => {
-    const { clerkId, email, firstName, lastName, avatarUrl } = args;
+    const { email, name, avatar, provider } = args;
 
+    // Check if user already exists
     const existingUser = await ctx.db
       .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .withIndex("by_email", (q) => q.eq("email", email))
       .first();
 
-    if (existingUser) {
-        console.warn(`User with Clerk ID ${clerkId} already exists. Skipping creation.`);
-        return existingUser._id;
-    }
-
     const now = Date.now();
-    return await ctx.db.insert("users", {
-      clerkId,
-      email,
-      firstName,
-      lastName,
-      avatarUrl,
-      createdAt: now,
-      updatedAt: now,
-    });
+
+    if (existingUser) {
+      // Update existing user
+      await ctx.db.patch(existingUser._id, {
+        name,
+        avatar,
+        provider,
+        lastLogin: now,
+        updatedAt: now,
+      });
+      return existingUser._id;
+    } else {
+      // Create new user
+      return await ctx.db.insert("users", {
+        email,
+        name,
+        avatar,
+        provider,
+        createdAt: now,
+        updatedAt: now,
+        lastLogin: now,
+      });
+    }
   },
 });
 
-export const updateUser = internalMutation({
-    args: {
-        clerkId: v.string(),
-        email: v.optional(v.string()),
-        firstName: v.optional(v.string()),
-        lastName: v.optional(v.string()),
-        avatarUrl: v.optional(v.string()),
-    },
-    handler: async (ctx, args) => {
-        const { clerkId, ...rest } = args;
-
-        const existingUser = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
-            .first();
-
-        if (!existingUser) {
-            console.error(`User with Clerk ID ${clerkId} not found. Cannot update.`);
-            return;
-        }
-        
-        const updates = Object.fromEntries(
-            Object.entries(rest).filter(([, v]) => v !== undefined)
-        );
-        await ctx.db.patch(existingUser._id, {
-            ...updates,
-            updatedAt: Date.now(),
-        });
-    }
+// Get all users (admin function)
+export const getAllUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("users").collect();
+  },
 });
 
-export const deleteUser = internalMutation({
-    args: {
-      clerkId: v.string(),
-    },
-    handler: async (ctx, { clerkId }) => {
-        const existingUser = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
-            .first();
+// Update user profile
+export const updateUserProfile = mutation({
+  args: {
+    userId: v.id("users"),
+    name: v.optional(v.string()),
+    avatar: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId, ...updates } = args;
+    
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
 
-        if (!existingUser) {
-            console.warn(`User with Clerk ID ${clerkId} not found for deletion.`);
-            return;
-        }
+    const filteredUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([, v]) => v !== undefined)
+    );
 
-        await ctx.db.delete(existingUser._id);
-    },
+    await ctx.db.patch(userId, {
+      ...filteredUpdates,
+      updatedAt: Date.now(),
+    });
+
+    return await ctx.db.get(userId);
+  },
+});
+
+// Delete user
+export const deleteUser = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.delete(args.userId);
+    return { success: true };
+  },
+});
+
+// Get user stats
+export const getUserStats = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return null;
+    }
+
+    // Get user's chat count
+    const chats = await ctx.db
+      .query("chats")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Get total message count
+    let totalMessages = 0;
+    for (const chat of chats) {
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_chat_id", (q) => q.eq("chatId", chat._id))
+        .collect();
+      totalMessages += messages.length;
+    }
+
+    return {
+      user,
+      chatCount: chats.length,
+      messageCount: totalMessages,
+      joinedAt: user.createdAt,
+      lastActive: user.lastLogin,
+    };
+  },
 });

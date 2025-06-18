@@ -8,7 +8,7 @@ export const getChatsByUser = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("chats")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
       .order("desc")
       .collect();
   },
@@ -28,7 +28,7 @@ export const getMessagesByChatId = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("messages")
-      .withIndex("by_chat", (q) => q.eq("chatId", args.chatId))
+      .withIndex("by_chat_id", (q) => q.eq("chatId", args.chatId))
       .order("asc")
       .collect();
   },
@@ -81,7 +81,7 @@ export const deleteChat = mutation({
     // Get all messages for this chat
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_chat", (q) => q.eq("chatId", chatId))
+      .withIndex("by_chat_id", (q) => q.eq("chatId", chatId))
       .collect();
     
     // Delete all messages

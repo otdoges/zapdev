@@ -13,8 +13,8 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as betterAuth from "../betterAuth.js";
 import type * as chats from "../chats.js";
-import type * as clerk from "../clerk.js";
 import type * as http from "../http.js";
 import type * as messages from "../messages.js";
 import type * as stripe from "../stripe.js";
@@ -29,8 +29,8 @@ import type * as users from "../users.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  betterAuth: typeof betterAuth;
   chats: typeof chats;
-  clerk: typeof clerk;
   http: typeof http;
   messages: typeof messages;
   stripe: typeof stripe;

@@ -1,49 +1,29 @@
-import { api } from "../convex/_generated/api";
-import { Id } from "../convex/_generated/dataModel";
-import { useUser } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
-import { useEffect } from "react";
+import { useSession } from "@/lib/auth-client";
 
 /**
- * Hook to sync the current Clerk user with Convex.
- * Call this in components where you need the user's Convex ID.
- * 
- * @returns The user's Convex ID or null if not found/authenticated
+ * Hook to get the current authenticated user from Better Auth session
  */
-export function useConvexUser() {
-  const { user, isSignedIn } = useUser();
-  const syncUser = useMutation(api.users.syncClerkUser);
-  const convexUser = useQuery(
-    api.users.getUserByClerkId, 
-    isSignedIn ? { clerkId: user?.id || "" } : "skip"
-  );
+export function useAuthUser() {
+  const { data: session, isPending } = useSession();
 
-  useEffect(() => {
-    // If user is signed in and we have their data, sync with Convex
-    if (isSignedIn && user?.id) {
-      const primaryEmail = user.emailAddresses[0]?.emailAddress;
-      
-      syncUser({
-        clerkId: user.id,
-        email: primaryEmail,
-        firstName: user.firstName || undefined,
-        lastName: user.lastName || undefined,
-        avatarUrl: user.imageUrl || undefined,
-      });
-    }
-  }, [isSignedIn, user?.id, syncUser, user]);
-
-  return convexUser ? convexUser._id : null;
+  return {
+    user: session?.user || null,
+    session,
+    isLoading: isPending,
+    isAuthenticated: !!session?.user,
+  };
 }
 
 /**
- * Function to get the current user in an API route
+ * Function to check if user is authenticated
  */
-export async function getCurrentUser(clerkUserId: string, db: any) {
-  if (!clerkUserId) return null;
+export function useIsAuthenticated() {
+  const { data: session, isPending } = useSession();
   
-  return await db
-    .query("users")
-    .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", clerkUserId))
-    .first();
-} 
+  return {
+    isAuthenticated: !!session?.user,
+    isLoading: isPending,
+  };
+}
+
+ 

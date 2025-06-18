@@ -14,7 +14,7 @@ export const getMyStripeCustomerId = query({
 
     const user = await ctx.db
       .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .withIndex("by_email", (q) => q.eq("email", identity.email!))
       .unique();
     
     return user ? { hasCustomer: Boolean(user.stripeCustomerId) } : null;
@@ -23,11 +23,11 @@ export const getMyStripeCustomerId = query({
 
 // INTERNAL: Set the stripe customer id for a user (only called by server-side code)
 export const setStripeCustomerId = internalMutation({
-  args: { clerkId: v.string(), stripeCustomerId: v.string() },
-  handler: async (ctx, { clerkId, stripeCustomerId }) => {
+  args: { email: v.string(), stripeCustomerId: v.string() },
+  handler: async (ctx, { email, stripeCustomerId }) => {
     const user = await ctx.db
       .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .withIndex("by_email", (q) => q.eq("email", email))
       .unique();
 
     if (!user) {
@@ -83,13 +83,13 @@ export const createCheckoutSession = action({
       throw new Error("Not authenticated");
     }
     
-    const clerkId = identity.subject;
+    const userEmail = identity.email!;
     
     // Get Stripe API key from environment
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
     
     // Find or create user record
-    const userRecord = await ctx.runQuery(api.users.getUserByClerkId, { clerkId });
+    const userRecord = await ctx.runQuery(api.users.getUserByEmail, { email: userEmail });
     
     let customerIdToUse = userRecord?.stripeCustomerId;
     
@@ -99,7 +99,7 @@ export const createCheckoutSession = action({
         email: identity.email,
         name: identity.name,
         metadata: {
-          clerkId,
+          userId: userRecord?._id || "unknown",
         },
       });
       
@@ -107,7 +107,7 @@ export const createCheckoutSession = action({
       
       // Save the new customer ID
       await ctx.runMutation(internal.stripe.setStripeCustomerId, {
-        clerkId,
+        email: userEmail,
         stripeCustomerId: customerIdToUse,
       });
     }

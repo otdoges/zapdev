@@ -2,7 +2,6 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { stripeWebhook } from "./stripe";
-import { clerkWebhook } from "./clerk";
 
 const http = httpRouter();
 
@@ -11,13 +10,6 @@ http.route({
   path: "/stripe",
   method: "POST",
   handler: stripeWebhook,
-});
-
-// Clerk webhooks
-http.route({
-  path: "/clerk",
-  method: "POST",
-  handler: clerkWebhook,
 });
 
 // Add HTTP routes here as needed
