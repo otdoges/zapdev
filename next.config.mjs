@@ -50,7 +50,7 @@ const nextConfig = {
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net",
-      "connect-src 'self' https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud",
+      "connect-src 'self' http://localhost:3000 http://localhost:3001 https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud",
       "img-src 'self' data: blob:",
       "style-src 'self' 'unsafe-inline'",
       "frame-src 'self' https://clerk.accounts.dev",

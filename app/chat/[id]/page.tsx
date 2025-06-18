@@ -46,6 +46,7 @@ export default function ChatPage() {
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false)
   const [tokenStats, setTokenStats] = useState<any>(null)
   const [generatedCode, setGeneratedCode] = useState<string>("")
+  const [hasMessagesSent, setHasMessagesSent] = useState(false)
   const { user, isAuthenticated, isLoading } = useAuthUser()
 
   // Memoized handlers
@@ -97,72 +98,126 @@ export default function ChatPage() {
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
-          <motion.button
-            onClick={togglePreview}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-2"
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            {isPreviewExpanded ? (
-              <>
-                <Code className="w-4 h-4" />
-                <span className="text-sm">Show Chat</span>
-              </>
-            ) : (
-              <>
-                <Eye className="w-4 h-4" />
-                <span className="text-sm">Show Preview</span>
-              </>
-            )}
-          </motion.button>
-          
-          <motion.button
-            onClick={togglePreview}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            {isPreviewExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </motion.button>
-        </div>
+        {/* Only show preview controls after first message */}
+        {hasMessagesSent && (
+          <div className="flex items-center gap-2">
+            <motion.button
+              onClick={togglePreview}
+              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-2"
+              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.05 }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {isPreviewExpanded ? (
+                <>
+                  <Code className="w-4 h-4" />
+                  <span className="text-sm">Show Chat</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4" />
+                  <span className="text-sm">Show Preview</span>
+                </>
+              )}
+            </motion.button>
+            
+            <motion.button
+              onClick={togglePreview}
+              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.05 }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+            >
+              {isPreviewExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </motion.button>
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Chat Panel */}
-        <div className={cn(
-          "transition-all duration-300 flex flex-col",
-          isPreviewExpanded ? "w-0 opacity-0" : "w-1/2 opacity-100"
-        )}>
-          <AnimatedAIChat
-            chatId={chatId === 'new' ? undefined : chatId}
-            onFirstMessageSent={() => {
-              console.log('First message sent')
-            }}
-            onCodeGenerated={(code) => {
-              setGeneratedCode(code)
-            }}
-            useMultipleModels={false}
-          />
+      {!hasMessagesSent ? (
+        /* Full-width chat before first message */
+        <div className="flex-1 flex overflow-hidden">
+          <div className="w-full h-full">
+            <AnimatedAIChat
+              chatId={chatId === 'new' ? undefined : chatId}
+              onFirstMessageSent={() => {
+                console.log('First message sent')
+                setHasMessagesSent(true)
+              }}
+              onCodeGenerated={(code) => {
+                setGeneratedCode(code)
+              }}
+              useMultipleModels={false}
+              className="h-full"
+            />
+          </div>
         </div>
+      ) : (
+        /* Split layout after first message */
+        <motion.div 
+          className="flex-1 flex overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          {/* Chat Panel */}
+          <motion.div 
+            className={cn(
+              "transition-all duration-300 flex flex-col",
+              isPreviewExpanded ? "w-0 opacity-0" : "w-1/2 opacity-100"
+            )}
+            initial={{ width: "100%" }}
+            animate={{ width: isPreviewExpanded ? "0%" : "50%" }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+          >
+            <AnimatedAIChat
+              chatId={chatId === 'new' ? undefined : chatId}
+              onFirstMessageSent={() => {
+                console.log('First message sent')
+              }}
+              onCodeGenerated={(code) => {
+                setGeneratedCode(code)
+              }}
+              useMultipleModels={false}
+              className="h-full"
+            />
+          </motion.div>
 
-        {/* Separator */}
-        {!isPreviewExpanded && (
-          <div className="w-px bg-white/10 flex-shrink-0" />
-        )}
+          {/* Separator */}
+          {!isPreviewExpanded && (
+            <motion.div 
+              className="w-px bg-white/10 flex-shrink-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+            />
+          )}
 
-        {/* Preview Panel */}
-        <div className={cn(
-          "transition-all duration-300 flex flex-col",
-          isPreviewExpanded ? "w-full opacity-100" : "w-1/2 opacity-100"
-        )}>
-          <WebContainerComponent 
-            code={generatedCode}
-            onCodeChange={setGeneratedCode}
-          />
-        </div>
-      </div>
+          {/* Preview Panel */}
+          <motion.div 
+            className={cn(
+              "transition-all duration-300 flex flex-col",
+              isPreviewExpanded ? "w-full opacity-100" : "w-1/2 opacity-100"
+            )}
+            initial={{ width: "0%", opacity: 0 }}
+            animate={{ 
+              width: isPreviewExpanded ? "100%" : "50%", 
+              opacity: 1 
+            }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+          >
+            <WebContainerComponent 
+              code={generatedCode}
+              onCodeChange={setGeneratedCode}
+            />
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   )
 } 

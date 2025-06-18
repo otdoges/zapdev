@@ -10,16 +10,14 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(req: Request) {
   try {
-    const { messages, modelId, chatId, useMultipleModels = false } = await req.json();
-    
-    const session = await auth.api.getSession({
+  const session = await auth.api.getSession({ headers: req.headers });
+
+  if (!session?.user) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const { messages, modelId, chatId, useMultipleModels = false } = await req.json();
       headers: req.headers
-    });
-
-    if (!session?.user) {
-      return new Response('Unauthorized', { status: 401 });
-    }
-
     const userId = session.user.id;
 
     // Check token usage before proceeding

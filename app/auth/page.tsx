@@ -2,9 +2,13 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Github, Chrome, Sparkles, Zap, ArrowRight, Code, Palette, Rocket } from "lucide-react"
-import { signIn } from "@/lib/auth-client"
+import { Github, Chrome, Sparkles, Zap, ArrowRight, Code, Palette, Rocket, Mail, Lock, User } from "lucide-react"
+import { signIn, signUp } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { TosPrivacyDialog } from "@/components/ui/tos-privacy-dialog"
 
 const features = [
   {
@@ -26,9 +30,13 @@ const features = [
 
 export default function AuthPage() {
   const [isLoading, setIsLoading] = useState<string | null>(null)
+  const [isSignUp, setIsSignUp] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [name, setName] = useState("")
   const router = useRouter()
 
-  const handleAuth = async (provider: 'github' | 'google') => {
+  const handleSocialAuth = async (provider: 'github' | 'google') => {
     setIsLoading(provider)
     
     try {
@@ -38,6 +46,31 @@ export default function AuthPage() {
       })
     } catch (error) {
       console.error(`${provider} auth failed:`, error)
+      setIsLoading(null)
+    }
+  }
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading('email')
+    
+    try {
+      if (isSignUp) {
+        await signUp.email({
+          email,
+          password,
+          name,
+          callbackURL: "/chat",
+        })
+      } else {
+        await signIn.email({
+          email,
+          password,
+          callbackURL: "/chat",
+        })
+      }
+    } catch (error) {
+      console.error(`Email auth failed:`, error)
       setIsLoading(null)
     }
   }
@@ -126,50 +159,137 @@ export default function AuthPage() {
               <p className="text-gray-300">Sign in to start building amazing things</p>
             </div>
 
-            <div className="space-y-4">
+            {/* Social Auth Icons */}
+            <div className="flex justify-center gap-4 mb-6">
               <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleAuth('github')}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleSocialAuth('github')}
                 disabled={isLoading !== null}
-                className="w-full flex items-center justify-center gap-3 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-200 border border-gray-700 hover:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-4 bg-gray-900 hover:bg-gray-800 rounded-2xl transition-all duration-200 border border-gray-700 hover:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Continue with GitHub"
               >
                 {isLoading === 'github' ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <Github className="w-5 h-5" />
+                  <Github className="w-6 h-6 text-white" />
                 )}
-                Continue with GitHub
-                <ArrowRight className="w-4 h-4 ml-auto" />
               </motion.button>
 
               <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleAuth('google')}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleSocialAuth('google')}
                 disabled={isLoading !== null}
-                className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-semibold py-4 px-6 rounded-2xl transition-all duration-200 border border-gray-200 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-4 bg-white hover:bg-gray-50 rounded-2xl transition-all duration-200 border border-gray-200 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Continue with Google"
               >
                 {isLoading === 'google' ? (
-                  <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
                 ) : (
-                  <Chrome className="w-5 h-5" />
+                  <Chrome className="w-6 h-6 text-gray-900" />
                 )}
-                Continue with Google
-                <ArrowRight className="w-4 h-4 ml-auto" />
               </motion.button>
+            </div>
+
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 h-px bg-white/20" />
+              <span className="text-gray-400 text-sm">or</span>
+              <div className="flex-1 h-px bg-white/20" />
+            </div>
+
+            {/* Email/Password Form */}
+            <form onSubmit={handleEmailAuth} className="space-y-4">
+              {isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-white">Name</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Enter your name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-white">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-white">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
+                    required
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading !== null}
+                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-semibold py-4 rounded-2xl transition-all duration-200"
+              >
+                {isLoading === 'email' ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    {isSignUp ? 'Create Account' : 'Sign In'}
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-violet-400 hover:text-violet-300 transition-colors text-sm"
+              >
+                {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+              </button>
             </div>
 
             <div className="mt-8 text-center">
               <p className="text-sm text-gray-400">
                 By signing in, you agree to our{" "}
-                <a href="#" className="text-violet-400 hover:text-violet-300 transition-colors">
-                  Terms of Service
-                </a>{" "}
+                <TosPrivacyDialog type="tos">
+                  <button className="text-violet-400 hover:text-violet-300 transition-colors underline">
+                    Terms of Service
+                  </button>
+                </TosPrivacyDialog>{" "}
                 and{" "}
-                <a href="#" className="text-violet-400 hover:text-violet-300 transition-colors">
-                  Privacy Policy
-                </a>
+                <TosPrivacyDialog type="privacy">
+                  <button className="text-violet-400 hover:text-violet-300 transition-colors underline">
+                    Privacy Policy
+                  </button>
+                </TosPrivacyDialog>
               </p>
             </div>
           </div>
@@ -198,7 +318,7 @@ export default function AuthPage() {
               repeat: Infinity,
               ease: "easeInOut"
             }}
-            className="absolute -bottom-6 -left-6 w-12 h-12 bg-gradient-to-r from-violet-500 to-purple-500 rounded-full opacity-20 blur-sm"
+            className="absolute -bottom-8 -left-8 w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full opacity-20 blur-sm"
           />
         </motion.div>
       </div>
