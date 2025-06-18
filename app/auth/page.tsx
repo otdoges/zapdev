@@ -4,7 +4,7 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import { Github, Chrome, Sparkles, Zap, ArrowRight, Code, Palette, Rocket, Mail, Lock, User } from "lucide-react"
 import { signIn, signUp } from "@/lib/auth-client"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -35,6 +35,8 @@ export default function AuthPage() {
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirectTo') || '/chat'
 
   const handleSocialAuth = async (provider: 'github' | 'google') => {
     setIsLoading(provider)
@@ -42,7 +44,7 @@ export default function AuthPage() {
     try {
       await signIn.social({
         provider,
-        callbackURL: "/chat",
+        callbackURL: redirectTo,
       })
     } catch (error) {
       console.error(`${provider} auth failed:`, error)
@@ -60,13 +62,13 @@ export default function AuthPage() {
           email,
           password,
           name,
-          callbackURL: "/chat",
+          callbackURL: redirectTo,
         })
       } else {
         await signIn.email({
           email,
           password,
-          callbackURL: "/chat",
+          callbackURL: redirectTo,
         })
       }
     } catch (error) {
