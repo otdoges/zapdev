@@ -1,4 +1,4 @@
-import { getAuth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@/lib/auth";
 import { getStripeClient } from "@/lib/stripe";
 import { type NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
@@ -17,12 +17,15 @@ const PRODUCT_MAP = {
 
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = getAuth(req);
-    const user = await currentUser();
+    const session = await auth.api.getSession({
+      headers: req.headers
+    });
 
-    if (!userId || !user) {
+    if (!session?.user) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    const { user } = session;
 
     // Get the priceId from the URL query parameters
     const url = new URL(req.url);
@@ -52,10 +55,10 @@ export async function GET(req: NextRequest) {
     
     // Create a customer directly in Stripe without requiring a user in Convex first
     const customer = await stripe.customers.create({
-      email: user.primaryEmailAddress?.emailAddress,
-      name: `${user.firstName} ${user.lastName}`.trim(),
+      email: user.email,
+      name: user.name,
       metadata: {
-        userId: userId,
+        userId: user.id,
       },
     });
 
@@ -75,7 +78,7 @@ export async function GET(req: NextRequest) {
       billing_address_collection: "auto",
       payment_method_types: ["card"],
       metadata: {
-        userId,
+        userId: user.id,
         priceType,
         stripeCustomerId: customer.id
       }
