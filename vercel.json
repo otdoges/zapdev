@@ -1,11 +1,14 @@
 {
+    "buildCommand": "npm run build",
+    "installCommand": "npm install",
+    "framework": "nextjs",
     "headers": [
       {
         "source": "/(.*)",
         "headers": [
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net; connect-src 'self' https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud; img-src 'self' data: blob: https://img.clerk.com https://images.clerk.dev; style-src 'self' 'unsafe-inline'; frame-src 'self' https://clerk.accounts.dev; font-src 'self' data: https://cdn.jsdelivr.net; worker-src 'self' blob:; child-src 'self' blob:;"
+            "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://api.github.com https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; frame-src 'self'; font-src 'self' data: https://cdn.jsdelivr.net; worker-src 'self' blob:; child-src 'self' blob:;"
           },
           {
             "key": "X-Content-Type-Options",
