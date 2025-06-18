@@ -49,11 +49,11 @@ const nextConfig = {
   async headers() {
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net",
-      "connect-src 'self' http://localhost:* https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud",
-      "img-src 'self' data: blob:",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net",
+      "connect-src 'self' http://localhost:* https://api.github.com https://accounts.google.com https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud",
+      "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
       "style-src 'self' 'unsafe-inline'",
-      "frame-src 'self' https://clerk.accounts.dev",
+      "frame-src 'self'",
       "font-src 'self' data: https://cdn.jsdelivr.net",
       "worker-src 'self' blob:",
       "child-src 'self' blob:",

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { motion } from "framer-motion"
 import { Github, Chrome, Sparkles, Zap, ArrowRight, Code, Palette, Rocket, Mail, Lock, User } from "lucide-react"
 import { signIn, signUp } from "@/lib/auth-client"
@@ -28,7 +28,7 @@ const features = [
   }
 ]
 
-export default function AuthPage() {
+function AuthForm() {
   const [isLoading, setIsLoading] = useState<string | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState("")
@@ -351,5 +351,17 @@ export default function AuthPage() {
         }
       `}</style>
     </div>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    }>
+      <AuthForm />
+    </Suspense>
   )
 }

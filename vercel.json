@@ -1,25 +1,39 @@
 {
-    "headers": [
-      {
-        "source": "/(.*)",
-        "headers": [
-          {
-            "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net; connect-src 'self' https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud; img-src 'self' data: blob: https://img.clerk.com https://images.clerk.dev; style-src 'self' 'unsafe-inline'; frame-src 'self' https://clerk.accounts.dev; font-src 'self' data: https://cdn.jsdelivr.net; worker-src 'self' blob:; child-src 'self' blob:;"
-          },
-          {
-            "key": "X-Content-Type-Options",
-            "value": "nosniff"
-          },
-          {
-            "key": "X-Frame-Options",
-            "value": "SAMEORIGIN"
-          },
-          {
-            "key": "X-XSS-Protection",
-            "value": "1; mode=block"
-          }
-        ]
-      }
-    ]
+  "functions": {
+    "app/api/webhooks/stripe/route.ts": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://api.github.com https://accounts.google.com https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud; img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com; style-src 'self' 'unsafe-inline'; frame-src 'self'; font-src 'self' data: https://cdn.jsdelivr.net; worker-src 'self' blob:; child-src 'self' blob:;"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/auth/:path*",
+      "destination": "/api/auth/:path*"
+    }
+  ],
+  "env": {
+    "VERCEL_ENV": "production"
   }
+}
