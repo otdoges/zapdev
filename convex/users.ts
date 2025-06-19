@@ -45,20 +45,30 @@ export const createOrUpdateUser = mutation({
 
     if (existingUser) {
       // Update existing user, but don't overwrite avatar if the new one is empty and existing one exists
-      const updateData: any = {
-        name,
-        lastLogin: now,
-        updatedAt: now,
+      const updateData: Partial<{
+        name: string;
+        avatar: string;
+        provider: string;
+        lastLogin: number;
+        updatedAt: number;
+      }> = {
+         name,
+         lastLogin: now,
+         updatedAt: now,
       };
       
-      // Update provider if it's more specific (e.g., "github" instead of "oauth")
-      if (provider !== "oauth" && provider !== "email") {
-        updateData.provider = provider;
-      } else if (!existingUser.provider || existingUser.provider === "oauth") {
+      // Update provider if the new one is more specific than the existing one
+      const shouldUpdateProvider = 
+        !existingUser.provider || 
+        existingUser.provider === "oauth" || 
+        existingUser.provider === "email" ||
+        (provider !== "oauth" && provider !== "email");
+      
+      if (shouldUpdateProvider) {
         updateData.provider = provider;
       }
       
-      // Only update avatar if new one is provided or existing one is empty
+      // Update avatar if new one is provided or existing one is empty
       if (avatar || !existingUser.avatar) {
         updateData.avatar = avatar;
       }

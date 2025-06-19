@@ -40,20 +40,26 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        after: async (user) => {
+        after: async (user: any) => {
           // Sync all users to custom users table
-          if (user.email) {
-            const convexClient = createConvexClient();
-            try {
-              await convexClient.mutation(api.users.createOrUpdateUser, {
-                email: user.email,
-                name: user.name || user.email.split('@')[0],
-                avatar: user.image || "",
-                provider: user.image ? "oauth" : "email", // Simple heuristic
-              });
-            } catch (error) {
-              console.error("Failed to sync user to Convex:", error);
-            }
+          if (!user.email) {
+            console.warn("User created without email, skipping Convex sync");
+            return;
+          }
+          
+          const convexClient = createConvexClient();
+          try {
+            await convexClient.mutation(api.users.createOrUpdateUser, {
+              email: user.email,
+              name: user.name || user.email.split('@')[0],
+              avatar: user.image || "",
+              provider: user.provider || (user.image ? "oauth" : "email"),
+            });
+          } catch (error) {
+            console.error("Failed to sync user to Convex:", {
+              email: user.email,
+              error: error instanceof Error ? error.message : String(error),
+            });
           }
         },
       },
