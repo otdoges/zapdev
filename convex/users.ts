@@ -24,7 +24,7 @@ export const getUserById = query({
   },
 });
 
-// Create or update user from OAuth provider
+// Create or update user from OAuth provider or email signup
 export const createOrUpdateUser = mutation({
   args: {
     email: v.string(),
@@ -44,21 +44,33 @@ export const createOrUpdateUser = mutation({
     const now = Date.now();
 
     if (existingUser) {
-      // Update existing user
-      await ctx.db.patch(existingUser._id, {
+      // Update existing user, but don't overwrite avatar if the new one is empty and existing one exists
+      const updateData: any = {
         name,
-        avatar,
-        provider,
         lastLogin: now,
         updatedAt: now,
-      });
+      };
+      
+      // Update provider if it's more specific (e.g., "github" instead of "oauth")
+      if (provider !== "oauth" && provider !== "email") {
+        updateData.provider = provider;
+      } else if (!existingUser.provider || existingUser.provider === "oauth") {
+        updateData.provider = provider;
+      }
+      
+      // Only update avatar if new one is provided or existing one is empty
+      if (avatar || !existingUser.avatar) {
+        updateData.avatar = avatar;
+      }
+      
+      await ctx.db.patch(existingUser._id, updateData);
       return existingUser._id;
     } else {
       // Create new user
       return await ctx.db.insert("users", {
         email,
         name,
-        avatar,
+        avatar: avatar || "", // Ensure avatar is never undefined
         provider,
         createdAt: now,
         updatedAt: now,
