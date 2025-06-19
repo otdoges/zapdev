@@ -35,7 +35,11 @@ const nextConfig = {
     optimizeCss: true,
     optimizePackageImports: ['framer-motion', 'lucide-react'],
   },
-  webpack: (config, { isServer }) => {
+  // Add output configuration for better static generation
+  output: 'standalone',
+  
+  // Improve chunk loading reliability
+  webpack: (config, { isServer, webpack }) => {
     // Monaco Editor worker files configuration
     if (!isServer) {
       config.resolve.fallback = {
@@ -44,6 +48,36 @@ const nextConfig = {
         path: false,
       }
     }
+
+    // Improve chunk loading
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...config.optimization.splitChunks?.cacheGroups,
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+            priority: 10,
+          },
+          common: {
+            name: 'common',
+            minChunks: 2,
+            priority: 5,
+            chunks: 'all',
+            reuseExistingChunk: true,
+          },
+        },
+      },
+    }
+
+    // Add runtime chunk configuration
+    config.optimization.runtimeChunk = {
+      name: 'runtime'
+    }
+
     return config
   },
   async headers() {
@@ -70,6 +104,19 @@ const nextConfig = {
         ],
       },
       {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+      {
         source: '/:path*.(jpg|jpeg|png|webp|avif|ico|svg)',
         headers: [
           {
@@ -84,7 +131,11 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
-          }
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
         ],
       },
       {

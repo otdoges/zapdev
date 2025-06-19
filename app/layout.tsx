@@ -4,7 +4,6 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { PostHogProvider } from '@/components/PostHogProvider'
 import ConvexClientProvider from '@/components/ConvexClientProvider';
 import { VersionCheck } from '@/components/version-check';
-import { ChunkErrorHandler } from '@/components/chunk-error-handler';
 import './globals.css'
 
 export const viewport: Viewport = {
@@ -21,7 +20,7 @@ export const metadata: Metadata = {
   applicationName: 'ZapDev',
   keywords: ['AI development', 'web apps', 'code generation', 'WebContainer', 'AI assistant'],
   authors: [{ name: 'ZapDev Team' }],
-  metadataBase: new URL('https://zapdev.ai'),
+  metadataBase: new URL('https://zapdev-mu.vercel.app'),
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -60,7 +59,6 @@ export default function RootLayout({
         <meta httpEquiv="Cache-Control" content="public, max-age=3600, must-revalidate" />
       </head>
       <body className="min-h-screen w-full flex flex-col bg-[#0D0D10] text-[#EAEAEA] overflow-x-hidden m-0 p-0">
-        <ChunkErrorHandler />
         <ConvexClientProvider>
           <PostHogProvider>
             <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
