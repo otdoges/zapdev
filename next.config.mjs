@@ -87,6 +87,15 @@ const nextConfig = {
           }
         ],
       },
+      {
+        source: '/:path*.(html|json)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          }
+        ],
+      },
     ];
   },
   async rewrites() {
