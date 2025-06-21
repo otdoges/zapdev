@@ -2,6 +2,8 @@ import { betterAuth } from "better-auth";
 import { convexAdapter } from "@better-auth-kit/convex";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
+import { polar, checkout, webhooks } from "@polar-sh/better-auth";
+import { Polar } from "@polar-sh/sdk";
 
 // Defensive Convex client creation
 const createConvexClient = () => {
@@ -11,6 +13,62 @@ const createConvexClient = () => {
     return new ConvexHttpClient("https://placeholder.convex.cloud");
   }
   return new ConvexHttpClient(convexUrl);
+};
+
+// Create Polar client following the documentation
+const createPolarClient = () => {
+  const accessToken = process.env.POLAR_ACCESS_TOKEN;
+  if (!accessToken) {
+    console.warn("POLAR_ACCESS_TOKEN not found, Polar features will be disabled");
+    return null;
+  }
+  
+  return new Polar({
+    accessToken,
+    // Use 'sandbox' for testing, 'production' for live
+    server: (process.env.POLAR_SERVER as "sandbox" | "production") || 'sandbox'
+  });
+};
+
+const polarClient = createPolarClient();
+
+// Create plugins array following Polar documentation
+const createPlugins = () => {
+  const plugins: any[] = [];
+  
+  if (polarClient) {
+    try {
+      plugins.push(polar({
+        client: polarClient,
+        // Enable automatic Polar Customer creation on signup
+        createCustomerOnSignUp: true,
+        use: [
+          checkout({
+            products: [
+              {
+                productId: process.env.POLAR_PRODUCT_ID || "your-product-id", // Replace with actual product ID from Polar Dashboard
+                slug: "pro" // Custom slug for easy reference in Checkout URL, e.g. /checkout/pro
+              }
+            ],
+            successUrl: "/success?checkout_id={CHECKOUT_ID}",
+            authenticatedUsersOnly: true
+          }),
+          webhooks({
+            secret: process.env.POLAR_WEBHOOK_SECRET || "",
+            onPayload: async (payload: any) => {
+              // Handle webhook payload
+              console.log("Polar webhook received:", payload);
+              // Add your webhook handling logic here
+            },
+          })
+        ]
+      }));
+    } catch (error) {
+      console.warn("Failed to initialize Polar plugin:", error);
+    }
+  }
+  
+  return plugins;
 };
 
 export const auth = betterAuth({
@@ -53,6 +111,9 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     },
   },
+  
+  // Add plugins with Polar integration
+  plugins: createPlugins(),
   
   // Add database hooks to sync all user sign-ups to custom users table
   databaseHooks: {

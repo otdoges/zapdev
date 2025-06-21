@@ -29,7 +29,17 @@ GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
 # Convex deployment URL
 NEXT_PUBLIC_CONVEX_URL=your_convex_url
 
-# Optional: Stripe for future billing
+# Polar.sh Configuration (for payments and subscriptions)
+POLAR_ACCESS_TOKEN=polar_at_your_access_token
+POLAR_SERVER=sandbox
+POLAR_PRODUCT_ID=your_polar_product_id
+POLAR_BASIC_PRODUCT_ID=your_polar_basic_product_id
+POLAR_PRO_PRODUCT_ID=your_polar_pro_product_id
+POLAR_ENTERPRISE_PRODUCT_ID=your_polar_enterprise_product_id
+POLAR_SUCCESS_URL=http://localhost:3000/success
+POLAR_WEBHOOK_SECRET=polar_wh_your_webhook_secret
+
+# Optional: Stripe for future billing (deprecated in favor of Polar)
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
 STRIPE_WEBHOOK_SECRET=whsec_your_stripe_webhook_secret
@@ -47,6 +57,18 @@ Generate a random secret key for Better Auth:
 openssl rand -base64 32
 ```
 Or use an online generator. This should be a random 32+ character string.
+
+### Polar.sh Setup
+1. Go to [Polar.sh](https://polar.sh/) and create an account
+2. Create an organization
+3. Go to Organization Settings → Access Tokens
+4. Create a new access token with appropriate permissions
+5. Copy the token and paste it as `POLAR_ACCESS_TOKEN` in your `.env.local` file
+6. Create a product in your Polar dashboard
+7. Copy the product ID and paste it as `POLAR_PRODUCT_ID` in your `.env.local` file
+8. Set up webhooks in Polar dashboard pointing to: `https://yourdomain.com/api/polar/webhooks`
+9. Copy the webhook secret and paste it as `POLAR_WEBHOOK_SECRET` in your `.env.local` file
+10. Set `POLAR_SERVER` to `sandbox` for testing or `production` for live
 
 ### OpenRouter API Key
 1. Go to [OpenRouter](https://openrouter.ai/)
@@ -89,6 +111,30 @@ Or use an online generator. This should be a random 32+ character string.
 4. Copy the deployment URL from the dashboard
 5. Update your schema by running `bunx convex dev` again
 
+## Polar.sh Integration Features
+
+This app now includes Polar.sh integration with the following features:
+
+1. **Automatic Customer Creation** - Users are automatically created as Polar customers on signup
+2. **Checkout Integration** - Available at `/api/polar/checkout?productId=YOUR_PRODUCT_ID`
+3. **Customer Portal** - Available at `/api/polar/portal` for authenticated users
+4. **Webhook Handling** - Polar webhooks are processed at `/api/polar/webhooks`
+
+### Using Polar Checkout
+
+To create a checkout link, redirect users to:
+```
+/api/polar/checkout?productId=YOUR_PRODUCT_ID&customerEmail=user@example.com
+```
+
+Available query parameters:
+- `productId` or `productPriceId` (required)
+- `customerId` (optional)
+- `customerExternalId` (optional)
+- `customerEmail` (optional)
+- `customerName` (optional)
+- `metadata` (optional, URL-encoded JSON string)
+
 ## Authentication Flow
 
 This app uses Better Auth for modern OAuth authentication:
@@ -97,8 +143,9 @@ This app uses Better Auth for modern OAuth authentication:
 2. **OAuth flow** - Users are redirected to GitHub/Google for authorization
 3. **Callback handling** - Better Auth handles the OAuth callback automatically
 4. **User sync** - User data is synced with Convex database via callbacks
-5. **Session management** - Better Auth manages secure sessions
-6. **Redirect** - Users are sent to the chat interface
+5. **Polar customer creation** - Users are automatically created as Polar customers
+6. **Session management** - Better Auth manages secure sessions
+7. **Redirect** - Users are sent to the chat interface
 
 ## Verifying Your Setup
 
@@ -113,5 +160,6 @@ This app uses Better Auth for modern OAuth authentication:
    ```
 4. Visit `http://localhost:3000/auth` to test authentication
 5. Try signing in with GitHub or Google
+6. Test Polar checkout by visiting `/api/polar/checkout?productId=YOUR_PRODUCT_ID`
 
-If everything is configured correctly, you should be able to authenticate and start chatting with AI models! 
+If everything is configured correctly, you should be able to authenticate, access the customer portal, and process payments through Polar.sh! 
