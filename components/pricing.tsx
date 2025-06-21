@@ -278,8 +278,7 @@ export default function Pricing() {
       name: "Pro", 
       description: "Best for professionals",
       price: "$29",
-      productId: "5b611f41-9eb8-413b-bf6c-0e1385b61a0f",
-      features: [
+      productId: "5b611f41-9eb8-413b-bf6c-0e1385b61a0",      features: [
         "10,000 AI generations per month",
         "Premium templates",
         "Priority support",
