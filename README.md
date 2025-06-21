@@ -1,112 +1,168 @@
-# ZapDev Studio
+# ZapDev - AI Development Team Platform
 
-An AI-powered web development assistant with a modern, intuitive interface.
+A Next.js application featuring collaborative AI-powered development with WebContainers integration.
 
-## ✨ Latest Updates
+## 🚀 Features
 
-### Modern Chat Interface (v2.0)
+### AI Development Team
+- **System Architect**: Analyzes requirements and designs project architecture
+- **Frontend Developer**: Creates UI components with React, TypeScript, and Tailwind CSS
+- **Backend Developer**: Builds APIs and server logic when needed
+- **DevOps Engineer**: Handles build configuration and deployment setup
 
-We've completely redesigned the chat interface to match modern AI tools like v0.dev and loveable.dev:
+### WebContainers Integration
+- Real-time development environment in the browser
+- Full Node.js environment with pnpm package management
+- Live preview of generated applications
+- Terminal access for debugging and monitoring
 
-#### 🎨 New Features:
-- **Split-panel layout**: Preview/code panel on the left, chat on the right
-- **Clean AI responses**: Tool calls are now filtered out for a cleaner chat experience
-- **Interactive preview**: Live HTML preview with instant code switching
-- **Modern design**: Glass morphism effects, improved scrollbars, and smooth animations
-- **Maximizable preview**: Full-screen preview mode for better development experience
+### Core Features
+- Authentication system with Better Auth
+- Real-time chat interface
+- Stripe payment integration
+- Convex database backend
+- Modern UI with Tailwind CSS and Framer Motion
 
-#### 🛠 Technical Improvements:
-- Removed InteractiveDisplay from chat messages
-- Added code extraction from AI responses
-- Implemented filtered message display
-- Enhanced Monaco Editor integration
-- Improved responsive design
-- Added modern CSS animations and effects
+## 🛠 Tech Stack
 
-## 🚀 Getting Started
+- **Framework**: Next.js 15 with React 18
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Database**: Convex
+- **Authentication**: Better Auth
+- **Payments**: Stripe
+- **Package Manager**: Bun
+- **AI Integration**: OpenAI GPT-4 and GPT-4o-mini
+- **WebContainers**: @webcontainer/api for browser-based development
 
-1. **Install dependencies:**
-   ```bash
-   bun install
-   ```
+## 🎯 AI Team Workflow
 
-2. **Set up environment variables:**
-   Copy `.env.example` to `.env` and fill in your API keys
+1. **User Input**: Describe what you want to build
+2. **Analysis**: System Architect analyzes requirements
+3. **Architecture**: Design project structure and dependencies
+4. **Frontend**: Create React components and UI
+5. **Backend**: Build APIs if needed
+6. **Deployment**: Configure build tools and development environment
+7. **Live Preview**: See your application running in real-time
 
-3. **Run the development server:**
-   ```bash
-   bun run dev
-   ```
+## 🔧 Installation
 
-4. **Open [http://localhost:3000](http://localhost:3000)** in your browser
+```bash
+# Clone the repository
+git clone <https://www.github.com/otdoges/zapdev.git>
+cd zapdev
 
-## 🏗 Architecture
+# Install dependencies
+bun install
 
-### Chat Interface (`/chat/[id]`)
+# Set up environment variables
+cp .env.example .env.local
+# Fill in your API keys and configuration
 
-The chat interface consists of two main panels:
+# Run the development server
+bun dev
+```
 
-1. **Left Panel (Preview/Code)**:
-   - Live HTML preview with Tailwind CSS
-   - Monaco Editor for code editing
-   - Toggle between Preview and Code views
-   - Maximizable for full-screen development
+## 📝 Environment Variables
 
-2. **Right Panel (Chat)**:
-   - Clean AI chat interface
-   - Filtered responses (no tool calls)
-   - Command palette for quick actions
-   - File attachment support
+Create a `.env.local` file with:
 
-### Key Components
+```env
+# OpenAI
+OPENAI_API_KEY=your_openai_api_key
 
-- `AnimatedAIChat`: Main chat component with AI integration
-- `CodePreview`: Monaco Editor with syntax highlighting
-- `InteractiveDisplay`: Legacy component (removed from chat)
+# Convex
+CONVEX_DEPLOYMENT=your_convex_deployment
+NEXT_PUBLIC_CONVEX_URL=your_convex_url
 
-### AI Integration
+# Better Auth
+BETTER_AUTH_SECRET=your_auth_secret
+BETTER_AUTH_URL=http://localhost:3000
 
-The app uses OpenRouter for AI responses with:
-- Code extraction from AI messages
-- Tool call filtering for clean UX
-- Real-time code generation
-- Preview updates on code changes
+# Polar
+POLAR_ACCESS_TOKEN=your_polar_access_token
+```
 
-## 🎯 Features
+## 🚀 Usage
 
-- **AI-Powered Development**: Generate HTML, CSS, and JavaScript
-- **Live Preview**: See your code in action instantly
-- **Modern UI**: Clean, responsive design with smooth animations
-- **Command Palette**: Quick access to common actions
-- **File Management**: Upload and manage project files
-- **User Authentication**: Secure login with Clerk
+### AI Team Development
 
-## 📱 Responsive Design
+1. Navigate to `/ai-team`
+2. Describe your project requirements
+3. Watch as AI agents collaborate to build your application
+4. See live preview with WebContainers
+5. Download or deploy the generated code
 
-The interface is fully responsive and works great on:
-- Desktop computers
-- Tablets
-- Mobile devices (stacked layout)
+### Example Prompts
 
-## 🛡 Security
+- "Build a modern todo app with React and TypeScript. I want drag-and-drop functionality, categories, and dark mode support."
+- "Create a dashboard with charts and data visualization using React and Tailwind CSS."
+- "Build a simple API with Express that handles user authentication and data management."
 
-- Environment variables for API keys
-- Secure authentication with Clerk
-- Sandboxed iframe for code preview
-- Input validation and sanitization
+## 🏗 Project Structure
+
+```
+zapdev/
+├── app/                    # Next.js app router
+│   ├── ai-team/           # AI team development page
+│   ├── api/               # API routes
+│   └── chat/              # Chat interface
+├── components/            # React components
+│   ├── web-container.tsx  # WebContainers integration
+│   └── ai-team-coordinator.tsx # AI team coordination
+├── lib/                   # Utilities and configurations
+└── convex/               # Database schema and functions
+```
+
+## 🔄 AI Team API
+
+The AI team coordination happens through `/api/ai-team/coordinate`:
+
+```typescript
+POST /api/ai-team/coordinate
+{
+  "userRequest": "Build a todo app",
+  "step": "analyze" | "architect" | "frontend" | "backend" | "deploy"
+}
+```
+
+Each step returns structured data for the next phase of development.
+
+## 🌐 WebContainers Features
+
+- **Full Node.js Environment**: Complete runtime in the browser
+- **Package Management**: pnpm support with fallback to npm
+- **Live Reload**: Instant updates as code changes
+- **Terminal Access**: Real-time command execution and output
+- **File System**: Complete project file management
+
+## 📱 Routes
+
+- `/` - Landing page
+- `/auth` - Authentication
+- `/chat` - Chat interface
+- `/ai-team` - AI development team
+- `/pricing` - Pricing plans
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
+4. Add tests if applicable
 5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🔗 Links
+
+- [WebContainers Documentation](https://webcontainers.io/)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Convex Documentation](https://docs.convex.dev/)
+- [Better Auth Documentation](https://better-auth.com/)
 
 ---
 
-**ZapDev Studio** - Transforming ideas into reality with AI assistance.
+Built with ❤️ using AI collaboration and modern web technologies.

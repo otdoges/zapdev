@@ -31,9 +31,9 @@ export async function Navbar() {
             <AuthButtons />
           ) : (
             <div className="flex items-center gap-2">
-              <Link href="/dashboard">
+              <Link href="/chat">
                 <Button variant="ghost" className="text-zinc-300 hover:text-white hover:bg-zinc-800">
-                  Dashboard
+                  Chat
                 </Button>
               </Link>
               <AuthButtons />

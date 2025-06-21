@@ -47,6 +47,8 @@ export default function ChatPage() {
   const [tokenStats, setTokenStats] = useState<any>(null)
   const [generatedCode, setGeneratedCode] = useState<string>("")
   const [hasMessagesSent, setHasMessagesSent] = useState(false)
+  const [aiTeamProject, setAiTeamProject] = useState<any>(null)
+  const [showWebContainer, setShowWebContainer] = useState(false)
   const { user, isAuthenticated, isLoading } = useAuthUser()
 
   // Memoized handlers
@@ -151,6 +153,12 @@ export default function ChatPage() {
               }}
               onCodeGenerated={(code) => {
                 setGeneratedCode(code)
+              }}
+              onAITeamBuild={(projectData) => {
+                console.log('AI Team built project:', projectData)
+                setAiTeamProject(projectData)
+                setShowWebContainer(true)
+                setHasMessagesSent(true)
               }}
               useMultipleModels={false}
               className="h-full"

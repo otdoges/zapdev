@@ -137,6 +137,7 @@ interface AnimatedAIChatProps {
   chatId?: string;
   onFirstMessageSent?: () => void;
   onCodeGenerated?: (code: string) => void;
+  onAITeamBuild?: (projectData: any) => void;
   className?: string;
   useMultipleModels?: boolean;
   showThinking?: boolean;
@@ -216,6 +217,7 @@ export function AnimatedAIChat({
   chatId = "default", 
   onFirstMessageSent, 
   onCodeGenerated, 
+  onAITeamBuild,
   className,
   useMultipleModels = false,
   showThinking = false,
@@ -263,7 +265,13 @@ export function AnimatedAIChat({
         setConvexChatId(newChatId);
       }
     },
-    onFinish: async (message) => {
+    onFinish: async (message, options) => {
+      // Check if this is an AI team build response
+      if (message.role === 'assistant' && options?.data?.aiTeamTriggered && onAITeamBuild) {
+        const teamBuildData = options.data;
+        onAITeamBuild(teamBuildData);
+      }
+
       // Extract and send code when AI finishes responding
       if (message.role === 'assistant' && onCodeGenerated) {
         const extractedCode = extractCodeFromMessage(message.content);

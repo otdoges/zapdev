@@ -20,14 +20,13 @@ const convex = createConvexClient();
 
 export async function POST(req: Request) {
   try {
-  const session = await auth.api.getSession({ headers: req.headers });
+    const session = await auth.api.getSession({ headers: req.headers });
 
-  if (!session?.user) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+    if (!session?.user) {
+      return new Response("Unauthorized", { status: 401 });
+    }
 
-  const { messages, modelId, chatId, useMultipleModels = false } = await req.json();
-      headers: req.headers
+    const { messages, modelId, chatId, useMultipleModels = false } = await req.json();
     const userId = session.user.id;
 
     // Check token usage before proceeding
@@ -83,6 +82,74 @@ export async function POST(req: Request) {
         }
       } catch (error) {
         console.error('Failed to save user message:', error);
+      }
+    }
+
+    // Check if user wants to build something - trigger AI team
+    const lastMessage = messages[messages.length - 1];
+    const buildPatterns = [
+      /build.*(?:app|application|website|project)/i,
+      /create.*(?:app|application|website|project)/i,
+      /develop.*(?:app|application|website|project)/i,
+      /make.*(?:app|application|website|project)/i,
+      /generate.*(?:app|application|website|project)/i
+    ];
+
+    if (buildPatterns.some(pattern => pattern.test(lastMessage.content))) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+        const aiTeamResponse = await fetch(
+          `${req.url.replace('/api/chat', '/api/ai-team/coordinate')}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            signal: controller.signal,
+            body: JSON.stringify({
+              userRequest: lastMessage.content,
+              chatId: finalChatId,
+            }),
+          }
+        );
+
+        clearTimeout(timeoutId);
+
+        if (aiTeamResponse.ok) {
+          const buildResult = await aiTeamResponse.json();
+          
+          // Save AI team response to Convex
+          if (finalChatId) {
+            try {
+              await convex.mutation(api.chats.addMessage, {
+                chatId: finalChatId,
+                content: `🤖 **AI Development Team Completed Your Project!**\n\n**Project Type**: ${buildResult?.analysis?.projectType ?? 'N/A'}\n**Complexity**: ${buildResult?.analysis?.complexity ?? 'N/A'}\n**Tech Stack**: ${Array.isArray(buildResult?.analysis?.techStack) ? buildResult.analysis.techStack.join(', ') : 'N/A'}\n**Features**: ${Array.isArray(buildResult?.analysis?.features) ? buildResult.analysis.features.join(', ') : 'N/A'}\n\n**Team Progress:**\n${Array.isArray(buildResult?.teamLog) ? buildResult.teamLog.join('\n') : 'N/A'}\n\n✅ **Your project is ready!** You can see it running in the WebContainer below.`,
+                role: 'assistant'
+              });
+            } catch (error) {
+              console.error('Failed to save AI team response:', error);
+            }
+          }
+
+          return new Response(
+            JSON.stringify({
+              response: `🤖 **AI Development Team Completed Your Project!**\n\n**Project Type**: ${buildResult.analysis?.projectType ?? 'N/A'}\n**Complexity**: ${buildResult.analysis?.complexity ?? 'N/A'}\n**Tech Stack**: ${buildResult.analysis?.techStack?.join(', ') ?? 'N/A'}\n**Features**: ${buildResult.analysis?.features?.join(', ') ?? 'N/A'}\n\n**Team Progress:**\n${buildResult.teamLog?.join('\n') ?? 'N/A'}\n\n✅ **Your project is ready!** You can see it running in the WebContainer below.`,
+              chatId: finalChatId,
+              tokenUsage: getTokenUsageStats(),
+              aiTeamTriggered: true,
+              projectFiles: buildResult.projectFiles,
+              teamBuild: buildResult
+            }),
+            {
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+      } catch (error) {
+        console.error('AI team build failed:', error);
+        // Fall back to normal chat
       }
     }
 

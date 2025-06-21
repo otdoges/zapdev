@@ -6,38 +6,38 @@ import { ChatHistory } from './types';
 // Enhanced model configuration with token limits
 export const modelConfigs = [
   {
-    id: "deepseek/deepseek-chat:free",
-    name: "DeepSeek Chat",
-    description: "Fast and efficient reasoning model",
-    maxTokens: 2048, // Conservative limit for free tier
+    id: "deepseek/deepseek-r1-0528:free",
+    name: "DeepSeek R1",
+    description: "Advanced reasoning model for complex tasks",
+    maxTokens: 4096,
     priority: 1
   },
   {
-    id: "microsoft/phi-4-reasoning-plus:free", 
-    name: "Phi-4 Reasoning",
-    description: "Advanced reasoning capabilities",
-    maxTokens: 1536,
+    id: "deepseek/deepseek-r1-0528-qwen3-8b:free",
+    name: "DeepSeek R1 Qwen3",
+    description: "Efficient reasoning with Qwen3 architecture",
+    maxTokens: 3072,
     priority: 2
+  },
+  {
+    id: "microsoft/phi-4-reasoning-plus:free", 
+    name: "Phi-4 Reasoning Plus",
+    description: "Advanced reasoning capabilities from Microsoft",
+    maxTokens: 2048,
+    priority: 3
   },
   {
     id: "qwen/qwen3-32b:free",
     name: "Qwen 3 32B",
     description: "Large context understanding",
-    maxTokens: 1024,
-    priority: 3
-  },
-  {
-    id: "deepseek/deepseek-r1-0528:free",
-    name: "DeepSeek R1",
-    description: "Research optimized model",
-    maxTokens: 1536,
+    maxTokens: 2048,
     priority: 4
   },
   {
-    id: "deepseek/deepseek-v3-base:free",
-    name: "DeepSeek V3 Base",
-    description: "General purpose model",
-    maxTokens: 2048,
+    id: "agentica-org/deepcoder-14b-preview:free",
+    name: "DeepCoder 14B",
+    description: "Code generation and development tasks",
+    maxTokens: 1536,
     priority: 5
   }
 ];
@@ -107,9 +107,9 @@ export function getModelId(modelIdFromParam?: string) {
 
 // Function to get the API key from environment variables
 const getOpenRouterApiKey = () => {
-  const apiKey = process.env.NEXT_OPENROUTER_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    throw new Error("NEXT_OPENROUTER_API_KEY environment variable is not set. Please add it to your .env file.");
+    throw new Error("OPENROUTER_API_KEY environment variable is not set. Please add it to your .env file.");
   }
   return apiKey;
 };
