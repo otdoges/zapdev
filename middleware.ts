@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -25,29 +26,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   
-  // For protected routes, do a quick cookie check first
+  // For protected routes, check for Supabase auth
   if (isProtectedRoute) {
-    // Check for auth cookies first (much faster than API call)
-    const authCookies = [
-      'better-auth.session_token',
-      'better-auth.session',
-      '__Secure-better-auth.session_token',
-      '__Host-better-auth.session_token'
-    ];
+    // Check for Supabase auth tokens
+    const supabaseAccessToken = request.cookies.get('sb-access-token')?.value;
+    const supabaseRefreshToken = request.cookies.get('sb-refresh-token')?.value;
     
-    const hasAuthCookie = authCookies.some(cookieName => 
-      request.cookies.has(cookieName) && request.cookies.get(cookieName)?.value
-    );
-    
-    // If no auth cookies, redirect to auth immediately (no need for slow API call)
-    if (!hasAuthCookie) {
+    // If no auth tokens, redirect to auth immediately
+    if (!supabaseAccessToken && !supabaseRefreshToken) {
       const authUrl = new URL('/auth', request.url);
       authUrl.searchParams.set('redirectTo', pathname);
       return NextResponse.redirect(authUrl);
     }
     
-    // If we have cookies, let the request through and let client-side handle validation
-    // This is much faster than server-side session validation
+    // If we have tokens, let the request through and let client-side handle validation
     return NextResponse.next();
   }
   

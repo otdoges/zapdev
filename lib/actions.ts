@@ -1,17 +1,17 @@
-import { useSession } from "@/lib/auth-client";
+import { useSupabase } from "@/components/SupabaseProvider";
 import { useEffect, useState } from "react";
 
 /**
- * Hook to get the current authenticated user from Better Auth session
+ * Hook to get the current authenticated user from Supabase session
  */
 export function useAuthUser() {
-  const { data: session, isPending } = useSession();
+  const { user, loading } = useSupabase();
 
   return {
-    user: session?.user || null,
-    session,
-    isLoading: isPending,
-    isAuthenticated: !!session?.user,
+    user: user || null,
+    session: user ? { user } : null,
+    isLoading: loading,
+    isAuthenticated: !!user,
   };
 }
 
@@ -22,10 +22,8 @@ function checkAuthCookies(): boolean {
   if (typeof window === 'undefined') return false;
   
   const authCookies = [
-    'better-auth.session_token',
-    'better-auth.session', 
-    '__Secure-better-auth.session_token',
-    '__Host-better-auth.session_token'
+    'sb-access-token',
+    'sb-refresh-token'
   ];
   
   return authCookies.some(cookieName => {
@@ -41,7 +39,7 @@ function checkAuthCookies(): boolean {
  * Uses cookies for immediate feedback, then validates with session
  */
 export function useIsAuthenticated() {
-  const { data: session, isPending } = useSession();
+  const { user, loading } = useSupabase();
   const [cookieAuth, setCookieAuth] = useState<boolean | null>(null);
   
   // Check cookies immediately on mount for instant feedback
@@ -49,16 +47,16 @@ export function useIsAuthenticated() {
     setCookieAuth(checkAuthCookies());
   }, []);
   
-  // If we have session data, use that as the source of truth
-  if (!isPending && session !== undefined) {
+  // If we have user data, use that as the source of truth
+  if (!loading && user !== undefined) {
     return {
-      isAuthenticated: !!session?.user,
+      isAuthenticated: !!user,
       isLoading: false,
     };
   }
   
   // While session is loading, use cookie-based check for better UX
-  if (isPending && cookieAuth !== null) {
+  if (loading && cookieAuth !== null) {
     return {
       isAuthenticated: cookieAuth,
       isLoading: true, // Still loading session, but we have cookie indication

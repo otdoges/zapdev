@@ -1,15 +1,13 @@
 import Link from "next/link";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { createClient } from "@/lib/supabase-server";
 import { Button } from "@/components/ui/button";
 import { AuthButtons } from "@/components/auth-buttons";
 
 export async function Navbar() {
-  const session = await auth.api.getSession({
-    headers: await headers()
-  });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   
-  const isSignedIn = !!session?.user;
+  const isSignedIn = !!user;
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-gradient-to-b from-black to-zinc-950/80 backdrop-blur-md border-b border-zinc-800">

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider';
 import { PostHogProvider } from '@/components/PostHogProvider'
-import ConvexClientProvider from '@/components/ConvexClientProvider';
+import SupabaseProvider from '@/components/SupabaseProvider';
 import { VersionCheck } from '@/components/version-check';
 import { ChunkErrorHandler } from '@/components/chunk-error-handler';
 import './globals.css'
@@ -61,7 +61,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen w-full flex flex-col bg-[#0D0D10] text-[#EAEAEA] overflow-x-hidden m-0 p-0">
         <ChunkErrorHandler />
-        <ConvexClientProvider>
+        <SupabaseProvider>
           <PostHogProvider>
             <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
               <main className="flex-1 w-full">
@@ -70,7 +70,7 @@ export default function RootLayout({
               <VersionCheck />
             </ThemeProvider>
           </PostHogProvider>
-        </ConvexClientProvider>
+        </SupabaseProvider>
       </body>
     </html>
   )

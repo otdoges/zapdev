@@ -1,49 +1,35 @@
-import { auth } from '@/lib/auth';
-import { api } from "@/convex/_generated/api";
-import { ConvexHttpClient } from "convex/browser";
+import { createClient } from '@/lib/supabase-server';
+import { addMessage, requireAuth } from '@/lib/supabase-operations';
+import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'edge';
-
-// Defensive Convex client creation
-const createConvexClient = () => {
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!convexUrl) {
-    console.warn("NEXT_PUBLIC_CONVEX_URL not found, using placeholder");
-    return new ConvexHttpClient("https://placeholder.convex.cloud");
-  }
-  return new ConvexHttpClient(convexUrl);
-};
-
-const convex = createConvexClient();
-
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-  const session = await auth.api.getSession({ headers: req.headers });
-
-  if (!session?.user) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const { chatId, content, role } = await req.json();
-      headers: req.headers
-    // Removed stray closing brace and duplicate session check.
-    const isValidConvexId = chatId && !chatId.includes('-') && chatId.length > 10;
+    const supabase = await createClient();
     
-    if (!isValidConvexId) {
-      return new Response('Invalid chat ID format', { status: 400 });
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    // Save the message to Convex
-    await convex.mutation(api.chats.addMessage, {
-      chatId,
-      content,
-      role
-    });
+    const user = await requireAuth();
+    const { chatId, content, role } = await request.json();
+    
+    // Validate chat ID format (UUID)
+    const isValidChatId = chatId && chatId.length > 10;
+    
+    if (!isValidChatId) {
+      return NextResponse.json({ error: 'Invalid chat ID format' }, { status: 400 });
+    }
 
-    return new Response('Message saved', { status: 200 });
+    // Save the message to Supabase
+    await addMessage(chatId, role, content);
+
+    return NextResponse.json({ message: 'Message saved' }, { status: 200 });
 
   } catch (error) {
     console.error('Error saving message:', error);
-    return new Response('Failed to save message', { status: 500 });
+    return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });
   }
 } 

@@ -1,18 +1,5 @@
 import Stripe from "stripe";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
-
-// Defensive Convex client creation
-const createConvexClient = () => {
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!convexUrl) {
-    console.warn("NEXT_PUBLIC_CONVEX_URL not found, using placeholder");
-    return new ConvexHttpClient("https://placeholder.convex.cloud");
-  }
-  return new ConvexHttpClient(convexUrl);
-};
-
-const convex = createConvexClient();
+import { supabase } from "@/lib/supabase";
 
 let stripe: Stripe;
 
@@ -27,7 +14,7 @@ export const getStripeClient = () => {
   return stripe;
 };
 
-export async function syncStripeDataToConvex(customerId: string) {
+export async function syncStripeDataToSupabase(customerId: string) {
   const stripeClient = getStripeClient();
   const subscriptions = await stripeClient.subscriptions.list({
     customer: customerId,
@@ -41,14 +28,21 @@ export async function syncStripeDataToConvex(customerId: string) {
 
   const subscription = subscriptions.data[0];
 
-  // The correct mutation is likely 'updateUserStripeSubscription' based on lint error and naming conventions
-  await convex.mutation(api.stripe.updateUserStripeSubscription, {
-    stripeCustomerId: customerId,
-    stripeSubscriptionId: subscription.id,
-    stripeSubscriptionStatus: subscription.status,
-    stripeCurrentPeriodEnd: (subscription as any).current_period_end * 1000,
-    stripePriceId: subscription.items.data[0].price.id,
-  });
+  // Update user subscription data in Supabase
+  const { error } = await supabase
+    .from('users')
+    .update({
+      stripe_customer_id: customerId,
+      subscription_status: subscription.status,
+      subscription_plan: subscription.items.data[0].price.id,
+      updated_at: new Date().toISOString()
+    })
+    .eq('stripe_customer_id', customerId);
+
+  if (error) {
+    console.error('Error updating user subscription in Supabase:', error);
+    throw error;
+  }
 }
 
 export const allowedEvents: Stripe.Event.Type[] = [

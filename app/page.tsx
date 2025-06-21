@@ -8,7 +8,7 @@ import Hero from "@/components/hero";
 import FinalCTA from "@/components/final-cta"; 
 import Pricing from "@/components/pricing";
 import { useIsAuthenticated } from "@/lib/actions";
-import { signOut } from "@/lib/auth-client";
+import { useSupabase } from "@/components/SupabaseProvider";
 
 const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
 const VisualShowcase = dynamic(() => import('@/components/visual-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
@@ -21,6 +21,7 @@ export default function Home() {
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
   const { scrollY } = useScroll();
   const { isAuthenticated, isLoading } = useIsAuthenticated();
+  const { signOut } = useSupabase();
   
   const goToPricingPage = () => {
     router.push('/pricing');
@@ -35,13 +36,8 @@ export default function Home() {
   };
 
   const handleSignOut = async () => {
-    await signOut({
-      fetchOptions: {
-        onSuccess: () => {
-          router.push('/');
-        },
-      },
-    });
+    await signOut();
+    router.push('/');
   };
 
   useEffect(() => {

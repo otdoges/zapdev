@@ -1,25 +1,26 @@
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { ConvexHttpClient } from 'convex/browser';
-import { api } from '@/convex/_generated/api';
+import { createClient } from '@supabase/supabase-js';
 import { getStripeClient } from '@/lib/stripe';
 import { allowedEvents } from '@/lib/stripe';
+import Stripe from 'stripe';
 
-// Defensive Convex client creation
-const createConvexClient = () => {
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!convexUrl) {
-    console.warn("NEXT_PUBLIC_CONVEX_URL not found, using placeholder");
-    return new ConvexHttpClient("https://placeholder.convex.cloud");
+// Initialize Supabase client with service role key for webhooks
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Only create Supabase client if both env vars are available
+const getSupabaseClient = () => {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.warn('Missing Supabase environment variables');
+    return null;
   }
-  return new ConvexHttpClient(convexUrl);
+  return createClient(supabaseUrl, supabaseServiceKey);
 };
-
-const convex = createConvexClient();
 
 export async function POST(req: Request) {
   const body = await req.text();
-  const headersList = headers();
+  const headersList = await headers();
   const signature = headersList.get('stripe-signature');
 
   if (!signature) {
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
   }
 
   const stripe = getStripeClient();
-  let event;
+  let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(
@@ -52,11 +53,17 @@ export async function POST(req: Request) {
     );
   }
 
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    console.error('Supabase client not available, webhook processing skipped');
+    return NextResponse.json({ received: true, warning: 'Database updates skipped' });
+  }
+
   try {
     // Handle the event
     switch (event.type) {
       case 'checkout.session.completed': {
-        const session = event.data.object;
+        const session = event.data.object as Stripe.Checkout.Session;
         
         // Check that this is a subscription checkout
         if (
@@ -67,62 +74,81 @@ export async function POST(req: Request) {
         ) {
           console.log(`Checkout completed for user: ${session.metadata.userId}, subscription: ${session.subscription}`);
           
-          // Update user with subscription info in Convex
-          await convex.mutation(api.users.updateUserSubscription, {
-            clerkId: session.metadata.userId,
-            stripeCustomerId: session.customer.toString(),
-            stripeSubscriptionId: session.subscription.toString(),
-            planType: session.metadata.priceType || 'pro', // Default to 'pro' if not specified
-            isActive: true,
-          });
+          // Update user with subscription info in Supabase
+          const { error } = await supabase
+            .from('users')
+            .update({
+              stripe_customer_id: session.customer.toString(),
+              stripe_subscription_id: session.subscription.toString(),
+              subscription_plan: session.metadata.priceType || 'pro',
+              subscription_active: true,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('auth_user_id', session.metadata.userId);
+            
+          if (error) {
+            console.error('Error updating user subscription:', error);
+          }
         }
         break;
       }
       
       case 'invoice.paid': {
-        const invoice = event.data.object;
+        const invoice = event.data.object as Stripe.Invoice;
         
         if (invoice.customer) {
           // Get customer metadata to find user ID
           const customer = await stripe.customers.retrieve(invoice.customer.toString());
-          const subscriptionId = invoice.subscription?.toString();
           
-          if ('metadata' in customer && customer.metadata?.userId && subscriptionId) {
-            console.log(`Invoice paid for user: ${customer.metadata.userId}, subscription: ${subscriptionId}`);
+          if ('metadata' in customer && customer.metadata?.userId) {
+            console.log(`Invoice paid for user: ${customer.metadata.userId}`);
             
-            // Update subscription status to active
-            await convex.mutation(api.users.updateSubscriptionStatus, {
-              stripeSubscriptionId: subscriptionId,
-              isActive: true,
-            });
+            // Update subscription status to active for any active subscriptions
+            const { error } = await supabase
+              .from('users')
+              .update({
+                subscription_active: true,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('auth_user_id', customer.metadata.userId);
+              
+            if (error) {
+              console.error('Error updating subscription status:', error);
+            }
           }
         }
         break;
       }
       
       case 'invoice.payment_failed': {
-        const invoice = event.data.object;
+        const invoice = event.data.object as Stripe.Invoice;
         
         if (invoice.customer) {
           // Get customer metadata to find user ID
           const customer = await stripe.customers.retrieve(invoice.customer.toString());
-          const subscriptionId = invoice.subscription?.toString();
           
-          if ('metadata' in customer && customer.metadata?.userId && subscriptionId) {
-            console.log(`Invoice payment failed for user: ${customer.metadata.userId}, subscription: ${subscriptionId}`);
+          if ('metadata' in customer && customer.metadata?.userId) {
+            console.log(`Invoice payment failed for user: ${customer.metadata.userId}`);
             
             // Update subscription status to inactive
-            await convex.mutation(api.users.updateSubscriptionStatus, {
-              stripeSubscriptionId: subscriptionId,
-              isActive: false,
-            });
+            const { error } = await supabase
+              .from('users')
+              .update({
+                subscription_active: false,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('auth_user_id', customer.metadata.userId);
+              
+            if (error) {
+              console.error('Error updating subscription status:', error);
+            }
           }
         }
         break;
       }
       
       case 'customer.subscription.updated': {
-        const subscription = event.data.object;
+        const subscription = event.data.object as Stripe.Subscription;
         
         if (subscription.customer) {
           // Get customer metadata to find user ID
@@ -136,17 +162,24 @@ export async function POST(req: Request) {
             console.log(`Subscription updated for user: ${customer.metadata.userId}, status: ${subscription.status}`);
             
             // Update subscription status based on subscription status
-            await convex.mutation(api.users.updateSubscriptionStatus, {
-              stripeSubscriptionId: subscription.id,
-              isActive: subscription.status === 'active',
-            });
+            const { error } = await supabase
+              .from('users')
+              .update({
+                subscription_active: subscription.status === 'active',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('stripe_subscription_id', subscription.id);
+              
+            if (error) {
+              console.error('Error updating subscription status:', error);
+            }
           }
         }
         break;
       }
       
       case 'customer.subscription.deleted': {
-        const subscription = event.data.object;
+        const subscription = event.data.object as Stripe.Subscription;
         
         if (subscription.customer) {
           // Get customer metadata to find user ID
@@ -160,10 +193,17 @@ export async function POST(req: Request) {
             console.log(`Subscription deleted for user: ${customer.metadata.userId}`);
             
             // Update subscription status to inactive
-            await convex.mutation(api.users.updateSubscriptionStatus, {
-              stripeSubscriptionId: subscription.id,
-              isActive: false,
-            });
+            const { error } = await supabase
+              .from('users')
+              .update({
+                subscription_active: false,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('stripe_subscription_id', subscription.id);
+              
+            if (error) {
+              console.error('Error updating subscription status:', error);
+            }
           }
         }
         break;

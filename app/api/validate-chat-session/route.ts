@@ -1,40 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-// Helper function to create Supabase client
-const getSupabase = () => {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('Missing Supabase environment variables');
-    return null;
-  }
-  return createClient(supabaseUrl, supabaseAnonKey);
-};
+import { createClient } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
-  const supabase = getSupabase();
-  if (!supabase) {
-    // If Supabase client can't be initialized, we'll still validate the user
-    // and return a successful response - this allows the application to work
-    // even when database is not available
-    return NextResponse.json({ isValid: true });
-  }
-
   try {
-    const session = await auth.api.getSession({
-      headers: req.headers
-    });
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     const { chatId, userId: clientUserId } = await req.json();
 
-    if (!session?.user) {
+    if (authError || !user) {
       return NextResponse.json({ error: 'User not authenticated.' }, { status: 401 });
     }
 
-    const authUserId = session.user.id;
+    const authUserId = user.id;
 
     // Ensure the userId from the client matches the authenticated user's ID
     if (authUserId !== clientUserId) {
@@ -65,7 +42,7 @@ export async function POST(req: NextRequest) {
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('id')
-          .eq('clerk_user_id', authUserId)
+          .eq('auth_user_id', authUserId)
           .maybeSingle();
 
         if (userError || !userData) {

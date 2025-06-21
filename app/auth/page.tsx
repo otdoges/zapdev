@@ -2,12 +2,12 @@
 
 import { useState, Suspense } from "react"
 import { motion } from "framer-motion"
-import { Github, Chrome, Sparkles, Zap, ArrowRight, Code, Palette, Rocket, Mail, Lock, User } from "lucide-react"
-import { signIn, signUp } from "@/lib/auth-client"
+import { Github, Sparkles, Zap, ArrowRight, Code, Palette, Rocket, Mail, Lock, AlertCircle } from "lucide-react"
+import { useSupabase } from "@/components/SupabaseProvider"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { TosPrivacyDialog } from "@/components/ui/tos-privacy-dialog"
 
 const features = [
@@ -29,52 +29,96 @@ const features = [
 ]
 
 function AuthContent() {
-  const [isLoading, setIsLoading] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [emailForm, setEmailForm] = useState({ email: '', password: '', confirmPassword: '' })
   const [isSignUp, setIsSignUp] = useState(false)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [name, setName] = useState("")
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  
+  const { signInWithGitHub, signInWithEmail, signUpWithEmail, resetPassword, user } = useSupabase()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') || '/chat'
 
-  const handleSocialAuth = async (provider: 'github' | 'google') => {
-    setIsLoading(provider)
+  // Redirect if already authenticated
+  if (user) {
+    router.push(redirectTo)
+    return null
+  }
+
+  const handleGitHubAuth = async () => {
+    setIsLoading(true)
+    setError('')
     
     try {
-      await signIn.social({
-        provider,
-        callbackURL: redirectTo,
-      })
+      await signInWithGitHub()
     } catch (error) {
-      console.error(`${provider} auth failed:`, error)
-      setIsLoading(null)
+      console.error('GitHub auth failed:', error)
+      setError('GitHub authentication failed. Please try again.')
+      setIsLoading(false)
     }
   }
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading('email')
+    if (!emailForm.email || !emailForm.password) {
+      setError('Please fill in all fields')
+      return
+    }
+
+    if (isSignUp) {
+      if (!emailForm.confirmPassword) {
+        setError('Please confirm your password')
+        return
+      }
+      if (emailForm.password !== emailForm.confirmPassword) {
+        setError('Passwords do not match')
+        return
+      }
+      if (emailForm.password.length < 6) {
+        setError('Password must be at least 6 characters long')
+        return
+      }
+    }
+
+    setIsLoading(true)
+    setError('')
     
     try {
       if (isSignUp) {
-        await signUp.email({
-          email,
-          password,
-          name,
-          callbackURL: redirectTo,
-        })
+        const { error } = await signUpWithEmail(emailForm.email, emailForm.password)
+        if (error) {
+          setError(error.message || 'Sign up failed')
+        } else {
+          setMessage('Check your email for a confirmation link!')
+          setEmailForm({ email: '', password: '', confirmPassword: '' })
+        }
       } else {
-        await signIn.email({
-          email,
-          password,
-          callbackURL: redirectTo,
-        })
+        const { error } = await signInWithEmail(emailForm.email, emailForm.password)
+        if (error) {
+          setError(error.message || 'Sign in failed')
+        } else {
+          router.push(redirectTo)
+        }
       }
     } catch (error) {
-      console.error(`Email auth failed:`, error)
-      setIsLoading(null)
+      setError(isSignUp ? 'Sign up failed. Please try again.' : 'Sign in failed. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
+  }
+
+  const updateEmailForm = (field: string, value: string) => {
+    setEmailForm(prev => ({ ...prev, [field]: value }))
+    setError('')
+    setMessage('')
+  }
+
+  const toggleAuthMode = () => {
+    setIsSignUp(!isSignUp)
+    setError('')
+    setMessage('')
+    setEmailForm({ email: '', password: '', confirmPassword: '' })
   }
 
   return (
@@ -145,7 +189,7 @@ function AuthContent() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="relative"
         >
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl max-w-md mx-auto">
             <div className="text-center mb-8">
               <motion.div
                 initial={{ scale: 0 }}
@@ -158,131 +202,135 @@ function AuthContent() {
               </motion.div>
               
               <h3 className="text-3xl font-bold text-white mb-2">Welcome to the Future</h3>
-              <p className="text-gray-300">Sign in to start building amazing things</p>
+              <p className="text-gray-300">Choose your preferred way to get started</p>
             </div>
 
-            {/* Social Auth Icons */}
-            <div className="flex justify-center gap-4 mb-6">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handleSocialAuth('github')}
-                disabled={isLoading !== null}
-                className="p-4 bg-gray-900 hover:bg-gray-800 rounded-2xl transition-all duration-200 border border-gray-700 hover:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Continue with GitHub"
+            {/* Error/Success Messages */}
+            {error && (
+              <Alert className="mb-6 bg-red-500/10 border-red-500/20">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="text-red-300">{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {message && (
+              <Alert className="mb-6 bg-green-500/10 border-green-500/20">
+                <AlertCircle className="h-4 w-4 text-green-400" />
+                <AlertDescription className="text-green-300">{message}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* GitHub Auth Button */}
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="mb-6"
+            >
+              <Button
+                onClick={handleGitHubAuth}
+                disabled={isLoading}
+                className="w-full h-14 bg-gray-900 hover:bg-gray-800 text-white border border-gray-700 hover:border-gray-600 rounded-xl font-medium text-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
               >
-                {isLoading === 'github' ? (
+                {isLoading ? (
                   <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <Github className="w-6 h-6 text-white" />
+                  <>
+                    <Github className="w-6 h-6" />
+                    Continue with GitHub
+                  </>
                 )}
-              </motion.button>
+              </Button>
+            </motion.div>
 
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handleSocialAuth('google')}
-                disabled={isLoading !== null}
-                className="p-4 bg-white hover:bg-gray-50 rounded-2xl transition-all duration-200 border border-gray-200 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Continue with Google"
-              >
-                {isLoading === 'google' ? (
-                  <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-                ) : (
-                  <Chrome className="w-6 h-6 text-gray-900" />
-                )}
-              </motion.button>
+            {/* Or Divider */}
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-600" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-transparent px-6 text-gray-400">or</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex-1 h-px bg-white/20" />
-              <span className="text-gray-400 text-sm">or</span>
-              <div className="flex-1 h-px bg-white/20" />
-            </div>
-
-            {/* Email/Password Form */}
+            {/* Email Auth Form */}
             <form onSubmit={handleEmailAuth} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-gray-300 text-sm font-medium">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Input
+                    type="email"
+                    placeholder="Enter your email"
+                    value={emailForm.email}
+                    onChange={(e) => updateEmailForm('email', e.target.value)}
+                    className="pl-12 h-12 bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-violet-500 rounded-xl"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-gray-300 text-sm font-medium">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Input
+                    type="password"
+                    placeholder={isSignUp ? "Create a password" : "Enter your password"}
+                    value={emailForm.password}
+                    onChange={(e) => updateEmailForm('password', e.target.value)}
+                    className="pl-12 h-12 bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-violet-500 rounded-xl"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
               {isSignUp && (
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-white">Name</Label>
+                  <label className="text-gray-300 text-sm font-medium">Confirm Password</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <Input
-                      id="name"
-                      type="text"
-                      placeholder="Enter your name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
-                      autoComplete="name"
-                      required
+                      type="password"
+                      placeholder="Confirm your password"
+                      value={emailForm.confirmPassword}
+                      onChange={(e) => updateEmailForm('confirmPassword', e.target.value)}
+                      className="pl-12 h-12 bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-violet-500 rounded-xl"
+                      disabled={isLoading}
                     />
                   </div>
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-white">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
-                    autoComplete="email"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-white">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
-                    autoComplete={isSignUp ? "new-password" : "current-password"}
-                    required
-                  />
-                </div>
-              </div>
-
               <Button
                 type="submit"
-                disabled={isLoading !== null}
-                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-semibold py-4 rounded-2xl transition-all duration-200"
+                disabled={isLoading}
+                className="w-full h-12 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-medium transition-all duration-200 disabled:opacity-50 mt-6"
               >
-                {isLoading === 'email' ? (
+                {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <>
-                    {isSignUp ? 'Create Account' : 'Sign In'}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </>
+                  isSignUp ? 'Sign Up' : 'Sign In'
                 )}
               </Button>
             </form>
 
-            <div className="text-center mt-4">
-              <button
-                type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-violet-400 hover:text-violet-300 transition-colors text-sm"
-              >
-                {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-              </button>
+            {/* Toggle Auth Mode */}
+            <div className="text-center mt-6">
+              <p className="text-gray-400 text-sm">
+                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                <button
+                  type="button"
+                  onClick={toggleAuthMode}
+                  className="text-violet-400 hover:text-violet-300 transition-colors font-medium"
+                >
+                  {isSignUp ? "Sign in" : "Sign up"}
+                </button>
+              </p>
             </div>
 
-            <div className="mt-8 text-center">
-              <p className="text-sm text-gray-400">
+            {/* Terms and Privacy */}
+            <div className="text-center mt-6">
+              <p className="text-xs text-gray-400">
                 By signing in, you agree to our{" "}
                 <TosPrivacyDialog type="tos">
                   <button className="text-violet-400 hover:text-violet-300 transition-colors underline">
@@ -298,61 +346,8 @@ function AuthContent() {
               </p>
             </div>
           </div>
-
-          {/* Floating Elements */}
-          <motion.div
-            animate={{ 
-              y: [0, -10, 0],
-              rotate: [0, 5, 0]
-            }}
-            transition={{ 
-              duration: 6,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="absolute -top-8 -right-8 w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full opacity-20 blur-sm"
-          />
-          
-          <motion.div
-            animate={{ 
-              y: [0, 10, 0],
-              rotate: [0, -5, 0]
-            }}
-            transition={{ 
-              duration: 8,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="absolute -bottom-8 -left-8 w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full opacity-20 blur-sm"
-          />
         </motion.div>
       </div>
-
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
     </div>
   )
 }
@@ -361,10 +356,7 @@ export default function AuthPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
-        <div className="text-white">
-          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="mt-4 text-center">Loading...</p>
-        </div>
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
       </div>
     }>
       <AuthContent />
