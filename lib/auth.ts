@@ -17,8 +17,26 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET || "development-secret-key-for-build",
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
   
+  // Add trusted origins for CORS
+  trustedOrigins: [
+    "http://localhost:3000",
+    "https://localhost:3000", 
+    "https://zapdev-mu.vercel.app",
+    ...(process.env.NODE_ENV === "development" ? ["http://127.0.0.1:3000"] : [])
+  ],
+  
   // Use the official Convex adapter with defensive client initialization
   database: convexAdapter(createConvexClient()),
+  
+  // Optimize session settings for better performance
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // Update session daily instead of every request
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 5 // Cache for 5 minutes
+    }
+  },
   
   emailAndPassword: {
     enabled: true,
@@ -70,6 +88,16 @@ export const auth = betterAuth({
     crossSubDomainCookies: {
       enabled: true,
     },
+    // Add additional optimizations
+    generateId: false, // Use default ID generation (faster)
+    disableSignup: false,
+  },
+  
+  // Add rate limiting to prevent abuse
+  rateLimit: {
+    enabled: true,
+    window: 60, // 1 minute window
+    max: 100, // 100 requests per minute
   },
 });
 

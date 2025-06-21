@@ -57,78 +57,135 @@ export default function Home() {
     return () => unsubscribe();
   }, [scrollY, showFloatingCTA]);
 
-  if (isLoading) {
+  // Show loading state only for auth buttons, not the entire page
+  const AuthButtons = () => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-8 bg-white/10 rounded-lg animate-pulse"></div>
+          <div className="w-20 h-8 bg-white/10 rounded-lg animate-pulse"></div>
+        </div>
+      );
+    }
+
+    if (isAuthenticated) {
+      return (
+        <div className="flex items-center gap-4">
+          <motion.button
+            onClick={goToPricingPage}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Subscribe
+          </motion.button>
+          <motion.button
+            onClick={goToChat}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Go to Chat
+          </motion.button>
+          <motion.button
+            onClick={handleSignOut}
+            className="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center hover:bg-violet-700 transition-colors"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <span className="text-white text-sm font-medium">U</span>
+          </motion.button>
+        </div>
+      );
+    }
+
     return (
-      <div className="min-h-screen bg-[#0D0D10] text-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      <div className="flex items-center gap-4">
+        <motion.button
+          onClick={goToPricingPage}
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          Subscribe
+        </motion.button>
+        <motion.button
+          onClick={goToAuth}
+          className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-all text-sm font-medium"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          Sign In
+        </motion.button>
+        <motion.button
+          onClick={goToAuth}
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          Sign Up
+        </motion.button>
       </div>
     );
-  }
+  };
+
+  // Optimistic floating CTA - show based on auth state when available
+  const FloatingCTA = () => {
+    if (isLoading) {
+      return (
+        <motion.div
+          className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] shadow-lg shadow-purple-900/20 flex items-center gap-2"
+          whileHover={{ scale: 1.05 }}
+        >
+          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          <span className="font-medium">Loading...</span>
+        </motion.div>
+      );
+    }
+
+    if (isAuthenticated) {
+      return (
+        <motion.button
+          onClick={goToChat}
+          className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <span className="font-medium">Try ZapDev Now</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3.33337 8H12.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M8.66663 4L12.6666 8L8.66663 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </motion.button>
+      );
+    }
+
+    return (
+      <motion.button
+        onClick={goToAuth}
+        className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <span className="font-medium">Start Building with AI</span>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3.33337 8H12.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M8.66663 4L12.6666 8L8.66663 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </motion.button>
+    );
+  };
   
   return (
     <div className="min-h-screen bg-[#0D0D10] text-white">
-      {/* Auth buttons */}
+      {/* Auth buttons - optimistic rendering with loading states */}
       <motion.div 
         className="fixed top-4 right-4 flex gap-4 z-50"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        {isAuthenticated ? (
-          <div className="flex items-center gap-4">
-            <motion.button
-              onClick={goToPricingPage}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Subscribe
-            </motion.button>
-            <motion.button
-              onClick={goToChat}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Go to Chat
-            </motion.button>
-            <motion.button
-              onClick={handleSignOut}
-              className="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center hover:bg-violet-700 transition-colors"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span className="text-white text-sm font-medium">U</span>
-            </motion.button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-4">
-            <motion.button
-              onClick={goToPricingPage}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Subscribe
-            </motion.button>
-            <motion.button
-              onClick={goToAuth}
-              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-all text-sm font-medium"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Sign In
-            </motion.button>
-            <motion.button
-              onClick={goToAuth}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Sign Up
-            </motion.button>
-          </div>
-        )}
+        <AuthButtons />
       </motion.div>
       
       {/* Try it now button that navigates to chat */}
@@ -138,33 +195,7 @@ export default function Home() {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 1 }}
       >
-        {isAuthenticated ? (
-          <motion.button
-            onClick={goToChat}
-            className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <span className="font-medium">Try ZapDev Now</span>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3.33337 8H12.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.66663 4L12.6666 8L8.66663 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </motion.button>
-        ) : (
-          <motion.button
-            onClick={goToAuth}
-            className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <span className="font-medium">Start Building with AI</span>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3.33337 8H12.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.66663 4L12.6666 8L8.66663 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </motion.button>
-        )}
+        <FloatingCTA />
       </motion.div>
 
       {/* Floating CTA for subscribing */}
@@ -194,14 +225,15 @@ export default function Home() {
         </motion.div>
       )}
       
-      {/* Homepage sections */}
+      {/* Homepage sections - render immediately */}
       <Hero />
       <FeaturesShowcase />
       <VisualShowcase />
       <VibeToReality />
       <Audience />
       <Testimonials />
-      {/* <FinalCTA onGetStarted={() => router.push("/chat")} /> */}
+      <Pricing />
+      <FinalCTA />
     </div>
-  )
+  );
 }
