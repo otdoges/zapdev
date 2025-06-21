@@ -13,13 +13,35 @@ const addCorsHeaders = (response: Response) => {
 };
 
 export const POST = async (request: Request) => {
-  const response = await handler.POST(request);
-  return addCorsHeaders(response);
+  try {
+    const response = await handler.POST(request);
+    return addCorsHeaders(response);
+  } catch (error) {
+    console.error("Auth POST error:", error);
+    return addCorsHeaders(new Response(
+      JSON.stringify({ error: "Authentication error" }), 
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    ));
+  }
 };
 
 export const GET = async (request: Request) => {
-  const response = await handler.GET(request);
-  return addCorsHeaders(response);
+  try {
+    const response = await handler.GET(request);
+    return addCorsHeaders(response);
+  } catch (error) {
+    console.error("Auth GET error:", error);
+    return addCorsHeaders(new Response(
+      JSON.stringify({ error: "Authentication error" }), 
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    ));
+  }
 };
 
 export const OPTIONS = async () => {

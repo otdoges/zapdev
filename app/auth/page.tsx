@@ -214,6 +214,7 @@ function AuthContent() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
+                      autoComplete="name"
                       required
                     />
                   </div>
@@ -231,6 +232,7 @@ function AuthContent() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
+                    autoComplete="email"
                     required
                   />
                 </div>
@@ -247,6 +249,7 @@ function AuthContent() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
+                    autoComplete={isSignUp ? "new-password" : "current-password"}
                     required
                   />
                 </div>

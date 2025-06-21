@@ -71,9 +71,22 @@ const createPlugins = () => {
   return plugins;
 };
 
+const getAuthBaseUrl = () => {
+  // If explicitly set, use it
+  if (process.env.BETTER_AUTH_URL) {
+    return process.env.BETTER_AUTH_URL;
+  }
+  // For Vercel deployments, use the Vercel URL
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  // Default for local development
+  return "http://localhost:3000";
+};
+
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET || "development-secret-key-for-build",
-  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+  baseURL: getAuthBaseUrl(),
   
   // Add trusted origins for CORS
   trustedOrigins: [
@@ -99,6 +112,15 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
+    requireEmailVerification: false, // Disable email verification for now
+    sendResetPassword: async ({ user, url }: { user: any; url: string }) => {
+      // TODO: Implement email sending logic
+      console.log("Password reset URL:", url);
+    },
+    sendVerificationEmail: async ({ user, url }: { user: any; url: string }) => {
+      // TODO: Implement email sending logic
+      console.log("Verification URL:", url);
+    },
   },
   
   socialProviders: {
@@ -149,7 +171,6 @@ export const auth = betterAuth({
     crossSubDomainCookies: {
       enabled: true,
     },
-    // Add additional optimizations
     generateId: false, // Use default ID generation (faster)
     disableSignup: false,
   },
