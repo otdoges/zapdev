@@ -93,6 +93,9 @@ export const auth = betterAuth({
     "http://localhost:3000",
     "https://localhost:3000", 
     "https://zapdev-mu.vercel.app",
+    "https://zapdev-mu.vercel.app/api/auth/callback",
+    "http://localhost:3001",
+    "https://zapdev-mu.vercel.app/auth",
     ...(process.env.NODE_ENV === "development" ? ["http://127.0.0.1:3000"] : [])
   ],
   
