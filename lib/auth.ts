@@ -46,7 +46,7 @@ const createPlugins = () => {
           checkout({
             products: [
               {
-                productId: process.env.POLAR_PRODUCT_ID || "your-product-id", // Replace with actual product ID from Polar Dashboard
+                productId: process.env.POLAR_PRODUCT_ID || "8c36fbf5-ad68-44d2-ba2c-682d88727c47", // Replace with actual product ID from Polar Dashboard
                 slug: "pro" // Custom slug for easy reference in Checkout URL, e.g. /checkout/pro
               }
             ],

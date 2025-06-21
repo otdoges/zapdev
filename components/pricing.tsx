@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "./ui/button";
 import { CheckIcon, StarIcon, ZapIcon, ShieldIcon, HeadphonesIcon, BarChart3Icon, TrendingUpIcon, UsersIcon, ArrowRightIcon } from "lucide-react";
+import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -25,8 +25,23 @@ interface PricingContentProps {
 }
 
 export function PricingContent({ plans }: PricingContentProps) {
+  // Safety check to prevent map error
+  if (!plans || !Array.isArray(plans) || plans.length === 0) {
+    console.error('PricingContent: plans prop is', plans);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white text-center">
+          <h2 className="text-2xl font-bold mb-4">Loading pricing...</h2>
+          <p className="text-gray-400">Please wait while we load the pricing information.</p>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('PricingContent rendering with plans:', plans.length);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden relative">
       {/* Animated Background Elements */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse"></div>
@@ -34,28 +49,13 @@ export function PricingContent({ plans }: PricingContentProps) {
         <div className="absolute bottom-20 left-1/2 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse" style={{animationDelay: '4s'}}></div>
       </div>
 
-      {/* Hero Section */}
-      <div className="container mx-auto px-4 py-16 relative z-10">
-        <div className="text-center mb-16 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 mb-6 hover:bg-purple-500/20 transition-all duration-300 cursor-default">
-            <TrendingUpIcon className="h-4 w-4 text-purple-400 mr-2" />
-            <span className="text-sm text-purple-300">Trusted by 10,000+ developers</span>
-            <div className="ml-2 flex space-x-1">
-              {[...Array(5)].map((_, i) => (
-                <StarIcon key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-              ))}
-            </div>
-          </div>
-          
-          {/* Limited Time Offer Banner */}
-          <div className="inline-flex items-center px-6 py-3 rounded-full bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 mb-6 animate-bounce">
-            <span className="text-red-300 font-semibold text-sm">🔥 Limited Time: Up to 41% OFF - Ends Soon!</span>
-          </div>
-          
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-white mb-6 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent animate-in slide-in-from-bottom-8 duration-1000 delay-300">
-            Simple, transparent pricing
+      <div className="container mx-auto px-4 py-20 relative z-10">
+        {/* Hero Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-6xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent mb-6 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            Simple, Transparent Pricing
           </h1>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed animate-in slide-in-from-bottom-8 duration-1000 delay-500">
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
             Choose the perfect plan for your AI development journey. All plans include our core features with no hidden fees.
           </p>
           
@@ -147,12 +147,11 @@ export function PricingContent({ plans }: PricingContentProps) {
                     <ul className="space-y-4">
                       {plan.features.map((feature, featureIndex) => (
                         <li 
-                          key={feature} 
-                          className="flex items-start space-x-3 group/item animate-in slide-in-from-left-4 duration-500"
-                          style={{animationDelay: `${(index + 1) * 200 + featureIndex * 100}ms`}}
+                          key={`${plan.id}-${featureIndex}`} 
+                          className="flex items-start space-x-3"
                         >
-                          <CheckIcon className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0 group-hover/item:scale-125 group-hover/item:rotate-12 transition-all duration-300" />
-                          <span className="text-gray-200 leading-relaxed group-hover/item:text-white transition-colors duration-300">
+                          <CheckIcon className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0" />
+                          <span className="text-gray-200 leading-relaxed">
                             {feature}
                           </span>
                         </li>
@@ -162,16 +161,16 @@ export function PricingContent({ plans }: PricingContentProps) {
                   
                   <CardFooter className="pt-6">
                     <Button
-                      className={`w-full h-12 text-lg font-semibold transition-all duration-500 group/button ${
+                      className={`w-full h-12 text-lg font-semibold transition-all duration-500 ${
                         plan.popularPlan 
-                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl hover:shadow-purple-500/25' 
+                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700' 
                           : 'bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-slate-500'
-                      } hover:scale-105 active:scale-95`}
+                      }`}
                       asChild
                     >
-                      <a href={`/api/polar/checkout?productId=${plan.productId}`} className="group/link flex items-center justify-center">
-                        <span className="group-hover/button:translate-x-1 transition-transform duration-300">Get Started with {plan.name}</span>
-                        <ArrowRightIcon className="ml-2 h-4 w-4 group-hover/button:translate-x-2 transition-transform duration-300" />
+                      <a href={`/api/polar/checkout?productId=${plan.productId}`} className="flex items-center justify-center">
+                        <span>Get Started with {plan.name}</span>
+                        <ArrowRightIcon className="ml-2 h-4 w-4" />
                       </a>
                     </Button>
                   </CardFooter>
@@ -253,4 +252,61 @@ export function PricingContent({ plans }: PricingContentProps) {
       `}</style>
     </div>
   );
+}
+
+// Simple default component that provides static data
+export default function Pricing() {
+  console.log('Default Pricing component rendering');
+  
+  const staticPlans: Plan[] = [
+    {
+      id: "basic",
+      name: "Basic",
+      description: "Perfect for getting started",
+      price: "$9",
+      productId: "8c36fbf5-ad68-44d2-ba2c-682d88727c47",
+      features: [
+        "1,000 AI generations per month",
+        "Basic templates",
+        "Community support"
+      ],
+      icon: <ZapIcon className="h-8 w-8 text-yellow-400" />,
+      highlight: "Great Start"
+    },
+    {
+      id: "pro",
+      name: "Pro", 
+      description: "Best for professionals",
+      price: "$29",
+      productId: "5b611f41-9eb8-413b-bf6c-0e1385b61a0f",
+      features: [
+        "10,000 AI generations per month",
+        "Premium templates",
+        "Priority support",
+        "API access"
+      ],
+      popularPlan: true,
+      icon: <StarIcon className="h-8 w-8 text-purple-400" />,
+      highlight: "Most Popular"
+    },
+    {
+      id: "enterprise",
+      name: "Enterprise",
+      description: "For large teams",
+      price: "$99", 
+      productId: "e6970713-d3bd-4646-a1ed-e47dd8805b3d",
+      features: [
+        "Unlimited generations",
+        "Custom templates",
+        "24/7 support",
+        "Advanced API"
+      ],
+      icon: <ShieldIcon className="h-8 w-8 text-green-400" />,
+      highlight: "Full Power"
+    }
+  ];
+
+  console.log('Static plans created:', staticPlans.length);
+  
+  return <PricingContent plans={staticPlans} />;
 } 
