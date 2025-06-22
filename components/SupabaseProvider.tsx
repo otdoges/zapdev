@@ -61,7 +61,7 @@ export default function SupabaseProvider({
     await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: `${window.location.origin}/auth/callback?next=/chat`
       }
     })
   }
@@ -79,7 +79,7 @@ export default function SupabaseProvider({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/chat`
       }
     })
     return { error }
@@ -87,7 +87,7 @@ export default function SupabaseProvider({
 
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?type=recovery`
+      redirectTo: `${window.location.origin}/auth/callback?type=recovery&next=/chat`
     })
     return { error }
   }

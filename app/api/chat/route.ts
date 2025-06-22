@@ -52,11 +52,68 @@ export async function POST(request: NextRequest) {
 
     const coreMessages = convertToCoreMessages(messages);
 
-    // Check for AI team coordination request
+    // Check for different types of requests
     const lastMessage = messages[messages.length - 1]?.content || '';
     const isTeamRequest = lastMessage.toLowerCase().includes('team') || 
                          lastMessage.toLowerCase().includes('coordinate') ||
                          lastMessage.toLowerCase().includes('collaborate');
+    
+    // Check for code building requests
+    const isCodeRequest = /\b(build|create|make|generate|code|app|website|component|function)\b/i.test(lastMessage);
+    const isFeatureRequest = /\b(add|implement|include|feature|button|form|page)\b/i.test(lastMessage);
+
+    // Handle code building requests with action-oriented responses
+    if (isCodeRequest || isFeatureRequest) {
+      try {
+        const buildingResponse = await generateText({
+          model: openrouterProvider.chat('anthropic/claude-3.5-sonnet'),
+          messages: [
+            {
+              role: 'system',
+              content: `You are ZapDev, an AI that BUILDS instead of explains. When users ask for code, features, or applications, you:
+
+1. 🔨 Immediately start building the actual code
+2. 🚀 Show action indicators like "Building..." "Creating..." "Adding..."  
+3. ✅ Provide working, complete code solutions
+4. 📱 Create responsive, modern interfaces with Tailwind CSS
+5. 🎯 Focus on delivering results, not tutorials
+
+NEVER say "Here's how you would..." or "You could do this by..." 
+ALWAYS say "🔨 Building [feature]..." then provide the actual working code.
+
+Use these action phrases:
+- 🔨 Building your [component/app/feature]...
+- ⚙️ Setting up the structure...
+- 🎨 Adding styles and interactions...
+- ✅ Complete! Here's your working [feature]:
+
+Provide complete, runnable code with all imports and dependencies.`
+            },
+            ...coreMessages
+          ],
+          temperature: 0.7,
+        });
+
+        // Save AI response to Supabase
+        if (finalChatId) {
+          try {
+            await addMessage(finalChatId, 'assistant', buildingResponse.text);
+          } catch (error) {
+            console.error('Failed to save building response:', error);
+          }
+        }
+
+        return NextResponse.json({ 
+          message: buildingResponse.text,
+          chatId: finalChatId,
+          buildTriggered: true
+        });
+
+      } catch (error) {
+        console.error('Building response failed:', error);
+        // Fall back to regular AI response
+      }
+    }
 
     if (isTeamRequest) {
       // Handle AI team coordination

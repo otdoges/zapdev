@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import * as React from "react"
 import { useChat, type Message } from "ai/react"
 import { modelIds } from "@/lib/openrouter"
+import BuildingProgress from "./building-progress"
+import CodeGenerationDisplay from "./code-generation-display"
 
 // Throttle function for performance optimization
 function throttle<T extends (...args: any[]) => any>(
@@ -194,10 +196,15 @@ const extractCodeFromMessage = (content: string): string => {
 
 // Function to filter out tool calls and clean up AI responses
 const filterMessage = (content: string): string => {
-  // Remove tool call patterns
+  // Remove tool call patterns and technical explanations
   const toolCallPatterns = [
     /\[Tool Call[^\]]*\][^[]*/g,
     /\[Function Call[^\]]*\][^[]*/g,
+    /\<function_calls\>[\s\S]*?\<\/antml:function_calls\>/g,
+    /\<invoke[^>]*\>[\s\S]*?\<\/antml:invoke\>/g,
+    /I'll help you[\s\S]*?Let me start by/g,
+    /I need to[\s\S]*?first\./g,
+    /Let me examine[\s\S]*?understand/g,
     /\[API Call[^\]]*\][^[]*/g,
     /```json\s*{[^}]*"tool"[^}]*}[^`]*```/g,
   ];
@@ -244,6 +251,12 @@ export function AnimatedAIChat({
   const fallbackModel = 'openrouter/auto';
   const [selectedModel, setSelectedModel] = useState(modelIds[0] ?? fallbackModel)
   const [useThinking, setUseThinking] = useState(false)
+  
+  // Visual progress states
+  const [showBuildingProgress, setShowBuildingProgress] = useState(false)
+  const [showCodeGeneration, setShowCodeGeneration] = useState(false)
+  const [currentBuildStep, setCurrentBuildStep] = useState('analyze')
+  const [isBuilding, setIsBuilding] = useState(false)
   
   // Track the actual Convex chat ID separate from the URL chatId
   const [convexChatId, setConvexChatId] = useState<string | null>(null);
@@ -369,6 +382,22 @@ export function AnimatedAIChat({
       onFirstMessageSent()
     }
 
+    // Check if this is a code generation request
+    const isCodeRequest = /\b(build|create|make|generate|code|app|website|component|function)\b/i.test(userMessage)
+    const isFeatureRequest = /\b(add|implement|include|feature|button|form|page)\b/i.test(userMessage)
+    
+    if (isCodeRequest || isFeatureRequest) {
+      setIsBuilding(true)
+      setShowBuildingProgress(true)
+      setCurrentBuildStep('analyze')
+      
+      // Show code generation after a delay
+      setTimeout(() => {
+        setShowBuildingProgress(false)
+        setShowCodeGeneration(true)
+      }, 8000) // Show building progress for 8 seconds
+    }
+
     await append({ role: "user", content: userMessage })
   }
 
@@ -416,6 +445,32 @@ export function AnimatedAIChat({
         onChange={handleFileChange}
         accept="image/*"
       />
+
+      {/* Visual Progress Components */}
+      {showBuildingProgress && (
+        <div className="p-6">
+          <BuildingProgress 
+            isVisible={showBuildingProgress}
+            currentStep={currentBuildStep}
+            onComplete={() => {
+              setShowBuildingProgress(false)
+              setShowCodeGeneration(true)
+            }}
+          />
+        </div>
+      )}
+      
+      {showCodeGeneration && (
+        <div className="p-6">
+          <CodeGenerationDisplay 
+            isVisible={showCodeGeneration}
+            onComplete={() => {
+              setShowCodeGeneration(false)
+              setIsBuilding(false)
+            }}
+          />
+        </div>
+      )}
 
       {/* Message list - flexible height container that grows to fill available space */}
       <div className="flex-grow overflow-y-auto p-6 space-y-6">

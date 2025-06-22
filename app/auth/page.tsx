@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { motion } from "framer-motion"
 import { Github, Sparkles, Zap, ArrowRight, Code, Palette, Rocket, Mail, Lock, AlertCircle } from "lucide-react"
 import { useSupabase } from "@/components/SupabaseProvider"
@@ -35,15 +35,27 @@ function AuthContent() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   
-  const { signInWithGitHub, signInWithEmail, signUpWithEmail, resetPassword, user } = useSupabase()
+  const { signInWithGitHub, signInWithEmail, signUpWithEmail, resetPassword, user, loading } = useSupabase()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') || '/chat'
 
   // Redirect if already authenticated
-  if (user) {
-    router.push(redirectTo)
-    return null
+  useEffect(() => {
+    if (user && !loading) {
+      router.push(redirectTo)
+    }
+  }, [user, loading, router, redirectTo])
+
+  if (user && !loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Redirecting to chat...</p>
+        </div>
+      </div>
+    )
   }
 
   const handleGitHubAuth = async () => {

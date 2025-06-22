@@ -8,7 +8,7 @@ import { useEffect, useState, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { Code, Eye, Maximize2, Minimize2, ArrowLeft, Settings, BarChart3, Brain } from "lucide-react"
 import { getTokenUsageStats } from "@/lib/openrouter"
-import { useAuthUser } from "@/lib/actions"
+import { useSupabase } from "@/components/SupabaseProvider"
 
 // Memoize static components for better performance
 const BackButton = ({ onClick }: { onClick: () => void }) => (
@@ -49,7 +49,9 @@ export default function ChatPage() {
   const [hasMessagesSent, setHasMessagesSent] = useState(false)
   const [aiTeamProject, setAiTeamProject] = useState<any>(null)
   const [showWebContainer, setShowWebContainer] = useState(false)
-  const { user, isAuthenticated, isLoading } = useAuthUser()
+  const { user, loading } = useSupabase()
+  const isAuthenticated = !!user
+  const isLoading = loading
 
   // Memoized handlers
   const handleBack = useMemo(() => () => router.push('/chat'), [router])
