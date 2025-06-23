@@ -24,6 +24,15 @@ const Context = createContext<SupabaseContext>({
   resetPassword: async () => ({ error: null }),
 })
 
+// Create Supabase client outside the component to prevent re-instantiation
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+const supabase = createBrowserClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key'
+)
+
 export default function SupabaseProvider({
   children,
 }: {
@@ -31,15 +40,6 @@ export default function SupabaseProvider({
 }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-
-  // Check if Supabase is properly configured
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  const supabase = createBrowserClient(
-    supabaseUrl || 'https://placeholder.supabase.co',
-    supabaseAnonKey || 'placeholder-key'
-  )
 
   useEffect(() => {
     // Check if Supabase is configured
@@ -78,8 +78,7 @@ export default function SupabaseProvider({
     )
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth])
-
+  }, []) // Remove dependency since supabase client should be stable
   const signOut = async () => {
     try {
       const { error } = await supabase.auth.signOut()
