@@ -258,8 +258,10 @@ export function AnimatedAIChat({
   const [currentBuildStep, setCurrentBuildStep] = useState('analyze')
   const [isBuilding, setIsBuilding] = useState(false)
   
-  // Track the actual Convex chat ID separate from the URL chatId
-  const [convexChatId, setConvexChatId] = useState<string | null>(null);
+  // Track the actual Supabase chat ID
+  const [supabaseChatId, setSupabaseChatId] = useState<string | null>(null);
+  const [initialMessages, setInitialMessages] = useState<any[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   // Use Vercel AI SDK's useChat hook
   const { messages, isLoading: isTyping, append, setMessages, data } = useChat({
@@ -267,53 +269,93 @@ export function AnimatedAIChat({
     id: chatId,
     body: {
       modelId: selectedModel,
-      chatId: convexChatId && !convexChatId.includes('-') ? convexChatId : null, // Only send valid Convex IDs
+      chatId: supabaseChatId,
       useMultipleModels,
     },
-    initialMessages: [],
+    initialMessages,
     onResponse: async (response) => {
-      // Get the Convex chat ID from response headers
+      // Get the Supabase chat ID from response headers
       const newChatId = response.headers.get('X-Chat-ID');
-      if (newChatId && newChatId !== convexChatId) {
-        setConvexChatId(newChatId);
+      if (newChatId && newChatId !== supabaseChatId) {
+        setSupabaseChatId(newChatId);
+      }
+
+      // Check for build triggers
+      const buildTriggered = response.headers.get('X-Build-Triggered');
+      const aiTeamTriggered = response.headers.get('X-AI-Team-Triggered');
+      
+      if (buildTriggered && onCodeGenerated) {
+        console.log('Build triggered - will extract code when response completes');
+      }
+      
+      if (aiTeamTriggered && onAITeamBuild) {
+        console.log('AI Team triggered - will initialize WebContainer');
       }
     },
     onFinish: async (message, options) => {
-      // Check if this is an AI team build response
-      if (message.role === 'assistant' && options?.data?.aiTeamTriggered && onAITeamBuild) {
-        const teamBuildData = options.data;
-        onAITeamBuild(teamBuildData);
-      }
-
       // Extract and send code when AI finishes responding
       if (message.role === 'assistant' && onCodeGenerated) {
         const extractedCode = extractCodeFromMessage(message.content);
         if (extractedCode) {
+          console.log('Code extracted, sending to WebContainer:', extractedCode.substring(0, 100) + '...');
           onCodeGenerated(extractedCode);
         }
       }
 
-      // Save the assistant message to Convex (for streaming responses)
-      // Only save if we have a valid Convex ID (not a UUID)
-      if (message.role === 'assistant' && convexChatId && !convexChatId.includes('-')) {
-        try {
-          await fetch('/api/chat/save-message', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chatId: convexChatId,
-              content: message.content,
-              role: 'assistant'
-            })
-          });
-        } catch (error) {
-          console.error('Failed to save assistant message:', error);
+      // Check if this is an AI team build response
+      if (message.role === 'assistant' && onAITeamBuild) {
+        // Check if the message contains code or project instructions
+        const hasCode = message.content.includes('```') || 
+                       /\b(component|app|website|project)\b/i.test(message.content);
+        
+        if (hasCode) {
+          console.log('AI Team project detected, triggering WebContainer');
+          const projectData = {
+            instructions: message.content,
+            code: extractCodeFromMessage(message.content),
+            timestamp: Date.now()
+          };
+          onAITeamBuild(projectData);
         }
-      } else {
-        console.log('Skipping message save - no valid Convex chat ID available');
       }
     },
   });
+
+  // Load existing messages from Supabase when chat ID changes
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!chatId || chatId === 'new' || chatId === 'default') return;
+      
+      setIsLoadingMessages(true);
+      try {
+        const response = await fetch(`/api/chat/messages?chatId=${chatId}`);
+        if (response.ok) {
+          const { messages: existingMessages, chatId: validChatId } = await response.json();
+          
+          if (validChatId) {
+            setSupabaseChatId(validChatId);
+          }
+          
+          if (existingMessages && existingMessages.length > 0) {
+            const formattedMessages = existingMessages.map((msg: any) => ({
+              id: msg.id,
+              role: msg.role,
+              content: msg.content,
+              createdAt: msg.created_at
+            }));
+            setInitialMessages(formattedMessages);
+            setMessages(formattedMessages);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load messages:', error);
+      } finally {
+        setIsLoadingMessages(false);
+      }
+    };
+
+    loadMessages();
+  }, [chatId, setMessages]);
 
   // Filter messages to remove tool calls
   const filteredMessages = useMemo(() => {

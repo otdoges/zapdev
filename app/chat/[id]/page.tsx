@@ -191,40 +191,48 @@ export default function ChatPage() {
                 console.log('First message sent')
               }}
               onCodeGenerated={(code) => {
+                console.log('Code generated in chat page:', code.substring(0, 100) + '...');
                 setGeneratedCode(code)
+                setShowWebContainer(true)
+              }}
+              onAITeamBuild={(projectData) => {
+                console.log('AI Team built project:', projectData)
+                setAiTeamProject(projectData)
+                setShowWebContainer(true)
+                setHasMessagesSent(true)
               }}
               useMultipleModels={false}
               className="h-full"
             />
           </motion.div>
 
-          {/* Separator */}
-          {!isPreviewExpanded && (
-            <motion.div 
-              className="w-px bg-white/10 flex-shrink-0"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-            />
-          )}
-
           {/* Preview Panel */}
           <motion.div 
             className={cn(
-              "transition-all duration-300 flex flex-col",
+              "transition-all duration-300 border-l border-white/10 flex flex-col",
               isPreviewExpanded ? "w-full opacity-100" : "w-1/2 opacity-100"
             )}
-            initial={{ width: "0%", opacity: 0 }}
-            animate={{ 
-              width: isPreviewExpanded ? "100%" : "50%", 
-              opacity: 1 
-            }}
+            initial={{ width: "0%" }}
+            animate={{ width: isPreviewExpanded ? "100%" : "50%" }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
-            <WebContainerComponent 
-              code={generatedCode}
-              onCodeChange={setGeneratedCode}
-            />
+            {showWebContainer && (generatedCode || aiTeamProject) ? (
+              <WebContainerComponent
+                code={generatedCode}
+                aiTeamInstructions={aiTeamProject?.instructions}
+                onCodeChange={(newCode) => setGeneratedCode(newCode)}
+                className="h-full"
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center bg-[#0A0A0F] text-white/40">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-white/5 flex items-center justify-center">
+                    <Eye className="w-8 h-8" />
+                  </div>
+                  <p className="text-sm">Preview will appear here when you generate code</p>
+                </div>
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}

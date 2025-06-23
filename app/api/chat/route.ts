@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { createChat, addMessage, requireAuth } from '@/lib/supabase-operations';
 import { openrouterProvider } from '@/lib/openrouter';
-import { generateText, streamText, convertToCoreMessages } from 'ai';
+import { streamText, convertToCoreMessages } from 'ai';
 import { systemPrompt } from '@/lib/system-prompt';
 
 export async function POST(request: NextRequest) {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await requireAuth();
-    const { messages, chatId } = await request.json();
+    const { messages, chatId, modelId } = await request.json();
 
     let finalChatId = chatId;
 
@@ -62,15 +62,11 @@ export async function POST(request: NextRequest) {
     const isCodeRequest = /\b(build|create|make|generate|code|app|website|component|function)\b/i.test(lastMessage);
     const isFeatureRequest = /\b(add|implement|include|feature|button|form|page)\b/i.test(lastMessage);
 
-    // Handle code building requests with action-oriented responses
+    // Enhanced system prompt based on request type
+    let enhancedSystemPrompt = systemPrompt;
+    
     if (isCodeRequest || isFeatureRequest) {
-      try {
-        const buildingResponse = await generateText({
-          model: openrouterProvider.chat('anthropic/claude-3.5-sonnet'),
-          messages: [
-            {
-              role: 'system',
-              content: `You are ZapDev, an AI that BUILDS instead of explains. When users ask for code, features, or applications, you:
+      enhancedSystemPrompt = `You are ZapDev, an AI that BUILDS instead of explains. When users ask for code, features, or applications, you:
 
 1. 🔨 Immediately start building the actual code
 2. 🚀 Show action indicators like "Building..." "Creating..." "Adding..."  
@@ -87,76 +83,22 @@ Use these action phrases:
 - 🎨 Adding styles and interactions...
 - ✅ Complete! Here's your working [feature]:
 
-Provide complete, runnable code with all imports and dependencies.`
-            },
-            ...coreMessages
-          ],
-          temperature: 0.7,
-        });
-
-        // Save AI response to Supabase
-        if (finalChatId) {
-          try {
-            await addMessage(finalChatId, 'assistant', buildingResponse.text);
-          } catch (error) {
-            console.error('Failed to save building response:', error);
-          }
-        }
-
-        return NextResponse.json({ 
-          message: buildingResponse.text,
-          chatId: finalChatId,
-          buildTriggered: true
-        });
-
-      } catch (error) {
-        console.error('Building response failed:', error);
-        // Fall back to regular AI response
-      }
+Provide complete, runnable code with all imports and dependencies.`;
     }
 
     if (isTeamRequest) {
-      // Handle AI team coordination
-      try {
-                 const aiTeamResponse = await generateText({
-           model: openrouterProvider.chat('anthropic/claude-3.5-sonnet'),
-          messages: [
-            {
-              role: 'system',
-              content: `You are coordinating a team of AI specialists. Based on the user's request, create a response that simulates multiple AI experts working together. Include perspectives from different specialists like a frontend developer, backend developer, UX designer, and project manager. Make it conversational and collaborative.`
-            },
-            ...coreMessages
-          ],
-          temperature: 0.7,
-        });
+      enhancedSystemPrompt = `You are coordinating a team of AI specialists. Based on the user's request, create a response that simulates multiple AI experts working together. Include perspectives from different specialists like a frontend developer, backend developer, UX designer, and project manager. Make it conversational and collaborative.
 
-        // Save AI team response to Supabase
-        if (finalChatId) {
-          try {
-            await addMessage(finalChatId, 'assistant', aiTeamResponse.text);
-          } catch (error) {
-            console.error('Failed to save AI team response:', error);
-          }
-        }
-
-        return NextResponse.json({ 
-          message: aiTeamResponse.text,
-          chatId: finalChatId 
-        });
-
-      } catch (error) {
-        console.error('AI team coordination failed:', error);
-        // Fall back to regular AI response
-      }
+When building projects, always trigger the WebContainer for live preview by including code blocks with complete, runnable applications.`;
     }
 
-         // Regular AI response with streaming
-     const result = await streamText({
-       model: openrouterProvider.chat('anthropic/claude-3.5-sonnet'),
+    // Always use streaming for consistent UI behavior
+    const result = await streamText({
+      model: openrouterProvider.chat(modelId || 'anthropic/claude-3.5-sonnet'),
       messages: [
         {
           role: 'system',
-          content: systemPrompt
+          content: enhancedSystemPrompt
         },
         ...coreMessages
       ],
@@ -193,12 +135,21 @@ Provide complete, runnable code with all imports and dependencies.`
       },
     });
 
-    return new NextResponse(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'X-Chat-ID': finalChatId || '',
-      },
+    const headers = new Headers({
+      'Content-Type': 'text/plain; charset=utf-8',
+      'X-Chat-ID': finalChatId || '',
     });
+
+    // Add special headers for different request types
+    if (isCodeRequest || isFeatureRequest) {
+      headers.set('X-Build-Triggered', 'true');
+    }
+    
+    if (isTeamRequest) {
+      headers.set('X-AI-Team-Triggered', 'true');
+    }
+
+    return new Response(stream, { headers });
 
   } catch (error) {
     console.error('Chat API error:', error);

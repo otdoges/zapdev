@@ -80,6 +80,11 @@ export default function WebContainerComponent({
         addTerminalOutput('✅ WebContainer initialized successfully')
         setIsLoading(false)
         
+        // If we have code, set it up immediately
+        if (code && code.trim()) {
+          await setupCodeInContainer(instance, code)
+        }
+        
         // If we have AI instructions, start the AI team
         if (aiTeamInstructions) {
           await startAITeamDevelopment(aiTeamInstructions, instance)
@@ -101,7 +106,217 @@ export default function WebContainerComponent({
         webcontainerInstance.current.teardown()
       }
     }
-  }, [aiTeamInstructions])
+  }, []) // Only run once on mount
+
+  // Handle code changes
+  useEffect(() => {
+    const setupCode = async () => {
+      if (container && code && code.trim()) {
+        await setupCodeInContainer(container, code)
+      }
+    }
+    
+    setupCode()
+  }, [code, container])
+
+  // Setup code in container
+  const setupCodeInContainer = async (containerInstance: WebContainer, codeContent: string) => {
+    try {
+      addTerminalOutput('📄 Setting up code in WebContainer...')
+      
+      // Detect if it's HTML or React
+      const isHTML = codeContent.includes('<!DOCTYPE html>') || codeContent.includes('<html');
+      const isReact = codeContent.includes('import React') || codeContent.includes('from "react"');
+      
+      if (isHTML) {
+        // Simple HTML setup
+        const files = {
+          'index.html': {
+            file: { contents: codeContent }
+          },
+          'package.json': {
+            file: {
+              contents: JSON.stringify({
+                name: 'webcontainer-app',
+                type: 'module',
+                scripts: {
+                  dev: 'npx serve . -p 3000',
+                  start: 'npx serve . -p 3000'
+                },
+                dependencies: {
+                  serve: 'latest'
+                }
+              }, null, 2)
+            }
+          }
+        }
+        
+        await containerInstance.mount(files)
+        await startHTMLServer(containerInstance)
+        
+      } else if (isReact) {
+        // React setup
+        await setupReactProject(containerInstance, codeContent)
+      } else {
+        // Generic JavaScript/TypeScript
+        await setupGenericProject(containerInstance, codeContent)
+      }
+      
+    } catch (error) {
+      console.error('Failed to setup code:', error)
+      addTerminalOutput(`❌ Setup error: ${error}`)
+    }
+  }
+
+  // Start HTML server
+  const startHTMLServer = async (containerInstance: WebContainer) => {
+    try {
+      addTerminalOutput('📦 Installing dependencies...')
+      
+      const installProcess = await containerInstance.spawn('npm', ['install'])
+      installProcess.output.pipeTo(new WritableStream({
+        write(data) {
+          addTerminalOutput(data)
+        }
+      }))
+      
+      await installProcess.exit
+      
+      addTerminalOutput('🚀 Starting server...')
+      const serverProcess = await containerInstance.spawn('npm', ['run', 'dev'])
+      
+      serverProcess.output.pipeTo(new WritableStream({
+        write(data) {
+          addTerminalOutput(data)
+        }
+      }))
+      
+      // Wait for server to start and get URL
+      containerInstance.on('server-ready', (port, url) => {
+        setPreviewUrl(url)
+        setIsRunning(true)
+        addTerminalOutput(`✅ Server running at ${url}`)
+      })
+      
+    } catch (error) {
+      console.error('Failed to start HTML server:', error)
+      addTerminalOutput(`❌ Server error: ${error}`)
+    }
+  }
+
+  // Setup React project
+  const setupReactProject = async (containerInstance: WebContainer, codeContent: string) => {
+    try {
+      const files = {
+        'package.json': {
+          file: {
+            contents: JSON.stringify({
+              name: 'react-app',
+              type: 'module',
+              scripts: {
+                dev: 'vite',
+                build: 'vite build',
+                preview: 'vite preview'
+              },
+              dependencies: {
+                'react': 'latest',
+                'react-dom': 'latest',
+                'vite': 'latest',
+                '@vitejs/plugin-react': 'latest'
+              }
+            }, null, 2)
+          }
+        },
+        'vite.config.js': {
+          file: {
+            contents: `import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 3000,
+    host: true
+  }
+})`
+          }
+        },
+        'index.html': {
+          file: {
+            contents: `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>React App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>`
+          }
+        },
+        'src': {
+          directory: {
+            'main.jsx': {
+              file: {
+                contents: `import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)`
+              }
+            },
+            'App.jsx': {
+              file: { contents: codeContent }
+            }
+          }
+        }
+      }
+      
+      await containerInstance.mount(files)
+      await startDevelopmentServer(containerInstance)
+      
+    } catch (error) {
+      console.error('Failed to setup React project:', error)
+      addTerminalOutput(`❌ React setup error: ${error}`)
+    }
+  }
+
+  // Setup generic project
+  const setupGenericProject = async (containerInstance: WebContainer, codeContent: string) => {
+    try {
+      const files = {
+        'index.js': {
+          file: { contents: codeContent }
+        },
+        'package.json': {
+          file: {
+            contents: JSON.stringify({
+              name: 'generic-app',
+              type: 'module',
+              scripts: {
+                dev: 'node index.js',
+                start: 'node index.js'
+              }
+            }, null, 2)
+          }
+        }
+      }
+      
+      await containerInstance.mount(files)
+      await startDevelopmentServer(containerInstance)
+      
+    } catch (error) {
+      console.error('Failed to setup generic project:', error)
+      addTerminalOutput(`❌ Generic setup error: ${error}`)
+    }
+  }
 
   // AI Team Development Process
   const startAITeamDevelopment = async (instructions: string, containerInstance: WebContainer) => {
