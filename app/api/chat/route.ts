@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { createChat, addMessage, requireAuth } from '@/lib/supabase-operations';
-import { openrouterProvider } from '@/lib/openrouter';
+import { groqProvider, streamGroqResponse, getGroqModelId } from '@/lib/groq-provider';
 import { streamText, convertToCoreMessages } from 'ai';
 import { systemPrompt } from '@/lib/system-prompt';
 
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await requireAuth();
-    const { messages, chatId, modelId } = await request.json();
+    const { messages, chatId, modelId, useReasoning = true, reasoningFormat = 'parsed' } = await request.json();
 
     let finalChatId = chatId;
 
@@ -83,18 +83,33 @@ Use these action phrases:
 - 🎨 Adding styles and interactions...
 - ✅ Complete! Here's your working [feature]:
 
-Provide complete, runnable code with all imports and dependencies.`;
+Provide complete, runnable code with all imports and dependencies.
+
+Your reasoning models allow you to think through complex problems step by step. Use this capability to:
+- Analyze requirements thoroughly
+- Consider edge cases and best practices  
+- Design optimal architectures
+- Debug and optimize code`;
     }
 
     if (isTeamRequest) {
-      enhancedSystemPrompt = `You are coordinating a team of AI specialists. Based on the user's request, create a response that simulates multiple AI experts working together. Include perspectives from different specialists like a frontend developer, backend developer, UX designer, and project manager. Make it conversational and collaborative.
+      enhancedSystemPrompt = `You are coordinating a team of AI specialists with advanced reasoning capabilities. Based on the user's request, create a response that simulates multiple AI experts working together. Include perspectives from different specialists like a frontend developer, backend developer, UX designer, and project manager. Make it conversational and collaborative.
+
+Use your reasoning abilities to:
+- Break down complex projects into manageable tasks
+- Identify potential challenges and solutions
+- Coordinate different aspects of development
+- Provide comprehensive project planning
 
 When building projects, always trigger the WebContainer for live preview by including code blocks with complete, runnable applications.`;
     }
 
-    // Always use streaming for consistent UI behavior
+    // Get the selected model - defaults to reasoning models
+    const selectedModelId = getGroqModelId(modelId);
+    
+    // Use Groq streaming with reasoning support
     const result = await streamText({
-      model: openrouterProvider.chat(modelId || 'anthropic/claude-3.5-sonnet'),
+      model: groqProvider.chat(selectedModelId),
       messages: [
         {
           role: 'system',
@@ -103,7 +118,10 @@ When building projects, always trigger the WebContainer for live preview by incl
         ...coreMessages
       ],
       temperature: 0.7,
-      maxTokens: 4000,
+      maxTokens: 8192, // Groq models support larger contexts
+      providerOptions: useReasoning ? {
+        groq: { reasoningFormat }
+      } : undefined,
     });
 
     // Save AI response to Supabase when streaming is complete
@@ -138,6 +156,8 @@ When building projects, always trigger the WebContainer for live preview by incl
     const headers = new Headers({
       'Content-Type': 'text/plain; charset=utf-8',
       'X-Chat-ID': finalChatId || '',
+      'X-Model-Used': selectedModelId,
+      'X-Reasoning-Enabled': useReasoning.toString(),
     });
 
     // Add special headers for different request types
@@ -154,7 +174,8 @@ When building projects, always trigger the WebContainer for live preview by incl
   } catch (error) {
     console.error('Chat API error:', error);
     return NextResponse.json({ 
-      error: 'Failed to process chat message' 
+      error: 'Failed to process chat message',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 } 

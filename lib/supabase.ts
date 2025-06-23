@@ -7,6 +7,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Missing Supabase environment variables. Please check your .env.local file.')
 }
 
+// Validate environment variables
+const isValidUrl = supabaseUrl && supabaseUrl !== 'https://placeholder.supabase.co'
+const isValidKey = supabaseAnonKey && supabaseAnonKey !== 'placeholder-key'
+
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co', 
   supabaseAnonKey || 'placeholder-key',
@@ -14,10 +18,19 @@ export const supabase = createClient(
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true
+      detectSessionInUrl: true,
+      flowType: 'pkce'
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'zapdev-app'
+      }
     }
   }
 )
+
+// Export configuration status
+export const isSupabaseConfigured = isValidUrl && isValidKey
 
 // Database types
 export interface User {
@@ -26,6 +39,9 @@ export interface User {
   name?: string
   avatar_url?: string
   provider?: string
+  stripe_customer_id?: string
+  subscription_status?: string
+  subscription_plan?: string
   created_at: string
   updated_at: string
 }

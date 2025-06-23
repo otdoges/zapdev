@@ -7,7 +7,7 @@ import { Paperclip, Command, SendIcon, XIcon, LoaderIcon, Sparkles, ImageIcon, F
 import { motion, AnimatePresence } from "framer-motion"
 import * as React from "react"
 import { useChat, type Message } from "ai/react"
-import { modelIds } from "@/lib/openrouter"
+import { groqModelConfigs } from "@/lib/groq-provider"
 import BuildingProgress from "./building-progress"
 import CodeGenerationDisplay from "./code-generation-display"
 
@@ -248,9 +248,12 @@ export function AnimatedAIChat({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [generatedCode, setGeneratedCode] = useState<string>("");
   const [currentStage, setCurrentStage] = useState<string | null>(null);
-  const fallbackModel = 'openrouter/auto';
-  const [selectedModel, setSelectedModel] = useState(modelIds[0] ?? fallbackModel)
-  const [useThinking, setUseThinking] = useState(false)
+  // Use Groq reasoning models by default
+  const groqModelIds = groqModelConfigs.map(config => config.id);
+  const fallbackModel = 'deepseek-r1-distill-qwen-32b';
+  const [selectedModel, setSelectedModel] = useState(groqModelIds[0] ?? fallbackModel)
+  const [useReasoning, setUseReasoning] = useState(true)
+  const [reasoningFormat, setReasoningFormat] = useState<'parsed' | 'hidden' | 'raw'>('parsed')
   
   // Visual progress states
   const [showBuildingProgress, setShowBuildingProgress] = useState(false)
@@ -263,7 +266,7 @@ export function AnimatedAIChat({
   const [initialMessages, setInitialMessages] = useState<any[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-  // Use Vercel AI SDK's useChat hook
+  // Use Vercel AI SDK's useChat hook with Groq reasoning
   const { messages, isLoading: isTyping, append, setMessages, data } = useChat({
     api: "/api/chat",
     id: chatId,
@@ -271,6 +274,8 @@ export function AnimatedAIChat({
       modelId: selectedModel,
       chatId: supabaseChatId,
       useMultipleModels,
+      useReasoning,
+      reasoningFormat,
     },
     initialMessages,
     onResponse: async (response) => {
@@ -364,6 +369,10 @@ export function AnimatedAIChat({
       content: msg.role === 'assistant' ? filterMessage(msg.content) : msg.content
     }));
   }, [messages]);
+
+  // State for reasoning display
+  const [showReasoning, setShowReasoning] = useState(true);
+  const [reasoningData, setReasoningData] = useState<any>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -540,8 +549,8 @@ export function AnimatedAIChat({
               <motion.div
                 key={index}
                 className={cn(
-                  "flex",
-                  message.role === "user" ? "justify-end" : "justify-start"
+                  "flex flex-col gap-2",
+                  message.role === "user" ? "items-end" : "items-start"
                 )}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -561,6 +570,35 @@ export function AnimatedAIChat({
                 >
                   <div className="text-sm whitespace-pre-wrap">{message.content}</div>
                 </div>
+                
+                {/* Show reasoning for assistant messages when available */}
+                {message.role === "assistant" && message.reasoning && (
+                  <motion.div
+                    className="max-w-[80%] w-full"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <details className="group">
+                      <summary className="cursor-pointer flex items-center gap-2 text-xs text-white/60 hover:text-white/80 transition-colors mb-2">
+                        <Sparkles className="w-3 h-3" />
+                        <span>View Reasoning Process</span>
+                        <span className="text-xs bg-white/[0.05] px-2 py-0.5 rounded">
+                          {groqModelConfigs.find(m => m.id === selectedModel)?.name || 'Reasoning Model'}
+                        </span>
+                      </summary>
+                      <div className="bg-white/[0.02] border border-white/[0.03] rounded-xl p-4 mt-2">
+                        <div className="text-xs text-white/40 mb-2 flex items-center gap-2">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                          AI Reasoning Steps
+                        </div>
+                        <div className="text-sm text-white/70 whitespace-pre-wrap font-mono leading-relaxed">
+                          {message.reasoning}
+                        </div>
+                      </div>
+                    </details>
+                  </motion.div>
+                )}
               </motion.div>
             ))}
             
@@ -693,61 +731,88 @@ export function AnimatedAIChat({
                 )}
               </AnimatePresence>
 
-              <div className="p-4 border-t border-white/[0.05] flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between px-4 py-2 border-t border-white/[0.05]">
                 <div className="flex items-center gap-3">
-                  <motion.button
-                    type="button"
+                  <button
                     onClick={handleAttachFile}
-                    whileTap={{ scale: 0.94 }}
-                    className="p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group"
+                    className="flex items-center gap-1 text-white/40 hover:text-white/70 transition-colors"
+                    data-command-button
+                    disabled={isTyping}
                   >
                     <Paperclip className="w-4 h-4" />
-                    <motion.span
-                      className="absolute inset-0 bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                      layoutId="button-highlight"
-                    />
-                  </motion.button>
-                  <motion.button
-                    type="button"
+                  </button>
+
+                  <button
+                    onClick={() => setShowCommandPalette(!showCommandPalette)}
+                    className="flex items-center gap-1 text-white/40 hover:text-white/70 transition-colors"
                     data-command-button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShowCommandPalette((prev) => !prev)
-                    }}
-                    whileTap={{ scale: 0.94 }}
-                    className={cn(
-                      "p-2 text-white/40 hover:text-white/90 rounded-lg transition-colors relative group",
-                      showCommandPalette && "bg-white/10 text-white/90",
-                    )}
+                    disabled={isTyping}
                   >
                     <Command className="w-4 h-4" />
-                    <motion.span
-                      className="absolute inset-0 bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                      layoutId="button-highlight"
-                    />
-                  </motion.button>
+                  </button>
+                  
+                  {/* Reasoning Controls */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setUseReasoning(!useReasoning)}
+                      className={cn(
+                        "flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors",
+                        useReasoning 
+                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" 
+                          : "text-white/40 hover:text-white/70"
+                      )}
+                      disabled={isTyping}
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      {useReasoning ? "Reasoning ON" : "Reasoning OFF"}
+                    </button>
+                    
+                    {useReasoning && (
+                      <select
+                        value={reasoningFormat}
+                        onChange={(e) => setReasoningFormat(e.target.value as 'parsed' | 'hidden' | 'raw')}
+                        className="text-xs bg-white/[0.05] border border-white/[0.1] rounded px-2 py-1 text-white/70"
+                        disabled={isTyping}
+                      >
+                        <option value="parsed">Parsed</option>
+                        <option value="hidden">Hidden</option>
+                        <option value="raw">Raw</option>
+                      </select>
+                    )}
+                  </div>
+                  
+                  {/* Model Selection */}
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="text-xs bg-white/[0.05] border border-white/[0.1] rounded px-2 py-1 text-white/70"
+                    disabled={isTyping}
+                  >
+                    {groqModelConfigs.map((config) => (
+                      <option key={config.id} value={config.id}>
+                        {config.name} {config.isReasoning ? "🧠" : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <motion.button
-                  type="button"
-                  onClick={handleSendMessage}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                  disabled={isTyping || !value.trim()}
-                  className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-                    "flex items-center gap-2",
-                    value.trim() ? "bg-white text-[#0A0A0B] shadow-lg shadow-white/10" : "bg-white/[0.05] text-white/40",
-                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                <div className="flex items-center gap-2">
+                  {isPending && (
+                    <LoaderIcon className="w-4 h-4 animate-spin text-white/40" />
                   )}
-                >
-                  {isTyping ? (
-                    <LoaderIcon className="w-4 h-4 animate-spin" />
-                  ) : (
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!value.trim() || isTyping}
+                    className={cn(
+                      "flex items-center justify-center w-8 h-8 rounded-lg transition-all",
+                      value.trim() && !isTyping
+                        ? "bg-gradient-to-r from-[#6C52A0] to-[#A0527C] text-white hover:scale-105"
+                        : "bg-white/[0.05] text-white/30 cursor-not-allowed"
+                    )}
+                  >
                     <SendIcon className="w-4 h-4" />
-                  )}
-                  Send
-                </motion.button>
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

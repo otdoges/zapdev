@@ -69,19 +69,21 @@ export function VersionCheck() {
 
         if (shouldShowUpdate) {
           // Check localStorage to avoid showing the same notification repeatedly (skip in test mode)
-        if (shouldShowUpdate) {
-          // Check localStorage to avoid showing the same notification repeatedly (skip in test mode)
           if (!isTestMode) {
             const lastNotifiedVersion = localStorage.getItem('zapdev-last-notified-version');
-            if (lastNotifiedVersion === testData.latestVersion) {
+            // Store based on current version + latest version combination to avoid duplicate notifications
+            const notificationKey = `${testData.currentVersion}->${testData.latestVersion}`;
+            const lastNotificationKey = localStorage.getItem('zapdev-last-notification-key');
+            
+            if (lastNotificationKey === notificationKey) {
               return;
             }
-            // Store that we've notified about this version
-            localStorage.setItem('zapdev-last-notified-version', testData.latestVersion);
+            
+            // Store that we've notified about this version update
+            localStorage.setItem('zapdev-last-notified-version', testData.currentVersion);
+            localStorage.setItem('zapdev-last-notification-key', notificationKey);
           }
-
-          // …existing toast notification logic…
-        }          
+          
           const versionText = testData.latestVersion === 'newer commit' 
             ? 'with newer commits' 
             : `v${testData.latestVersion}`;
@@ -94,9 +96,10 @@ export function VersionCheck() {
               <ToastAction 
                 altText="Refresh Page"
                 onClick={() => {
-                  // Clear the notification flag so it shows again after refresh if still outdated
+                  // Clear the notification flags so it shows again after refresh if still outdated
                   if (!isTestMode) {
                     localStorage.removeItem('zapdev-last-notified-version');
+                    localStorage.removeItem('zapdev-last-notification-key');
                   }
                   window.location.reload();
                 }}

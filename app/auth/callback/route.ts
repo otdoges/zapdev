@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
- // Theres definitely a better way to do this.
- // But this does the job for now 
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
@@ -9,6 +8,15 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/chat'
   const error = searchParams.get('error')
   const error_description = searchParams.get('error_description')
+
+  console.log('Auth callback received:', {
+    code: code ? 'present' : 'missing',
+    type,
+    next,
+    error,
+    origin,
+    fullUrl: request.url
+  })
 
   // Handle auth errors
   if (error) {
@@ -19,9 +27,24 @@ export async function GET(request: NextRequest) {
   if (code) {
     try {
       const supabase = await createClient()
-      const { error: authError } = await supabase.auth.exchangeCodeForSession(code)
       
-      if (!authError) {
+      // Exchange the auth code for a session
+      const { data, error: authError } = await supabase.auth.exchangeCodeForSession(code)
+      
+      if (!authError && data.session) {
+        console.log('Auth exchange successful for user:', data.user?.email)
+        
+        // Sync user to database if they don't exist
+        if (data.user?.email) {
+          try {
+            const { syncUserToDatabase } = await import('@/lib/supabase-operations')
+            await syncUserToDatabase(data.user)
+          } catch (syncError) {
+            console.warn('Failed to sync user to database:', syncError)
+            // Don't fail the auth flow for this
+          }
+        }
+        
         // Handle different auth flows
         if (type === 'recovery') {
           // Password recovery - redirect to a password reset page
@@ -30,12 +53,13 @@ export async function GET(request: NextRequest) {
           // Email confirmation - redirect to success page
           return NextResponse.redirect(`${origin}/auth?success=email_confirmed&next=${encodeURIComponent(next)}`)
         } else {
-          // Regular OAuth or email sign in
-          return NextResponse.redirect(`${origin}${next}`)
+          // Regular OAuth or email sign in - redirect to intended destination
+          const redirectPath = next.startsWith('/') ? next : `/${next}`
+          return NextResponse.redirect(`${origin}${redirectPath}`)
         }
       } else {
         console.error('Auth exchange error:', authError)
-        return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(authError.message)}`)
+        return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(authError?.message || 'authentication_failed')}`)
       }
     } catch (error) {
       console.error('Auth callback exception:', error)
@@ -44,5 +68,6 @@ export async function GET(request: NextRequest) {
   }
 
   // No code provided - redirect to auth with error
+  console.warn('Auth callback called without code parameter')
   return NextResponse.redirect(`${origin}/auth?error=missing_auth_code`)
 } 

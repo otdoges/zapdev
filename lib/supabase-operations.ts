@@ -1,8 +1,9 @@
-import { supabase } from './supabase'
+import { createClient } from '@/lib/supabase-server'
 import type { User, Chat, Message } from './supabase'
 
 // User operations
 export async function createOrUpdateUser(email: string, name: string, avatarUrl?: string, provider?: string) {
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('users')
     .upsert({
@@ -26,6 +27,7 @@ export async function createOrUpdateUser(email: string, name: string, avatarUrl?
 }
 
 export async function getUserByEmail(email: string): Promise<User | null> {
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -42,6 +44,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 }
 
 export async function updateUserSubscription(email: string, subscriptionData: any) {
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('users')
     .update({
@@ -64,6 +67,7 @@ export async function updateUserSubscription(email: string, subscriptionData: an
 
 // Chat operations
 export async function createChat(userId: string, title: string): Promise<Chat> {
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('chats')
     .insert({
@@ -84,6 +88,7 @@ export async function createChat(userId: string, title: string): Promise<Chat> {
 }
 
 export async function getChatsByUserId(userId: string): Promise<Chat[]> {
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('chats')
     .select('*')
@@ -99,6 +104,7 @@ export async function getChatsByUserId(userId: string): Promise<Chat[]> {
 }
 
 export async function getChatById(chatId: string): Promise<Chat | null> {
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('chats')
     .select('*')
@@ -116,6 +122,7 @@ export async function getChatById(chatId: string): Promise<Chat | null> {
 
 // Message operations
 export async function addMessage(chatId: string, role: 'user' | 'assistant', content: string): Promise<Message> {
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('messages')
     .insert({
@@ -136,6 +143,7 @@ export async function addMessage(chatId: string, role: 'user' | 'assistant', con
 }
 
 export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('messages')
     .select('*')
@@ -152,13 +160,40 @@ export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
 
 // Auth helpers
 export async function getUserFromSession() {
-  const { data: { session } } = await supabase.auth.getSession()
-  
-  if (!session?.user) return null
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    if (error || !user) {
+      console.log('No authenticated user found')
+      return null
+    }
 
-  // Get user from our users table
-  const user = await getUserByEmail(session.user.email!)
-  return user
+    // Get user from our users table if they exist
+    if (user.email) {
+      try {
+        const dbUser = await getUserByEmail(user.email)
+        return dbUser
+      } catch (error) {
+        // If user doesn't exist in our database, that's okay for some operations
+        console.log('User not found in database, returning auth user')
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata?.name || user.user_metadata?.full_name,
+          avatar_url: user.user_metadata?.avatar_url,
+          provider: 'supabase_auth',
+          created_at: user.created_at,
+          updated_at: user.updated_at
+        } as User
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error('Error getting user from session:', error)
+    return null
+  }
 }
 
 export async function requireAuth() {
@@ -167,4 +202,21 @@ export async function requireAuth() {
     throw new Error('Authentication required')
   }
   return user
+}
+
+// Helper to create/sync user in database after auth
+export async function syncUserToDatabase(authUser: any) {
+  if (!authUser?.email) return null
+
+  try {
+    return await createOrUpdateUser(
+      authUser.email,
+      authUser.user_metadata?.name || authUser.user_metadata?.full_name || authUser.email.split('@')[0],
+      authUser.user_metadata?.avatar_url,
+      'supabase_auth'
+    )
+  } catch (error) {
+    console.error('Error syncing user to database:', error)
+    return null
+  }
 } 

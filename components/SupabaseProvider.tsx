@@ -24,15 +24,6 @@ const Context = createContext<SupabaseContext>({
   resetPassword: async () => ({ error: null }),
 })
 
-// Create Supabase client outside the component to prevent re-instantiation
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-const supabase = createBrowserClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
-)
-
 export default function SupabaseProvider({
   children,
 }: {
@@ -40,19 +31,40 @@ export default function SupabaseProvider({
 }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [supabase, setSupabase] = useState<ReturnType<typeof createBrowserClient> | null>(null)
 
   useEffect(() => {
     // Check if Supabase is configured
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Supabase environment variables are missing. Please check your .env.local file.')
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey || 
+        supabaseUrl === 'https://placeholder.supabase.co' || 
+        supabaseAnonKey === 'placeholder-key') {
+      console.error('Supabase environment variables are missing or using placeholders. Please check your .env.local file.')
       setLoading(false)
       return
     }
 
+    // Create Supabase client
+    const client = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce'
+      }
+    })
+
+    setSupabase(client)
+
     // Get initial session
     const getInitialSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session }, error } = await client.auth.getSession()
+        if (error) {
+          console.error('Error getting initial session:', error)
+        }
         setUser(session?.user ?? null)
       } catch (error) {
         console.error('Error getting session:', error)
@@ -64,52 +76,87 @@ export default function SupabaseProvider({
     getInitialSession()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = client.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email)
         setUser(session?.user ?? null)
         setLoading(false)
         
-        // Refresh the page after sign out to clear any cached data
+        // Handle different auth events
         if (event === 'SIGNED_OUT') {
+          // Clear any cached data and redirect
           window.location.href = '/auth'
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          // Handle successful sign in
+          console.log('User signed in:', session.user.email)
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log('Token refreshed for user:', session?.user?.email)
         }
       }
     )
 
     return () => subscription.unsubscribe()
-  }, []) // Remove dependency since supabase client should be stable
+  }, [])
+
   const signOut = async () => {
+    if (!supabase) {
+      console.error('Supabase client not initialized')
+      return
+    }
+
     try {
+      setLoading(true)
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error('Sign out error:', error)
+      } else {
+        setUser(null)
       }
     } catch (error) {
       console.error('Sign out error:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
   const signInWithGitHub = async () => {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized')
+    }
+
     try {
+      setLoading(true)
+      const redirectTo = `${window.location.origin}/auth/callback`
+      console.log('GitHub OAuth redirect URL:', redirectTo)
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/chat`
+          redirectTo,
+          queryParams: {
+            next: '/chat'
+          }
         }
       })
       if (error) {
         console.error('GitHub sign in error:', error)
+        setLoading(false)
         throw error
       }
     } catch (error) {
       console.error('GitHub sign in error:', error)
+      setLoading(false)
       throw error
     }
   }
 
   const signInWithEmail = async (email: string, password: string) => {
+    if (!supabase) {
+      return { error: new Error('Supabase client not initialized') }
+    }
+
     try {
+      setLoading(true)
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -118,29 +165,49 @@ export default function SupabaseProvider({
     } catch (error) {
       console.error('Email sign in error:', error)
       return { error }
+    } finally {
+      setLoading(false)
     }
   }
 
   const signUpWithEmail = async (email: string, password: string) => {
+    if (!supabase) {
+      return { error: new Error('Supabase client not initialized') }
+    }
+
     try {
+      setLoading(true)
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/chat`
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            next: '/chat'
+          }
         }
       })
       return { error }
     } catch (error) {
       console.error('Email sign up error:', error)
       return { error }
+    } finally {
+      setLoading(false)
     }
   }
 
   const resetPassword = async (email: string) => {
+    if (!supabase) {
+      return { error: new Error('Supabase client not initialized') }
+    }
+
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?type=recovery&next=/chat`
+        redirectTo: `${window.location.origin}/auth/callback`,
+        data: {
+          type: 'recovery',
+          next: '/chat'
+        }
       })
       return { error }
     } catch (error) {
@@ -163,5 +230,9 @@ export default function SupabaseProvider({
 }
 
 export const useSupabase = () => {
-  return useContext(Context)
+  const context = useContext(Context)
+  if (context === undefined) {
+    throw new Error('useSupabase must be used within a SupabaseProvider')
+  }
+  return context
 } 
