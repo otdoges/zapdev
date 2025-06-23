@@ -6,26 +6,42 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const type = searchParams.get('type')
   const next = searchParams.get('next') ?? '/chat'
+  const error = searchParams.get('error')
+  const error_description = searchParams.get('error_description')
+
+  // Handle auth errors
+  if (error) {
+    console.error('Auth callback error:', error, error_description)
+    return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(error_description || error)}`)
+  }
 
   if (code) {
-    const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    
-    if (!error) {
-      // Handle different auth flows
-      if (type === 'recovery') {
-        // Password recovery - redirect to a password reset page
-        return NextResponse.redirect(`${origin}/auth/reset-password`)
-      } else if (type === 'signup') {
-        // Email confirmation - redirect to welcome or onboarding
-        return NextResponse.redirect(`${origin}${next}`)
+    try {
+      const supabase = await createClient()
+      const { error: authError } = await supabase.auth.exchangeCodeForSession(code)
+      
+      if (!authError) {
+        // Handle different auth flows
+        if (type === 'recovery') {
+          // Password recovery - redirect to a password reset page
+          return NextResponse.redirect(`${origin}/auth/reset-password?next=${encodeURIComponent(next)}`)
+        } else if (type === 'signup') {
+          // Email confirmation - redirect to success page
+          return NextResponse.redirect(`${origin}/auth?success=email_confirmed&next=${encodeURIComponent(next)}`)
+        } else {
+          // Regular OAuth or email sign in
+          return NextResponse.redirect(`${origin}${next}`)
+        }
       } else {
-        // Regular OAuth or email confirmation
-        return NextResponse.redirect(`${origin}${next}`)
+        console.error('Auth exchange error:', authError)
+        return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(authError.message)}`)
       }
+    } catch (error) {
+      console.error('Auth callback exception:', error)
+      return NextResponse.redirect(`${origin}/auth?error=auth_callback_error`)
     }
   }
 
-  // Return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth?error=auth_callback_error`)
+  // No code provided - redirect to auth with error
+  return NextResponse.redirect(`${origin}/auth?error=missing_auth_code`)
 } 

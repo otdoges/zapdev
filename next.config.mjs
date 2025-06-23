@@ -84,11 +84,11 @@ const nextConfig = {
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net",
-      "connect-src 'self' http://localhost:* https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud",
+      "connect-src 'self' http://localhost:* https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud https://fonts.googleapis.com https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
-      "style-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "frame-src 'self' https://clerk.accounts.dev",
-      "font-src 'self' data: https://cdn.jsdelivr.net",
+      "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
       "worker-src 'self' blob:",
       "child-src 'self' blob:",
     ].join('; ');

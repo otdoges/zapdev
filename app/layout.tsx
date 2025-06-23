@@ -44,6 +44,7 @@ const inter = Inter({
   display: 'swap',
   variable: '--font-inter',
   preload: true,
+  fallback: ['system-ui', 'arial'],
 })
 
 export default function RootLayout({
@@ -59,7 +60,7 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
         <meta httpEquiv="Cache-Control" content="public, max-age=3600, must-revalidate" />
       </head>
-      <body className="min-h-screen w-full flex flex-col bg-[#0D0D10] text-[#EAEAEA] overflow-x-hidden m-0 p-0">
+      <body className="min-h-screen w-full flex flex-col bg-[#0D0D10] text-[#EAEAEA] overflow-x-hidden m-0 p-0" suppressHydrationWarning>
         <ChunkErrorHandler />
         <SupabaseProvider>
           <PostHogProvider>

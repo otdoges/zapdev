@@ -39,6 +39,25 @@ function AuthContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') || '/chat'
+  const authError = searchParams.get('error')
+  const authSuccess = searchParams.get('success')
+
+  // Check if Supabase is configured
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const isSupabaseConfigured = supabaseUrl && supabaseAnonKey && 
+    supabaseUrl !== 'https://placeholder.supabase.co' && 
+    supabaseAnonKey !== 'placeholder-key'
+
+  // Handle URL errors and success messages
+  useEffect(() => {
+    if (authError) {
+      setError(decodeURIComponent(authError))
+    }
+    if (authSuccess === 'email_confirmed') {
+      setMessage('Email confirmed successfully! You can now sign in.')
+    }
+  }, [authError, authSuccess])
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -46,6 +65,27 @@ function AuthContent() {
       router.push(redirectTo)
     }
   }, [user, loading, router, redirectTo])
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
+        <div className="max-w-md mx-auto text-center bg-white/10 backdrop-blur-sm rounded-xl p-8 border border-white/20">
+          <AlertCircle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-4">Supabase Not Configured</h2>
+          <p className="text-gray-300 mb-6">
+            Please configure your Supabase environment variables to enable authentication.
+          </p>
+          <div className="text-left bg-gray-800/50 rounded p-4 text-sm text-gray-300">
+            <p className="mb-2">Add these to your <code className="bg-gray-700 px-1 rounded">.env.local</code> file:</p>
+            <pre className="text-xs">
+{`NEXT_PUBLIC_SUPABASE_URL=your_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
+            </pre>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (user && !loading) {
     return (

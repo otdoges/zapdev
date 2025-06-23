@@ -7,7 +7,8 @@
     "build": "next build",
     "analyze": "cross-env ANALYZE=true next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check-env": "node scripts/check-env.js"
   },
   "dependencies": {
     "@ai-sdk/azure": "^1.3.23",
@@ -53,7 +54,7 @@
     "@radix-ui/react-toggle": "1.1.1",
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
-    "@supabase/ssr": "^0.5.2",
+    "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.10",
     "@webcontainer/api": "^1.6.1",
     "ai": "^4.3.16",
