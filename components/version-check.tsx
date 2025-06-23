@@ -1,109 +1,126 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { ReloadIcon } from "@radix-ui/react-icons";
+import { toast } from '@/components/ui/use-toast';
+import { ToastAction } from '@/components/ui/toast';
+
+interface VersionCheckResponse {
+  currentVersion: string;
+  isUpdateAvailable: boolean;
+  latestVersion: string;
+  updateSource: string;
+  updateInfo: string;
+  timestamp: string;
+  error?: string;
+}
 
 export function VersionCheck() {
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentVersion, setCurrentVersion] = useState('');
-  const [latestVersion, setLatestVersion] = useState('');
+  const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
     const checkForUpdates = async () => {
+      // Only check once per session to avoid spam
+      if (hasChecked) return;
+      
       try {
-        // Get current version from environment variable
-        const current = process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0';
-        setCurrentVersion(current);
+        // Check for test mode in URL
+        const isTestMode = typeof window !== 'undefined' && 
+          window.location.search.includes('test-version-check=true');
 
-        // Only check for updates in production or if explicitly enabled
-        if (process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_ENABLE_VERSION_CHECK !== 'true') {
-          setIsLoading(false);
+        // Only check for updates in production, if explicitly enabled, or in test mode
+        const isProduction = process.env.NODE_ENV === 'production';
+        const isEnabled = process.env.NEXT_PUBLIC_ENABLE_VERSION_CHECK === 'true';
+        
+        if (!isProduction && !isEnabled && !isTestMode) {
           return;
         }
 
-        // Fetch latest version from GitHub API with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-        const response = await fetch('https://api.github.com/repos/otdoges/zapdev/releases/latest', {
-          headers: {
-            'Accept': 'application/vnd.github.v3+json'
-          },
-          // Add cache control to prevent stale data
-          cache: 'no-store',
-          signal: controller.signal
+        // Fetch version information from our API
+        const response = await fetch('/api/version-check', {
+          cache: 'no-store'
         });
 
-        clearTimeout(timeoutId);
-
         if (!response.ok) {
-          console.warn('Failed to fetch latest version:', response.status, response.statusText);
+          console.warn('Failed to check for updates:', response.status);
           return;
         }
 
-        const data = await response.json();
-        const latest = data.tag_name?.replace(/^v/, '').trim(); // Remove 'v' prefix and trim whitespace
-        
-        if (latest) {
-          setLatestVersion(latest);
-          
-          // Compare versions (simple string comparison works for semantic versioning)
-          if (latest !== current) {
-            setUpdateAvailable(true);
-          }
+        const data: VersionCheckResponse = await response.json();
+
+        if (data.error) {
+          console.warn('Version check error:', data.error);
+          return;
         }
+
+        // In test mode, force show update notification
+        let shouldShowUpdate = data.isUpdateAvailable;
+        let testData = data;
+
+        if (isTestMode) {
+          shouldShowUpdate = true;
+          testData = {
+            ...data,
+            isUpdateAvailable: true,
+            latestVersion: '0.2.0',
+            updateSource: 'test',
+            updateInfo: 'This is a test notification to demonstrate the version check system.'
+          };
+        }
+
+        if (shouldShowUpdate) {
+          // Check localStorage to avoid showing the same notification repeatedly (skip in test mode)
+        if (shouldShowUpdate) {
+          // Check localStorage to avoid showing the same notification repeatedly (skip in test mode)
+          if (!isTestMode) {
+            const lastNotifiedVersion = localStorage.getItem('zapdev-last-notified-version');
+            if (lastNotifiedVersion === testData.latestVersion) {
+              return;
+            }
+            // Store that we've notified about this version
+            localStorage.setItem('zapdev-last-notified-version', testData.latestVersion);
+          }
+
+          // …existing toast notification logic…
+        }          
+          const versionText = testData.latestVersion === 'newer commit' 
+            ? 'with newer commits' 
+            : `v${testData.latestVersion}`;
+
+          toast({
+            title: isTestMode ? "🧪 Test: ZapDev Update Available!" : "🚀 ZapDev Update Available!",
+            description: `You're running v${testData.currentVersion}. A newer version ${versionText} is available on the master branch. ${testData.updateInfo || 'Refresh to get the latest features and improvements.'}`,
+            duration: 15000, // Show for 15 seconds
+            action: (
+              <ToastAction 
+                altText="Refresh Page"
+                onClick={() => {
+                  // Clear the notification flag so it shows again after refresh if still outdated
+                  if (!isTestMode) {
+                    localStorage.removeItem('zapdev-last-notified-version');
+                  }
+                  window.location.reload();
+                }}
+              >
+                Refresh
+              </ToastAction>
+            )
+          });
+        }
+
+        setHasChecked(true);
       } catch (error) {
-        // Silently fail for network errors during development
-        if (error instanceof Error) {
-          if (error.name === 'AbortError') {
-            console.warn('Version check timed out');
-          } else {
-            console.warn('Error checking for updates:', error.message);
-          }
-        } else {
-          console.warn('Error checking for updates:', String(error));
-        }
-      } finally {
-        setIsLoading(false);
+        // Silently fail for network errors
+        console.warn('Error checking for updates:', error);
+        setHasChecked(true);
       }
     };
 
-    checkForUpdates();
-  }, []);
+    // Check for updates after a short delay to avoid blocking initial render
+    const timeoutId = setTimeout(checkForUpdates, 3000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [hasChecked]);
 
-  const handleRefresh = () => {
-    window.location.reload();
-  };
-
-  if (isLoading) return null;
-  if (!updateAvailable) return null;
-
-  return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-md">
-      <Alert className="bg-yellow-900/80 border-yellow-700 backdrop-blur-sm">
-        <AlertTitle className="text-yellow-200">Update Available</AlertTitle>
-        <AlertDescription className="text-yellow-100">
-          <p>You're using version {currentVersion}. The latest version is {latestVersion}.</p>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="mt-2 bg-yellow-700/30 hover:bg-yellow-700/50 border-yellow-600 text-yellow-100"
-            onClick={handleRefresh}
-          >
-            {isLoading ? (
-              <>
-                <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
-                Checking...
-              </>
-            ) : (
-              'Refresh to Update'
-            )}
-          </Button>
-        </AlertDescription>
-      </Alert>
-    </div>
-  );
+  // This component doesn't render anything visible
+  return null;
 }

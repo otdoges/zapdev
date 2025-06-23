@@ -5,6 +5,7 @@ import { PostHogProvider } from '@/components/PostHogProvider'
 import SupabaseProvider from '@/components/SupabaseProvider';
 import { VersionCheck } from '@/components/version-check';
 import { ChunkErrorHandler } from '@/components/chunk-error-handler';
+import { Toaster } from '@/components/ui/toaster';
 import './globals.css'
 
 export const viewport: Viewport = {
@@ -69,6 +70,7 @@ export default function RootLayout({
                 {children}
               </main>
               <VersionCheck />
+              <Toaster />
             </ThemeProvider>
           </PostHogProvider>
         </SupabaseProvider>
