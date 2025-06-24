@@ -5,6 +5,23 @@ import type { User, Chat, Message } from './supabase'
 export async function createOrUpdateUser(email: string, name: string, avatarUrl?: string, provider?: string) {
   const supabase = await createClient()
   
+  // First, try to use the safe function if it exists
+  try {
+    const { data: functionResult, error: functionError } = await supabase
+      .rpc('create_user_safely', {
+        user_email: email,
+        user_name: name || 'User',
+        user_avatar_url: avatarUrl,
+        user_provider: provider || 'email'
+      })
+    
+    if (!functionError && functionResult) {
+      return functionResult
+    }
+  } catch (functionError) {
+    console.log('Safe function not available, falling back to direct upsert')
+  }
+  
   // Try with full schema first
   const { data, error } = await supabase
     .from('users')
@@ -19,6 +36,37 @@ export async function createOrUpdateUser(email: string, name: string, avatarUrl?
     })
     .select()
     .single()
+
+  // If RLS error, try creating with proper auth context
+  if (error && error.code === '42501') {
+    console.log('RLS policy blocking user creation, trying with auth.uid()')
+    
+    // Get the current user's auth data
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    
+    if (authUser) {
+      const { data: authData, error: authError } = await supabase
+        .from('users')
+        .upsert({
+          id: authUser.id, // Explicitly set the ID to match auth.uid()
+          email,
+          name: name || 'User',
+          avatar_url: avatarUrl,
+          provider: provider || 'email',
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'email'
+        })
+        .select()
+        .single()
+      
+      if (!authError) {
+        return authData
+      }
+      
+      console.error('Error creating user with auth context:', authError)
+    }
+  }
 
   // If schema error, try with minimal required fields
   if (error && (error.code === 'PGRST204' || error.code === '42703')) {

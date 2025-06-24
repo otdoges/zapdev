@@ -7,8 +7,8 @@ import { usePathname, useSearchParams } from "next/navigation"
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Only initialize PostHog if the API key is available
-    if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+      // Only initialize PostHog if the API key is available
+  if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
       posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY, {
         api_host: "/ingest",
         ui_host: "https://us.posthog.com",

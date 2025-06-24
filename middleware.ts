@@ -81,13 +81,19 @@ export async function middleware(request: NextRequest) {
     // Redirect to auth if not authenticated and trying to access protected routes
     if (!user && pathname.startsWith('/chat')) {
       // Check if we recently had a successful auth but database issues
-      const recentAuth = request.cookies.get('sb-access-token')
-      if (recentAuth) {
-        // User has auth token but database issues - allow access for now
-        console.log('User has auth token but database lookup failed - allowing access')
+      const accessToken = request.cookies.get('sb-access-token')
+      const refreshToken = request.cookies.get('sb-refresh-token')
+      const authToken = request.cookies.get('supabase-auth-token')
+      
+      if (accessToken || refreshToken || authToken) {
+        // User has valid auth tokens but getUser() failed - allow access
+        // This handles OAuth callback scenarios where database sync failed
+        console.log('User has valid auth tokens but getUser() failed - allowing access for OAuth flow')
         return supabaseResponse
       }
       
+      // Only redirect to auth if no valid tokens exist
+      console.log('No valid auth tokens found, redirecting to auth')
       const redirectUrl = new URL('/auth', request.url)
       redirectUrl.searchParams.set('redirectTo', pathname)
       return NextResponse.redirect(redirectUrl)

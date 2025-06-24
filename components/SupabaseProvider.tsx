@@ -89,6 +89,16 @@ export default function SupabaseProvider({
         } else if (event === 'SIGNED_IN' && session?.user) {
           // Handle successful sign in
           console.log('User signed in:', session.user.email)
+          
+          // Try to sync user to database in background (non-blocking)
+          try {
+            const { syncUserToDatabaseClient } = await import('@/lib/supabase-client-operations')
+            await syncUserToDatabaseClient(session.user, client)
+            console.log('Background user sync successful')
+          } catch (syncError) {
+            console.warn('Background user sync failed (auth still valid):', syncError)
+            // Don't fail the auth flow for this
+          }
         } else if (event === 'TOKEN_REFRESHED') {
           console.log('Token refreshed for user:', session?.user?.email)
         }

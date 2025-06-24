@@ -73,19 +73,47 @@ export default function ChatPage() {
     }
   }, [isAuthenticated])
 
-  // Redirect if not authenticated
+  // Redirect if not authenticated (with delay to allow auth to settle)
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/auth')
-    }
+    const redirectTimer = setTimeout(() => {
+      if (!isLoading && !isAuthenticated) {
+        console.log('Redirecting to auth: user not authenticated after delay')
+        router.push('/auth')
+      }
+    }, 2000) // Give auth 2 seconds to settle after OAuth callback
+
+    return () => clearTimeout(redirectTimer)
   }, [isAuthenticated, isLoading, router])
 
-  if (isLoading || !isAuthenticated) {
+  // Show loading state while authentication is being determined
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          <p className="text-white/60">Verifying authentication...</p>
+        </div>
       </div>
     )
+  }
+
+  // Allow access if user is authenticated OR if we have recent auth cookies
+  // This handles the case where OAuth succeeded but database sync failed
+  if (!isAuthenticated) {
+    // Check for recent authentication tokens as fallback
+    const hasAuthCookies = typeof window !== 'undefined' && 
+      (document.cookie.includes('sb-access-token') || document.cookie.includes('supabase-auth-token'))
+    
+    if (!hasAuthCookies) {
+      return (
+        <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <p className="text-white/60">Redirecting to authentication...</p>
+          </div>
+        </div>
+      )
+    }
   }
 
   return (

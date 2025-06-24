@@ -34,16 +34,8 @@ export async function GET(request: NextRequest) {
       if (!authError && data.session) {
         console.log('Auth exchange successful for user:', data.user?.email)
         
-        // Sync user to database if they don't exist
-        if (data.user?.email) {
-          try {
-            const { syncUserToDatabase } = await import('@/lib/supabase-operations')
-            await syncUserToDatabase(data.user)
-          } catch (syncError) {
-            console.warn('Failed to sync user to database:', syncError)
-            // Don't fail the auth flow for this
-          }
-        }
+        // User is now authenticated - the client-side will handle database sync
+        console.log('OAuth authentication successful for:', data.user?.email)
         
         // Handle different auth flows
         if (type === 'recovery') {
