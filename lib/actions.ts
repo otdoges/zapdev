@@ -30,33 +30,35 @@ function checkAuthCookies(): boolean {
  */
 export function useIsAuthenticated() {
   const { user, loading } = useSupabase();
-  const [cookieAuth, setCookieAuth] = useState<boolean | null>(null);
+  const [cookieAuth, setCookieAuth] = useState<boolean>(false);
+  const [hasMounted, setHasMounted] = useState(false);
   
   // Check cookies immediately on mount for instant feedback
   useEffect(() => {
+    setHasMounted(true);
     setCookieAuth(checkAuthCookies());
   }, []);
   
-  // If we have user data, use that as the source of truth
-  if (!loading && user !== undefined) {
+  // Return stable loading state during SSR
+  if (!hasMounted) {
+    return {
+      isAuthenticated: false,
+      isLoading: true,
+    };
+  }
+  
+  // If we have definitive user data from Supabase, use that
+  if (!loading) {
     return {
       isAuthenticated: !!user,
       isLoading: false,
     };
   }
   
-  // While session is loading, use cookie-based check for better UX
-  if (loading && cookieAuth !== null) {
-    return {
-      isAuthenticated: cookieAuth,
-      isLoading: true, // Still loading session, but we have cookie indication
-    };
-  }
-  
-  // Fallback to loading state
+  // While session is loading, use cookie-based check for optimistic UI
   return {
-    isAuthenticated: false,
-    isLoading: true,
+    isAuthenticated: cookieAuth,
+    isLoading: false, // Show optimistic state instead of loading
   };
 }
 

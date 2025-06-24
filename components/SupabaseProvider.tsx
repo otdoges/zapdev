@@ -32,8 +32,11 @@ export default function SupabaseProvider({
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [supabase, setSupabase] = useState<ReturnType<typeof createBrowserClient> | null>(null)
+  const [isConfigured, setIsConfigured] = useState(false)
 
   useEffect(() => {
+    let isMounted = true
+    
     // Check if Supabase is configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -41,76 +44,104 @@ export default function SupabaseProvider({
     if (!supabaseUrl || !supabaseAnonKey || 
         supabaseUrl === 'https://placeholder.supabase.co' || 
         supabaseAnonKey === 'placeholder-key') {
-      console.error('Supabase environment variables are missing or using placeholders. Please check your .env.local file.')
-      setLoading(false)
+      console.warn('Supabase environment variables are missing or using placeholders. Authentication will be disabled.')
+      if (isMounted) {
+        setIsConfigured(false)
+        setLoading(false)
+      }
       return
     }
 
-    // Create Supabase client
-    const client = createBrowserClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        flowType: 'pkce'
-      }
-    })
-
-    setSupabase(client)
-
-    // Get initial session
-    const getInitialSession = async () => {
-      try {
-        const { data: { session }, error } = await client.auth.getSession()
-        if (error) {
-          console.error('Error getting initial session:', error)
+    try {
+      // Create Supabase client
+      const client = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+          flowType: 'pkce'
         }
-        setUser(session?.user ?? null)
-      } catch (error) {
-        console.error('Error getting session:', error)
-      } finally {
+      })
+
+      if (!isMounted) return
+
+      setSupabase(client)
+      setIsConfigured(true)
+
+      // Get initial session
+      const getInitialSession = async () => {
+        try {
+          const { data: { session }, error } = await client.auth.getSession()
+          if (error) {
+            console.error('Error getting initial session:', error)
+          }
+          if (isMounted) {
+            setUser(session?.user ?? null)
+          }
+        } catch (error) {
+          console.error('Error getting session:', error)
+        } finally {
+          if (isMounted) {
+            setLoading(false)
+          }
+        }
+      }
+
+      getInitialSession()
+
+      // Listen for auth changes
+      const { data: { subscription } } = client.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('Auth state changed:', event, session?.user?.email)
+          
+          if (!isMounted) return
+          
+          setUser(session?.user ?? null)
+          setLoading(false)
+          
+          // Handle different auth events
+          if (event === 'SIGNED_OUT') {
+            // Clear any cached data - but don't force redirect
+            console.log('User signed out')
+          } else if (event === 'SIGNED_IN' && session?.user) {
+            // Handle successful sign in
+            console.log('User signed in:', session.user.email)
+            
+            // Try to sync user to database in background (non-blocking)
+            try {
+              const { syncUserToDatabaseClient } = await import('@/lib/supabase-client-operations')
+              await syncUserToDatabaseClient(session.user, client)
+              console.log('Background user sync successful')
+            } catch (syncError) {
+              console.warn('Background user sync failed (auth still valid):', syncError)
+              // Don't fail the auth flow for this
+            }
+          } else if (event === 'TOKEN_REFRESHED') {
+            console.log('Token refreshed for user:', session?.user?.email)
+          }
+        }
+      )
+
+      return () => {
+        subscription.unsubscribe()
+        isMounted = false
+      }
+    } catch (error) {
+      console.error('Error initializing Supabase:', error)
+      if (isMounted) {
+        setIsConfigured(false)
         setLoading(false)
       }
     }
 
-    getInitialSession()
-
-    // Listen for auth changes
-    const { data: { subscription } } = client.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email)
-        setUser(session?.user ?? null)
-        setLoading(false)
-        
-        // Handle different auth events
-        if (event === 'SIGNED_OUT') {
-          // Clear any cached data and redirect
-          window.location.href = '/auth'
-        } else if (event === 'SIGNED_IN' && session?.user) {
-          // Handle successful sign in
-          console.log('User signed in:', session.user.email)
-          
-          // Try to sync user to database in background (non-blocking)
-          try {
-            const { syncUserToDatabaseClient } = await import('@/lib/supabase-client-operations')
-            await syncUserToDatabaseClient(session.user, client)
-            console.log('Background user sync successful')
-          } catch (syncError) {
-            console.warn('Background user sync failed (auth still valid):', syncError)
-            // Don't fail the auth flow for this
-          }
-        } else if (event === 'TOKEN_REFRESHED') {
-          console.log('Token refreshed for user:', session?.user?.email)
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const signOut = async () => {
-    if (!supabase) {
-      console.error('Supabase client not initialized')
+    if (!supabase || !isConfigured) {
+      console.warn('Supabase client not initialized or not configured')
       return
     }
 
@@ -130,8 +161,8 @@ export default function SupabaseProvider({
   }
 
   const signInWithGitHub = async () => {
-    if (!supabase) {
-      throw new Error('Supabase client not initialized')
+    if (!supabase || !isConfigured) {
+      throw new Error('Supabase client not initialized or not configured')
     }
 
     try {
@@ -161,8 +192,8 @@ export default function SupabaseProvider({
   }
 
   const signInWithEmail = async (email: string, password: string) => {
-    if (!supabase) {
-      return { error: new Error('Supabase client not initialized') }
+    if (!supabase || !isConfigured) {
+      return { error: new Error('Supabase client not initialized or not configured') }
     }
 
     try {
@@ -181,8 +212,8 @@ export default function SupabaseProvider({
   }
 
   const signUpWithEmail = async (email: string, password: string) => {
-    if (!supabase) {
-      return { error: new Error('Supabase client not initialized') }
+    if (!supabase || !isConfigured) {
+      return { error: new Error('Supabase client not initialized or not configured') }
     }
 
     try {
@@ -207,21 +238,17 @@ export default function SupabaseProvider({
   }
 
   const resetPassword = async (email: string) => {
-    if (!supabase) {
-      return { error: new Error('Supabase client not initialized') }
+    if (!supabase || !isConfigured) {
+      return { error: new Error('Supabase client not initialized or not configured') }
     }
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        data: {
-          type: 'recovery',
-          next: '/chat'
-        }
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
       })
       return { error }
     } catch (error) {
-      console.error('Password reset error:', error)
+      console.error('Reset password error:', error)
       return { error }
     }
   }

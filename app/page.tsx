@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll } from "framer-motion";
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from "react";
 import Hero from "@/components/hero";
@@ -10,19 +10,49 @@ import Pricing from "@/components/pricing";
 import { useIsAuthenticated } from "@/lib/actions";
 import { useSupabase } from "@/components/SupabaseProvider";
 
-const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
-const VisualShowcase = dynamic(() => import('@/components/visual-showcase'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
-const VibeToReality = dynamic(() => import('@/components/vibe-to-reality'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
-const Audience = dynamic(() => import('@/components/audience'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
-const Testimonials = dynamic(() => import('@/components/testimonials'), { loading: () => <div style={{ minHeight: '50vh' }} /> });
+const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), { 
+  loading: () => <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="animate-pulse text-white/50">Loading features...</div>
+  </div> 
+});
+
+const VisualShowcase = dynamic(() => import('@/components/visual-showcase'), { 
+  loading: () => <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="animate-pulse text-white/50">Loading showcase...</div>
+  </div> 
+});
+
+const VibeToReality = dynamic(() => import('@/components/vibe-to-reality'), { 
+  loading: () => <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="animate-pulse text-white/50">Loading content...</div>
+  </div> 
+});
+
+const Audience = dynamic(() => import('@/components/audience'), { 
+  loading: () => <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="animate-pulse text-white/50">Loading audience...</div>
+  </div> 
+});
+
+const Testimonials = dynamic(() => import('@/components/testimonials'), { 
+  loading: () => <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="animate-pulse text-white/50">Loading testimonials...</div>
+  </div> 
+});
 
 export default function Home() {
   const router = useRouter();
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { scrollY } = useScroll();
   const { isAuthenticated, isLoading } = useIsAuthenticated();
   const { signOut } = useSupabase();
   
+  // Ensure component is mounted before complex interactions
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const goToPricingPage = () => {
     router.push('/pricing');
   };
@@ -36,11 +66,19 @@ export default function Home() {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push('/');
+    try {
+      await signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Still redirect even if sign out fails
+      router.push('/');
+    }
   };
 
   useEffect(() => {
+    if (!mounted) return;
+    
     const unsubscribe = scrollY.on("change", (y) => {
       // Show floating CTA after scrolling down 500px
       if (y > 500 && !showFloatingCTA) {
@@ -51,25 +89,16 @@ export default function Home() {
     });
 
     return () => unsubscribe();
-  }, [scrollY, showFloatingCTA]);
+  }, [scrollY, showFloatingCTA, mounted]);
 
-  // Show loading state only for auth buttons, not the entire page
+  // Simplified auth buttons that always render
   const AuthButtons = () => {
-    if (isLoading) {
-      return (
-        <div className="flex items-center gap-4">
-          <div className="w-20 h-8 bg-white/10 rounded-lg animate-pulse"></div>
-          <div className="w-20 h-8 bg-white/10 rounded-lg animate-pulse"></div>
-        </div>
-      );
-    }
-
     if (isAuthenticated) {
       return (
         <div className="flex items-center gap-4">
           <motion.button
             onClick={goToPricingPage}
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium"
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium text-white"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -77,7 +106,7 @@ export default function Home() {
           </motion.button>
           <motion.button
             onClick={goToChat}
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium text-white"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -99,7 +128,7 @@ export default function Home() {
       <div className="flex items-center gap-4">
         <motion.button
           onClick={goToPricingPage}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium"
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium text-white"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
@@ -107,7 +136,7 @@ export default function Home() {
         </motion.button>
         <motion.button
           onClick={goToAuth}
-          className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-all text-sm font-medium"
+          className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-all text-sm font-medium text-white"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
@@ -115,7 +144,7 @@ export default function Home() {
         </motion.button>
         <motion.button
           onClick={goToAuth}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium"
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium text-white"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
@@ -125,29 +154,17 @@ export default function Home() {
     );
   };
 
-  // Optimistic floating CTA - show based on auth state when available
+  // Simplified floating CTA
   const FloatingCTA = () => {
-    if (isLoading) {
-      return (
-        <motion.div
-          className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] shadow-lg shadow-purple-900/20 flex items-center gap-2"
-          whileHover={{ scale: 1.05 }}
-        >
-          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-          <span className="font-medium">Loading...</span>
-        </motion.div>
-      );
-    }
-
     if (isAuthenticated) {
       return (
         <motion.button
           onClick={goToChat}
-          className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2"
+          className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2 text-white font-medium"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <span className="font-medium">Try ZapDev Now</span>
+          <span>Try ZapDev Now</span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M3.33337 8H12.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M8.66663 4L12.6666 8L8.66663 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -159,11 +176,11 @@ export default function Home() {
     return (
       <motion.button
         onClick={goToAuth}
-        className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2"
+        className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2 text-white font-medium"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
-        <span className="font-medium">Start Building with AI</span>
+        <span>Start Building with AI</span>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M3.33337 8H12.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           <path d="M8.66663 4L12.6666 8L8.66663 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -171,25 +188,34 @@ export default function Home() {
       </motion.button>
     );
   };
+
+  // Don't render complex interactions until mounted
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#0D0D10] text-white flex items-center justify-center">
+        <div className="animate-pulse text-white/50">Loading ZapDev...</div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-[#0D0D10] text-white">
-      {/* Auth buttons - optimistic rendering with loading states */}
+      {/* Auth buttons */}
       <motion.div 
         className="fixed top-4 right-4 flex gap-4 z-50"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.3 }}
       >
         <AuthButtons />
       </motion.div>
       
-      {/* Try it now button that navigates to chat */}
+      {/* Main CTA button */}
       <motion.div
         className="fixed bottom-8 right-8 z-50"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 1 }}
+        transition={{ delay: 0.5 }}
       >
         <FloatingCTA />
       </motion.div>
@@ -198,38 +224,36 @@ export default function Home() {
       {showFloatingCTA && (
         <motion.div
           className="fixed bottom-8 left-8 z-50"
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
+          exit={{ opacity: 0, x: -50 }}
+          transition={{ duration: 0.3 }}
         >
           <motion.button
             onClick={goToPricingPage}
-            className="px-6 py-3 rounded-full bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] shadow-lg shadow-purple-900/20 flex items-center gap-2 group relative overflow-hidden"
+            className="px-6 py-3 rounded-full bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] shadow-lg shadow-purple-900/20 flex items-center gap-2 text-white font-medium"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <span className="relative z-10 font-medium flex items-center gap-2">
-              <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                <line x1="7" y1="7" x2="7.01" y2="7"></line>
-              </svg>
-              Unlock Pro Features
-            </span>
-            <span className="absolute inset-0 bg-gradient-to-r from-[#B0627C] to-[#7C62B0] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-            <div className="absolute -top-10 -right-10 w-20 h-20 bg-white/10 rounded-full blur-xl transform scale-0 group-hover:scale-100 transition-transform duration-500"></div>
+            <span>Subscribe</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
           </motion.button>
         </motion.div>
       )}
-      
-      {/* Homepage sections - render immediately */}
-      <Hero />
-      <FeaturesShowcase />
-      <VisualShowcase />
-      <VibeToReality />
-      <Audience />
-      <Testimonials />
-      <Pricing />
-      <FinalCTA />
+
+      {/* Main content */}
+      <main>
+        <Hero />
+        <FeaturesShowcase />
+        <VisualShowcase />
+        <VibeToReality />
+        <Audience />
+        <Testimonials />
+        <Pricing />
+        <FinalCTA />
+      </main>
     </div>
   );
 }
