@@ -171,22 +171,24 @@ export async function getUserFromSession() {
 
     // Get user from our users table if they exist
     if (user.email) {
-      try {
-        const dbUser = await getUserByEmail(user.email)
+      const dbUser = await getUserByEmail(user.email)
+
+      if (dbUser) {
         return dbUser
-      } catch (error) {
-        // If user doesn't exist in our database, that's okay for some operations
-        console.log('User not found in database, returning auth user')
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.user_metadata?.name || user.user_metadata?.full_name,
-          avatar_url: user.user_metadata?.avatar_url,
-          provider: 'supabase_auth',
-          created_at: user.created_at,
-          updated_at: user.updated_at
-        } as User
       }
+
+      // If user doesn't exist in our database, that's okay.
+      // Return a basic user object from the auth data.
+      console.log('User not found in database, returning auth user')
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.user_metadata?.full_name,
+        avatar_url: user.user_metadata?.avatar_url,
+        provider: user.app_metadata.provider,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      } as User
     }
 
     return null
@@ -211,9 +213,9 @@ export async function syncUserToDatabase(authUser: any) {
   try {
     return await createOrUpdateUser(
       authUser.email,
-      authUser.user_metadata?.name || authUser.user_metadata?.full_name || authUser.email.split('@')[0],
+      authUser.user_metadata?.name || authUser.user_metadata?.full_name || 'Anonymous',
       authUser.user_metadata?.avatar_url,
-      'supabase_auth'
+      authUser.app_metadata?.provider || 'email'
     )
   } catch (error) {
     console.error('Error syncing user to database:', error)

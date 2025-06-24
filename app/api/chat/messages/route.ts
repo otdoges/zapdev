@@ -7,13 +7,12 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     
     // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
+    const user = await requireAuth();
     
-    if (!session?.user) {
+    if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const user = await requireAuth();
     const { searchParams } = new URL(request.url);
     const chatId = searchParams.get('chatId');
 
@@ -25,7 +24,8 @@ export async function GET(request: NextRequest) {
     const chat = await getChatById(chatId);
     
     if (!chat) {
-      return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+      // If chat doesn't exist, it's a new chat. Return empty messages.
+      return NextResponse.json({ messages: [], chatId });
     }
 
     if (chat.user_id !== user.id) {

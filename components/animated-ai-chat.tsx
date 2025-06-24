@@ -751,49 +751,11 @@ export function AnimatedAIChat({
                     <Command className="w-4 h-4" />
                   </button>
                   
-                  {/* Reasoning Controls */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setUseReasoning(!useReasoning)}
-                      className={cn(
-                        "flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors",
-                        useReasoning 
-                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" 
-                          : "text-white/40 hover:text-white/70"
-                      )}
-                      disabled={isTyping}
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      {useReasoning ? "Reasoning ON" : "Reasoning OFF"}
-                    </button>
-                    
-                    {useReasoning && (
-                      <select
-                        value={reasoningFormat}
-                        onChange={(e) => setReasoningFormat(e.target.value as 'parsed' | 'hidden' | 'raw')}
-                        className="text-xs bg-white/[0.05] border border-white/[0.1] rounded px-2 py-1 text-white/70"
-                        disabled={isTyping}
-                      >
-                        <option value="parsed">Parsed</option>
-                        <option value="hidden">Hidden</option>
-                        <option value="raw">Raw</option>
-                      </select>
-                    )}
+                  {/* AI Team Badge */}
+                  <div className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-300 border border-purple-500/30">
+                    <Sparkles className="w-3 h-3" />
+                    AI Team Active
                   </div>
-                  
-                  {/* Model Selection */}
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="text-xs bg-white/[0.05] border border-white/[0.1] rounded px-2 py-1 text-white/70"
-                    disabled={isTyping}
-                  >
-                    {groqModelConfigs.map((config) => (
-                      <option key={config.id} value={config.id}>
-                        {config.name} {config.isReasoning ? "🧠" : ""}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
                 <div className="flex items-center gap-2">
