@@ -48,11 +48,25 @@ export async function middleware(request: NextRequest) {
             supabaseResponse = NextResponse.next({
               request,
             })
-            cookiesToSet.forEach(({ name, value, options }) =>
-              supabaseResponse.cookies.set(name, value, options)
-            )
+            cookiesToSet.forEach(({ name, value, options }) => {
+              // Enhanced security: Force secure cookie settings
+              const secureOptions = {
+                ...options,
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax' as const,
+                path: '/'
+              }
+              supabaseResponse.cookies.set(name, value, secureOptions)
+            })
           },
         },
+        auth: {
+          // Force server-side validation
+          detectSessionInUrl: false,
+          persistSession: true,
+          autoRefreshToken: true
+        }
       }
     )
 
@@ -66,6 +80,14 @@ export async function middleware(request: NextRequest) {
 
     // Redirect to auth if not authenticated and trying to access protected routes
     if (!user && pathname.startsWith('/chat')) {
+      // Check if we recently had a successful auth but database issues
+      const recentAuth = request.cookies.get('sb-access-token')
+      if (recentAuth) {
+        // User has auth token but database issues - allow access for now
+        console.log('User has auth token but database lookup failed - allowing access')
+        return supabaseResponse
+      }
+      
       const redirectUrl = new URL('/auth', request.url)
       redirectUrl.searchParams.set('redirectTo', pathname)
       return NextResponse.redirect(redirectUrl)

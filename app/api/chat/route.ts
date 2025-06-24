@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, createChat, addMessage } from '@/lib/supabase-operations';
-import { Readable } from 'stream';
-
-// Helper to get the absolute URL for server-side requests
-function getAbsoluteUrl(path: string) {
-  const host = process.env.VERCEL_URL || 'localhost:3000';
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-  return `${protocol}://${host}${path}`;
-}
+import { streamGroqResponse } from '@/lib/groq-provider';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,71 +25,85 @@ export async function POST(request: NextRequest) {
       await addMessage(finalChatId, 'user', userMessage.content);
     }
 
-    // 3. Delegate to the AI Team Coordinator
-    const coordinatorUrl = getAbsoluteUrl('/api/ai-team/coordinate');
-    
-    const coordinatorResponse = await fetch(coordinatorUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ messages, chatId: finalChatId, userId: user.id }),
-    });
+    // 3. Generate AI response using Groq
+    try {
+      const result = await streamGroqResponse({
+        chatHistory: messages,
+        modelId: 'qwen3-32b', // Switched to Qwen3-32B model as requested
+        temperature: 0.7,
+        maxTokens: 2048,
+      });
 
-    if (!coordinatorResponse.ok || !coordinatorResponse.body) {
-      const errorBody = await coordinatorResponse.text();
-      console.error('AI Coordinator failed:', errorBody);
-      return NextResponse.json({ error: 'The AI coordinator failed to respond.' }, { status: 500 });
-    }
+      // 4. Create a readable stream to return the response
+      const encoder = new TextEncoder();
+      let fullResponse = '';
 
-    // 4. Stream the response back to the client and save the final result
-    const reader = coordinatorResponse.body.getReader();
-    let fullResponse = '';
-    let streamCompletedSuccessfully = false;
-    
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              streamCompletedSuccessfully = true;
-              break;
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of result.textStream) {
+              fullResponse += chunk;
+              controller.enqueue(encoder.encode(chunk));
             }
             
-            const chunk = new TextDecoder().decode(value);
-            fullResponse += chunk;
-            controller.enqueue(value);
-          }
-        } catch (error) {
-          console.error('Error during response stream:', error);
-          streamCompletedSuccessfully = false;
-          controller.error(error);
-        } finally {
-          // 5. Save the complete AI response only if stream completed successfully
-          if (streamCompletedSuccessfully && finalChatId && fullResponse) {
-            try {
-              await addMessage(finalChatId, 'assistant', fullResponse);
-            } catch (saveError) {
-              console.error('Error saving message to database:', saveError);
+            // 5. Save the complete AI response to database
+            if (finalChatId && fullResponse) {
+              try {
+                await addMessage(finalChatId, 'assistant', fullResponse);
+              } catch (saveError) {
+                console.error('Error saving AI message to database:', saveError);
+              }
             }
+            
+            controller.close();
+          } catch (error) {
+            console.error('Error during response stream:', error);
+            controller.error(error);
           }
-          controller.close();
-        }
-      },
-    });
+        },
+      });
 
-    const headers = new Headers(coordinatorResponse.headers);
-    headers.set('X-Chat-ID', finalChatId);
-    
-    return new Response(stream, {
-      status: 200,
-      headers,
-    });
+      const headers = new Headers({
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+      
+      if (finalChatId) {
+        headers.set('X-Chat-ID', finalChatId);
+      }
+      
+      return new Response(stream, {
+        status: 200,
+        headers,
+      });
+
+    } catch (groqError) {
+      console.error('Groq API error:', groqError);
+      
+      // Fallback response if Groq fails
+      const fallbackMessage = "I apologize, but I'm experiencing technical difficulties right now. Please try again in a moment.";
+      
+      if (finalChatId) {
+        try {
+          await addMessage(finalChatId, 'assistant', fallbackMessage);
+        } catch (saveError) {
+          console.error('Error saving fallback message:', saveError);
+        }
+      }
+      
+      return NextResponse.json({ 
+        error: 'AI service temporarily unavailable', 
+        message: fallbackMessage 
+      }, { status: 503 });
+    }
 
   } catch (error) {
     console.error('Chat API error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return NextResponse.json({ error: 'Failed to process chat message', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to process chat message', 
+      details: errorMessage 
+    }, { status: 500 });
   }
 } 

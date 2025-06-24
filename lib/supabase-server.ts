@@ -14,16 +14,28 @@ export async function createClient() {
         },
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
+            cookiesToSet.forEach(({ name, value, options }) => {
+              // Enhanced security: Set secure cookie options
+              const secureOptions = {
+                ...options,
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax' as const,
+                path: '/'
+              }
+              cookieStore.set(name, value, secureOptions)
+            })
           } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // Server Component context - middleware will handle session refresh
           }
         },
       },
+      auth: {
+        // Force server-side validation - never trust client-side tokens
+        detectSessionInUrl: false,
+        persistSession: true,
+        autoRefreshToken: true
+      }
     }
   )
 }
