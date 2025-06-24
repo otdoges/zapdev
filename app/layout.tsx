@@ -6,6 +6,7 @@ import SupabaseProvider from '@/components/SupabaseProvider';
 import { VersionCheck } from '@/components/version-check';
 import { ChunkErrorHandler } from '@/components/chunk-error-handler';
 import { Toaster } from '@/components/ui/toaster';
+import { Analytics } from "@vercel/analytics/next"
 import './globals.css'
 
 export const viewport: Viewport = {
