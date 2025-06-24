@@ -26,8 +26,8 @@ export async function middleware(request: NextRequest) {
   if (!supabaseUrl || !supabaseAnonKey || 
       supabaseUrl === 'https://placeholder.supabase.co' || 
       supabaseAnonKey === 'placeholder-key') {
-    // If Supabase is not configured, allow access but log warning
-    console.warn('Supabase not configured, skipping auth middleware')
+    // If Supabase is not configured, allow access to all routes including /chat
+    console.warn('Supabase not configured, allowing access to all routes')
     return NextResponse.next()
   }
 

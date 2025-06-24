@@ -48,6 +48,13 @@ export default function Home() {
   const { isAuthenticated, isLoading } = useIsAuthenticated();
   const { signOut } = useSupabase();
   
+  // Check if Supabase is configured
+  const isSupabaseConfigured = typeof window !== 'undefined' && 
+    process.env.NEXT_PUBLIC_SUPABASE_URL && 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && 
+    process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co' && 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'placeholder-key';
+  
   // Ensure component is mounted before complex interactions
   useEffect(() => {
     setMounted(true);
@@ -93,6 +100,25 @@ export default function Home() {
 
   // Simplified auth buttons that always render
   const AuthButtons = () => {
+    // If Supabase is not configured, show different buttons
+    if (!isSupabaseConfigured) {
+      return (
+        <div className="flex items-center gap-4">
+          <motion.button
+            onClick={goToChat}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium text-white"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Try Demo
+          </motion.button>
+          <div className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-200 text-xs">
+            Demo Mode
+          </div>
+        </div>
+      );
+    }
+
     if (isAuthenticated) {
       return (
         <div className="flex items-center gap-4">
@@ -156,31 +182,17 @@ export default function Home() {
 
   // Simplified floating CTA
   const FloatingCTA = () => {
-    if (isAuthenticated) {
-      return (
-        <motion.button
-          onClick={goToChat}
-          className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2 text-white font-medium"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <span>Try ZapDev Now</span>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3.33337 8H12.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M8.66663 4L12.6666 8L8.66663 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </motion.button>
-      );
-    }
+    const buttonText = !isSupabaseConfigured ? 'Try Demo' : (isAuthenticated ? 'Try ZapDev Now' : 'Start Building with AI');
+    const targetRoute = !isSupabaseConfigured ? '/chat' : (isAuthenticated ? '/chat' : '/auth');
 
     return (
       <motion.button
-        onClick={goToAuth}
+        onClick={() => router.push(targetRoute)}
         className="px-6 py-3 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] shadow-lg shadow-purple-900/20 flex items-center gap-2 text-white font-medium"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
-        <span>Start Building with AI</span>
+        <span>{buttonText}</span>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M3.33337 8H12.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           <path d="M8.66663 4L12.6666 8L8.66663 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -200,6 +212,20 @@ export default function Home() {
   
   return (
     <div className="min-h-screen bg-[#0D0D10] text-white">
+      {/* Development Notice */}
+      {!isSupabaseConfigured && (
+        <motion.div
+          className="fixed top-2 left-1/2 transform -translate-x-1/2 z-50"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1 }}
+        >
+          <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg px-4 py-2 text-amber-200 text-sm backdrop-blur-sm">
+            🚀 Demo Mode - Try ZapDev without authentication!
+          </div>
+        </motion.div>
+      )}
+
       {/* Auth buttons */}
       <motion.div 
         className="fixed top-4 right-4 flex gap-4 z-50"
