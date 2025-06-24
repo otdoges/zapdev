@@ -8,6 +8,7 @@ import { ChunkErrorHandler } from '@/components/chunk-error-handler';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
 import './globals.css'
+import { CookieConsentBanner } from "@/components/ui/cookie-consent-banner";
 
 export const viewport: Viewport = {
   themeColor: '#0D0D10',
@@ -72,6 +73,7 @@ export default function RootLayout({
               </main>
               <VersionCheck />
               <Toaster />
+              <CookieConsentBanner />
             </ThemeProvider>
           </PostHogProvider>
         </SupabaseProvider>

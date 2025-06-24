@@ -49,34 +49,34 @@ const nextConfig = {
       }
     }
 
-    // Improve chunk loading
-    config.optimization = {
-      ...config.optimization,
-      splitChunks: {
-        ...config.optimization.splitChunks,
-        cacheGroups: {
-          ...config.optimization.splitChunks?.cacheGroups,
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-            priority: 10,
-          },
-          common: {
-            name: 'common',
-            minChunks: 2,
-            priority: 5,
-            chunks: 'all',
-            reuseExistingChunk: true,
-          },
-        },
-      },
-    }
+    // The custom optimization below is causing issues with module formats.
+    // Commenting it out to revert to Next.js's default chunking.
+    // config.optimization = {
+    //   ...config.optimization,
+    //   splitChunks: {
+    //     ...config.optimization.splitChunks,
+    //     cacheGroups: {
+    //       ...config.optimization.splitChunks?.cacheGroups,
+    //       vendor: {
+    //         test: /[\\/]node_modules[\\/]/,
+    //         name: 'vendors',
+    //         chunks: 'all',
+    //         priority: 10,
+    //       },
+    //       common: {
+    //         name: 'common',
+    //         minChunks: 2,
+    //         priority: 5,
+    //         chunks: 'all',
+    //         reuseExistingChunk: true,
+    //       },
+    //     },
+    //   },
+    // }
 
-    // Add runtime chunk configuration
-    config.optimization.runtimeChunk = {
-      name: 'runtime'
-    }
+    // config.optimization.runtimeChunk = {
+    //   name: 'runtime'
+    // }
 
     return config
   },

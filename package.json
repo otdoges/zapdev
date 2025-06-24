@@ -4,7 +4,7 @@
   "description": "AI-powered development platform with Groq reasoning models, featuring DeepSeek R1 and Qwen QwQ for advanced step-by-step problem solving",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbo",
+    "dev": "next dev",
     "build": "next build",
     "analyze": "cross-env ANALYZE=true next build",
     "start": "next start",

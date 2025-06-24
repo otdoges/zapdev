@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import Hero from "@/components/hero";
 import FinalCTA from "@/components/final-cta"; 
 import Pricing from "@/components/pricing";
-import { useIsAuthenticated } from "@/lib/actions";
 import { useSupabase } from "@/components/SupabaseProvider";
 
 const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), { 
@@ -45,15 +44,7 @@ export default function Home() {
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { scrollY } = useScroll();
-  const { isAuthenticated, isLoading } = useIsAuthenticated();
-  const { signOut } = useSupabase();
-  
-  // Check if Supabase is configured
-  const isSupabaseConfigured = typeof window !== 'undefined' && 
-    process.env.NEXT_PUBLIC_SUPABASE_URL && 
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && 
-    process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co' && 
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'placeholder-key';
+  const { user, loading } = useSupabase();
   
   // Ensure component is mounted before complex interactions
   useEffect(() => {
@@ -72,17 +63,6 @@ export default function Home() {
     router.push('/chat');
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      router.push('/');
-    } catch (error) {
-      console.error('Sign out error:', error);
-      // Still redirect even if sign out fails
-      router.push('/');
-    }
-  };
-
   useEffect(() => {
     if (!mounted) return;
     
@@ -98,10 +78,18 @@ export default function Home() {
     return () => unsubscribe();
   }, [scrollY, showFloatingCTA, mounted]);
 
-  // Simplified auth buttons that always render
+  // Simple auth buttons that don't cause re-renders
   const AuthButtons = () => {
-    // If Supabase is not configured, show different buttons
-    if (!isSupabaseConfigured) {
+    if (loading) {
+      return (
+        <div className="flex items-center gap-4">
+          <div className="px-4 py-2 rounded-lg bg-white/10 animate-pulse h-8 w-20"></div>
+          <div className="px-4 py-2 rounded-lg bg-white/10 animate-pulse h-8 w-16"></div>
+        </div>
+      );
+    }
+
+    if (user) {
       return (
         <div className="flex items-center gap-4">
           <motion.button
@@ -110,18 +98,8 @@ export default function Home() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            Try Demo
+            Chat
           </motion.button>
-          <div className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-200 text-xs">
-            Demo Mode
-          </div>
-        </div>
-      );
-    }
-
-    if (isAuthenticated) {
-      return (
-        <div className="flex items-center gap-4">
           <motion.button
             onClick={goToPricingPage}
             className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium text-white"
@@ -130,22 +108,6 @@ export default function Home() {
           >
             Subscribe
           </motion.button>
-          <motion.button
-            onClick={goToChat}
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium text-white"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Go to Chat
-          </motion.button>
-          <motion.button
-            onClick={handleSignOut}
-            className="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center hover:bg-violet-700 transition-colors"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <span className="text-white text-sm font-medium">U</span>
-          </motion.button>
         </div>
       );
     }
@@ -153,12 +115,12 @@ export default function Home() {
     return (
       <div className="flex items-center gap-4">
         <motion.button
-          onClick={goToPricingPage}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium text-white"
+          onClick={goToChat}
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium text-white"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          Subscribe
+          Try Demo
         </motion.button>
         <motion.button
           onClick={goToAuth}
@@ -169,12 +131,12 @@ export default function Home() {
           Sign In
         </motion.button>
         <motion.button
-          onClick={goToAuth}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] transition-all text-sm font-medium text-white"
+          onClick={goToPricingPage}
+          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium text-white"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          Sign Up
+          Subscribe
         </motion.button>
       </div>
     );
@@ -182,8 +144,8 @@ export default function Home() {
 
   // Simplified floating CTA
   const FloatingCTA = () => {
-    const buttonText = !isSupabaseConfigured ? 'Try Demo' : (isAuthenticated ? 'Try ZapDev Now' : 'Start Building with AI');
-    const targetRoute = !isSupabaseConfigured ? '/chat' : (isAuthenticated ? '/chat' : '/auth');
+    const buttonText = user ? 'Go to Chat' : 'Try Demo';
+    const targetRoute = user ? '/chat' : '/chat';
 
     return (
       <motion.button
@@ -212,20 +174,6 @@ export default function Home() {
   
   return (
     <div className="min-h-screen bg-[#0D0D10] text-white">
-      {/* Development Notice */}
-      {!isSupabaseConfigured && (
-        <motion.div
-          className="fixed top-2 left-1/2 transform -translate-x-1/2 z-50"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1 }}
-        >
-          <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg px-4 py-2 text-amber-200 text-sm backdrop-blur-sm">
-            🚀 Demo Mode - Try ZapDev without authentication!
-          </div>
-        </motion.div>
-      )}
-
       {/* Auth buttons */}
       <motion.div 
         className="fixed top-4 right-4 flex gap-4 z-50"
