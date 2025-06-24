@@ -75,6 +75,7 @@ export default function RootLayout({
             </ThemeProvider>
           </PostHogProvider>
         </SupabaseProvider>
+        <Analytics />
       </body>
     </html>
   )
