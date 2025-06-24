@@ -17,17 +17,31 @@ let groqProviderInstance: ReturnType<typeof createGroq> | null = null;
 
 export const getGroqInstance = () => {
   if (!groqProviderInstance) {
-    groqProviderInstance = createGroq({
-      apiKey: getGroqApiKey(),
-      baseURL: 'https://api.groq.com/openai/v1', // Groq API endpoint
-    });
+    try {
+      groqProviderInstance = createGroq({
+        apiKey: getGroqApiKey(),
+        baseURL: 'https://api.groq.com/openai/v1', // Groq API endpoint
+      });
+    } catch (error: unknown) {
+      // TypeScript: error is unknown, so we need to safely access message
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to initialize Groq provider: ${errorMsg}`);
+    }
   }
   return groqProviderInstance;
 };
 
-// Main Groq provider interface
 export const groqProvider = {
-  chat: (modelId: string) => getGroqInstance()(modelId),
+  chat: (modelId: string) => {
+    if (!modelId || typeof modelId !== 'string') {
+      throw new Error('Model ID must be a non-empty string');
+    }
+    const instance = getGroqInstance();
+    if (typeof instance !== 'function') {
+      throw new Error('Groq instance is not callable');
+    }
+    return instance(modelId);
+  },
 };
 
 // Default Groq instance for direct usage

@@ -42,6 +42,5 @@ enhance-prompt.txt
 # clerk configuration (can include secrets)
 /.clerk/
 
-# acli.exe its for something 
-
-aclie.exe 
+# acli.exe – CLI helper tool; ignore binary
+acli.exe

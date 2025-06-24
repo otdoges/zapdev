@@ -16,11 +16,8 @@ CREATE POLICY "Authenticated users can create own user record" ON public.users
     -- Allow if the ID matches the authenticated user
     auth.uid() = id OR 
     -- Allow if no ID is provided (will use default auth.uid())
-    id IS NULL OR
-    -- Allow if the email matches the authenticated user's email
-    email = auth.email()
+    id IS NULL
   );
-
 -- 3. Update the upsert policy to be more permissive for user creation
 DROP POLICY IF EXISTS "Users can update own data" ON public.users;
 CREATE POLICY "Users can update own data" ON public.users
@@ -49,21 +46,24 @@ CREATE POLICY "Users can view own data" ON public.users
 CREATE POLICY "Authenticated users can upsert own user record" ON public.users
   FOR ALL
   TO authenticated
+CREATE POLICY "Authenticated users can upsert own user record" ON public.users
+  FOR ALL
+  TO authenticated
   USING (
     auth.uid() = id OR 
-    email = auth.email() OR
-    auth.uid() IS NOT NULL
+    email = auth.email()
   )
   WITH CHECK (
     auth.uid() = id OR 
     email = auth.email() OR
     (auth.uid() IS NOT NULL AND id IS NULL)
   );
-
--- 6. Ensure the users table has the correct ID default
-ALTER TABLE public.users ALTER COLUMN id SET DEFAULT auth.uid();
-
 -- 7. Create a function to handle user creation safely
+CREATE OR REPLACE FUNCTION public.create_user_safely(
+  user_email TEXT,
+  user_name TEXT DEFAULT 'User',
+  user_avatar_url TEXT DEFAULT NULL,
+  user_provider TEXT DEFAULT 'email'
 CREATE OR REPLACE FUNCTION public.create_user_safely(
   user_email TEXT,
   user_name TEXT DEFAULT 'User',
@@ -73,27 +73,36 @@ CREATE OR REPLACE FUNCTION public.create_user_safely(
 RETURNS public.users
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $
 DECLARE
   new_user public.users;
 BEGIN
+  -- Validate that the user is authenticated
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'User must be authenticated';
+  END IF;
+
+  -- Validate input parameters
+  IF user_email IS NULL OR user_email = '' THEN
+    RAISE EXCEPTION 'Email cannot be null or empty';
+  END IF;
+
+  -- Ensure the authenticated user's email matches the provided email
+  IF auth.email() <> user_email THEN
+    RAISE EXCEPTION 'Email mismatch: authenticated user cannot create record for different email';
+  END IF;
+  
   -- Insert or update the user
   INSERT INTO public.users (id, email, name, avatar_url, provider)
   VALUES (auth.uid(), user_email, user_name, user_avatar_url, user_provider)
   ON CONFLICT (email) 
   DO UPDATE SET 
-    name = EXCLUDED.name,
-    avatar_url = EXCLUDED.avatar_url,
-    provider = EXCLUDED.provider,
-    updated_at = NOW()
+    name        = EXCLUDED.name,
+    avatar_url  = EXCLUDED.avatar_url,
+    provider    = EXCLUDED.provider,
+    updated_at  = NOW()
   RETURNING * INTO new_user;
   
   RETURN new_user;
 END;
-$$;
-
--- 8. Grant execute permission on the function
-GRANT EXECUTE ON FUNCTION public.create_user_safely TO authenticated;
-
--- Success message
-SELECT 'RLS policies fixed! Users can now be created during OAuth flow. 🚀' as status; 
+$;SELECT 'RLS policies fixed! Users can now be created during OAuth flow. 🚀' as status; 

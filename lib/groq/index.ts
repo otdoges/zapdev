@@ -40,18 +40,19 @@ export {
 } from './responses';
 
 // Enhanced token usage stats with model information
+import { getGroqTokenUsageStats } from './token-tracking';
+import { getAvailableGroqModels, GroqModelConfig } from './models';
+
+// Enhanced token usage stats with model information
 export function getEnhancedGroqTokenUsageStats() {
-  const { getGroqTokenUsageStats } = require('./token-tracking');
-  const { getAvailableGroqModels } = require('./models');
-  
   const tokenStats = getGroqTokenUsageStats();
   const availableModels = getAvailableGroqModels(tokenStats.remaining);
   
   return {
     ...tokenStats,
     availableModels: availableModels.length,
-    reasoningModelsAvailable: availableModels.filter((m: any) => m.isReasoning).length,
-    models: availableModels.map((m: any) => ({
+    reasoningModelsAvailable: availableModels.filter((m: GroqModelConfig) => m.isReasoning).length,
+    models: availableModels.map((m: GroqModelConfig) => ({
       id: m.id,
       name: m.name,
       isReasoning: m.isReasoning,
@@ -59,6 +60,5 @@ export function getEnhancedGroqTokenUsageStats() {
     }))
   };
 }
-
 // Note: Whisper transcription functionality has been removed as requested
 // If you need audio transcription, consider using a dedicated transcription service 

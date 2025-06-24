@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { Code, Eye, Maximize2, Minimize2, ArrowLeft, Settings, BarChart3, Brain } from "lucide-react"
 import { getTokenUsageStats } from "@/lib/openrouter"
 import { useSupabase } from "@/components/SupabaseProvider"
+import { AUTH_TIMEOUTS, hasAuthCookies } from "@/lib/auth-constants"
 
 // Memoize static components for better performance
 const BackButton = ({ onClick }: { onClick: () => void }) => (
@@ -80,7 +81,7 @@ export default function ChatPage() {
         console.log('Redirecting to auth: user not authenticated after delay')
         router.push('/auth')
       }
-    }, 2000) // Give auth 2 seconds to settle after OAuth callback
+    }, AUTH_TIMEOUTS.OAUTH_SETTLE_DELAY) // Give auth time to settle after OAuth callback
 
     return () => clearTimeout(redirectTimer)
   }, [isAuthenticated, isLoading, router])
@@ -101,10 +102,10 @@ export default function ChatPage() {
   // This handles the case where OAuth succeeded but database sync failed
   if (!isAuthenticated) {
     // Check for recent authentication tokens as fallback
-    const hasAuthCookies = typeof window !== 'undefined' && 
-      (document.cookie.includes('sb-access-token') || document.cookie.includes('supabase-auth-token'))
+    const hasRecentAuthCookies = typeof window !== 'undefined' && 
+      hasAuthCookies(document.cookie)
     
-    if (!hasAuthCookies) {
+    if (!hasRecentAuthCookies) {
       return (
         <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">

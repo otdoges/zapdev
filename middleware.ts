@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { AUTH_COOKIES, AUTH_ROUTES } from '@/lib/auth-constants'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -81,9 +82,9 @@ export async function middleware(request: NextRequest) {
     // Redirect to auth if not authenticated and trying to access protected routes
     if (!user && pathname.startsWith('/chat')) {
       // Check if we recently had a successful auth but database issues
-      const accessToken = request.cookies.get('sb-access-token')
-      const refreshToken = request.cookies.get('sb-refresh-token')
-      const authToken = request.cookies.get('supabase-auth-token')
+      const accessToken = request.cookies.get(AUTH_COOKIES.ACCESS_TOKEN)
+      const refreshToken = request.cookies.get(AUTH_COOKIES.REFRESH_TOKEN)
+      const authToken = request.cookies.get(AUTH_COOKIES.LEGACY_AUTH_TOKEN)
       
       if (accessToken || refreshToken || authToken) {
         // User has valid auth tokens but getUser() failed - allow access
@@ -94,7 +95,7 @@ export async function middleware(request: NextRequest) {
       
       // Only redirect to auth if no valid tokens exist
       console.log('No valid auth tokens found, redirecting to auth')
-      const redirectUrl = new URL('/auth', request.url)
+      const redirectUrl = new URL(AUTH_ROUTES.AUTH, request.url)
       redirectUrl.searchParams.set('redirectTo', pathname)
       return NextResponse.redirect(redirectUrl)
     }

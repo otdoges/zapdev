@@ -1,5 +1,6 @@
 import { useSupabase } from "@/components/SupabaseProvider";
 import { useEffect, useState } from "react";
+import { hasAuthCookies } from "@/lib/auth-constants";
 
 /**
  * Hook to get the current authenticated user from Supabase session
@@ -20,18 +21,7 @@ export function useAuthUser() {
  */
 function checkAuthCookies(): boolean {
   if (typeof window === 'undefined') return false;
-  
-  const authCookies = [
-    'sb-access-token',
-    'sb-refresh-token'
-  ];
-  
-  return authCookies.some(cookieName => {
-    return document.cookie.split(';').some(cookie => {
-      const [name, value] = cookie.trim().split('=');
-      return name === cookieName && value && value !== 'undefined';
-    });
-  });
+  return hasAuthCookies(document.cookie);
 }
 
 /**

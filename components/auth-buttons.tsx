@@ -3,6 +3,7 @@
 import { useSupabase } from "@/components/SupabaseProvider";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import { AUTH_COOKIES, hasAuthCookies } from "@/lib/auth-constants";
 
 export function AuthButtons() {
   const { user, loading, signOut } = useSupabase();
@@ -12,19 +13,7 @@ export function AuthButtons() {
   // Quick cookie check for instant feedback
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const authCookies = [
-        'sb-access-token',
-        'sb-refresh-token'
-      ];
-      
-      const hasAuthCookie = authCookies.some(cookieName => {
-        return document.cookie.split(';').some(cookie => {
-          const [name, value] = cookie.trim().split('=');
-          return name === cookieName && value && value !== 'undefined';
-        });
-      });
-      
-      setCookieAuth(hasAuthCookie);
+      setCookieAuth(hasAuthCookies(document.cookie));
     }
   }, []);
 
