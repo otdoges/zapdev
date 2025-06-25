@@ -74,8 +74,8 @@ export default function FinalCta({ onGetStarted }: FinalCtaProps) {
             >
               Get Started with ZapDev Free
             </Button>
-            <Button variant="outline" className="text-lg py-7 px-10 rounded-full border-[#4F3A75] hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50">
-              Schedule a Demo
+            <Button variant="outline" className="text-lg py-7 px-10 rounded-full border-[#4F3A75] hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50" onClick={() => window.open('/pricing', '_self')}>
+              View Pricing
             </Button>
           </motion.div>
           
@@ -86,16 +86,16 @@ export default function FinalCta({ onGetStarted }: FinalCtaProps) {
             transition={{ duration: 1, delay: 0.4 }}
             className="flex justify-center gap-6 md:gap-10 text-sm md:text-base"
           >
-            <a href="#" className="text-[#EAEAEA]/70 hover:text-[#EAEAEA] transition-colors">
-              View Demo
+            <a href="/auth" className="text-[#EAEAEA]/70 hover:text-[#EAEAEA] transition-colors">
+              Sign Up Free
             </a>
             <span className="text-[#EAEAEA]/30">|</span>
-            <a href="#" className="text-[#EAEAEA]/70 hover:text-[#EAEAEA] transition-colors">
-              Read Documentation
+            <a href="/pricing" className="text-[#EAEAEA]/70 hover:text-[#EAEAEA] transition-colors">
+              View Features
             </a>
             <span className="text-[#EAEAEA]/30">|</span>
-            <a href="#" className="text-[#EAEAEA]/70 hover:text-[#EAEAEA] transition-colors">
-              Join Community
+            <a href="mailto:support@zapdev.ai" className="text-[#EAEAEA]/70 hover:text-[#EAEAEA] transition-colors">
+              Contact Support
             </a>
           </motion.div>
         </motion.div>

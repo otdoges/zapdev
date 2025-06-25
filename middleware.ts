@@ -26,8 +26,13 @@ export async function middleware(request: NextRequest) {
   if (!supabaseUrl || !supabaseAnonKey || 
       supabaseUrl === 'https://placeholder.supabase.co' || 
       supabaseAnonKey === 'placeholder-key') {
-    // If Supabase is not configured, allow access to all routes including /chat
-    console.warn('Supabase not configured, allowing access to all routes')
+    // If Supabase is not configured, redirect protected routes to auth
+    console.warn('Supabase not configured, redirecting protected routes to auth')
+    if (pathname.startsWith('/chat')) {
+      const redirectUrl = new URL(AUTH_ROUTES.AUTH, request.url)
+      redirectUrl.searchParams.set('redirectTo', pathname)
+      return NextResponse.redirect(redirectUrl)
+    }
     return NextResponse.next()
   }
 
@@ -104,8 +109,14 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   } catch (error) {
     console.error('Middleware auth error:', error)
-    // If there's an error with auth, allow the request to continue
-    // This prevents the app from breaking if Supabase is temporarily unavailable
+    // If there's an error with auth and trying to access protected routes, redirect to auth
+    if (pathname.startsWith('/chat')) {
+      console.log('Auth error on protected route, redirecting to auth')
+      const redirectUrl = new URL(AUTH_ROUTES.AUTH, request.url)
+      redirectUrl.searchParams.set('redirectTo', pathname)
+      return NextResponse.redirect(redirectUrl)
+    }
+    // For other routes, allow the request to continue
     return NextResponse.next()
   }
 }

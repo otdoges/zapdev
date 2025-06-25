@@ -34,6 +34,14 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['framer-motion', 'lucide-react'],
+    turbo: {
+      resolve: {
+        fallback: {
+          fs: false,
+          path: false,
+        },
+      },
+    },
   },
   // Add output configuration for better static generation
   output: 'standalone',

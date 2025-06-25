@@ -120,15 +120,15 @@ export default function Home() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          Sign In
+          Get Started
         </motion.button>
         <motion.button
-          onClick={goToPricingPage}
+          onClick={goToAuth}
           className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] transition-all text-sm font-medium text-white"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          Subscribe
+          Sign Up
         </motion.button>
       </div>
     );
@@ -136,7 +136,7 @@ export default function Home() {
 
   // Simplified floating CTA
   const FloatingCTA = () => {
-    const buttonText = user ? 'Go to Chat' : 'Sign In';
+    const buttonText = user ? 'Go to Chat' : 'Get Started';
     const targetRoute = user ? '/chat' : '/auth';
 
     return (
@@ -196,12 +196,12 @@ export default function Home() {
           transition={{ duration: 0.3 }}
         >
           <motion.button
-            onClick={goToPricingPage}
+            onClick={user ? goToPricingPage : goToAuth}
             className="px-6 py-3 rounded-full bg-gradient-to-r from-[#A0527C] to-[#6C52A0] hover:from-[#B0627C] hover:to-[#7C62B0] shadow-lg shadow-purple-900/20 flex items-center gap-2 text-white font-medium"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <span>Subscribe</span>
+            <span>{user ? 'Subscribe' : 'Sign Up'}</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
