@@ -76,18 +76,44 @@ export default function ChatPage() {
 
   // Redirect if not authenticated (with delay to allow auth to settle)
   useEffect(() => {
-    const redirectTimer = setTimeout(() => {
-      if (!isLoading && !isAuthenticated) {
-        console.log('Redirecting to auth: user not authenticated after delay')
-        router.push('/auth')
-      }
-    }, AUTH_TIMEOUTS.OAUTH_SETTLE_DELAY) // Give auth time to settle after OAuth callback
+    // Don't redirect during initial loading
+    if (loading) return
 
-    return () => clearTimeout(redirectTimer)
-  }, [isAuthenticated, isLoading, router])
+    let redirectTimer: NodeJS.Timeout | null = null
+
+    if (!user) {
+      // Check if we have auth cookies that indicate recent authentication
+      const hasRecentAuth = typeof window !== 'undefined' && hasAuthCookies(document.cookie)
+      
+      if (hasRecentAuth) {
+        // Give auth more time to settle after OAuth callback
+        redirectTimer = setTimeout(() => {
+          // Re-check auth state before redirecting
+          if (!user && !loading) {
+            console.log('Redirecting to auth: user not authenticated after extended delay')
+            router.push('/auth')
+          }
+        }, AUTH_TIMEOUTS.OAUTH_SETTLE_DELAY * 2) // Double the delay for OAuth flows
+      } else {
+        // No recent auth cookies, redirect sooner
+        redirectTimer = setTimeout(() => {
+          if (!user && !loading) {
+            console.log('Redirecting to auth: user not authenticated')
+            router.push('/auth')
+          }
+        }, 1000) // Shorter delay for regular checks
+      }
+    }
+
+    return () => {
+      if (redirectTimer) {
+        clearTimeout(redirectTimer)
+      }
+    }
+  }, [user, loading, router])
 
   // Show loading state while authentication is being determined
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -98,14 +124,14 @@ export default function ChatPage() {
     )
   }
 
-  // Allow access if user is authenticated OR if we have recent auth cookies
-  // This handles the case where OAuth succeeded but database sync failed
-  if (!isAuthenticated) {
+  // Check authentication after loading completes
+  if (!user) {
     // Check for recent authentication tokens as fallback
     const hasRecentAuthCookies = typeof window !== 'undefined' && 
       hasAuthCookies(document.cookie)
     
     if (!hasRecentAuthCookies) {
+      // Show a brief loading state before redirect
       return (
         <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
@@ -115,6 +141,9 @@ export default function ChatPage() {
         </div>
       )
     }
+    
+    // If we have auth cookies, allow the component to render
+    // The useEffect above will handle the redirect if auth doesn't settle
   }
 
   return (

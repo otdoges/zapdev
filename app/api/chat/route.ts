@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, createChat, addMessage } from '@/lib/supabase-operations';
-import { streamGroqResponse } from '@/lib/groq-provider';
+import { streamText } from 'ai';
+import { groqProvider } from '@/lib/groq-provider';
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,11 +10,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { messages, chatId } = await request.json();
+    const { messages, chatId, modelId, useReasoning, reasoningFormat } = await request.json();
     let finalChatId = chatId;
 
     // 1. Ensure a chat exists
-    if (!finalChatId) {
+    if (!finalChatId || finalChatId === 'new') {
       const firstMessage = messages[0]?.content || 'New Chat';
       const newChat = await createChat(user.id, firstMessage.substring(0, 50));
       finalChatId = newChat.id;
@@ -25,58 +26,32 @@ export async function POST(request: NextRequest) {
       await addMessage(finalChatId, 'user', userMessage.content);
     }
 
-    // 3. Generate AI response using Groq
+    // 3. Generate AI response using Groq with proper Vercel AI SDK
     try {
-      const result = await streamGroqResponse({
-        chatHistory: messages,
-        modelId: 'qwen3-32b', // Switched to Qwen3-32B model as requested
+      const model = groqProvider.chat(modelId || 'qwen-3-32b');
+      
+      const result = await streamText({
+        model: model as any, // Type assertion to satisfy LanguageModelV1 type
+        messages,
         temperature: 0.7,
         maxTokens: 2048,
-      });
-
-      // 4. Create a readable stream to return the response
-      const encoder = new TextEncoder();
-      let fullResponse = '';
-
-      const stream = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of result.textStream) {
-              fullResponse += chunk;
-              controller.enqueue(encoder.encode(chunk));
+        onFinish: async ({ text, usage, finishReason }) => {
+          // Save the AI response after streaming completes
+          if (finalChatId && text) {
+            try {
+              await addMessage(finalChatId, 'assistant', text);
+            } catch (saveError) {
+              console.error('Error saving AI message to database:', saveError);
             }
-            
-            // 5. Save the complete AI response to database
-            if (finalChatId && fullResponse) {
-              try {
-                await addMessage(finalChatId, 'assistant', fullResponse);
-              } catch (saveError) {
-                console.error('Error saving AI message to database:', saveError);
-              }
-            }
-            
-            controller.close();
-          } catch (error) {
-            console.error('Error during response stream:', error);
-            controller.error(error);
           }
         },
       });
 
-      const headers = new Headers({
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      });
+      // Return the properly formatted data stream response with chat ID header
+      const response = result.toDataStreamResponse();
+      response.headers.set('X-Chat-ID', finalChatId);
       
-      if (finalChatId) {
-        headers.set('X-Chat-ID', finalChatId);
-      }
-      
-      return new Response(stream, {
-        status: 200,
-        headers,
-      });
+      return response;
 
     } catch (groqError) {
       console.error('Groq API error:', groqError);

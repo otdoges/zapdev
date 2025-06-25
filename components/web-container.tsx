@@ -51,7 +51,7 @@ export default function WebContainerComponent({
   const [isLoading, setIsLoading] = useState(true)
   const [isRunning, setIsRunning] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string>('')
-  const [error, setError] = useState<string>('')
+  const [error, setError] = useState<string | null>(null)
   const [terminalOutput, setTerminalOutput] = useState<string[]>([])
   const [fileSystemTree, setFileSystemTree] = useState<FileSystemTree>({})
   const [aiAgents, setAiAgents] = useState<AIAgent[]>([
@@ -63,37 +63,63 @@ export default function WebContainerComponent({
   
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const webcontainerInstance = useRef<WebContainer | null>(null)
+  const cleanupFunctions = useRef<(() => void)[]>([])
 
   // Initialize WebContainer
   useEffect(() => {
     const initContainer = async () => {
+      setIsLoading(true)
+      setError(null)
+      
       try {
-        setIsLoading(true)
-        setError('')
-        addTerminalOutput('🚀 Initializing WebContainer...')
+        addTerminalOutput('🔄 Initializing WebContainer...')
         
-        // Boot WebContainer
-        const instance = await WebContainer.boot()
-        webcontainerInstance.current = instance
-        setContainer(instance)
-        
-        addTerminalOutput('✅ WebContainer initialized successfully')
-        setIsLoading(false)
-        
-        // If we have code, set it up immediately
-        if (code && code.trim()) {
-          await setupCodeInContainer(instance, code)
+        // Check if WebContainer is available
+        if (!WebContainer) {
+          throw new Error('WebContainer API is not available. Please check your browser compatibility.')
         }
         
-        // If we have AI instructions, start the AI team
+        // Add timeout for initialization
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('WebContainer initialization timeout')), 30000)
+        })
+        
+        const bootPromise = WebContainer.boot()
+        
+        // Race between boot and timeout
+        const instance = await Promise.race([bootPromise, timeoutPromise]) as WebContainer
+        
+        if (!instance) {
+          throw new Error('Failed to boot WebContainer instance')
+        }
+        
+        webcontainerInstance.current = instance
+        setContainer(instance)
+        setIsLoading(false)
+        
+        addTerminalOutput('✅ WebContainer initialized successfully')
+        
+        // Setup AI team if instructions provided
         if (aiTeamInstructions) {
           await startAITeamDevelopment(aiTeamInstructions, instance)
         }
         
       } catch (error) {
         console.error('Failed to initialize WebContainer:', error)
-        setError('Failed to initialize WebContainer')
-        addTerminalOutput(`❌ Error: ${error}`)
+        
+        let errorMessage = 'Failed to initialize WebContainer'
+        if (error instanceof Error) {
+          if (error.message.includes('timeout')) {
+            errorMessage = 'WebContainer initialization timed out. Please refresh and try again.'
+          } else if (error.message.includes('browser compatibility')) {
+            errorMessage = 'WebContainer requires a modern browser with service worker support.'
+          } else {
+            errorMessage = `WebContainer error: ${error.message}`
+          }
+        }
+        
+        setError(errorMessage)
+        addTerminalOutput(`❌ Error: ${errorMessage}`)
         setIsLoading(false)
       }
     }
@@ -102,8 +128,23 @@ export default function WebContainerComponent({
     
     return () => {
       // Cleanup
+      // Execute all custom cleanup functions
+      cleanupFunctions.current.forEach(cleanup => {
+        try {
+          cleanup()
+        } catch (error) {
+          console.error('Error during custom cleanup:', error)
+        }
+      })
+      cleanupFunctions.current = []
+      
+      // Teardown WebContainer
       if (webcontainerInstance.current) {
-        webcontainerInstance.current.teardown()
+        try {
+          webcontainerInstance.current.teardown()
+        } catch (cleanupError) {
+          console.error('Error during WebContainer cleanup:', cleanupError)
+        }
       }
     }
   }, []) // Only run once on mount
@@ -180,7 +221,11 @@ export default function WebContainerComponent({
         }
       }))
       
-      await installProcess.exit
+      const exitCode = await installProcess.exit
+      
+      if (exitCode !== 0) {
+        throw new Error(`npm install failed with exit code ${exitCode}`)
+      }
       
       addTerminalOutput('🚀 Starting server...')
       const serverProcess = await containerInstance.spawn('npm', ['run', 'dev'])
@@ -188,25 +233,39 @@ export default function WebContainerComponent({
       serverProcess.output.pipeTo(new WritableStream({
         write(data) {
           addTerminalOutput(data)
+          
+          // Check for server start messages
+          if (data.includes('Local:') || data.includes('running at')) {
+            const urlMatch = data.match(/https?:\/\/[^\s]+/)
+            if (urlMatch) {
+              setPreviewUrl(urlMatch[0])
+              setIsRunning(true)
+              addTerminalOutput(`✅ Server running at ${urlMatch[0]}`)
+            }
+          }
         }
       }))
       
-      // Wait for server to start and get URL
+      // Also listen for the server-ready event
       containerInstance.on('server-ready', (port, url) => {
         setPreviewUrl(url)
         setIsRunning(true)
-        addTerminalOutput(`✅ Server running at ${url}`)
+        addTerminalOutput(`✅ Server ready at ${url}`)
       })
       
     } catch (error) {
       console.error('Failed to start HTML server:', error)
-      addTerminalOutput(`❌ Server error: ${error}`)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      addTerminalOutput(`❌ Server error: ${errorMessage}`)
+      setError(`Failed to start server: ${errorMessage}`)
     }
   }
 
   // Setup React project
   const setupReactProject = async (containerInstance: WebContainer, codeContent: string) => {
     try {
+      addTerminalOutput('⚛️ Setting up React project...')
+      
       const files = {
         'package.json': {
           file: {
@@ -219,10 +278,12 @@ export default function WebContainerComponent({
                 preview: 'vite preview'
               },
               dependencies: {
-                'react': 'latest',
-                'react-dom': 'latest',
-                'vite': 'latest',
-                '@vitejs/plugin-react': 'latest'
+                'react': '^18.2.0',
+                'react-dom': '^18.2.0'
+              },
+              devDependencies: {
+                'vite': '^5.0.0',
+                '@vitejs/plugin-react': '^4.0.0'
               }
             }, null, 2)
           }
@@ -236,7 +297,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    host: true
+    host: true,
+    strictPort: false
   }
 })`
           }
@@ -280,17 +342,23 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       }
       
       await containerInstance.mount(files)
+      addTerminalOutput('✅ React project structure created')
+      
       await startDevelopmentServer(containerInstance)
       
     } catch (error) {
       console.error('Failed to setup React project:', error)
-      addTerminalOutput(`❌ React setup error: ${error}`)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      addTerminalOutput(`❌ React setup error: ${errorMessage}`)
+      setError(`Failed to setup React project: ${errorMessage}`)
     }
   }
 
   // Setup generic project
   const setupGenericProject = async (containerInstance: WebContainer, codeContent: string) => {
     try {
+      addTerminalOutput('📝 Setting up generic project...')
+      
       const files = {
         'index.js': {
           file: { contents: codeContent }
@@ -310,11 +378,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       }
       
       await containerInstance.mount(files)
+      addTerminalOutput('✅ Generic project structure created')
+      
       await startDevelopmentServer(containerInstance)
       
     } catch (error) {
       console.error('Failed to setup generic project:', error)
-      addTerminalOutput(`❌ Generic setup error: ${error}`)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      addTerminalOutput(`❌ Generic setup error: ${errorMessage}`)
+      setError(`Failed to setup project: ${errorMessage}`)
     }
   }
 
@@ -720,25 +792,81 @@ export default App`
   const startDevelopmentServer = async (containerInstance: WebContainer) => {
     addTerminalOutput('🚀 Starting development server...')
     
+    let devProcess: any = null
+    let serverStartTimeout: NodeJS.Timeout | null = null
+    
     try {
-      const devProcess = await containerInstance.spawn('npm', ['run', 'dev'])
+      devProcess = await containerInstance.spawn('npm', ['run', 'dev'])
       
+      // Set up output stream
       devProcess.output.pipeTo(new WritableStream({
         write(data) {
           addTerminalOutput(data)
+          
+          // Check for common server start patterns
+          const dataStr = data.toString()
+          if (dataStr.includes('Local:') || 
+              dataStr.includes('running at') || 
+              dataStr.includes('ready in') ||
+              dataStr.includes('http://localhost')) {
+            
+            // Extract URL from output
+            const urlMatch = dataStr.match(/https?:\/\/[^\s]+/)
+            if (urlMatch) {
+              clearTimeout(serverStartTimeout!)
+              setPreviewUrl(urlMatch[0])
+              setIsRunning(true)
+              addTerminalOutput(`✅ Server detected at ${urlMatch[0]}`)
+            }
+          }
         }
       }))
       
-      // Listen for the server to be ready
-      containerInstance.on('server-ready', (port, url) => {
+      // Set up timeout for server start
+      serverStartTimeout = setTimeout(() => {
+        addTerminalOutput('⚠️ Server start timeout - checking port 3000...')
+        // Fallback to default port if server doesn't report URL
+        const fallbackUrl = 'http://localhost:3000'
+        setPreviewUrl(fallbackUrl)
+        setIsRunning(true)
+        addTerminalOutput(`🔗 Using fallback URL: ${fallbackUrl}`)
+      }, 15000) // 15 second timeout
+      
+      // Listen for the server-ready event
+      const serverReadyHandler = (port: number, url: string) => {
+        clearTimeout(serverStartTimeout!)
         setPreviewUrl(url)
         setIsRunning(true)
         addTerminalOutput(`✅ Server ready at ${url}`)
+      }
+      
+      containerInstance.on('server-ready', serverReadyHandler)
+      
+      // Monitor process exit
+      devProcess.exit.then((exitCode: number) => {
+        clearTimeout(serverStartTimeout!)
+        if (exitCode !== 0) {
+          addTerminalOutput(`❌ Dev server exited with code ${exitCode}`)
+          setIsRunning(false)
+          setError('Development server crashed')
+        }
+      })
+      
+      // Store cleanup function
+      cleanupFunctions.current.push(() => {
+        clearTimeout(serverStartTimeout!)
+        if (devProcess && devProcess.kill) {
+          devProcess.kill()
+        }
       })
       
     } catch (error) {
+      clearTimeout(serverStartTimeout!)
       console.error('Failed to start dev server:', error)
-      addTerminalOutput(`❌ Failed to start server: ${error}`)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      addTerminalOutput(`❌ Failed to start server: ${errorMessage}`)
+      setError(`Server start failed: ${errorMessage}`)
+      setIsRunning(false)
     }
   }
 

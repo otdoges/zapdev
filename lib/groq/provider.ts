@@ -15,33 +15,36 @@ const getGroqApiKey = () => {
 // Initialize the Groq provider lazily
 let groqProviderInstance: ReturnType<typeof createGroq> | null = null;
 
+// Create the Groq provider instance with validation
 export const getGroqInstance = () => {
-  if (!groqProviderInstance) {
-    try {
-      groqProviderInstance = createGroq({
-        apiKey: getGroqApiKey(),
-        baseURL: 'https://api.groq.com/openai/v1', // Groq API endpoint
-      });
-    } catch (error: unknown) {
-      // TypeScript: error is unknown, so we need to safely access message
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to initialize Groq provider: ${errorMsg}`);
-    }
+  const apiKey = process.env.GROQ_API_KEY;
+  
+  if (!apiKey) {
+    console.warn('GROQ_API_KEY is not configured. AI features will be limited.');
+    // Return a function that creates mock model instances
+    return (modelId: string) => ({
+      // This will be caught by the error handling in responses.ts
+      generateText: async () => {
+        throw new Error('Groq API key is not configured. Please add GROQ_API_KEY to your environment variables.');
+      },
+      streamText: async () => {
+        throw new Error('Groq API key is not configured. Please add GROQ_API_KEY to your environment variables.');
+      }
+    });
   }
-  return groqProviderInstance;
+
+  return createGroq({
+    apiKey,
+    baseURL: 'https://api.groq.com/openai/v1',
+  });
 };
 
+// Export a pre-configured provider with backward-compatible interface
 export const groqProvider = {
   chat: (modelId: string) => {
-    if (!modelId || typeof modelId !== 'string') {
-      throw new Error('Model ID must be a non-empty string');
-    }
     const instance = getGroqInstance();
-    if (typeof instance !== 'function') {
-      throw new Error('Groq instance is not callable');
-    }
     return instance(modelId);
-  },
+  }
 };
 
 // Default Groq instance for direct usage

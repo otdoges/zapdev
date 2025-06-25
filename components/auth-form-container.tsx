@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
+import { supabase } from '@/lib/supabase'
 
 export default function AuthFormContainer() {
   const [email, setEmail] = useState("")
@@ -27,32 +28,35 @@ export default function AuthFormContainer() {
     }
   }, [searchParams])
 
-  // Handle login (fake authentication)
-  const handleLogin = (e: React.FormEvent) => {
+  // Handle login with real Supabase authentication
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
     
-    // Simulate authentication delay
-    setTimeout(() => {
-      if (email === "demo@zapdev.ai" && password === "password123") {
-        // Store fake auth token
-        localStorage.setItem("zapdev_auth", JSON.stringify({
-          email,
-          name: "Demo User",
-          token: "fake-jwt-token",
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
-        }))
-        router.push("/editor")
-      } else {
-        setError("Invalid credentials. Try demo@zapdev.ai / password123")
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      
+      if (authError) {
+        setError(authError.message)
         setIsLoading(false)
+        return
       }
-    }, 1000)
+      
+      if (data.user) {
+        router.push("/chat")
+      }
+    } catch (error) {
+      setError("An unexpected error occurred. Please try again.")
+      setIsLoading(false)
+    }
   }
 
-  // Handle signup (fake registration)
-  const handleSignup = (e: React.FormEvent) => {
+  // Handle signup with real Supabase authentication
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
@@ -64,17 +68,36 @@ export default function AuthFormContainer() {
       return
     }
     
-    // Simulate registration delay
-    setTimeout(() => {
-      // Store fake auth token
-      localStorage.setItem("zapdev_auth", JSON.stringify({
+    try {
+      const { data, error: authError } = await supabase.auth.signUp({
         email,
-        name,
-        token: "fake-jwt-token",
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
-      }))
-      router.push("/editor")
-    }, 1000)
+        password,
+        options: {
+          data: {
+            full_name: name,
+          }
+        }
+      })
+      
+      if (authError) {
+        setError(authError.message)
+        setIsLoading(false)
+        return
+      }
+      
+      if (data.user) {
+        // Check if email confirmation is required
+        if (!data.session) {
+          setError("Please check your email for a confirmation link before signing in.")
+          setIsLoading(false)
+          return
+        }
+        router.push("/chat")
+      }
+    } catch (error) {
+      setError("An unexpected error occurred. Please try again.")
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -126,11 +149,6 @@ export default function AuthFormContainer() {
             >
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
-            
-            <div className="text-center text-xs text-[#EAEAEA]/50 mt-4">
-              <p>Demo credentials:</p>
-              <p>Email: demo@zapdev.ai / Password: password123</p>
-            </div>
           </form>
         </TabsContent>
         
