@@ -1,7 +1,21 @@
 "use client"
 
 import { AnimatedAIChat } from "@/components/animated-ai-chat"
-import WebContainerComponent from "@/components/web-container"
+import dynamic from 'next/dynamic'
+
+const WebContainerComponent = dynamic(() => import('@/components/web-container'), {
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center bg-[#0A0A0F] text-white/40">
+      <div className="text-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-white/5 flex items-center justify-center animate-pulse">
+          <Code className="w-8 h-8" />
+        </div>
+        <p className="text-sm">Loading WebContainer...</p>
+      </div>
+    </div>
+  ),
+  ssr: false
+})
 import { motion } from "framer-motion"
 import { useRouter, useParams } from "next/navigation"
 import { useEffect, useState, useMemo } from "react"

@@ -12,7 +12,21 @@ import {
   Zap,
   Settings
 } from 'lucide-react'
-import WebContainerComponent from './web-container'
+import dynamic from 'next/dynamic'
+
+const WebContainerComponent = dynamic(() => import('./web-container'), {
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center bg-[#0A0A0F] text-white/40">
+      <div className="text-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-white/5 flex items-center justify-center animate-pulse">
+          <Code className="w-8 h-8" />
+        </div>
+        <p className="text-sm">Loading WebContainer...</p>
+      </div>
+    </div>
+  ),
+  ssr: false
+})
 
 interface AITeamCoordinatorProps {
   onTeamStart?: (instructions: string) => void
