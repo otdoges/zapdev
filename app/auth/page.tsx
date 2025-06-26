@@ -1,32 +1,13 @@
 "use client"
 
 import { useState, useEffect, Suspense } from "react"
-import { motion } from "framer-motion"
-import { Github, Sparkles, Zap, ArrowRight, Code, Palette, Rocket, Mail, Lock, AlertCircle } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Github, Mail, Lock, AlertCircle, ArrowRight } from "lucide-react"
 import { useSupabase } from "@/components/SupabaseProvider"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { TosPrivacyDialog } from "@/components/ui/tos-privacy-dialog"
-
-const features = [
-  {
-    icon: <Code className="w-5 h-5" />,
-    title: "AI Code Generation",
-    description: "Generate beautiful, functional code with advanced AI models"
-  },
-  {
-    icon: <Palette className="w-5 h-5" />,
-    title: "Live Preview",
-    description: "See your creations come to life with real-time WebContainer execution"
-  },
-  {
-    icon: <Rocket className="w-5 h-5" />,
-    title: "Instant Deployment",
-    description: "Deploy and share your projects with lightning speed"
-  }
-]
 
 function AuthContent() {
   const [isLoading, setIsLoading] = useState(false)
@@ -68,15 +49,15 @@ function AuthContent() {
 
   if (!isSupabaseConfigured) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
-        <div className="max-w-md mx-auto text-center bg-white/10 backdrop-blur-sm rounded-xl p-8 border border-white/20">
+      <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center p-4">
+        <div className="max-w-md mx-auto text-center bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
           <AlertCircle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-4">Supabase Not Configured</h2>
-          <p className="text-gray-300 mb-6">
+          <p className="text-[#EAEAEA]/70 mb-6">
             Please configure your Supabase environment variables to enable authentication.
           </p>
-          <div className="text-left bg-gray-800/50 rounded p-4 text-sm text-gray-300">
-            <p className="mb-2">Add these to your <code className="bg-gray-700 px-1 rounded">.env.local</code> file:</p>
+          <div className="text-left bg-[#0D0D10]/50 rounded-lg p-4 text-sm text-[#EAEAEA]/70">
+            <p className="mb-2">Add these to your <code className="bg-[#6C52A0]/20 px-1 rounded">.env.local</code> file:</p>
             <pre className="text-xs">
 {`NEXT_PUBLIC_SUPABASE_URL=your_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
@@ -89,10 +70,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
 
   if (user && !loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center">
         <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Redirecting to chat...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6C52A0] mx-auto mb-4"></div>
+          <p className="text-[#EAEAEA]/70">Redirecting to chat...</p>
         </div>
       </div>
     )
@@ -176,232 +157,259 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -inset-10 opacity-50">
-          <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-          <div className="absolute top-1/3 right-1/4 w-72 h-72 bg-violet-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-          <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+        <div className="absolute -inset-10 opacity-30">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#6C52A0] rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+          <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-[#A0527C] rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
+          <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-[#4F3A75] rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
         </div>
       </div>
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
-        {/* Left Side - Branding */}
-        <motion.div
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8 }}
-          className="text-white space-y-6"
-        >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-3 bg-violet-600 rounded-xl">
-              <Zap className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-violet-200 bg-clip-text text-transparent">
-              ZapDev
+      {/* Auth Container */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="relative z-10 w-full max-w-md mx-auto"
+      >
+        <div className="bg-[#0D0D10]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-center mb-8"
+          >
+            <h1 className="text-3xl font-bold text-white mb-2">
+              {isSignUp ? 'Create an account' : 'Welcome back'}
             </h1>
-          </div>
+            <p className="text-[#EAEAEA]/70">
+              {isSignUp 
+                ? 'Enter your email below to create your account' 
+                : 'Enter your credentials to access your account'
+              }
+            </p>
+          </motion.div>
 
-          <h2 className="text-5xl font-bold leading-tight">
-            Build Amazing
-            <span className="block bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
-              Apps with AI
-            </span>
-          </h2>
-
-          <p className="text-xl text-gray-300 leading-relaxed">
-            The most powerful AI-driven development platform. Generate, preview, and deploy 
-            beautiful applications in seconds with cutting-edge AI models.
-          </p>
-
-          <div className="space-y-4 pt-4">
-            {features.map((feature, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
-                className="flex items-center gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10"
-              >
-                <div className="p-2 bg-violet-500/20 rounded-lg text-violet-400">
-                  {feature.icon}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white">{feature.title}</h3>
-                  <p className="text-sm text-gray-400">{feature.description}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Right Side - Auth Form */}
-        <motion.div
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="relative"
-        >
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl max-w-md mx-auto">
-            <div className="text-center mb-8">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium mb-4"
-              >
-                <Sparkles className="w-4 h-4" />
-                Join thousands of developers
-              </motion.div>
-              
-              <h3 className="text-3xl font-bold text-white mb-2">Welcome to the Future</h3>
-              <p className="text-gray-300">Choose your preferred way to get started</p>
-            </div>
-
-            {/* Error/Success Messages */}
+          {/* Error/Success Messages */}
+          <AnimatePresence>
             {error && (
-              <Alert className="mb-6 bg-red-500/10 border-red-500/20">
-                <AlertCircle className="h-4 w-4 text-red-400" />
-                <AlertDescription className="text-red-300">{error}</AlertDescription>
-              </Alert>
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-6"
+              >
+                <Alert className="bg-red-500/10 border-red-500/20 border">
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                  <AlertDescription className="text-red-300">{error}</AlertDescription>
+                </Alert>
+              </motion.div>
             )}
 
             {message && (
-              <Alert className="mb-6 bg-green-500/10 border-green-500/20">
-                <AlertCircle className="h-4 w-4 text-green-400" />
-                <AlertDescription className="text-green-300">{message}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* GitHub Auth Button */}
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="mb-6"
-            >
-              <Button
-                onClick={handleGitHubAuth}
-                disabled={isLoading}
-                className="w-full h-14 bg-gray-900 hover:bg-gray-800 text-white border border-gray-700 hover:border-gray-600 rounded-xl font-medium text-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-6"
               >
-                {isLoading ? (
-                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Github className="w-6 h-6" />
-                    Continue with GitHub
-                  </>
-                )}
-              </Button>
-            </motion.div>
+                <Alert className="bg-green-500/10 border-green-500/20 border">
+                  <AlertCircle className="h-4 w-4 text-green-400" />
+                  <AlertDescription className="text-green-300">{message}</AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-            {/* Or Divider */}
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-600" />
+          {/* Email Form */}
+          <motion.form
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            onSubmit={handleEmailAuth}
+            className="space-y-4 mb-6"
+          >
+            <div className="space-y-2">
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#EAEAEA]/40 w-5 h-5" />
+                <Input
+                  type="email"
+                  placeholder="name@example.com"
+                  value={emailForm.email}
+                  onChange={(e) => updateEmailForm('email', e.target.value)}
+                  className="pl-12 h-12 bg-[#0D0D10]/50 border-[#EAEAEA]/20 text-white placeholder-[#EAEAEA]/40 focus:border-[#6C52A0] rounded-xl transition-all duration-300"
+                  disabled={isLoading}
+                  required
+                />
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-transparent px-6 text-gray-400">or</span>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#EAEAEA]/40 w-5 h-5" />
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={emailForm.password}
+                  onChange={(e) => updateEmailForm('password', e.target.value)}
+                  className="pl-12 h-12 bg-[#0D0D10]/50 border-[#EAEAEA]/20 text-white placeholder-[#EAEAEA]/40 focus:border-[#6C52A0] rounded-xl transition-all duration-300"
+                  disabled={isLoading}
+                  required
+                />
               </div>
             </div>
 
-            {/* Email Auth Form */}
-            <form onSubmit={handleEmailAuth} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-gray-300 text-sm font-medium">Email</label>
+            {isSignUp && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-2"
+              >
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <Input
-                    type="email"
-                    placeholder="Enter your email"
-                    value={emailForm.email}
-                    onChange={(e) => updateEmailForm('email', e.target.value)}
-                    className="pl-12 h-12 bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-violet-500 rounded-xl"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-gray-300 text-sm font-medium">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#EAEAEA]/40 w-5 h-5" />
                   <Input
                     type="password"
-                    placeholder={isSignUp ? "Create a password" : "Enter your password"}
-                    value={emailForm.password}
-                    onChange={(e) => updateEmailForm('password', e.target.value)}
-                    className="pl-12 h-12 bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-violet-500 rounded-xl"
+                    placeholder="Confirm password"
+                    value={emailForm.confirmPassword}
+                    onChange={(e) => updateEmailForm('confirmPassword', e.target.value)}
+                    className="pl-12 h-12 bg-[#0D0D10]/50 border-[#EAEAEA]/20 text-white placeholder-[#EAEAEA]/40 focus:border-[#6C52A0] rounded-xl transition-all duration-300"
                     disabled={isLoading}
+                    required
                   />
                 </div>
-              </div>
+              </motion.div>
+            )}
 
-              {isSignUp && (
-                <div className="space-y-2">
-                  <label className="text-gray-300 text-sm font-medium">Confirm Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <Input
-                      type="password"
-                      placeholder="Confirm your password"
-                      value={emailForm.confirmPassword}
-                      onChange={(e) => updateEmailForm('confirmPassword', e.target.value)}
-                      className="pl-12 h-12 bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-violet-500 rounded-xl"
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-              )}
-
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-medium transition-all duration-200 disabled:opacity-50 mt-6"
+                className="w-full h-12 bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] text-white rounded-xl font-medium transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  isSignUp ? 'Sign Up' : 'Sign In'
+                  <>
+                    {isSignUp ? 'Sign Up with Email' : 'Sign In with Email'}
+                    <ArrowRight className="w-4 h-4" />
+                  </>
                 )}
               </Button>
-            </form>
+            </motion.div>
+          </motion.form>
 
-            {/* Toggle Auth Mode */}
-            <div className="text-center mt-6">
-              <p className="text-gray-400 text-sm">
-                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-                <button
-                  type="button"
-                  onClick={toggleAuthMode}
-                  className="text-violet-400 hover:text-violet-300 transition-colors font-medium"
-                >
-                  {isSignUp ? "Sign in" : "Sign up"}
-                </button>
-              </p>
+          {/* Divider */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="relative mb-6"
+          >
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-[#EAEAEA]/20" />
             </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-[#0D0D10] px-4 text-[#EAEAEA]/50 uppercase tracking-wider text-xs">or continue with</span>
+            </div>
+          </motion.div>
 
-            {/* Terms and Privacy */}
-            <div className="text-center mt-6">
-              <p className="text-xs text-gray-400">
-                By signing in, you agree to our{" "}
-                <TosPrivacyDialog type="tos">
-                  <button className="text-violet-400 hover:text-violet-300 transition-colors underline">
-                    Terms of Service
-                  </button>
-                </TosPrivacyDialog>{" "}
-                and{" "}
-                <TosPrivacyDialog type="privacy">
-                  <button className="text-violet-400 hover:text-violet-300 transition-colors underline">
-                    Privacy Policy
-                  </button>
-                </TosPrivacyDialog>
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      </div>
+          {/* GitHub Button */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <Button
+              onClick={handleGitHubAuth}
+              disabled={isLoading}
+              className="w-full h-12 bg-[#0D0D10]/50 hover:bg-[#EAEAEA]/10 text-white border border-[#EAEAEA]/20 hover:border-[#EAEAEA]/30 rounded-xl font-medium transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-3"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Github className="w-5 h-5" />
+                  GitHub
+                </>
+              )}
+            </Button>
+          </motion.div>
+
+          {/* Toggle Auth Mode */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className="text-center mt-8"
+          >
+            <p className="text-[#EAEAEA]/50 text-sm">
+              {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+              <button
+                type="button"
+                onClick={toggleAuthMode}
+                className="text-[#6C52A0] hover:text-[#7C62B0] transition-colors font-medium underline underline-offset-4"
+              >
+                {isSignUp ? "Sign in" : "Sign up"}
+              </button>
+            </p>
+          </motion.div>
+
+          {/* Terms and Privacy */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="text-center mt-6"
+          >
+            <p className="text-xs text-[#EAEAEA]/40">
+              By clicking continue, you agree to our{" "}
+              <a href="/terms" className="text-[#6C52A0] hover:text-[#7C62B0] transition-colors underline">
+                Terms of Service
+              </a>{" "}
+              and{" "}
+              <a href="/privacy" className="text-[#6C52A0] hover:text-[#7C62B0] transition-colors underline">
+                Privacy Policy
+              </a>
+              .
+            </p>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      <style jsx>{`
+        @keyframes blob {
+          0% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+          100% {
+            transform: translate(0px, 0px) scale(1);
+          }
+        }
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </div>
   )
 }
@@ -409,8 +417,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
 export default function AuthPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center">
+        <div className="animate-pulse text-white/50">Loading...</div>
       </div>
     }>
       <AuthContent />
