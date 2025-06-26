@@ -34,14 +34,6 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['framer-motion', 'lucide-react'],
-    turbo: {
-      resolve: {
-        fallback: {
-          fs: false,
-          path: false,
-        },
-      },
-    },
   },
   // Add output configuration for better static generation
   output: 'standalone',
@@ -55,6 +47,12 @@ const nextConfig = {
         fs: false,
         path: false,
       }
+    }
+
+    // Ensure proper alias resolution
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': __dirname,
     }
 
     // The custom optimization below is causing issues with module formats.
