@@ -120,7 +120,7 @@ export default function Home() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          Get Started
+          Sign In
         </motion.button>
         <motion.button
           onClick={goToAuth}
@@ -136,7 +136,7 @@ export default function Home() {
 
   // Simplified floating CTA
   const FloatingCTA = () => {
-    const buttonText = user ? 'Go to Chat' : 'Get Started';
+    const buttonText = user ? 'Go to Chat' : 'Sign In';
     const targetRoute = user ? '/chat' : '/auth';
 
     return (
