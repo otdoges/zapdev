@@ -150,7 +150,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
         if (error) {
           setError(error.message || 'Sign in failed')
         } else {
-          router.push(redirectTo)
+          // Don't redirect immediately - let the useEffect handle it
+          // This prevents race conditions with auth state
+          setMessage('Sign in successful! Redirecting...')
         }
       }
     } catch (error) {

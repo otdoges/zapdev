@@ -167,16 +167,13 @@ export default function SupabaseProvider({
 
     try {
       setLoading(true)
-      const redirectTo = `${window.location.origin}/auth/callback`
+      const redirectTo = `${window.location.origin}/auth/callback?next=/chat`
       console.log('GitHub OAuth redirect URL:', redirectTo)
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo,
-          queryParams: {
-            next: '/chat'
-          }
+          redirectTo
         }
       })
       if (error) {
