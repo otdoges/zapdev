@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User request is required' }, { status: 400 })
     }
 
-    console.log(`AI Team: Processing ${step} step for request:`, userRequest.substring(0, 100));
+    console.log('AI Team: Processing %s step for request:', step, userRequest.substring(0, 100));
 
     switch (step) {
       case 'analyze':
