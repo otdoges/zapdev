@@ -1,132 +1,136 @@
-"use client"
+'use client';
 
-import React, { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Hammer, 
-  Settings, 
-  Palette, 
-  Link, 
-  TestTube, 
-  CheckCircle, 
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Hammer,
+  Settings,
+  Palette,
+  Link,
+  TestTube,
+  CheckCircle,
   Rocket,
   Code,
   Sparkles,
-  Loader
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
+  Loader,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface BuildStep {
-  id: string
-  label: string
-  icon: React.ReactNode
-  status: 'pending' | 'active' | 'complete'
-  description?: string
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  status: 'pending' | 'active' | 'complete';
+  description?: string;
 }
 
 interface BuildingProgressProps {
-  isVisible: boolean
-  currentStep?: string
-  customSteps?: BuildStep[]
-  onComplete?: () => void
-  className?: string
+  isVisible: boolean;
+  currentStep?: string;
+  customSteps?: BuildStep[];
+  onComplete?: () => void;
+  className?: string;
 }
 
 const defaultSteps: BuildStep[] = [
   {
     id: 'analyze',
     label: 'Analyzing Requirements',
-    icon: <Sparkles className="w-4 h-4" />,
+    icon: <Sparkles className="h-4 w-4" />,
     status: 'pending',
-    description: 'Understanding your request...'
+    description: 'Understanding your request...',
   },
   {
     id: 'build',
     label: 'Building Components',
-    icon: <Hammer className="w-4 h-4" />,
+    icon: <Hammer className="h-4 w-4" />,
     status: 'pending',
-    description: 'Creating code and files...'
+    description: 'Creating code and files...',
   },
   {
     id: 'style',
     label: 'Adding Styles',
-    icon: <Palette className="w-4 h-4" />,
+    icon: <Palette className="h-4 w-4" />,
     status: 'pending',
-    description: 'Designing the interface...'
+    description: 'Designing the interface...',
   },
   {
     id: 'integrate',
     label: 'Integrating Features',
-    icon: <Link className="w-4 h-4" />,
+    icon: <Link className="h-4 w-4" />,
     status: 'pending',
-    description: 'Connecting everything together...'
+    description: 'Connecting everything together...',
   },
   {
     id: 'test',
     label: 'Testing & Validation',
-    icon: <TestTube className="w-4 h-4" />,
+    icon: <TestTube className="h-4 w-4" />,
     status: 'pending',
-    description: 'Ensuring everything works...'
+    description: 'Ensuring everything works...',
   },
   {
     id: 'complete',
     label: 'Ready!',
-    icon: <CheckCircle className="w-4 h-4" />,
+    icon: <CheckCircle className="h-4 w-4" />,
     status: 'pending',
-    description: 'Your project is complete!'
-  }
-]
+    description: 'Your project is complete!',
+  },
+];
 
-export default function BuildingProgress({ 
-  isVisible, 
+export default function BuildingProgress({
+  isVisible,
   currentStep = 'analyze',
   customSteps,
   onComplete,
-  className 
+  className,
 }: BuildingProgressProps) {
-  const [steps, setSteps] = useState<BuildStep[]>(customSteps || defaultSteps)
-  const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [steps, setSteps] = useState<BuildStep[]>(customSteps || defaultSteps);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   useEffect(() => {
-    if (!isVisible) return
+    if (!isVisible) return;
 
-    const stepIndex = steps.findIndex(step => step.id === currentStep)
+    const stepIndex = steps.findIndex((step) => step.id === currentStep);
     if (stepIndex !== -1) {
-      setCurrentStepIndex(stepIndex)
+      setCurrentStepIndex(stepIndex);
     }
-  }, [currentStep, steps, isVisible])
+  }, [currentStep, steps, isVisible]);
 
   useEffect(() => {
-    if (!isVisible) return
+    if (!isVisible) return;
 
     const updateSteps = () => {
-      setSteps(prevSteps => 
+      setSteps((prevSteps) =>
         prevSteps.map((step, index) => ({
           ...step,
-          status: index < currentStepIndex ? 'complete' : 
-                 index === currentStepIndex ? 'active' : 'pending'
+          status:
+            index < currentStepIndex
+              ? 'complete'
+              : index === currentStepIndex
+                ? 'active'
+                : 'pending',
         }))
-      )
-    }
+      );
+    };
 
-    updateSteps()
+    updateSteps();
 
     // Auto-progress through steps
     const timer = setTimeout(() => {
       if (currentStepIndex < steps.length - 1) {
-        setCurrentStepIndex(prev => prev + 1)
+        setCurrentStepIndex((prev) => prev + 1);
       } else if (currentStepIndex === steps.length - 1) {
         // Completed all steps
         setTimeout(() => {
-          onComplete?.()
-        }, 1000)
+          onComplete?.();
+        }, 1000);
       }
-    }, 2000) // Each step takes 2 seconds
+    }, 2000); // Each step takes 2 seconds
 
-    return () => clearTimeout(timer)
-  }, [currentStepIndex, steps.length, isVisible, onComplete])
+    return () => clearTimeout(timer);
+  }, [currentStepIndex, steps.length, isVisible, onComplete]);
 
-  if (!isVisible) return null
+  if (!isVisible) return null;
 
   return (
     <AnimatePresence>
@@ -135,20 +139,20 @@ export default function BuildingProgress({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         className={cn(
-          "bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm",
-          "border border-slate-700/50 rounded-xl p-6 shadow-xl",
-          "max-w-md mx-auto",
+          'bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm',
+          'rounded-xl border border-slate-700/50 p-6 shadow-xl',
+          'mx-auto max-w-md',
           className
         )}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="mb-6 flex items-center gap-3">
           <motion.div
             animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="p-2 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg"
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            className="rounded-lg bg-gradient-to-r from-violet-500 to-purple-500 p-2"
           >
-            <Code className="w-5 h-5 text-white" />
+            <Code className="h-5 w-5 text-white" />
           </motion.div>
           <div>
             <h3 className="text-lg font-semibold text-white">ZapDev Building</h3>
@@ -165,48 +169,56 @@ export default function BuildingProgress({
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
               className={cn(
-                "flex items-center gap-3 p-3 rounded-lg transition-all duration-300",
-                step.status === 'active' ? 'bg-violet-500/20 border border-violet-500/30' :
-                step.status === 'complete' ? 'bg-green-500/20 border border-green-500/30' :
-                'bg-slate-800/50 border border-slate-700/30'
+                'flex items-center gap-3 rounded-lg p-3 transition-all duration-300',
+                step.status === 'active'
+                  ? 'border border-violet-500/30 bg-violet-500/20'
+                  : step.status === 'complete'
+                    ? 'border border-green-500/30 bg-green-500/20'
+                    : 'border border-slate-700/30 bg-slate-800/50'
               )}
             >
               {/* Step Icon */}
-              <div className={cn(
-                "flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300",
-                step.status === 'active' ? 'bg-violet-500' :
-                step.status === 'complete' ? 'bg-green-500' :
-                'bg-slate-600'
-              )}>
+              <div
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-300',
+                  step.status === 'active'
+                    ? 'bg-violet-500'
+                    : step.status === 'complete'
+                      ? 'bg-green-500'
+                      : 'bg-slate-600'
+                )}
+              >
                 {step.status === 'active' ? (
                   <motion.div
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                   >
-                    <Loader className="w-4 h-4 text-white" />
+                    <Loader className="h-4 w-4 text-white" />
                   </motion.div>
                 ) : (
-                  <div className="text-white">
-                    {step.icon}
-                  </div>
+                  <div className="text-white">{step.icon}</div>
                 )}
               </div>
 
               {/* Step Content */}
               <div className="flex-1">
-                <p className={cn(
-                  "font-medium transition-colors duration-300",
-                  step.status === 'active' ? 'text-violet-300' :
-                  step.status === 'complete' ? 'text-green-300' :
-                  'text-slate-400'
-                )}>
+                <p
+                  className={cn(
+                    'font-medium transition-colors duration-300',
+                    step.status === 'active'
+                      ? 'text-violet-300'
+                      : step.status === 'complete'
+                        ? 'text-green-300'
+                        : 'text-slate-400'
+                  )}
+                >
                   {step.label}
                 </p>
                 {step.status === 'active' && step.description && (
                   <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="text-sm text-slate-400 mt-1"
+                    className="mt-1 text-sm text-slate-400"
                   >
                     {step.description}
                   </motion.p>
@@ -220,7 +232,7 @@ export default function BuildingProgress({
                   animate={{ scale: 1 }}
                   className="text-green-400"
                 >
-                  <CheckCircle className="w-5 h-5" />
+                  <CheckCircle className="h-5 w-5" />
                 </motion.div>
               )}
             </motion.div>
@@ -229,16 +241,16 @@ export default function BuildingProgress({
 
         {/* Progress Bar */}
         <div className="mt-6">
-          <div className="flex justify-between text-sm text-slate-400 mb-2">
+          <div className="mb-2 flex justify-between text-sm text-slate-400">
             <span>Progress</span>
             <span>{Math.round((currentStepIndex / (steps.length - 1)) * 100)}%</span>
           </div>
-          <div className="w-full bg-slate-700 rounded-full h-2">
+          <div className="h-2 w-full rounded-full bg-slate-700">
             <motion.div
-              className="bg-gradient-to-r from-violet-500 to-purple-500 h-2 rounded-full"
+              className="h-2 rounded-full bg-gradient-to-r from-violet-500 to-purple-500"
               initial={{ width: 0 }}
               animate={{ width: `${(currentStepIndex / (steps.length - 1)) * 100}%` }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
+              transition={{ duration: 0.5, ease: 'easeInOut' }}
             />
           </div>
         </div>
@@ -248,15 +260,15 @@ export default function BuildingProgress({
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mt-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-center"
+            className="mt-4 rounded-lg border border-green-500/30 bg-green-500/20 p-3 text-center"
           >
             <div className="flex items-center justify-center gap-2 text-green-300">
-              <Rocket className="w-4 h-4" />
+              <Rocket className="h-4 w-4" />
               <span className="font-medium">Project Ready!</span>
             </div>
           </motion.div>
         )}
       </motion.div>
     </AnimatePresence>
-  )
-} 
+  );
+}

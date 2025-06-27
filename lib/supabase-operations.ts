@@ -1,269 +1,307 @@
-import { createClient } from '@/lib/supabase-server'
-import type { User, Chat, Message } from './supabase'
+import { createClient } from '@/lib/supabase-server';
+import type { User, Chat, Message } from './supabase';
+import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 // User operations
-export async function createOrUpdateUser(email: string, name: string, avatarUrl?: string, provider?: string) {
-  const supabase = await createClient()
-  
+export async function createOrUpdateUser(
+  email: string,
+  name: string,
+  avatarUrl?: string,
+  provider?: string
+) {
+  const supabase = await createClient();
+
   // First, try to use the safe function if it exists
   try {
-    const { data: functionResult, error: functionError } = await supabase
-      .rpc('create_user_safely', {
+    const { data: functionResult, error: functionError } = await supabase.rpc(
+      'create_user_safely',
+      {
         user_email: email,
         user_name: name || 'User',
         user_avatar_url: avatarUrl,
-        user_provider: provider || 'email'
-      })
-    
+        user_provider: provider || 'email',
+      }
+    );
+
     if (!functionError && functionResult) {
-      return functionResult
+      return functionResult;
     }
   } catch (functionError) {
-    console.log('Safe function not available, falling back to direct upsert')
+    errorLogger.info(
+      ErrorCategory.DATABASE,
+      'Safe function not available, falling back to direct upsert'
+    );
   }
-  
+
   // Try with full schema first
   const { data, error } = await supabase
     .from('users')
-    .upsert({
-      email,
-      name,
-      avatar_url: avatarUrl,
-      provider,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'email'
-    })
+    .upsert(
+      {
+        email,
+        name,
+        avatar_url: avatarUrl,
+        provider,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'email',
+      }
+    )
     .select()
-    .single()
+    .single();
 
   // If RLS error, try creating with proper auth context
   if (error && error.code === '42501') {
-    console.log('RLS policy blocking user creation, trying with auth.uid()')
-    
+    errorLogger.info(
+      ErrorCategory.DATABASE,
+      'RLS policy blocking user creation, trying with auth.uid()'
+    );
+
     // Get the current user's auth data
-    const { data: { user: authUser } } = await supabase.auth.getUser()
-    
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+
     if (authUser) {
       const { data: authData, error: authError } = await supabase
         .from('users')
-        .upsert({
-          id: authUser.id, // Explicitly set the ID to match auth.uid()
-          email,
-          name: name || 'User',
-          avatar_url: avatarUrl,
-          provider: provider || 'email',
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'email'
-        })
+        .upsert(
+          {
+            id: authUser.id, // Explicitly set the ID to match auth.uid()
+            email,
+            name: name || 'User',
+            avatar_url: avatarUrl,
+            provider: provider || 'email',
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'email',
+          }
+        )
         .select()
-        .single()
-      
+        .single();
+
       if (!authError) {
-        return authData
+        return authData;
       }
-      
-      console.error('Error creating user with auth context:', authError)
+
+      errorLogger.error(
+        ErrorCategory.DATABASE,
+        'Error creating user with auth context:',
+        authError
+      );
     }
   }
 
   // If schema error, try with minimal required fields
   if (error && (error.code === 'PGRST204' || error.code === '42703')) {
-    console.log('Database schema incomplete, using minimal user creation')
+    errorLogger.info(
+      ErrorCategory.DATABASE,
+      'Database schema incomplete, using minimal user creation'
+    );
     const { data: fallbackData, error: fallbackError } = await supabase
       .from('users')
-      .upsert({
-        email,
-        name: name || 'User'
-      }, {
-        onConflict: 'email'
-      })
+      .upsert(
+        {
+          email,
+          name: name || 'User',
+        },
+        {
+          onConflict: 'email',
+        }
+      )
       .select()
-      .single()
-    
+      .single();
+
     if (fallbackError) {
-      console.error('Error creating user with fallback:', fallbackError)
-      throw fallbackError
+      errorLogger.error(
+        ErrorCategory.DATABASE,
+        'Error creating user with fallback:',
+        fallbackError
+      );
+      throw fallbackError;
     }
-    
-    return fallbackData
+
+    return fallbackData;
   }
 
   if (error) {
-    console.error('Error creating/updating user:', error)
-    throw error
+    errorLogger.error(ErrorCategory.DATABASE, 'Error creating/updating user:', error);
+    throw error;
   }
 
-  return data
+  return data;
 }
 
 export async function getUserByEmail(email: string): Promise<User | null> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('email', email)
-    .single()
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('users').select('*').eq('email', email).single();
 
   if (error) {
-    if (error.code === 'PGRST116') return null // No rows found
+    if (error.code === 'PGRST116') return null; // No rows found
     if (error.code === '42703' || error.code === 'PGRST204') {
       // Column doesn't exist - database schema needs migration
-      console.log('Database schema incomplete for user lookup')
-      return null
+      errorLogger.info(ErrorCategory.DATABASE, 'Database schema incomplete for user lookup');
+      return null;
     }
-    console.error('Error getting user:', error)
-    throw error
+    errorLogger.error(ErrorCategory.DATABASE, 'Error getting user:', error);
+    throw error;
   }
 
-  return data
+  return data;
 }
 
 export async function updateUserSubscription(email: string, subscriptionData: any) {
-  const supabase = await createClient()
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('users')
     .update({
       stripe_customer_id: subscriptionData.customerId,
       subscription_status: subscriptionData.status,
       subscription_plan: subscriptionData.plan,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
     .eq('email', email)
     .select()
-    .single()
+    .single();
 
   if (error) {
-    console.error('Error updating user subscription:', error)
-    throw error
+    errorLogger.error(ErrorCategory.DATABASE, 'Error updating user subscription:', error);
+    throw error;
   }
 
-  return data
+  return data;
 }
 
 // Chat operations
 export async function createChat(userId: string, title: string): Promise<Chat> {
-  const supabase = await createClient()
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('chats')
     .insert({
       user_id: userId,
       title,
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
     .select()
-    .single()
+    .single();
 
   if (error) {
-    console.error('Error creating chat:', error)
-    throw error
+    errorLogger.error(ErrorCategory.DATABASE, 'Error creating chat:', error);
+    throw error;
   }
 
-  return data
+  return data;
 }
 
 export async function getChatsByUserId(userId: string): Promise<Chat[]> {
-  const supabase = await createClient()
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('chats')
     .select('*')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error getting chats:', error)
-    throw error
+    errorLogger.error(ErrorCategory.DATABASE, 'Error getting chats:', error);
+    throw error;
   }
 
-  return data || []
+  return data || [];
 }
 
 export async function getChatById(chatId: string): Promise<Chat | null> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('chats')
-    .select('*')
-    .eq('id', chatId)
-    .single()
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('chats').select('*').eq('id', chatId).single();
 
   if (error) {
-    if (error.code === 'PGRST116') return null // No rows found
-    console.error('Error getting chat:', error)
-    throw error
+    if (error.code === 'PGRST116') return null; // No rows found
+    errorLogger.error(ErrorCategory.DATABASE, 'Error getting chat:', error);
+    throw error;
   }
 
-  return data
+  return data;
 }
 
 // Message operations
-export async function addMessage(chatId: string, role: 'user' | 'assistant', content: string): Promise<Message> {
-  const supabase = await createClient()
+export async function addMessage(
+  chatId: string,
+  role: 'user' | 'assistant',
+  content: string
+): Promise<Message> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('messages')
     .insert({
       chat_id: chatId,
       role,
       content,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     })
     .select()
-    .single()
+    .single();
 
   if (error) {
-    console.error('Error adding message:', error)
-    throw error
+    errorLogger.error(ErrorCategory.DATABASE, 'Error adding message:', error);
+    throw error;
   }
 
-  return data
+  return data;
 }
 
 export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
-  const supabase = await createClient()
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('messages')
     .select('*')
     .eq('chat_id', chatId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: true });
 
   if (error) {
-    console.error('Error getting messages:', error)
-    throw error
+    errorLogger.error(ErrorCategory.DATABASE, 'Error getting messages:', error);
+    throw error;
   }
 
-  return data || []
+  return data || [];
 }
 
 // Auth helpers - SECURE SERVER-SIDE AUTHENTICATION
 export async function getUserFromSession() {
   try {
-    const supabase = await createClient()
-    
+    const supabase = await createClient();
+
     // Use getUser() instead of getSession() for server-side security
     // This validates the JWT token with Supabase servers instead of trusting cookies
-    const { data: { user }, error } = await supabase.auth.getUser()
-    
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
     if (error || !user) {
-      return null
+      return null;
     }
 
     // Validate user is actually authenticated and not just cookie data
     if (!user.id || !user.email) {
-      return null
+      return null;
     }
 
     // Get user from our secure database
     if (user.email) {
       try {
-        const dbUser = await getUserByEmail(user.email)
+        const dbUser = await getUserByEmail(user.email);
         if (dbUser) {
-          return dbUser
+          return dbUser;
         }
       } catch (dbError) {
         // If database lookup fails, still allow auth user for functionality
         // but log the issue for database schema problems
-        console.log('Database user lookup failed, using validated auth user')
+        errorLogger.info(
+          ErrorCategory.DATABASE,
+          'Database user lookup failed, using validated auth user'
+        );
       }
 
       // Return validated auth user if database user doesn't exist yet
@@ -274,28 +312,28 @@ export async function getUserFromSession() {
         avatar_url: user.user_metadata?.avatar_url,
         provider: user.app_metadata?.providers?.[0] || 'email',
         created_at: user.created_at,
-        updated_at: user.updated_at || user.created_at
-      } as User
+        updated_at: user.updated_at || user.created_at,
+      } as User;
     }
 
-    return null
+    return null;
   } catch (error) {
-    console.error('Authentication validation failed:', error)
-    return null
+    errorLogger.error(ErrorCategory.DATABASE, 'Authentication validation failed:', error);
+    return null;
   }
 }
 
 export async function requireAuth() {
-  const user = await getUserFromSession()
+  const user = await getUserFromSession();
   if (!user) {
-    throw new Error('Authentication required')
+    throw new Error('Authentication required');
   }
-  return user
+  return user;
 }
 
 // Helper to create/sync user in database after auth
 export async function syncUserToDatabase(authUser: any) {
-  if (!authUser?.email) return null
+  if (!authUser?.email) return null;
 
   try {
     return await createOrUpdateUser(
@@ -303,9 +341,9 @@ export async function syncUserToDatabase(authUser: any) {
       authUser.user_metadata?.name || authUser.user_metadata?.full_name || 'Anonymous',
       authUser.user_metadata?.avatar_url,
       authUser.app_metadata?.provider || 'email'
-    )
+    );
   } catch (error) {
-    console.error('Error syncing user to database:', error)
-    return null
+    errorLogger.error(ErrorCategory.DATABASE, 'Error syncing user to database:', error);
+    return null;
   }
-} 
+}

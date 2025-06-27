@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     const { chatId, userId: clientUserId } = await req.json();
 
     if (authError || !user) {
@@ -31,7 +35,7 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (selectError) {
-        console.error('Error checking chat:', selectError);
+        errorLogger.error(ErrorCategory.API, 'Error checking chat:', selectError);
         // Return valid to allow chat to proceed even with DB errors
         return NextResponse.json({ isValid: true });
       }
@@ -46,21 +50,22 @@ export async function POST(req: NextRequest) {
           .maybeSingle();
 
         if (userError || !userData) {
-          console.warn('User not found in database, returning valid=true anyway');
+          errorLogger.warning(
+            ErrorCategory.API,
+            'User not found in database, returning valid=true anyway'
+          );
           return NextResponse.json({ isValid: true });
         }
 
         // Create chat record
-        const { error: insertError } = await supabase
-          .from('chats')
-          .insert({
-            id: chatId,
-            user_id: userData.id,
-            title: 'New Chat'
-          });
+        const { error: insertError } = await supabase.from('chats').insert({
+          id: chatId,
+          user_id: userData.id,
+          title: 'New Chat',
+        });
 
         if (insertError) {
-          console.error('Error creating chat:', insertError);
+          errorLogger.error(ErrorCategory.API, 'Error creating chat:', insertError);
           // Still return valid=true to allow application to function
           return NextResponse.json({ isValid: true });
         }
@@ -68,12 +73,12 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ isValid: true });
     } catch (dbError) {
-      console.error('Database error:', dbError);
+      errorLogger.error(ErrorCategory.API, 'Database error:', dbError);
       // Return valid=true to allow the application to function even with DB errors
       return NextResponse.json({ isValid: true });
     }
   } catch (error) {
-    console.error('General error in /api/validate-chat-session:', error);
+    errorLogger.error(ErrorCategory.API, 'General error in /api/validate-chat-session:', error);
     // For general errors, we'll still allow the chat to proceed
     return NextResponse.json({ isValid: true });
   }

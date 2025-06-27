@@ -20,7 +20,7 @@ const envExists = fs.existsSync(envPath);
 if (!envExists) {
   console.log('❌ CRITICAL: .env.local file not found!');
   console.log('📝 Creating template .env.local file...\n');
-  
+
   const envTemplate = `# Supabase Configuration ⭐ REQUIRED
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
@@ -62,15 +62,11 @@ require('dotenv').config({ path: envPath });
 
 console.log('🔍 Checking Critical Environment Variables:\n');
 
-const criticalVars = [
-  'NEXT_PUBLIC_SUPABASE_URL',
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-  'GROQ_API_KEY'
-];
+const criticalVars = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'GROQ_API_KEY'];
 
 let missingVars = [];
 
-criticalVars.forEach(varName => {
+criticalVars.forEach((varName) => {
   const value = process.env[varName];
   if (!value || value.includes('your-') || value.includes('placeholder')) {
     console.log(`❌ ${varName}: Missing or placeholder value`);
@@ -82,7 +78,10 @@ criticalVars.forEach(varName => {
 
 console.log('\n🔧 Issues Found and Solutions:\n');
 
-if (missingVars.includes('NEXT_PUBLIC_SUPABASE_URL') || missingVars.includes('NEXT_PUBLIC_SUPABASE_ANON_KEY')) {
+if (
+  missingVars.includes('NEXT_PUBLIC_SUPABASE_URL') ||
+  missingVars.includes('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+) {
   console.log('🔴 CRITICAL: Supabase not configured!');
   console.log('   1. Go to https://supabase.com/dashboard');
   console.log('   2. Create a new project or select existing');

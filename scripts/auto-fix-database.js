@@ -2,7 +2,7 @@
 
 /**
  * Auto Database Schema Fix
- * 
+ *
  * This script automatically fixes the database schema issues by running the migration
  * using the Supabase client if credentials are available.
  */
@@ -18,7 +18,8 @@ async function fixDatabaseSchema() {
   require('dotenv').config({ path: path.join(process.cwd(), '.env.local') });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseServiceKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseServiceKey || supabaseUrl.includes('placeholder')) {
     console.log('❌ Supabase credentials not found in .env.local');
@@ -55,7 +56,6 @@ async function fixDatabaseSchema() {
     console.log('✅ Database schema fixed successfully!');
     console.log('🚀 Your chat API should now work properly');
     return true;
-
   } catch (error) {
     console.log('❌ Error running auto-migration:', error.message);
     console.log('📋 Please run the migration manually in Supabase SQL Editor:');
@@ -136,7 +136,6 @@ async function createMinimalSchema() {
 
     console.log('✅ Minimal database schema created!');
     return true;
-
   } catch (error) {
     console.log('⚠️ Auto-migration not available, manual setup required');
     return false;
@@ -146,7 +145,7 @@ async function createMinimalSchema() {
 async function main() {
   console.log('🚨 URGENT: Fixing Chat API Database Issues\n');
 
-  const success = await fixDatabaseSchema() || await createMinimalSchema();
+  const success = (await fixDatabaseSchema()) || (await createMinimalSchema());
 
   if (success) {
     console.log('\n🎉 SUCCESS! Database issues resolved.');
@@ -163,12 +162,10 @@ async function main() {
     console.log('   4. Click Run');
     console.log('   5. Restart your dev server\n');
   }
-
-  
 }
 
 if (require.main === module) {
   main().catch(console.error);
 }
 
-module.exports = { fixDatabaseSchema, createMinimalSchema }; 
+module.exports = { fixDatabaseSchema, createMinimalSchema };

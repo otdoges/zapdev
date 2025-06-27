@@ -1,3 +1,3 @@
 import { Message } from 'ai';
 
-export type ChatHistory = Message[]; 
+export type ChatHistory = Message[];

@@ -12,7 +12,7 @@ export {
   getModelConfig,
   // Legacy exports for compatibility
   groqModelConfigs as modelConfigs,
-  groqModelIds as modelIds
+  groqModelIds as modelIds,
 } from './models';
 
 // Token usage tracking
@@ -20,7 +20,7 @@ export {
   type GroqTokenUsage,
   trackGroqTokenUsage,
   getRemainingTokens,
-  getGroqTokenUsageStats
+  getGroqTokenUsageStats,
 } from './token-tracking';
 
 // Provider and client setup
@@ -29,15 +29,11 @@ export {
   groqProvider,
   defaultGroq,
   prepareGroqMessages,
-  prepareDefaultGroqMessages
+  prepareDefaultGroqMessages,
 } from './provider';
 
 // Response generation functions
-export {
-  getMultiGroqResponses,
-  streamGroqResponse,
-  generateGroqResponse
-} from './responses';
+export { getMultiGroqResponses, streamGroqResponse, generateGroqResponse } from './responses';
 
 // Enhanced token usage stats with model information
 import { getGroqTokenUsageStats } from './token-tracking';
@@ -47,7 +43,7 @@ import { getAvailableGroqModels, GroqModelConfig } from './models';
 export function getEnhancedGroqTokenUsageStats() {
   const tokenStats = getGroqTokenUsageStats();
   const availableModels = getAvailableGroqModels(tokenStats.remaining);
-  
+
   return {
     ...tokenStats,
     availableModels: availableModels.length,
@@ -56,9 +52,9 @@ export function getEnhancedGroqTokenUsageStats() {
       id: m.id,
       name: m.name,
       isReasoning: m.isReasoning,
-      capabilities: m.capabilities
-    }))
+      capabilities: m.capabilities,
+    })),
   };
 }
 // Note: Whisper transcription functionality has been removed as requested
-// If you need audio transcription, consider using a dedicated transcription service 
+// If you need audio transcription, consider using a dedicated transcription service

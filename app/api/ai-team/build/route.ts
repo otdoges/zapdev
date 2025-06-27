@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateText } from 'ai'
 import { openrouterProvider, getModelId } from '@/lib/openrouter'
+import { errorLogger, ErrorCategory } from '@/lib/error-logger';
+
 
 interface BuildRequest {
   userRequest: string
@@ -28,23 +30,23 @@ export async function POST(req: NextRequest) {
     }
     
     // Step 1: Analyze requirements
-    console.log('🤖 System Architect analyzing requirements...')
+    errorLogger.info(ErrorCategory.API, '🤖 System Architect analyzing requirements...')
     const analysisResult = await analyzeRequirements(userRequest)
     
     // Step 2: Design architecture
-    console.log('🏗️ System Architect designing architecture...')
+    errorLogger.info(ErrorCategory.API, '🏗️ System Architect designing architecture...')
     const architectureResult = await architectureDesign(userRequest, analysisResult)
     
     // Step 3: Generate frontend code
-    console.log('🎨 Frontend Developer creating components...')
+    errorLogger.info(ErrorCategory.API, '🎨 Frontend Developer creating components...')
     const frontendResult = await frontendDevelopment(userRequest, architectureResult)
     
     // Step 4: Generate backend code (if needed)
-    console.log('⚙️ Backend Developer setting up services...')
+    errorLogger.info(ErrorCategory.API, '⚙️ Backend Developer setting up services...')
     const backendResult = await backendDevelopment(userRequest, architectureResult)
     
     // Step 5: Create deployment configuration
-    console.log('🚀 DevOps Engineer configuring deployment...')
+    errorLogger.info(ErrorCategory.API, '🚀 DevOps Engineer configuring deployment...')
     const deploymentResult = await deploymentSetup(userRequest, architectureResult, frontendResult, backendResult)
 
     // Combine all results into a complete project
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
       ]
     })
   } catch (error) {
-    console.error('AI Team build error:', error)
+    errorLogger.error(ErrorCategory.API, 'AI Team build error:', error)
     return NextResponse.json(
       { error: 'Failed to build project with AI team' },
       { status: 500 }

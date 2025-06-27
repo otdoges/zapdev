@@ -1,0 +1,45 @@
+# Dependencies
+node_modules
+.next
+.vercel
+build
+dist
+
+# Lock files
+package-lock.json
+yarn.lock
+bun.lockb
+
+# Environment files
+.env*
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+
+# Generated files
+*.min.js
+*.min.css
+bundle-optimization-report.json
+
+# Database
+*.sql
+*.db
+
+# Images and assets
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+
+# Specific files
+acli.exe 

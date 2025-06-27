@@ -1,21 +1,22 @@
-"use client";
+'use client';
 
-import { ReactNode, createContext, useContext, useEffect, useState } from "react";
-import { api } from "@/convex/_generated/api";
-import { useAuthUser } from "@/lib/actions";
-import { useMutation, useQuery } from "convex/react";
-import { Id } from "@/convex/_generated/dataModel";
+import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
+import { api } from '@/convex/_generated/api';
+import { useAuthUser } from '@/lib/actions';
+import { useMutation, useQuery } from 'convex/react';
+import { Id } from '@/convex/_generated/dataModel';
+import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 // Define the context shape
 type ConvexChatContextType = {
-  userId: Id<"users"> | null;
-  chatId: Id<"chats"> | null;
+  userId: Id<'users'> | null;
+  chatId: Id<'chats'> | null;
   messages: any[] | undefined;
   sendMessage: (content: string) => Promise<void>;
   isLoading: boolean;
   isThinking: boolean;
   currentResponse: string;
-  setCurrentChatId: (chatId: Id<"chats"> | null) => void;
+  setCurrentChatId: (chatId: Id<'chats'> | null) => void;
   currentChat: any;
   regenerateLastMessage: () => Promise<void>;
   canRegenerate: boolean;
@@ -29,7 +30,7 @@ const ConvexChatContext = createContext<ConvexChatContextType>({
   sendMessage: async () => {},
   isLoading: true,
   isThinking: false,
-  currentResponse: "",
+  currentResponse: '',
   setCurrentChatId: () => {},
   currentChat: null,
   regenerateLastMessage: async () => {},
@@ -48,34 +49,34 @@ export default function ConvexChatProvider({
   chatId?: string;
 }) {
   const { user } = useAuthUser();
-  const userId = user?.id as Id<"users"> | null;
-  const [currentChatId, setCurrentChatId] = useState<Id<"chats"> | null>(null);
+  const userId = user?.id as Id<'users'> | null;
+  const [currentChatId, setCurrentChatId] = useState<Id<'chats'> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
-  const [currentResponse, setCurrentResponse] = useState("");
+  const [currentResponse, setCurrentResponse] = useState('');
 
   // Convex mutations and queries
   const createChatMutation = useMutation(api.chats.createChat);
   const addMessageMutation = useMutation(api.chats.addMessage);
-  
+
   // Query for messages if we have a chat ID
   const messages = useQuery(
     api.chats.getMessagesByChatId,
-    currentChatId ? { chatId: currentChatId } : "skip"
+    currentChatId ? { chatId: currentChatId } : 'skip'
   );
 
   // Query for current chat details
   const currentChat = useQuery(
     api.chats.getChatById,
-    currentChatId ? { chatId: currentChatId } : "skip"
+    currentChatId ? { chatId: currentChatId } : 'skip'
   );
 
   // Function to regenerate last message
   const regenerateLastMessage = async () => {
     if (!messages || messages.length === 0) return;
-    
+
     // Find the last user message
-    const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user');
+    const lastUserMessage = [...messages].reverse().find((msg) => msg.role === 'user');
     if (lastUserMessage) {
       await sendMessage(lastUserMessage.content);
     }
@@ -88,7 +89,7 @@ export default function ConvexChatProvider({
   useEffect(() => {
     if (chatId && !chatId.includes('-') && chatId.length > 10) {
       // It's a valid Convex ID format
-      setCurrentChatId(chatId as Id<"chats">);
+      setCurrentChatId(chatId as Id<'chats'>);
     } else {
       // No valid chat ID, will create one when first message is sent
       setCurrentChatId(null);
@@ -98,13 +99,13 @@ export default function ConvexChatProvider({
   // Function to send a message with real-time AI response
   const sendMessage = async (content: string) => {
     if (!content.trim()) return;
-    
+
     setIsThinking(true);
-    setCurrentResponse("");
-    
+    setCurrentResponse('');
+
     try {
       let workingChatId = currentChatId;
-      
+
       // Create chat if it doesn't exist yet
       if (!workingChatId && userId) {
         setIsLoading(true);
@@ -116,8 +117,8 @@ export default function ConvexChatProvider({
           });
           setCurrentChatId(workingChatId);
         } catch (error) {
-          console.error("Failed to create chat:", error);
-          throw new Error("Failed to create chat");
+          errorLogger.error(ErrorCategory.GENERAL, 'Failed to create chat:', error);
+          throw new Error('Failed to create chat');
         } finally {
           setIsLoading(false);
         }
@@ -125,11 +126,11 @@ export default function ConvexChatProvider({
 
       // Get chat history for context
       const chatHistory = messages || [];
-      const historyForAPI = chatHistory.map(msg => ({
+      const historyForAPI = chatHistory.map((msg) => ({
         role: msg.role,
-        content: msg.content
+        content: msg.content,
       }));
-      
+
       // Add the new user message to history
       historyForAPI.push({ role: 'user', content });
 
@@ -142,8 +143,8 @@ export default function ConvexChatProvider({
         body: JSON.stringify({
           messages: historyForAPI,
           chatId: workingChatId,
-          modelId: "deepseek/deepseek-chat:free", // Default model
-          useMultipleModels: false
+          modelId: 'deepseek/deepseek-chat:free', // Default model
+          useMultipleModels: false,
         }),
       });
 
@@ -156,7 +157,7 @@ export default function ConvexChatProvider({
       if (response.body) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let fullResponse = "";
+        let fullResponse = '';
 
         while (true) {
           const { done, value } = await reader.read();
@@ -170,17 +171,16 @@ export default function ConvexChatProvider({
         // Get the updated chat ID from headers if it was created
         const newChatId = response.headers.get('X-Chat-ID');
         if (newChatId && newChatId !== workingChatId) {
-          setCurrentChatId(newChatId as Id<"chats">);
+          setCurrentChatId(newChatId as Id<'chats'>);
         }
       }
-      
     } catch (error) {
-      console.error("Failed to send message:", error);
-      setCurrentResponse("Sorry, I encountered an error. Please try again.");
+      errorLogger.error(ErrorCategory.GENERAL, 'Failed to send message:', error);
+      setCurrentResponse('Sorry, I encountered an error. Please try again.');
     } finally {
       setIsThinking(false);
       // Clear the current response after a brief delay to let the UI update
-      setTimeout(() => setCurrentResponse(""), 100);
+      setTimeout(() => setCurrentResponse(''), 100);
     }
   };
 
@@ -203,4 +203,4 @@ export default function ConvexChatProvider({
       {children}
     </ConvexChatContext.Provider>
   );
-} 
+}

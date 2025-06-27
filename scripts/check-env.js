@@ -8,10 +8,13 @@ const ENV_VARS = {
   required: [
     { key: 'NEXT_PUBLIC_SUPABASE_URL', description: 'Supabase project URL' },
     { key: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', description: 'Supabase anonymous key' },
-    { key: 'GROQ_API_KEY', description: 'Groq AI API key for chat functionality' }
+    { key: 'GROQ_API_KEY', description: 'Groq AI API key for chat functionality' },
   ],
   optional: [
-    { key: 'SUPABASE_SERVICE_ROLE_KEY', description: 'Supabase service role key (for server-side operations)' },
+    {
+      key: 'SUPABASE_SERVICE_ROLE_KEY',
+      description: 'Supabase service role key (for server-side operations)',
+    },
     { key: 'POLAR_ACCESS_TOKEN', description: 'Polar access token for subscription management' },
     { key: 'POLAR_ORGANIZATION_ID', description: 'Polar organization ID' },
     { key: 'POLAR_SUCCESS_URL', description: 'Polar success redirect URL' },
@@ -27,8 +30,8 @@ const ENV_VARS = {
     { key: 'NEXT_PUBLIC_POSTHOG_KEY', description: 'PostHog analytics key' },
     { key: 'NEXT_PUBLIC_POSTHOG_HOST', description: 'PostHog host URL' },
     { key: 'NODE_ENV', description: 'Node environment (development/production)' },
-    { key: 'NEXT_PUBLIC_APP_URL', description: 'Application base URL' }
-  ]
+    { key: 'NEXT_PUBLIC_APP_URL', description: 'Application base URL' },
+  ],
 };
 
 // Color codes for terminal output
@@ -38,7 +41,7 @@ const colors = {
   green: '\x1b[32m',
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
-  gray: '\x1b[90m'
+  gray: '\x1b[90m',
 };
 
 // Check if .env.local exists
@@ -49,7 +52,9 @@ console.log(`\n${colors.blue}🔍 ZapDev Environment Configuration Check${colors
 
 if (!envExists) {
   console.log(`${colors.yellow}⚠️  Warning: .env.local file not found${colors.reset}`);
-  console.log(`${colors.gray}   Create a .env.local file in the root directory with your environment variables${colors.reset}\n`);
+  console.log(
+    `${colors.gray}   Create a .env.local file in the root directory with your environment variables${colors.reset}\n`
+  );
 }
 
 // Check required variables
@@ -59,10 +64,14 @@ let hasErrors = false;
 ENV_VARS.required.forEach(({ key, description }) => {
   const value = process.env[key];
   if (!value || value.trim() === '') {
-    console.log(`${colors.red}❌ ${key}${colors.reset} - ${colors.gray}${description}${colors.reset}`);
+    console.log(
+      `${colors.red}❌ ${key}${colors.reset} - ${colors.gray}${description}${colors.reset}`
+    );
     hasErrors = true;
   } else {
-    console.log(`${colors.green}✅ ${key}${colors.reset} - ${colors.gray}${description}${colors.reset}`);
+    console.log(
+      `${colors.green}✅ ${key}${colors.reset} - ${colors.gray}${description}${colors.reset}`
+    );
   }
 });
 
@@ -71,9 +80,13 @@ console.log(`\n${colors.blue}Optional Environment Variables:${colors.reset}`);
 ENV_VARS.optional.forEach(({ key, description }) => {
   const value = process.env[key];
   if (!value || value.trim() === '') {
-    console.log(`${colors.yellow}⚠️  ${key}${colors.reset} - ${colors.gray}${description}${colors.reset}`);
+    console.log(
+      `${colors.yellow}⚠️  ${key}${colors.reset} - ${colors.gray}${description}${colors.reset}`
+    );
   } else {
-    console.log(`${colors.green}✅ ${key}${colors.reset} - ${colors.gray}${description}${colors.reset}`);
+    console.log(
+      `${colors.green}✅ ${key}${colors.reset} - ${colors.gray}${description}${colors.reset}`
+    );
   }
 });
 
@@ -81,7 +94,7 @@ ENV_VARS.optional.forEach(({ key, description }) => {
 if (hasErrors || !envExists) {
   console.log(`\n${colors.blue}Example .env.local content:${colors.reset}`);
   console.log(`${colors.gray}${'─'.repeat(60)}${colors.reset}`);
-  
+
   const exampleContent = `# Required Configuration
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
@@ -99,10 +112,14 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000`;
 // Exit with error code if required variables are missing
 if (hasErrors) {
   console.log(`\n${colors.red}❌ Missing required environment variables!${colors.reset}`);
-  console.log(`${colors.gray}   Please configure all required variables before running the application.${colors.reset}\n`);
+  console.log(
+    `${colors.gray}   Please configure all required variables before running the application.${colors.reset}\n`
+  );
   process.exit(1);
 } else {
-  console.log(`\n${colors.green}✅ All required environment variables are configured!${colors.reset}\n`);
+  console.log(
+    `\n${colors.green}✅ All required environment variables are configured!${colors.reset}\n`
+  );
 }
 
 // Additional checks for common issues
@@ -111,14 +128,19 @@ console.log(`${colors.blue}Additional Checks:${colors.reset}`);
 // Check Supabase URL format
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 if (supabaseUrl && !supabaseUrl.includes('.supabase.co')) {
-  console.log(`${colors.yellow}⚠️  NEXT_PUBLIC_SUPABASE_URL doesn't look like a valid Supabase URL${colors.reset}`);
+  console.log(
+    `${colors.yellow}⚠️  NEXT_PUBLIC_SUPABASE_URL doesn't look like a valid Supabase URL${colors.reset}`
+  );
 } else if (supabaseUrl) {
   console.log(`${colors.green}✅ Supabase URL format looks correct${colors.reset}`);
 }
 
 // Check if running in production without proper config
-if (process.env.NODE_ENV === 'production' && (!process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL.includes('localhost'))) {
+if (
+  process.env.NODE_ENV === 'production' &&
+  (!process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL.includes('localhost'))
+) {
   console.log(`${colors.yellow}⚠️  Running in production mode with localhost URL${colors.reset}`);
 }
 
-console.log(`\n${colors.gray}Run 'bun run dev' to start the development server${colors.reset}\n`); 
+console.log(`\n${colors.gray}Run 'bun run dev' to start the development server${colors.reset}\n`);

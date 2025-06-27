@@ -1,12 +1,12 @@
-"use client"
+'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react'
-import { WebContainer } from '@webcontainer/api'
-import { motion } from 'framer-motion'
-import { 
-  Play, 
-  Square, 
-  RefreshCw, 
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { WebContainer } from '@webcontainer/api';
+import { motion } from 'framer-motion';
+import {
+  Play,
+  Square,
+  RefreshCw,
   AlertTriangle,
   CheckCircle,
   Loader,
@@ -14,279 +14,299 @@ import {
   FileText,
   Code2,
   Users,
-  Brain
-} from 'lucide-react'
+  Brain,
+} from 'lucide-react';
+import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 interface WebContainerProps {
-  code: string
-  onCodeChange?: (code: string) => void
-  className?: string
-  aiTeamInstructions?: string
+  code: string;
+  onCodeChange?: (code: string) => void;
+  className?: string;
+  aiTeamInstructions?: string;
 }
 
 interface FileSystemTree {
   [key: string]: {
     file?: {
-      contents: string
-    }
-    directory?: FileSystemTree
-  }
+      contents: string;
+    };
+    directory?: FileSystemTree;
+  };
 }
 
 interface AIAgent {
-  id: string
-  name: string
-  role: string
-  status: 'idle' | 'working' | 'complete' | 'error'
-  currentTask?: string
+  id: string;
+  name: string;
+  role: string;
+  status: 'idle' | 'working' | 'complete' | 'error';
+  currentTask?: string;
 }
 
-export default function WebContainerComponent({ 
-  code, 
-  onCodeChange, 
+export default function WebContainerComponent({
+  code,
+  onCodeChange,
   className,
-  aiTeamInstructions 
+  aiTeamInstructions,
 }: WebContainerProps) {
-  const [container, setContainer] = useState<WebContainer | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isRunning, setIsRunning] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string>('')
-  const [error, setError] = useState<string | null>(null)
-  const [terminalOutput, setTerminalOutput] = useState<string[]>([])
-  const [fileSystemTree, setFileSystemTree] = useState<FileSystemTree>({})
+  const [container, setContainer] = useState<WebContainer | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRunning, setIsRunning] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [terminalOutput, setTerminalOutput] = useState<string[]>([]);
+  const [fileSystemTree, setFileSystemTree] = useState<FileSystemTree>({});
   const [aiAgents, setAiAgents] = useState<AIAgent[]>([
-    { id: 'architect', name: 'System Architect', role: 'Project structure & dependencies', status: 'idle' },
+    {
+      id: 'architect',
+      name: 'System Architect',
+      role: 'Project structure & dependencies',
+      status: 'idle',
+    },
     { id: 'frontend', name: 'Frontend Developer', role: 'UI/UX components', status: 'idle' },
     { id: 'backend', name: 'Backend Developer', role: 'Server logic & APIs', status: 'idle' },
-    { id: 'devops', name: 'DevOps Engineer', role: 'Build & deployment', status: 'idle' }
-  ])
-  
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-  const webcontainerInstance = useRef<WebContainer | null>(null)
-  const cleanupFunctions = useRef<(() => void)[]>([])
+    { id: 'devops', name: 'DevOps Engineer', role: 'Build & deployment', status: 'idle' },
+  ]);
+
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const webcontainerInstance = useRef<WebContainer | null>(null);
+  const cleanupFunctions = useRef<(() => void)[]>([]);
 
   // Initialize WebContainer
   useEffect(() => {
     const initContainer = async () => {
-      setIsLoading(true)
-      setError(null)
-      
+      setIsLoading(true);
+      setError(null);
+
       try {
-        addTerminalOutput('🔄 Initializing WebContainer...')
-        
+        addTerminalOutput('🔄 Initializing WebContainer...');
+
         // Check if WebContainer is available
         if (!WebContainer) {
-          throw new Error('WebContainer API is not available. Please check your browser compatibility.')
+          throw new Error(
+            'WebContainer API is not available. Please check your browser compatibility.'
+          );
         }
-        
+
         // Add timeout for initialization
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('WebContainer initialization timeout')), 30000)
-        })
-        
-        const bootPromise = WebContainer.boot()
-        
+          setTimeout(() => reject(new Error('WebContainer initialization timeout')), 30000);
+        });
+
+        const bootPromise = WebContainer.boot();
+
         // Race between boot and timeout
-        const instance = await Promise.race([bootPromise, timeoutPromise]) as WebContainer
-        
+        const instance = (await Promise.race([bootPromise, timeoutPromise])) as WebContainer;
+
         if (!instance) {
-          throw new Error('Failed to boot WebContainer instance')
+          throw new Error('Failed to boot WebContainer instance');
         }
-        
-        webcontainerInstance.current = instance
-        setContainer(instance)
-        setIsLoading(false)
-        
-        addTerminalOutput('✅ WebContainer initialized successfully')
-        
+
+        webcontainerInstance.current = instance;
+        setContainer(instance);
+        setIsLoading(false);
+
+        addTerminalOutput('✅ WebContainer initialized successfully');
+
         // Setup AI team if instructions provided
         if (aiTeamInstructions) {
-          await startAITeamDevelopment(aiTeamInstructions, instance)
+          await startAITeamDevelopment(aiTeamInstructions, instance);
         }
-        
       } catch (error) {
-        console.error('Failed to initialize WebContainer:', error)
-        
-        let errorMessage = 'Failed to initialize WebContainer'
+        errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to initialize WebContainer:', error);
+
+        let errorMessage = 'Failed to initialize WebContainer';
         if (error instanceof Error) {
           if (error.message.includes('timeout')) {
-            errorMessage = 'WebContainer initialization timed out. Please refresh and try again.'
+            errorMessage = 'WebContainer initialization timed out. Please refresh and try again.';
           } else if (error.message.includes('browser compatibility')) {
-            errorMessage = 'WebContainer requires a modern browser with service worker support.'
+            errorMessage = 'WebContainer requires a modern browser with service worker support.';
           } else {
-            errorMessage = `WebContainer error: ${error.message}`
+            errorMessage = `WebContainer error: ${error.message}`;
           }
         }
-        
-        setError(errorMessage)
-        addTerminalOutput(`❌ Error: ${errorMessage}`)
-        setIsLoading(false)
-      }
-    }
 
-    initContainer()
-    
+        setError(errorMessage);
+        addTerminalOutput(`❌ Error: ${errorMessage}`);
+        setIsLoading(false);
+      }
+    };
+
+    initContainer();
+
     return () => {
       // Cleanup
       // Execute all custom cleanup functions
-      cleanupFunctions.current.forEach(cleanup => {
+      cleanupFunctions.current.forEach((cleanup) => {
         try {
-          cleanup()
+          cleanup();
         } catch (error) {
-          console.error('Error during custom cleanup:', error)
+          errorLogger.error(ErrorCategory.AI_MODEL, 'Error during custom cleanup:', error);
         }
-      })
-      cleanupFunctions.current = []
-      
+      });
+      cleanupFunctions.current = [];
+
       // Teardown WebContainer
       if (webcontainerInstance.current) {
         try {
-          webcontainerInstance.current.teardown()
+          webcontainerInstance.current.teardown();
         } catch (cleanupError) {
-          console.error('Error during WebContainer cleanup:', cleanupError)
+          errorLogger.error(
+            ErrorCategory.AI_MODEL,
+            'Error during WebContainer cleanup:',
+            cleanupError
+          );
         }
       }
-    }
-  }, []) // Only run once on mount
+    };
+  }, []); // Only run once on mount
 
   // Handle code changes
   useEffect(() => {
     const setupCode = async () => {
       if (container && code && code.trim()) {
-        await setupCodeInContainer(container, code)
+        await setupCodeInContainer(container, code);
       }
-    }
-    
-    setupCode()
-  }, [code, container])
+    };
+
+    setupCode();
+  }, [code, container]);
 
   // Setup code in container
   const setupCodeInContainer = async (containerInstance: WebContainer, codeContent: string) => {
     try {
-      addTerminalOutput('📄 Setting up code in WebContainer...')
-      
+      addTerminalOutput('📄 Setting up code in WebContainer...');
+
       // Detect if it's HTML or React
       const isHTML = codeContent.includes('<!DOCTYPE html>') || codeContent.includes('<html');
       const isReact = codeContent.includes('import React') || codeContent.includes('from "react"');
-      
+
       if (isHTML) {
         // Simple HTML setup
         const files = {
           'index.html': {
-            file: { contents: codeContent }
+            file: { contents: codeContent },
           },
           'package.json': {
             file: {
-              contents: JSON.stringify({
-                name: 'webcontainer-app',
-                type: 'module',
-                scripts: {
-                  dev: 'npx serve . -p 3000',
-                  start: 'npx serve . -p 3000'
+              contents: JSON.stringify(
+                {
+                  name: 'webcontainer-app',
+                  type: 'module',
+                  scripts: {
+                    dev: 'npx serve . -p 3000',
+                    start: 'npx serve . -p 3000',
+                  },
+                  dependencies: {
+                    serve: 'latest',
+                  },
                 },
-                dependencies: {
-                  serve: 'latest'
-                }
-              }, null, 2)
-            }
-          }
-        }
-        
-        await containerInstance.mount(files)
-        await startHTMLServer(containerInstance)
-        
+                null,
+                2
+              ),
+            },
+          },
+        };
+
+        await containerInstance.mount(files);
+        await startHTMLServer(containerInstance);
       } else if (isReact) {
         // React setup
-        await setupReactProject(containerInstance, codeContent)
+        await setupReactProject(containerInstance, codeContent);
       } else {
         // Generic JavaScript/TypeScript
-        await setupGenericProject(containerInstance, codeContent)
+        await setupGenericProject(containerInstance, codeContent);
       }
-      
     } catch (error) {
-      console.error('Failed to setup code:', error)
-      addTerminalOutput(`❌ Setup error: ${error}`)
+      errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to setup code:', error);
+      addTerminalOutput(`❌ Setup error: ${error}`);
     }
-  }
+  };
 
   // Start HTML server
   const startHTMLServer = async (containerInstance: WebContainer) => {
     try {
-      addTerminalOutput('📦 Installing dependencies...')
-      
-      const installProcess = await containerInstance.spawn('npm', ['install'])
-      installProcess.output.pipeTo(new WritableStream({
-        write(data) {
-          addTerminalOutput(data)
-        }
-      }))
-      
-      const exitCode = await installProcess.exit
-      
+      addTerminalOutput('📦 Installing dependencies...');
+
+      const installProcess = await containerInstance.spawn('npm', ['install']);
+      installProcess.output.pipeTo(
+        new WritableStream({
+          write(data) {
+            addTerminalOutput(data);
+          },
+        })
+      );
+
+      const exitCode = await installProcess.exit;
+
       if (exitCode !== 0) {
-        throw new Error(`npm install failed with exit code ${exitCode}`)
+        throw new Error(`npm install failed with exit code ${exitCode}`);
       }
-      
-      addTerminalOutput('🚀 Starting server...')
-      const serverProcess = await containerInstance.spawn('npm', ['run', 'dev'])
-      
-      serverProcess.output.pipeTo(new WritableStream({
-        write(data) {
-          addTerminalOutput(data)
-          
-          // Check for server start messages
-          if (data.includes('Local:') || data.includes('running at')) {
-            const urlMatch = data.match(/https?:\/\/[^\s]+/)
-            if (urlMatch) {
-              setPreviewUrl(urlMatch[0])
-              setIsRunning(true)
-              addTerminalOutput(`✅ Server running at ${urlMatch[0]}`)
+
+      addTerminalOutput('🚀 Starting server...');
+      const serverProcess = await containerInstance.spawn('npm', ['run', 'dev']);
+
+      serverProcess.output.pipeTo(
+        new WritableStream({
+          write(data) {
+            addTerminalOutput(data);
+
+            // Check for server start messages
+            if (data.includes('Local:') || data.includes('running at')) {
+              const urlMatch = data.match(/https?:\/\/[^\s]+/);
+              if (urlMatch) {
+                setPreviewUrl(urlMatch[0]);
+                setIsRunning(true);
+                addTerminalOutput(`✅ Server running at ${urlMatch[0]}`);
+              }
             }
-          }
-        }
-      }))
-      
+          },
+        })
+      );
+
       // Also listen for the server-ready event
       containerInstance.on('server-ready', (port, url) => {
-        setPreviewUrl(url)
-        setIsRunning(true)
-        addTerminalOutput(`✅ Server ready at ${url}`)
-      })
-      
+        setPreviewUrl(url);
+        setIsRunning(true);
+        addTerminalOutput(`✅ Server ready at ${url}`);
+      });
     } catch (error) {
-      console.error('Failed to start HTML server:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      addTerminalOutput(`❌ Server error: ${errorMessage}`)
-      setError(`Failed to start server: ${errorMessage}`)
+      errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to start HTML server:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addTerminalOutput(`❌ Server error: ${errorMessage}`);
+      setError(`Failed to start server: ${errorMessage}`);
     }
-  }
+  };
 
   // Setup React project
   const setupReactProject = async (containerInstance: WebContainer, codeContent: string) => {
     try {
-      addTerminalOutput('⚛️ Setting up React project...')
-      
+      addTerminalOutput('⚛️ Setting up React project...');
+
       const files = {
         'package.json': {
           file: {
-            contents: JSON.stringify({
-              name: 'react-app',
-              type: 'module',
-              scripts: {
-                dev: 'vite',
-                build: 'vite build',
-                preview: 'vite preview'
+            contents: JSON.stringify(
+              {
+                name: 'react-app',
+                type: 'module',
+                scripts: {
+                  dev: 'vite',
+                  build: 'vite build',
+                  preview: 'vite preview',
+                },
+                dependencies: {
+                  react: '^18.2.0',
+                  'react-dom': '^18.2.0',
+                },
+                devDependencies: {
+                  vite: '^5.0.0',
+                  '@vitejs/plugin-react': '^4.0.0',
+                },
               },
-              dependencies: {
-                'react': '^18.2.0',
-                'react-dom': '^18.2.0'
-              },
-              devDependencies: {
-                'vite': '^5.0.0',
-                '@vitejs/plugin-react': '^4.0.0'
-              }
-            }, null, 2)
-          }
+              null,
+              2
+            ),
+          },
         },
         'vite.config.js': {
           file: {
@@ -300,8 +320,8 @@ export default defineConfig({
     host: true,
     strictPort: false
   }
-})`
-          }
+})`,
+          },
         },
         'index.html': {
           file: {
@@ -316,10 +336,10 @@ export default defineConfig({
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
-</html>`
-          }
+</html>`,
+          },
         },
-        'src': {
+        src: {
           directory: {
             'main.jsx': {
               file: {
@@ -331,167 +351,183 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>,
-)`
-              }
+)`,
+              },
             },
             'App.jsx': {
-              file: { contents: codeContent }
-            }
-          }
-        }
-      }
-      
-      await containerInstance.mount(files)
-      addTerminalOutput('✅ React project structure created')
-      
-      await startDevelopmentServer(containerInstance)
-      
+              file: { contents: codeContent },
+            },
+          },
+        },
+      };
+
+      await containerInstance.mount(files);
+      addTerminalOutput('✅ React project structure created');
+
+      await startDevelopmentServer(containerInstance);
     } catch (error) {
-      console.error('Failed to setup React project:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      addTerminalOutput(`❌ React setup error: ${errorMessage}`)
-      setError(`Failed to setup React project: ${errorMessage}`)
+      errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to setup React project:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addTerminalOutput(`❌ React setup error: ${errorMessage}`);
+      setError(`Failed to setup React project: ${errorMessage}`);
     }
-  }
+  };
 
   // Setup generic project
   const setupGenericProject = async (containerInstance: WebContainer, codeContent: string) => {
     try {
-      addTerminalOutput('📝 Setting up generic project...')
-      
+      addTerminalOutput('📝 Setting up generic project...');
+
       const files = {
         'index.js': {
-          file: { contents: codeContent }
+          file: { contents: codeContent },
         },
         'package.json': {
           file: {
-            contents: JSON.stringify({
-              name: 'generic-app',
-              type: 'module',
-              scripts: {
-                dev: 'node index.js',
-                start: 'node index.js'
-              }
-            }, null, 2)
-          }
-        }
-      }
-      
-      await containerInstance.mount(files)
-      addTerminalOutput('✅ Generic project structure created')
-      
-      await startDevelopmentServer(containerInstance)
-      
+            contents: JSON.stringify(
+              {
+                name: 'generic-app',
+                type: 'module',
+                scripts: {
+                  dev: 'node index.js',
+                  start: 'node index.js',
+                },
+              },
+              null,
+              2
+            ),
+          },
+        },
+      };
+
+      await containerInstance.mount(files);
+      addTerminalOutput('✅ Generic project structure created');
+
+      await startDevelopmentServer(containerInstance);
     } catch (error) {
-      console.error('Failed to setup generic project:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      addTerminalOutput(`❌ Generic setup error: ${errorMessage}`)
-      setError(`Failed to setup project: ${errorMessage}`)
+      errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to setup generic project:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addTerminalOutput(`❌ Generic setup error: ${errorMessage}`);
+      setError(`Failed to setup project: ${errorMessage}`);
     }
-  }
+  };
 
   // AI Team Development Process
   const startAITeamDevelopment = async (instructions: string, containerInstance: WebContainer) => {
     try {
-      addTerminalOutput('🤖 Starting AI team development process...')
-      
+      addTerminalOutput('🤖 Starting AI team development process...');
+
       // Step 1: Architect analyzes requirements
-      await updateAgentStatus('architect', 'working', 'Analyzing project requirements')
-      const projectStructure = await analyzeProjectRequirements(instructions)
-      await updateAgentStatus('architect', 'complete')
-      
+      await updateAgentStatus('architect', 'working', 'Analyzing project requirements');
+      const projectStructure = await analyzeProjectRequirements(instructions);
+      await updateAgentStatus('architect', 'complete');
+
       // Step 2: Set up project structure
-      addTerminalOutput('📁 Setting up project structure...')
-      await setupProjectStructure(containerInstance, projectStructure)
-      
+      addTerminalOutput('📁 Setting up project structure...');
+      await setupProjectStructure(containerInstance, projectStructure);
+
       // Step 3: Install dependencies
-      await updateAgentStatus('devops', 'working', 'Installing dependencies')
-      await installDependencies(containerInstance, projectStructure.dependencies)
-      await updateAgentStatus('devops', 'complete')
-      
+      await updateAgentStatus('devops', 'working', 'Installing dependencies');
+      await installDependencies(containerInstance, projectStructure.dependencies);
+      await updateAgentStatus('devops', 'complete');
+
       // Step 4: Frontend development
       if (projectStructure.needsFrontend) {
-        await updateAgentStatus('frontend', 'working', 'Building frontend components')
-        await buildFrontendComponents(containerInstance, instructions)
-        await updateAgentStatus('frontend', 'complete')
+        await updateAgentStatus('frontend', 'working', 'Building frontend components');
+        await buildFrontendComponents(containerInstance, instructions);
+        await updateAgentStatus('frontend', 'complete');
       }
-      
+
       // Step 5: Backend development
       if (projectStructure.needsBackend) {
-        await updateAgentStatus('backend', 'working', 'Building backend services')
-        await buildBackendServices(containerInstance, instructions)
-        await updateAgentStatus('backend', 'complete')
+        await updateAgentStatus('backend', 'working', 'Building backend services');
+        await buildBackendServices(containerInstance, instructions);
+        await updateAgentStatus('backend', 'complete');
       }
-      
+
       // Step 6: Start development server
-      await startDevelopmentServer(containerInstance)
-      
-      addTerminalOutput('🎉 AI team development complete!')
-      
+      await startDevelopmentServer(containerInstance);
+
+      addTerminalOutput('🎉 AI team development complete!');
     } catch (error) {
-      console.error('AI team development failed:', error)
-      addTerminalOutput(`❌ AI team error: ${error}`)
-      setError('AI team development failed')
+      errorLogger.error(ErrorCategory.AI_MODEL, 'AI team development failed:', error);
+      addTerminalOutput(`❌ AI team error: ${error}`);
+      setError('AI team development failed');
     }
-  }
+  };
 
   // Analyze project requirements (simulated AI decision making)
   const analyzeProjectRequirements = async (instructions: string): Promise<any> => {
-    await new Promise(resolve => setTimeout(resolve, 1500)) // Simulate thinking time
-    
-    const lowerInstructions = instructions.toLowerCase()
-    
+    await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate thinking time
+
+    const lowerInstructions = instructions.toLowerCase();
+
     return {
-      type: lowerInstructions.includes('react') || lowerInstructions.includes('component') ? 'react' : 
-            lowerInstructions.includes('vue') ? 'vue' :
-            lowerInstructions.includes('api') || lowerInstructions.includes('server') ? 'nodejs' : 'react',
-      needsFrontend: !lowerInstructions.includes('api only') && !lowerInstructions.includes('backend only'),
-      needsBackend: lowerInstructions.includes('api') || lowerInstructions.includes('server') || lowerInstructions.includes('backend'),
+      type:
+        lowerInstructions.includes('react') || lowerInstructions.includes('component')
+          ? 'react'
+          : lowerInstructions.includes('vue')
+            ? 'vue'
+            : lowerInstructions.includes('api') || lowerInstructions.includes('server')
+              ? 'nodejs'
+              : 'react',
+      needsFrontend:
+        !lowerInstructions.includes('api only') && !lowerInstructions.includes('backend only'),
+      needsBackend:
+        lowerInstructions.includes('api') ||
+        lowerInstructions.includes('server') ||
+        lowerInstructions.includes('backend'),
       dependencies: determineDependencies(lowerInstructions),
-      complexity: lowerInstructions.includes('simple') ? 'simple' : 'standard'
-    }
-  }
+      complexity: lowerInstructions.includes('simple') ? 'simple' : 'standard',
+    };
+  };
 
   // Determine required dependencies based on instructions
   const determineDependencies = (instructions: string): string[] => {
-    const deps = ['vite']
-    
-    if (instructions.includes('react')) deps.push('react', 'react-dom', '@types/react', '@types/react-dom')
-    if (instructions.includes('typescript')) deps.push('typescript', '@types/node')
-    if (instructions.includes('tailwind')) deps.push('tailwindcss', 'autoprefixer', 'postcss')
-    if (instructions.includes('express')) deps.push('express', '@types/express')
-    if (instructions.includes('api') || instructions.includes('server')) deps.push('express', '@types/express', 'cors')
-    
-    return deps
-  }
+    const deps = ['vite'];
+
+    if (instructions.includes('react'))
+      deps.push('react', 'react-dom', '@types/react', '@types/react-dom');
+    if (instructions.includes('typescript')) deps.push('typescript', '@types/node');
+    if (instructions.includes('tailwind')) deps.push('tailwindcss', 'autoprefixer', 'postcss');
+    if (instructions.includes('express')) deps.push('express', '@types/express');
+    if (instructions.includes('api') || instructions.includes('server'))
+      deps.push('express', '@types/express', 'cors');
+
+    return deps;
+  };
 
   // Setup project structure
   const setupProjectStructure = async (containerInstance: WebContainer, structure: any) => {
-    const files: FileSystemTree = {}
-    
+    const files: FileSystemTree = {};
+
     if (structure.type === 'react') {
       files['package.json'] = {
         file: {
-          contents: JSON.stringify({
-            name: 'ai-generated-app',
-            type: 'module',
-            version: '1.0.0',
-            scripts: {
-              dev: 'vite',
-              build: 'vite build',
-              preview: 'vite preview'
+          contents: JSON.stringify(
+            {
+              name: 'ai-generated-app',
+              type: 'module',
+              version: '1.0.0',
+              scripts: {
+                dev: 'vite',
+                build: 'vite build',
+                preview: 'vite preview',
+              },
+              dependencies: structure.dependencies.reduce((acc: any, dep: string) => {
+                acc[dep] = 'latest';
+                return acc;
+              }, {}),
+              devDependencies: {
+                '@vitejs/plugin-react': 'latest',
+              },
             },
-            dependencies: structure.dependencies.reduce((acc: any, dep: string) => {
-              acc[dep] = 'latest'
-              return acc
-            }, {}),
-            devDependencies: {
-              '@vitejs/plugin-react': 'latest'
-            }
-          }, null, 2)
-        }
-      }
-      
+            null,
+            2
+          ),
+        },
+      };
+
       files['vite.config.js'] = {
         file: {
           contents: `import { defineConfig } from 'vite'
@@ -503,10 +539,10 @@ export default defineConfig({
     host: true,
     port: 3000
   }
-})`
-        }
-      }
-      
+})`,
+        },
+      };
+
       files['index.html'] = {
         file: {
           contents: `<!DOCTYPE html>
@@ -520,10 +556,10 @@ export default defineConfig({
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
-</html>`
-        }
-      }
-      
+</html>`,
+        },
+      };
+
       files['src'] = {
         directory: {
           'main.tsx': {
@@ -537,8 +573,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>,
-)`
-            }
+)`,
+            },
           },
           'App.tsx': {
             file: {
@@ -559,8 +595,8 @@ function App() {
   )
 }
 
-export default App`
-            }
+export default App`,
+            },
           },
           'index.css': {
             file: {
@@ -575,65 +611,72 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}`
-            }
-          }
-        }
-      }
+}`,
+            },
+          },
+        },
+      };
     }
-    
-    await containerInstance.mount(files as any) // WebContainer mount API expects this format
-    setFileSystemTree(files)
-    addTerminalOutput('📁 Project structure created')
-  }
+
+    await containerInstance.mount(files as any); // WebContainer mount API expects this format
+    setFileSystemTree(files);
+    addTerminalOutput('📁 Project structure created');
+  };
 
   // Install dependencies using pnpm
   const installDependencies = async (containerInstance: WebContainer, deps: string[]) => {
-    addTerminalOutput('📦 Installing dependencies with pnpm...')
-    
+    addTerminalOutput('📦 Installing dependencies with pnpm...');
+
     try {
       // First try to enable pnpm in the container
-      await containerInstance.spawn('corepack', ['enable'])
-      await containerInstance.spawn('corepack', ['prepare', 'pnpm@latest', '--activate'])
-      
-      const installProcess = await containerInstance.spawn('pnpm', ['install', '--prefer-frozen-lockfile'])
-      
-      installProcess.output.pipeTo(new WritableStream({
-        write(data) {
-          addTerminalOutput(data)
-        }
-      }))
-      
-      const exitCode = await installProcess.exit
+      await containerInstance.spawn('corepack', ['enable']);
+      await containerInstance.spawn('corepack', ['prepare', 'pnpm@latest', '--activate']);
+
+      const installProcess = await containerInstance.spawn('pnpm', [
+        'install',
+        '--prefer-frozen-lockfile',
+      ]);
+
+      installProcess.output.pipeTo(
+        new WritableStream({
+          write(data) {
+            addTerminalOutput(data);
+          },
+        })
+      );
+
+      const exitCode = await installProcess.exit;
       if (exitCode !== 0) {
-        throw new Error(`pnpm install failed with exit code ${exitCode}`)
+        throw new Error(`pnpm install failed with exit code ${exitCode}`);
       }
-      
-      addTerminalOutput('✅ Dependencies installed successfully with pnpm')
+
+      addTerminalOutput('✅ Dependencies installed successfully with pnpm');
     } catch (error) {
-      addTerminalOutput('⚠️ pnpm setup failed, falling back to npm...')
-      
-      const installProcess = await containerInstance.spawn('npm', ['install'])
-      
-      installProcess.output.pipeTo(new WritableStream({
-        write(data) {
-          addTerminalOutput(data)
-        }
-      }))
-      
-      const exitCode = await installProcess.exit
+      addTerminalOutput('⚠️ pnpm setup failed, falling back to npm...');
+
+      const installProcess = await containerInstance.spawn('npm', ['install']);
+
+      installProcess.output.pipeTo(
+        new WritableStream({
+          write(data) {
+            addTerminalOutput(data);
+          },
+        })
+      );
+
+      const exitCode = await installProcess.exit;
       if (exitCode !== 0) {
-        throw new Error(`npm install failed with exit code ${exitCode}`)
+        throw new Error(`npm install failed with exit code ${exitCode}`);
       }
-      
-      addTerminalOutput('✅ Dependencies installed successfully with npm')
+
+      addTerminalOutput('✅ Dependencies installed successfully with npm');
     }
-  }
+  };
 
   // Build frontend components (enhanced by AI)
   const buildFrontendComponents = async (containerInstance: WebContainer, instructions: string) => {
-    addTerminalOutput('🎨 Frontend developer is creating components...')
-    
+    addTerminalOutput('🎨 Frontend developer is creating components...');
+
     try {
       // Call AI team coordinate API for frontend component generation
       const response = await fetch('/api/ai-team/coordinate', {
@@ -643,41 +686,41 @@ body {
         },
         body: JSON.stringify({
           instructions: instructions,
-          step: 'frontend'
-        })
-      })
+          step: 'frontend',
+        }),
+      });
 
       if (!response.ok) {
-        throw new Error(`AI team API returned ${response.status}`)
+        throw new Error(`AI team API returned ${response.status}`);
       }
 
-      const result = await response.json()
-      
+      const result = await response.json();
+
       // Extract the App.tsx component from the AI response
       if (result.components && result.components['App.tsx']) {
-        await containerInstance.fs.writeFile('/src/App.tsx', result.components['App.tsx'])
-        addTerminalOutput('✅ Frontend components created by AI team')
+        await containerInstance.fs.writeFile('/src/App.tsx', result.components['App.tsx']);
+        addTerminalOutput('✅ Frontend components created by AI team');
       } else {
         // Fallback to a simple component if AI doesn't return expected structure
-        const fallbackApp = generateEnhancedApp(instructions)
-        await containerInstance.fs.writeFile('/src/App.tsx', fallbackApp)
-        addTerminalOutput('⚠️ Used fallback component (AI response missing App.tsx)')
+        const fallbackApp = generateEnhancedApp(instructions);
+        await containerInstance.fs.writeFile('/src/App.tsx', fallbackApp);
+        addTerminalOutput('⚠️ Used fallback component (AI response missing App.tsx)');
       }
     } catch (error) {
-      console.error('Failed to generate AI components:', error)
-      addTerminalOutput(`❌ AI component generation failed: ${error}`)
-      
+      errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to generate AI components:', error);
+      addTerminalOutput(`❌ AI component generation failed: ${error}`);
+
       // Fallback to the original hardcoded template
-      const fallbackApp = generateEnhancedApp(instructions)
-      await containerInstance.fs.writeFile('/src/App.tsx', fallbackApp)
-      addTerminalOutput('🔄 Using fallback component template')
+      const fallbackApp = generateEnhancedApp(instructions);
+      await containerInstance.fs.writeFile('/src/App.tsx', fallbackApp);
+      addTerminalOutput('🔄 Using fallback component template');
     }
-  }
+  };
 
   // Build backend services (if needed)
   const buildBackendServices = async (containerInstance: WebContainer, instructions: string) => {
-    addTerminalOutput('🔧 Backend developer is setting up services...')
-    
+    addTerminalOutput('🔧 Backend developer is setting up services...');
+
     // Create a simple Express server if backend is needed
     const serverCode = `const express = require('express')
 const cors = require('cors')
@@ -692,20 +735,22 @@ app.get('/api/hello', (req, res) => {
 })
 
 app.listen(port, () => {
-  console.log(\`Server running on port \${port}\`)
+  errorLogger.info(ErrorCategory.AI_MODEL, \`Server running on port \${port}\`)
 })
-`
-    
-    await containerInstance.fs.writeFile('/server.js', serverCode)
-    addTerminalOutput('✅ Backend services created')
-  }
+`;
+
+    await containerInstance.fs.writeFile('/server.js', serverCode);
+    addTerminalOutput('✅ Backend services created');
+  };
 
   // Generate enhanced App component based on instructions
   const generateEnhancedApp = (instructions: string): string => {
-    const hasForm = instructions.toLowerCase().includes('form')
-    const hasChart = instructions.toLowerCase().includes('chart') || instructions.toLowerCase().includes('graph')
-    const hasList = instructions.toLowerCase().includes('list') || instructions.toLowerCase().includes('table')
-    
+    const hasForm = instructions.toLowerCase().includes('form');
+    const hasChart =
+      instructions.toLowerCase().includes('chart') || instructions.toLowerCase().includes('graph');
+    const hasList =
+      instructions.toLowerCase().includes('list') || instructions.toLowerCase().includes('table');
+
     return `import React, { useState, useEffect } from 'react'
 
 function App() {
@@ -726,7 +771,9 @@ function App() {
 
         <main className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            ${hasForm ? `
+            ${
+              hasForm
+                ? `
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-semibold mb-4">Interactive Form</h2>
               <form className="space-y-4">
@@ -748,9 +795,13 @@ function App() {
                 </button>
               </form>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
             
-            ${hasList ? `
+            ${
+              hasList
+                ? `
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-semibold mb-4">Data List</h2>
               <ul className="space-y-2">
@@ -759,7 +810,9 @@ function App() {
                 <li className="p-3 bg-gray-50 rounded border-l-4 border-purple-500">Item 3</li>
               </ul>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-semibold mb-4">Features</h2>
@@ -785,165 +838,173 @@ function App() {
   )
 }
 
-export default App`
-  }
+export default App`;
+  };
 
   // Start development server
   const startDevelopmentServer = async (containerInstance: WebContainer) => {
-    addTerminalOutput('🚀 Starting development server...')
-    
-    let devProcess: any = null
-    let serverStartTimeout: NodeJS.Timeout | null = null
-    
+    addTerminalOutput('🚀 Starting development server...');
+
+    let devProcess: any = null;
+    let serverStartTimeout: NodeJS.Timeout | null = null;
+
     try {
-      devProcess = await containerInstance.spawn('npm', ['run', 'dev'])
-      
+      devProcess = await containerInstance.spawn('npm', ['run', 'dev']);
+
       // Set up output stream
-      devProcess.output.pipeTo(new WritableStream({
-        write(data) {
-          addTerminalOutput(data)
-          
-          // Check for common server start patterns
-          const dataStr = data.toString()
-          if (dataStr.includes('Local:') || 
-              dataStr.includes('running at') || 
+      devProcess.output.pipeTo(
+        new WritableStream({
+          write(data) {
+            addTerminalOutput(data);
+
+            // Check for common server start patterns
+            const dataStr = data.toString();
+            if (
+              dataStr.includes('Local:') ||
+              dataStr.includes('running at') ||
               dataStr.includes('ready in') ||
-              dataStr.includes('http://localhost')) {
-            
-            // Extract URL from output
-            const urlMatch = dataStr.match(/https?:\/\/[^\s]+/)
-            if (urlMatch) {
-              clearTimeout(serverStartTimeout!)
-              setPreviewUrl(urlMatch[0])
-              setIsRunning(true)
-              addTerminalOutput(`✅ Server detected at ${urlMatch[0]}`)
+              dataStr.includes('http://localhost')
+            ) {
+              // Extract URL from output
+              const urlMatch = dataStr.match(/https?:\/\/[^\s]+/);
+              if (urlMatch) {
+                clearTimeout(serverStartTimeout!);
+                setPreviewUrl(urlMatch[0]);
+                setIsRunning(true);
+                addTerminalOutput(`✅ Server detected at ${urlMatch[0]}`);
+              }
             }
-          }
-        }
-      }))
-      
+          },
+        })
+      );
+
       // Set up timeout for server start
       serverStartTimeout = setTimeout(() => {
-        addTerminalOutput('⚠️ Server start timeout - checking port 3000...')
+        addTerminalOutput('⚠️ Server start timeout - checking port 3000...');
         // Fallback to default port if server doesn't report URL
-        const fallbackUrl = 'http://localhost:3000'
-        setPreviewUrl(fallbackUrl)
-        setIsRunning(true)
-        addTerminalOutput(`🔗 Using fallback URL: ${fallbackUrl}`)
-      }, 15000) // 15 second timeout
-      
+        const fallbackUrl = 'http://localhost:3000';
+        setPreviewUrl(fallbackUrl);
+        setIsRunning(true);
+        addTerminalOutput(`🔗 Using fallback URL: ${fallbackUrl}`);
+      }, 15000); // 15 second timeout
+
       // Listen for the server-ready event
       const serverReadyHandler = (port: number, url: string) => {
-        clearTimeout(serverStartTimeout!)
-        setPreviewUrl(url)
-        setIsRunning(true)
-        addTerminalOutput(`✅ Server ready at ${url}`)
-      }
-      
-      containerInstance.on('server-ready', serverReadyHandler)
-      
+        clearTimeout(serverStartTimeout!);
+        setPreviewUrl(url);
+        setIsRunning(true);
+        addTerminalOutput(`✅ Server ready at ${url}`);
+      };
+
+      containerInstance.on('server-ready', serverReadyHandler);
+
       // Monitor process exit
       devProcess.exit.then((exitCode: number) => {
-        clearTimeout(serverStartTimeout!)
+        clearTimeout(serverStartTimeout!);
         if (exitCode !== 0) {
-          addTerminalOutput(`❌ Dev server exited with code ${exitCode}`)
-          setIsRunning(false)
-          setError('Development server crashed')
+          addTerminalOutput(`❌ Dev server exited with code ${exitCode}`);
+          setIsRunning(false);
+          setError('Development server crashed');
         }
-      })
-      
+      });
+
       // Store cleanup function
       cleanupFunctions.current.push(() => {
-        clearTimeout(serverStartTimeout!)
+        clearTimeout(serverStartTimeout!);
         if (devProcess && devProcess.kill) {
-          devProcess.kill()
+          devProcess.kill();
         }
-      })
-      
+      });
     } catch (error) {
-      clearTimeout(serverStartTimeout!)
-      console.error('Failed to start dev server:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      addTerminalOutput(`❌ Failed to start server: ${errorMessage}`)
-      setError(`Server start failed: ${errorMessage}`)
-      setIsRunning(false)
+      clearTimeout(serverStartTimeout!);
+      errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to start dev server:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addTerminalOutput(`❌ Failed to start server: ${errorMessage}`);
+      setError(`Server start failed: ${errorMessage}`);
+      setIsRunning(false);
     }
-  }
+  };
 
   // Helper function to add terminal output
   const addTerminalOutput = (output: string) => {
-    setTerminalOutput(prev => [...prev, `${new Date().toLocaleTimeString()}: ${output}`])
-  }
+    setTerminalOutput((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${output}`]);
+  };
 
   // Update AI agent status
   const updateAgentStatus = async (agentId: string, status: AIAgent['status'], task?: string) => {
-    setAiAgents(prev => prev.map(agent => 
-      agent.id === agentId ? { ...agent, status, currentTask: task } : agent
-    ))
-    
+    setAiAgents((prev) =>
+      prev.map((agent) => (agent.id === agentId ? { ...agent, status, currentTask: task } : agent))
+    );
+
     // Add some realistic delay for agent work
     if (status === 'working') {
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000))
+      await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 2000));
     }
-  }
+  };
 
   // Stop preview
   const stopPreview = useCallback(() => {
-    setIsRunning(false)
-    setPreviewUrl('')
-    addTerminalOutput('🛑 Development server stopped')
-  }, [])
+    setIsRunning(false);
+    setPreviewUrl('');
+    addTerminalOutput('🛑 Development server stopped');
+  }, []);
 
   // Refresh preview
   const refreshPreview = useCallback(() => {
     if (iframeRef.current && previewUrl) {
-      iframeRef.current.src = iframeRef.current.src
-      addTerminalOutput('🔄 Preview refreshed')
+      iframeRef.current.src = iframeRef.current.src;
+      addTerminalOutput('🔄 Preview refreshed');
     }
-  }, [previewUrl])
+  }, [previewUrl]);
 
   if (isLoading) {
     return (
-      <div className={`h-full flex items-center justify-center bg-gray-900 ${className}`}>
+      <div className={`flex h-full items-center justify-center bg-gray-900 ${className}`}>
         <div className="text-center">
-          <Loader className="w-8 h-8 animate-spin text-violet-500 mx-auto mb-4" />
+          <Loader className="mx-auto mb-4 h-8 w-8 animate-spin text-violet-500" />
           <p className="text-gray-400">Initializing WebContainer...</p>
           <div className="mt-4 space-y-2">
             {terminalOutput.slice(-3).map((output, i) => (
-              <p key={i} className="text-xs text-gray-500">{output}</p>
+              <p key={i} className="text-xs text-gray-500">
+                {output}
+              </p>
             ))}
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className={`h-full flex flex-col bg-gray-900 ${className}`}>
+    <div className={`flex h-full flex-col bg-gray-900 ${className}`}>
       {/* AI Team Status */}
       {aiTeamInstructions && (
-        <div className="p-4 border-b border-gray-700">
-          <div className="flex items-center gap-2 mb-3">
-            <Users className="w-5 h-5 text-blue-400" />
-            <h3 className="text-white font-medium">AI Development Team</h3>
+        <div className="border-b border-gray-700 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Users className="h-5 w-5 text-blue-400" />
+            <h3 className="font-medium text-white">AI Development Team</h3>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {aiAgents.map(agent => (
-              <div key={agent.id} className="bg-gray-800 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <Brain className="w-4 h-4 text-gray-400" />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {aiAgents.map((agent) => (
+              <div key={agent.id} className="rounded-lg bg-gray-800 p-3">
+                <div className="mb-1 flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-gray-400" />
                   <span className="text-sm font-medium text-white">{agent.name}</span>
                 </div>
-                <p className="text-xs text-gray-400 mb-2">{agent.role}</p>
+                <p className="mb-2 text-xs text-gray-400">{agent.role}</p>
                 <div className="flex items-center gap-2">
-                  {agent.status === 'idle' && <div className="w-2 h-2 bg-gray-500 rounded-full" />}
-                  {agent.status === 'working' && <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />}
-                  {agent.status === 'complete' && <CheckCircle className="w-4 h-4 text-green-500" />}
-                  {agent.status === 'error' && <AlertTriangle className="w-4 h-4 text-red-500" />}
-                  <span className="text-xs text-gray-300 capitalize">{agent.status}</span>
+                  {agent.status === 'idle' && <div className="h-2 w-2 rounded-full bg-gray-500" />}
+                  {agent.status === 'working' && (
+                    <div className="h-2 w-2 animate-pulse rounded-full bg-yellow-500" />
+                  )}
+                  {agent.status === 'complete' && (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  )}
+                  {agent.status === 'error' && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                  <span className="text-xs capitalize text-gray-300">{agent.status}</span>
                 </div>
                 {agent.currentTask && (
-                  <p className="text-xs text-gray-400 mt-1">{agent.currentTask}</p>
+                  <p className="mt-1 text-xs text-gray-400">{agent.currentTask}</p>
                 )}
               </div>
             ))}
@@ -952,52 +1013,48 @@ export default App`
       )}
 
       {/* Controls */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center justify-between border-b border-gray-700 p-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-500'}`} />
-            <span className="text-white text-sm">
-              {isRunning ? 'Running' : 'Stopped'}
-            </span>
+            <div className={`h-3 w-3 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-500'}`} />
+            <span className="text-sm text-white">{isRunning ? 'Running' : 'Stopped'}</span>
           </div>
-          {previewUrl && (
-            <span className="text-gray-400 text-sm">{previewUrl}</span>
-          )}
+          {previewUrl && <span className="text-sm text-gray-400">{previewUrl}</span>}
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={refreshPreview}
             disabled={!previewUrl}
-            className="p-2 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded bg-gray-700 p-2 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <RefreshCw className="w-4 h-4 text-white" />
+            <RefreshCw className="h-4 w-4 text-white" />
           </button>
           <button
             onClick={stopPreview}
             disabled={!isRunning}
-            className="p-2 rounded bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded bg-red-600 p-2 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Square className="w-4 h-4 text-white" />
+            <Square className="h-4 w-4 text-white" />
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex">
+      <div className="flex flex-1">
         {/* Preview */}
         <div className="flex-1 bg-white">
           {previewUrl ? (
             <iframe
               ref={iframeRef}
               src={previewUrl}
-              className="w-full h-full border-0"
+              className="h-full w-full border-0"
               title="Preview"
             />
           ) : (
-            <div className="h-full flex items-center justify-center text-gray-500">
+            <div className="flex h-full items-center justify-center text-gray-500">
               <div className="text-center">
-                <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <FileText className="mx-auto mb-4 h-12 w-12 text-gray-300" />
                 <p>Preview will appear here once the development server starts</p>
               </div>
             </div>
@@ -1005,12 +1062,12 @@ export default App`
         </div>
 
         {/* Terminal */}
-        <div className="w-1/3 bg-black text-green-400 font-mono text-sm flex flex-col">
-          <div className="p-3 border-b border-gray-700 flex items-center gap-2">
-            <Terminal className="w-4 h-4" />
+        <div className="flex w-1/3 flex-col bg-black font-mono text-sm text-green-400">
+          <div className="flex items-center gap-2 border-b border-gray-700 p-3">
+            <Terminal className="h-4 w-4" />
             <span className="text-white">Terminal</span>
           </div>
-          <div className="flex-1 p-3 overflow-y-auto space-y-1">
+          <div className="flex-1 space-y-1 overflow-y-auto p-3">
             {terminalOutput.map((line, i) => (
               <div key={i} className="whitespace-pre-wrap break-words">
                 {line}
@@ -1024,13 +1081,13 @@ export default App`
       </div>
 
       {error && (
-        <div className="p-4 bg-red-900 border-t border-red-700">
+        <div className="border-t border-red-700 bg-red-900 p-4">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-red-400" />
+            <AlertTriangle className="h-5 w-5 text-red-400" />
             <span className="text-red-100">{error}</span>
           </div>
         </div>
       )}
     </div>
-  )
-} 
+  );
+}

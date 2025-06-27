@@ -10,4 +10,4 @@ export * from './groq/index';
 // - lib/groq/responses.ts - Response generation functions
 // - lib/groq/index.ts - Main exports
 //
-// Whisper transcription functionality has been removed as requested. 
+// Whisper transcription functionality has been removed as requested.

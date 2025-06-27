@@ -1,8 +1,9 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 export async function createClient() {
-  const cookieStore = await cookies()
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,7 +11,7 @@ export async function createClient() {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
           try {
@@ -21,10 +22,10 @@ export async function createClient() {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax' as const,
-                path: '/'
-              }
-              cookieStore.set(name, value, secureOptions)
-            })
+                path: '/',
+              };
+              cookieStore.set(name, value, secureOptions);
+            });
           } catch {
             // Server Component context - middleware will handle session refresh
           }
@@ -34,19 +35,21 @@ export async function createClient() {
         // Force server-side validation - never trust client-side tokens
         detectSessionInUrl: false,
         persistSession: true,
-        autoRefreshToken: true
-      }
+        autoRefreshToken: true,
+      },
     }
-  )
+  );
 }
 
 export async function getUser() {
-  const supabase = await createClient()
+  const supabase = await createClient();
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    return user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return user;
   } catch (error) {
-    console.error('Error getting user:', error)
-    return null
+    errorLogger.error(ErrorCategory.DATABASE, 'Error getting user:', error);
+    return null;
   }
-} 
+}

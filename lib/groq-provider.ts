@@ -4,4 +4,4 @@
 export * from './groq/index';
 
 // Note: This file is maintained for backwards compatibility.
-// The implementation has been moved to lib/groq/ directory with a modular structure. 
+// The implementation has been moved to lib/groq/ directory with a modular structure.

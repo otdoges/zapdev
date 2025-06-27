@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { MonacoEditor } from "@/components/ui/monaco-editor";
-import { Code, Eye } from "lucide-react";
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { MonacoEditor } from '@/components/ui/monaco-editor';
+import { Code, Eye } from 'lucide-react';
 
 interface InteractiveDisplayProps {
   code: string;
 }
 
 export function InteractiveDisplay({ code }: InteractiveDisplayProps) {
-  const [view, setView] = useState("preview");
+  const [view, setView] = useState('preview');
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -29,19 +29,19 @@ export function InteractiveDisplay({ code }: InteractiveDisplayProps) {
 
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-      <div className="p-2 border-b">
+      <div className="border-b p-2">
         <button
-          onClick={() => setView("preview")}
-          className={`px-3 py-1 text-sm rounded-md ${view === "preview" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+          onClick={() => setView('preview')}
+          className={`rounded-md px-3 py-1 text-sm ${view === 'preview' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
         >
-          <Eye className="w-4 h-4 mr-2 inline-block" />
+          <Eye className="mr-2 inline-block h-4 w-4" />
           Preview
         </button>
         <button
-          onClick={() => setView("code")}
-          className={`px-3 py-1 text-sm rounded-md ml-2 ${view === "code" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+          onClick={() => setView('code')}
+          className={`ml-2 rounded-md px-3 py-1 text-sm ${view === 'code' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
         >
-          <Code className="w-4 h-4 mr-2 inline-block" />
+          <Code className="mr-2 inline-block h-4 w-4" />
           Code
         </button>
       </div>
@@ -53,10 +53,10 @@ export function InteractiveDisplay({ code }: InteractiveDisplayProps) {
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.2 }}
         >
-          {view === "preview" ? (
+          {view === 'preview' ? (
             <iframe
               srcDoc={htmlContent}
-              className="w-full h-96 border-0"
+              className="h-96 w-full border-0"
               sandbox="allow-scripts allow-same-origin"
             />
           ) : (
@@ -72,4 +72,4 @@ export function InteractiveDisplay({ code }: InteractiveDisplayProps) {
       </AnimatePresence>
     </div>
   );
-} 
+}

@@ -1,41 +1,51 @@
-"use client"
+'use client';
 
-import { AnimatedAIChat } from "@/components/animated-ai-chat"
-import dynamic from 'next/dynamic'
+import { AnimatedAIChat } from '@/components/animated-ai-chat';
+import dynamic from 'next/dynamic';
+import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 const WebContainerComponent = dynamic(() => import('@/components/web-container'), {
   loading: () => (
-    <div className="flex-1 flex items-center justify-center bg-[#0A0A0F] text-white/40">
+    <div className="flex flex-1 items-center justify-center bg-[#0A0A0F] text-white/40">
       <div className="text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-white/5 flex items-center justify-center animate-pulse">
-          <Code className="w-8 h-8" />
+        <div className="mx-auto mb-4 flex h-16 w-16 animate-pulse items-center justify-center rounded-lg bg-white/5">
+          <Code className="h-8 w-8" />
         </div>
         <p className="text-sm">Loading WebContainer...</p>
       </div>
     </div>
   ),
-  ssr: false
-})
-import { motion } from "framer-motion"
-import { useRouter, useParams } from "next/navigation"
-import { useEffect, useState, useMemo } from "react"
-import { cn } from "@/lib/utils"
-import { Code, Eye, Maximize2, Minimize2, ArrowLeft, Settings, BarChart3, Brain } from "lucide-react"
-import { getTokenUsageStats } from "@/lib/openrouter"
-import { useSupabase } from "@/components/SupabaseProvider"
-import { AUTH_TIMEOUTS, hasAuthCookies } from "@/lib/auth-constants"
+  ssr: false,
+});
+import { motion } from 'framer-motion';
+import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState, useMemo } from 'react';
+import { cn } from '@/lib/utils';
+import {
+  Code,
+  Eye,
+  Maximize2,
+  Minimize2,
+  ArrowLeft,
+  Settings,
+  BarChart3,
+  Brain,
+} from 'lucide-react';
+import { getTokenUsageStats } from '@/lib/openrouter';
+import { useSupabase } from '@/components/SupabaseProvider';
+import { AUTH_TIMEOUTS, hasAuthCookies } from '@/lib/auth-constants';
 
 // Memoize static components for better performance
 const BackButton = ({ onClick }: { onClick: () => void }) => (
   <motion.button
     onClick={onClick}
-    className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center will-change-transform"
+    className="flex items-center justify-center rounded-full bg-white/5 p-2 transition-colors will-change-transform hover:bg-white/10"
     whileTap={{ scale: 0.95 }}
     whileHover={{ scale: 1.05 }}
   >
-    <ArrowLeft className="w-5 h-5 text-white" />
+    <ArrowLeft className="h-5 w-5 text-white" />
   </motion.button>
-)
+);
 
 const StatsDisplay = ({ stats }: { stats: any }) => (
   <motion.div
@@ -44,142 +54,142 @@ const StatsDisplay = ({ stats }: { stats: any }) => (
     className="flex items-center gap-3 text-xs text-white/60"
   >
     <div className="flex items-center gap-1">
-      <Brain className="w-3 h-3" />
+      <Brain className="h-3 w-3" />
       <span>{stats?.totalTokens?.toLocaleString() || 0} tokens</span>
     </div>
     <div className="flex items-center gap-1">
-      <BarChart3 className="w-3 h-3" />
+      <BarChart3 className="h-3 w-3" />
       <span>${(stats?.totalCost || 0).toFixed(4)}</span>
     </div>
   </motion.div>
-)
+);
 
 export default function ChatPage() {
-  const router = useRouter()
-  const params = useParams()
-  const chatId = params.id as string
-  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false)
-  const [tokenStats, setTokenStats] = useState<any>(null)
-  const [generatedCode, setGeneratedCode] = useState<string>("")
-  const [hasMessagesSent, setHasMessagesSent] = useState(false)
-  const [aiTeamProject, setAiTeamProject] = useState<any>(null)
-  const [showWebContainer, setShowWebContainer] = useState(false)
-  const { user, loading } = useSupabase()
-  const isAuthenticated = !!user
-  const isLoading = loading
+  const router = useRouter();
+  const params = useParams();
+  const chatId = params.id as string;
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
+  const [tokenStats, setTokenStats] = useState<any>(null);
+  const [generatedCode, setGeneratedCode] = useState<string>('');
+  const [hasMessagesSent, setHasMessagesSent] = useState(false);
+  const [aiTeamProject, setAiTeamProject] = useState<any>(null);
+  const [showWebContainer, setShowWebContainer] = useState(false);
+  const { user, loading } = useSupabase();
+  const isAuthenticated = !!user;
+  const isLoading = loading;
 
   // Memoized handlers
-  const handleBack = useMemo(() => () => router.push('/chat'), [router])
-  const togglePreview = useMemo(() => () => setIsPreviewExpanded(prev => !prev), [])
+  const handleBack = useMemo(() => () => router.push('/chat'), [router]);
+  const togglePreview = useMemo(() => () => setIsPreviewExpanded((prev) => !prev), []);
 
   // Load token usage stats
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const stats = await getTokenUsageStats()
-        setTokenStats(stats)
+        const stats = await getTokenUsageStats();
+        setTokenStats(stats);
       } catch (error) {
-        console.error('Failed to load token stats:', error)
+        errorLogger.error(ErrorCategory.GENERAL, 'Failed to load token stats:', error);
       }
-    }
-    
+    };
+
     if (isAuthenticated) {
-      loadStats()
+      loadStats();
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated]);
 
   // Redirect if not authenticated (with delay to allow auth to settle)
   useEffect(() => {
     // Don't redirect during initial loading
-    if (loading) return
+    if (loading) return;
 
-    let redirectTimer: NodeJS.Timeout | null = null
+    let redirectTimer: NodeJS.Timeout | null = null;
 
     if (!user) {
       // Check if we have auth cookies that indicate recent authentication
-      const hasRecentAuth = typeof window !== 'undefined' && hasAuthCookies(document.cookie)
-      
+      const hasRecentAuth = typeof window !== 'undefined' && hasAuthCookies(document.cookie);
+
       if (hasRecentAuth) {
         // Give auth more time to settle after OAuth callback
         redirectTimer = setTimeout(() => {
           // Re-check auth state before redirecting
           if (!user && !loading) {
-            console.log('Redirecting to auth: user not authenticated after extended delay')
-            router.push('/auth')
+            errorLogger.info(
+              ErrorCategory.GENERAL,
+              'Redirecting to auth: user not authenticated after extended delay'
+            );
+            router.push('/auth');
           }
-        }, AUTH_TIMEOUTS.OAUTH_SETTLE_DELAY * 2) // Double the delay for OAuth flows
+        }, AUTH_TIMEOUTS.OAUTH_SETTLE_DELAY * 2); // Double the delay for OAuth flows
       } else {
         // No recent auth cookies, redirect sooner
         redirectTimer = setTimeout(() => {
           if (!user && !loading) {
-            console.log('Redirecting to auth: user not authenticated')
-            router.push('/auth')
+            errorLogger.info(ErrorCategory.GENERAL, 'Redirecting to auth: user not authenticated');
+            router.push('/auth');
           }
-        }, 1000) // Shorter delay for regular checks
+        }, 1000); // Shorter delay for regular checks
       }
     }
 
     return () => {
       if (redirectTimer) {
-        clearTimeout(redirectTimer)
+        clearTimeout(redirectTimer);
       }
-    }
-  }, [user, loading, router])
+    };
+  }, [user, loading, router]);
 
   // Show loading state while authentication is being determined
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-[#0D0D10]">
         <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-white"></div>
           <p className="text-white/60">Verifying authentication...</p>
         </div>
       </div>
-    )
+    );
   }
 
   // Check authentication after loading completes
   if (!user) {
     // Check for recent authentication tokens as fallback
-    const hasRecentAuthCookies = typeof window !== 'undefined' && 
-      hasAuthCookies(document.cookie)
-    
+    const hasRecentAuthCookies = typeof window !== 'undefined' && hasAuthCookies(document.cookie);
+
     if (!hasRecentAuthCookies) {
       // Show a brief loading state before redirect
       return (
-        <div className="min-h-screen bg-[#0D0D10] flex items-center justify-center">
+        <div className="flex min-h-screen items-center justify-center bg-[#0D0D10]">
           <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-white"></div>
             <p className="text-white/60">Redirecting to authentication...</p>
           </div>
         </div>
-      )
+      );
     }
-    
+
     // If we have auth cookies, allow the component to render
     // The useEffect above will handle the redirect if auth doesn't settle
   }
 
   return (
-    <div className="h-screen bg-[#0D0D10] text-white flex flex-col overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#0D0D10] text-white">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-white/10 p-4">
         <div className="flex items-center gap-4">
           <BackButton onClick={handleBack} />
           <div className="flex flex-col">
-            <h1 className="text-lg font-semibold">
-              Chat Session
-            </h1>
+            <h1 className="text-lg font-semibold">Chat Session</h1>
             <StatsDisplay stats={tokenStats} />
           </div>
         </div>
-        
+
         {/* Only show preview controls after first message */}
         {hasMessagesSent && (
           <div className="flex items-center gap-2">
             <motion.button
               onClick={togglePreview}
-              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-2"
+              className="flex items-center gap-2 rounded-lg bg-white/5 p-2 transition-colors hover:bg-white/10"
               whileTap={{ scale: 0.95 }}
               whileHover={{ scale: 1.05 }}
               initial={{ opacity: 0, x: 20 }}
@@ -188,27 +198,31 @@ export default function ChatPage() {
             >
               {isPreviewExpanded ? (
                 <>
-                  <Code className="w-4 h-4" />
+                  <Code className="h-4 w-4" />
                   <span className="text-sm">Show Chat</span>
                 </>
               ) : (
                 <>
-                  <Eye className="w-4 h-4" />
+                  <Eye className="h-4 w-4" />
                   <span className="text-sm">Show Preview</span>
                 </>
               )}
             </motion.button>
-            
+
             <motion.button
               onClick={togglePreview}
-              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+              className="rounded-lg bg-white/5 p-2 transition-colors hover:bg-white/10"
               whileTap={{ scale: 0.95 }}
               whileHover={{ scale: 1.05 }}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: 0.1 }}
             >
-              {isPreviewExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {isPreviewExpanded ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
             </motion.button>
           </div>
         )}
@@ -217,22 +231,22 @@ export default function ChatPage() {
       {/* Main Content */}
       {!hasMessagesSent ? (
         /* Full-width chat before first message */
-        <div className="flex-1 flex overflow-hidden">
-          <div className="w-full h-full">
+        <div className="flex flex-1 overflow-hidden">
+          <div className="h-full w-full">
             <AnimatedAIChat
               chatId={chatId === 'new' ? undefined : chatId}
               onFirstMessageSent={() => {
-                console.log('First message sent')
-                setHasMessagesSent(true)
+                errorLogger.info(ErrorCategory.GENERAL, 'First message sent');
+                setHasMessagesSent(true);
               }}
               onCodeGenerated={(code) => {
-                setGeneratedCode(code)
+                setGeneratedCode(code);
               }}
               onAITeamBuild={(projectData) => {
-                console.log('AI Team built project:', projectData)
-                setAiTeamProject(projectData)
-                setShowWebContainer(true)
-                setHasMessagesSent(true)
+                errorLogger.info(ErrorCategory.GENERAL, 'AI Team built project:', projectData);
+                setAiTeamProject(projectData);
+                setShowWebContainer(true);
+                setHasMessagesSent(true);
               }}
               useMultipleModels={false}
               className="h-full"
@@ -241,37 +255,41 @@ export default function ChatPage() {
         </div>
       ) : (
         /* Split layout after first message */
-        <motion.div 
-          className="flex-1 flex overflow-hidden"
+        <motion.div
+          className="flex flex-1 overflow-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
           {/* Chat Panel */}
-          <motion.div 
+          <motion.div
             className={cn(
-              "transition-all duration-300 flex flex-col",
-              isPreviewExpanded ? "w-0 opacity-0" : "w-1/2 opacity-100"
+              'flex flex-col transition-all duration-300',
+              isPreviewExpanded ? 'w-0 opacity-0' : 'w-1/2 opacity-100'
             )}
-            initial={{ width: "100%" }}
-            animate={{ width: isPreviewExpanded ? "0%" : "50%" }}
-            transition={{ duration: 0.5, ease: "easeInOut" }}
+            initial={{ width: '100%' }}
+            animate={{ width: isPreviewExpanded ? '0%' : '50%' }}
+            transition={{ duration: 0.5, ease: 'easeInOut' }}
           >
             <AnimatedAIChat
               chatId={chatId === 'new' ? undefined : chatId}
               onFirstMessageSent={() => {
-                console.log('First message sent')
+                errorLogger.info(ErrorCategory.GENERAL, 'First message sent');
               }}
               onCodeGenerated={(code) => {
-                console.log('Code generated in chat page:', code.substring(0, 100) + '...');
-                setGeneratedCode(code)
-                setShowWebContainer(true)
+                errorLogger.info(
+                  ErrorCategory.GENERAL,
+                  'Code generated in chat page:',
+                  code.substring(0, 100) + '...'
+                );
+                setGeneratedCode(code);
+                setShowWebContainer(true);
               }}
               onAITeamBuild={(projectData) => {
-                console.log('AI Team built project:', projectData)
-                setAiTeamProject(projectData)
-                setShowWebContainer(true)
-                setHasMessagesSent(true)
+                errorLogger.info(ErrorCategory.GENERAL, 'AI Team built project:', projectData);
+                setAiTeamProject(projectData);
+                setShowWebContainer(true);
+                setHasMessagesSent(true);
               }}
               useMultipleModels={false}
               className="h-full"
@@ -279,14 +297,14 @@ export default function ChatPage() {
           </motion.div>
 
           {/* Preview Panel */}
-          <motion.div 
+          <motion.div
             className={cn(
-              "transition-all duration-300 border-l border-white/10 flex flex-col",
-              isPreviewExpanded ? "w-full opacity-100" : "w-1/2 opacity-100"
+              'flex flex-col border-l border-white/10 transition-all duration-300',
+              isPreviewExpanded ? 'w-full opacity-100' : 'w-1/2 opacity-100'
             )}
-            initial={{ width: "0%" }}
-            animate={{ width: isPreviewExpanded ? "100%" : "50%" }}
-            transition={{ duration: 0.5, ease: "easeInOut" }}
+            initial={{ width: '0%' }}
+            animate={{ width: isPreviewExpanded ? '100%' : '50%' }}
+            transition={{ duration: 0.5, ease: 'easeInOut' }}
           >
             {showWebContainer && (generatedCode || aiTeamProject) ? (
               <WebContainerComponent
@@ -296,10 +314,10 @@ export default function ChatPage() {
                 className="h-full"
               />
             ) : (
-              <div className="flex-1 flex items-center justify-center bg-[#0A0A0F] text-white/40">
+              <div className="flex flex-1 items-center justify-center bg-[#0A0A0F] text-white/40">
                 <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-white/5 flex items-center justify-center">
-                    <Eye className="w-8 h-8" />
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg bg-white/5">
+                    <Eye className="h-8 w-8" />
                   </div>
                   <p className="text-sm">Preview will appear here when you generate code</p>
                 </div>
@@ -309,5 +327,5 @@ export default function ChatPage() {
         </motion.div>
       )}
     </div>
-  )
-} 
+  );
+}

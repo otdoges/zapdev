@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getStripeClient } from '../../../lib/stripe';
+import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 export async function POST() {
   try {
@@ -11,7 +12,7 @@ export async function POST() {
     const priceId = process.env.STRIPE_PRICE_ID;
 
     if (!priceId) {
-      console.error('STRIPE_PRICE_ID environment variable is not set.');
+      errorLogger.error(ErrorCategory.API, 'STRIPE_PRICE_ID environment variable is not set.');
       return NextResponse.json(
         { error: 'Server configuration error: Price ID is missing.' },
         { status: 500 }
@@ -31,7 +32,7 @@ export async function POST() {
     });
 
     if (!session.url) {
-      console.error('Stripe session URL is null.');
+      errorLogger.error(ErrorCategory.API, 'Stripe session URL is null.');
       return NextResponse.json(
         { error: 'Failed to create Stripe session: No redirect URL provided.' },
         { status: 500 }
@@ -40,7 +41,7 @@ export async function POST() {
 
     return NextResponse.redirect(session.url, { status: 303 });
   } catch (err: any) {
-    console.error('Stripe API error:', err.message);
+    errorLogger.error(ErrorCategory.API, 'Stripe API error:', err.message);
     const statusCode = typeof err.statusCode === 'number' ? err.statusCode : 500;
     return NextResponse.json(
       { error: err.message || 'An unknown error occurred' },

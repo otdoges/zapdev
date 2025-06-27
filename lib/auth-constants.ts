@@ -64,8 +64,9 @@ export const AUTH_SECURITY = {
  * @returns boolean indicating if it's an auth cookie
  */
 export function isAuthCookie(cookieName: string): boolean {
-  return Object.values(AUTH_COOKIES).some(authCookie => 
-    cookieName.includes(authCookie) || cookieName.startsWith(AUTH_COOKIES.SESSION_PREFIX)
+  return Object.values(AUTH_COOKIES).some(
+    (authCookie) =>
+      cookieName.includes(authCookie) || cookieName.startsWith(AUTH_COOKIES.SESSION_PREFIX)
   );
 }
 
@@ -80,7 +81,7 @@ export function getAuthCookieNames(): readonly string[] {
 /**
  * Type-safe access to auth cookie names
  */
-export type AuthCookieName = typeof AUTH_COOKIES[keyof typeof AUTH_COOKIES];
+export type AuthCookieName = (typeof AUTH_COOKIES)[keyof typeof AUTH_COOKIES];
 
 /**
  * Helper function to safely check for auth cookies in document.cookie
@@ -89,8 +90,6 @@ export type AuthCookieName = typeof AUTH_COOKIES[keyof typeof AUTH_COOKIES];
  */
 export function hasAuthCookies(cookieString?: string): boolean {
   if (!cookieString) return false;
-  
-  return getAuthCookieNames().some(cookieName => 
-    cookieString.includes(cookieName)
-  );
-} 
+
+  return getAuthCookieNames().some((cookieName) => cookieString.includes(cookieName));
+}

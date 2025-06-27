@@ -1,12 +1,18 @@
-"use client"
+'use client';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface TosPrivacyDialogProps {
-  type: 'tos' | 'privacy'
-  children: React.ReactNode
+  type: 'tos' | 'privacy';
+  children: React.ReactNode;
 }
 
 const TOS_CONTENT = `
@@ -223,38 +229,35 @@ We are committed to protecting your privacy and will respond to your inquiries p
 `;
 
 export function TosPrivacyDialog({ type, children }: TosPrivacyDialogProps) {
-  const content = type === 'tos' 
-    ? {
-        title: "Terms of Service",
-        content: TOS_CONTENT
-      }
-    : {
-        title: "Privacy Policy",
-        content: PRIVACY_POLICY_CONTENT
-      }
+  const content =
+    type === 'tos'
+      ? {
+          title: 'Terms of Service',
+          content: TOS_CONTENT,
+        }
+      : {
+          title: 'Privacy Policy',
+          content: PRIVACY_POLICY_CONTENT,
+        };
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl max-h-[80vh]">
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="max-h-[80vh] sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">{content.title}</DialogTitle>
         </DialogHeader>
         <ScrollArea className="mt-4 h-[60vh] pr-4">
           <div className="prose prose-sm dark:prose-invert max-w-none">
-            <div className="whitespace-pre-line text-sm leading-6">
-              {content.content}
-            </div>
+            <div className="whitespace-pre-line text-sm leading-6">{content.content}</div>
           </div>
         </ScrollArea>
-        <div className="flex justify-end mt-4 pt-4 border-t">
+        <div className="mt-4 flex justify-end border-t pt-4">
           <Button variant="outline" className="text-sm">
             Close
           </Button>
         </div>
       </DialogContent>
     </Dialog>
-  )
-} 
+  );
+}

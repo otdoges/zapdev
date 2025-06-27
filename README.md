@@ -5,18 +5,21 @@ A Next.js application featuring collaborative AI-powered development with WebCon
 ## 🚀 Features
 
 ### AI Development Team
+
 - **System Architect**: Analyzes requirements and designs project architecture
 - **Frontend Developer**: Creates UI components with React, TypeScript, and Tailwind CSS
 - **Backend Developer**: Builds APIs and server logic when needed
 - **DevOps Engineer**: Handles build configuration and deployment setup
 
 ### WebContainers Integration
+
 - Real-time development environment in the browser
 - Full Node.js environment with pnpm package management
 - Live preview of generated applications
 - Terminal access for debugging and monitoring
 
 ### Authentication System
+
 - **GitHub OAuth**: One-click sign-in with GitHub
 - **Email & Password**: Traditional email/password authentication
 - **Password Recovery**: Secure password reset functionality
@@ -24,6 +27,7 @@ A Next.js application featuring collaborative AI-powered development with WebCon
 - **Secure Sessions**: JWT-based authentication with Supabase
 
 ### Core Features
+
 - Dual authentication system (GitHub OAuth + Email/Password)
 - Real-time chat interface powered by AI
 - Stripe payment integration for premium features
@@ -100,6 +104,7 @@ POLAR_SERVER=sandbox # or production
 ### Supabase Configuration
 
 1. **Create a Supabase Project**
+
    ```bash
    # Visit https://supabase.com/dashboard
    # Create a new project
@@ -107,6 +112,7 @@ POLAR_SERVER=sandbox # or production
    ```
 
 2. **Database Schema**
+
    ```sql
    -- Users table
    CREATE TABLE users (
@@ -149,6 +155,7 @@ POLAR_SERVER=sandbox # or production
    - Set callback URL: `https://your-domain.com/auth/callback`
 
 4. **Row Level Security (RLS)**
+
    ```sql
    -- Enable RLS
    ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -167,7 +174,7 @@ POLAR_SERVER=sandbox # or production
 ### Authentication
 
 1. **Sign Up/Sign In**
-   - Visit `/auth` 
+   - Visit `/auth`
    - Choose GitHub OAuth or Email/Password
    - For email signup, check your email for verification
 
