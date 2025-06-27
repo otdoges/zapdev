@@ -26,11 +26,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User request is required' }, { status: 400 });
     }
 
+<<<<<<< HEAD
     errorLogger.info(
       ErrorCategory.API,
       `AI Team: Processing ${step} step for request:`,
       userRequest.substring(0, 100)
     );
+=======
+    console.log('AI Team: Processing %s step for request:', step, userRequest.substring(0, 100));
+>>>>>>> refs/remotes/origin/master
 
     switch (step) {
       case 'analyze':
