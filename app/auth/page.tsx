@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { TosPrivacyDialog } from '@/components/ui/tos-privacy-dialog';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 function AuthContent() {
@@ -379,19 +380,23 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
           >
             <p className="text-xs text-[#EAEAEA]/40">
               By clicking continue, you agree to our{' '}
-              <a
-                href="/terms"
-                className="text-[#6C52A0] underline transition-colors hover:text-[#7C62B0]"
-              >
-                Terms of Service
-              </a>{' '}
+              <TosPrivacyDialog type="tos">
+                <button
+                  type="button"
+                  className="text-[#6C52A0] underline transition-colors hover:text-[#7C62B0]"
+                >
+                  Terms of Service
+                </button>
+              </TosPrivacyDialog>{' '}
               and{' '}
-              <a
-                href="/privacy"
-                className="text-[#6C52A0] underline transition-colors hover:text-[#7C62B0]"
-              >
-                Privacy Policy
-              </a>
+              <TosPrivacyDialog type="privacy">
+                <button
+                  type="button"
+                  className="text-[#6C52A0] underline transition-colors hover:text-[#7C62B0]"
+                >
+                  Privacy Policy
+                </button>
+              </TosPrivacyDialog>
               .
             </p>
           </motion.div>

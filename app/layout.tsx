@@ -62,7 +62,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} font-sans`} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
         <meta httpEquiv="Cache-Control" content="public, max-age=3600, must-revalidate" />
       </head>
