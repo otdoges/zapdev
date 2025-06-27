@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateText } from 'ai';
-import { groqProvider, getGroqModelId } from '@/lib/groq-provider';
+import { getGroqInstance } from '@/lib/groq-provider';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 // Helper to safely parse JSON from AI responses
@@ -12,8 +12,8 @@ function safeJsonParse(text: string, defaultValue: any) {
 
     return JSON.parse(jsonStr);
   } catch (error) {
-    errorLogger.error(ErrorCategory.API, 'JSON parsing error:', error);
-    errorLogger.info(ErrorCategory.API, 'Raw text that failed to parse:', text.substring(0, 500));
+    errorLogger.error(ErrorCategory.API, 'JSON parsing error', error);
+    errorLogger.info(ErrorCategory.API, `Raw text that failed to parse: ${text.substring(0, 500)}`);
     return defaultValue;
   }
 }
@@ -26,15 +26,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User request is required' }, { status: 400 });
     }
 
-<<<<<<< HEAD
     errorLogger.info(
       ErrorCategory.API,
-      `AI Team: Processing ${step} step for request:`,
-      userRequest.substring(0, 100)
+      `AI Team: Processing ${step} step for request: ${userRequest.substring(0, 100)}`
     );
-=======
-    console.log('AI Team: Processing %s step for request:', step, userRequest.substring(0, 100));
->>>>>>> refs/remotes/origin/master
 
     switch (step) {
       case 'analyze':
@@ -51,7 +46,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid step' }, { status: 400 });
     }
   } catch (error) {
-    errorLogger.error(ErrorCategory.API, 'AI Team coordination error:', error);
+    errorLogger.error(ErrorCategory.API, 'AI Team coordination error', error);
     return NextResponse.json(
       {
         error: 'Failed to coordinate AI team',
@@ -65,7 +60,7 @@ export async function POST(req: NextRequest) {
 async function analyzeRequirements(userRequest: string) {
   try {
     const { text } = await generateText({
-      model: groqProvider.chat('llama-3.3-70b-versatile'), // Using available model
+      model: getGroqInstance()('meta-llama/llama-4-maverick-17b-128e-instruct'), // Analysis uses maverick model
       messages: [
         {
           role: 'system',
@@ -125,7 +120,7 @@ Return ONLY a JSON object with this exact structure:
       nextStep: 'architect',
     });
   } catch (error) {
-    errorLogger.error(ErrorCategory.API, 'Analysis error:', error);
+    errorLogger.error(ErrorCategory.API, 'Analysis error', error);
     return NextResponse.json(
       {
         step: 'analyze',
@@ -146,7 +141,7 @@ Return ONLY a JSON object with this exact structure:
 async function architectureDesign(userRequest: string) {
   try {
     const { text } = await generateText({
-      model: groqProvider.chat('mixtral-8x7b-32768'), // Using available model
+      model: getGroqInstance()('meta-llama/llama-4-maverick-17b-128e-instruct'), // Architecture uses maverick model
       messages: [
         {
           role: 'system',
@@ -226,7 +221,7 @@ Return ONLY a JSON object with this exact structure:
       nextStep: 'frontend',
     });
   } catch (error) {
-    errorLogger.error(ErrorCategory.API, 'Architecture error:', error);
+    errorLogger.error(ErrorCategory.API, 'Architecture error', error);
     return NextResponse.json(
       {
         step: 'architect',
@@ -249,7 +244,7 @@ Return ONLY a JSON object with this exact structure:
 async function frontendDevelopment(userRequest: string) {
   try {
     const { text } = await generateText({
-      model: groqProvider.chat('llama-3.1-70b-versatile'), // Using available model
+      model: getGroqInstance()('qwen-qwq-32b'), // Frontend uses qwen-qwq-32b
       messages: [
         {
           role: 'system',
@@ -259,69 +254,59 @@ async function frontendDevelopment(userRequest: string) {
         {
           role: 'user',
           content: `
-Create the frontend implementation for:
+Create frontend implementation for:
 
 "${userRequest}"
 
 Return ONLY a JSON object with this exact structure:
 {
-  "components": [
-    {
-      "name": "ComponentName",
-      "purpose": "what this component does",
-      "props": ["list of props"],
-      "code": "complete React component code with TypeScript and Tailwind CSS"
-    }
-  ],
-  "pages": [
-    {
-      "route": "/route-path",
-      "name": "Page Name",
-      "code": "complete page component code"
-    }
-  ],
+  "components": ["list of React components needed"],
+  "pages": ["list of pages/routes needed"],
+  "hooks": ["custom hooks needed"],
+  "utils": ["utility functions needed"],
   "styling": {
-    "theme": "color scheme and design tokens",
-    "responsive": "responsive design approach",
-    "accessibility": "a11y considerations"
+    "approach": "Tailwind CSS | styled-components | CSS modules",
+    "theme": "theme configuration needed",
+    "responsive": "responsive design considerations"
   },
-  "interactions": ["user interactions and animations"],
+  "state": {
+    "management": "Redux | Zustand | Context | local",
+    "structure": "state structure design"
+  },
+  "api": {
+    "endpoints": ["API endpoints to call"],
+    "client": "fetch | axios | SWR | React Query"
+  },
   "testing": ["testing strategy"],
-  "reasoning": "Your frontend design reasoning"
+  "reasoning": "Your frontend development reasoning"
 }
-
-Make sure the code is complete and production-ready.
 `,
         },
       ],
       temperature: 0.7,
-      maxTokens: 4096, // Increased for code generation
+      maxTokens: 2048,
     });
 
     const frontend = safeJsonParse(text, {
-      components: [
-        {
-          name: 'App',
-          purpose: 'Main application component',
-          props: [],
-          code: `import React from 'react';\n\nexport default function App() {\n  return (\n    <div className="min-h-screen bg-gray-50">\n      <h1 className="text-3xl font-bold text-center py-8">Welcome to ${userRequest}</h1>\n    </div>\n  );\n}`,
-        },
-      ],
-      pages: [
-        {
-          route: '/',
-          name: 'Home',
-          code: `export default function Home() {\n  return <div>Home Page</div>;\n}`,
-        },
-      ],
+      components: ['App', 'Header', 'Main', 'Footer'],
+      pages: ['Home', 'About', 'Contact'],
+      hooks: ['useApi', 'useAuth'],
+      utils: ['helpers', 'constants'],
       styling: {
-        theme: 'Modern design with Tailwind CSS',
-        responsive: 'Mobile-first approach',
-        accessibility: 'WCAG 2.1 compliant',
+        approach: 'Tailwind CSS',
+        theme: 'Default theme',
+        responsive: 'Mobile-first',
       },
-      interactions: ['Smooth transitions'],
-      testing: ['Component testing with Jest'],
-      reasoning: 'Simple starting structure',
+      state: {
+        management: 'Context',
+        structure: 'Simple context state',
+      },
+      api: {
+        endpoints: ['/api/data'],
+        client: 'fetch',
+      },
+      testing: ['Jest', 'React Testing Library'],
+      reasoning: 'Standard React application structure',
     });
 
     errorLogger.info(ErrorCategory.API, 'AI Team: Frontend development completed successfully');
@@ -333,20 +318,15 @@ Make sure the code is complete and production-ready.
       nextStep: 'backend',
     });
   } catch (error) {
-    errorLogger.error(ErrorCategory.API, 'Frontend error:', error);
+    errorLogger.error(ErrorCategory.API, 'Frontend error', error);
     return NextResponse.json(
       {
         step: 'frontend',
         agent: 'Senior Frontend Developer',
         error: 'Failed to develop frontend',
         result: {
-          components: [
-            {
-              name: 'App',
-              code: '// Error generating component',
-            },
-          ],
-          reasoning: 'Error occurred - minimal component provided',
+          components: ['App', 'Main'],
+          reasoning: 'Error occurred - using minimal frontend',
         },
         nextStep: 'backend',
       },
@@ -358,60 +338,47 @@ Make sure the code is complete and production-ready.
 async function backendDevelopment(userRequest: string) {
   try {
     const { text } = await generateText({
-      model: groqProvider.chat('gemma2-9b-it'), // Using available model
+      model: getGroqInstance()('deepseek-r1-distill-llama-70b'), // Backend uses deepseek-r1-distill-llama-70b
       messages: [
         {
           role: 'system',
           content:
-            'You are a Senior Backend Developer. Design the backend and respond ONLY with valid JSON.',
+            'You are a Senior Backend Developer. Create backend implementation and respond ONLY with valid JSON.',
         },
         {
           role: 'user',
           content: `
-Design the backend for:
+Create backend implementation for:
 
 "${userRequest}"
 
 Return ONLY a JSON object with this exact structure:
 {
   "api": {
-    "endpoints": [
-      {
-        "method": "GET|POST|PUT|DELETE",
-        "path": "/api/endpoint",
-        "purpose": "what this endpoint does",
-        "parameters": ["required parameters"],
-        "response": "response format",
-        "code": "implementation code"
-      }
-    ],
-    "middleware": ["authentication, validation, etc."],
-    "errorHandling": "error handling strategy"
+    "framework": "Express | Fastify | Next.js API | Nest.js",
+    "routes": ["list of API routes needed"],
+    "middleware": ["middleware functions needed"],
+    "validation": "validation strategy"
   },
   "database": {
-    "schema": [
-      {
-        "table": "table_name",
-        "fields": ["field definitions"],
-        "relationships": ["foreign keys and relations"]
-      }
-    ],
-    "migrations": "database setup code",
-    "queries": ["optimized query examples"]
+    "type": "PostgreSQL | MongoDB | SQLite | MySQL",
+    "schema": "database schema design",
+    "migrations": ["migration files needed"],
+    "queries": ["key database queries"]
   },
-  "services": [
-    {
-      "name": "Service Name",
-      "purpose": "what this service handles",
-      "code": "service implementation"
-    }
-  ],
-  "security": {
-    "authentication": "auth strategy",
-    "authorization": "permissions handling",
-    "dataValidation": "input validation approach"
+  "auth": {
+    "strategy": "JWT | OAuth | Session | Custom",
+    "providers": ["auth providers if needed"],
+    "permissions": "authorization strategy"
   },
-  "reasoning": "Your backend design reasoning"
+  "services": ["business logic services"],
+  "utils": ["utility functions"],
+  "testing": ["testing strategy"],
+  "deployment": {
+    "environment": "development setup",
+    "production": "production considerations"
+  },
+  "reasoning": "Your backend development reasoning"
 }
 `,
         },
@@ -422,37 +389,30 @@ Return ONLY a JSON object with this exact structure:
 
     const backend = safeJsonParse(text, {
       api: {
-        endpoints: [
-          {
-            method: 'GET',
-            path: '/api/health',
-            purpose: 'Health check endpoint',
-            parameters: [],
-            response: "{ status: 'ok' }",
-            code: "export default function handler(req, res) {\n  res.status(200).json({ status: 'ok' });\n}",
-          },
-        ],
-        middleware: ['CORS', 'Rate limiting'],
-        errorHandling: 'Centralized error handling',
+        framework: 'Next.js API',
+        routes: ['/api/users', '/api/data'],
+        middleware: ['auth', 'cors', 'validation'],
+        validation: 'Zod schemas',
       },
       database: {
-        schema: [
-          {
-            table: 'users',
-            fields: ['id', 'email', 'created_at'],
-            relationships: [],
-          },
-        ],
-        migrations: '// Database setup',
-        queries: ['SELECT * FROM users'],
+        type: 'SQLite',
+        schema: 'Basic user and data tables',
+        migrations: ['001_initial.sql'],
+        queries: ['SELECT', 'INSERT', 'UPDATE'],
       },
-      services: [],
-      security: {
-        authentication: 'JWT tokens',
-        authorization: 'Role-based access control',
-        dataValidation: 'Input sanitization',
+      auth: {
+        strategy: 'JWT',
+        providers: ['local'],
+        permissions: 'Role-based',
       },
-      reasoning: 'Basic backend structure',
+      services: ['userService', 'dataService'],
+      utils: ['database', 'auth'],
+      testing: ['Jest', 'Supertest'],
+      deployment: {
+        environment: 'Local development',
+        production: 'Vercel deployment',
+      },
+      reasoning: 'Standard Node.js API structure',
     });
 
     errorLogger.info(ErrorCategory.API, 'AI Team: Backend development completed successfully');
@@ -464,15 +424,15 @@ Return ONLY a JSON object with this exact structure:
       nextStep: 'deploy',
     });
   } catch (error) {
-    errorLogger.error(ErrorCategory.API, 'Backend error:', error);
+    errorLogger.error(ErrorCategory.API, 'Backend error', error);
     return NextResponse.json(
       {
         step: 'backend',
         agent: 'Senior Backend Developer',
         error: 'Failed to develop backend',
         result: {
-          api: { endpoints: [] },
-          reasoning: 'Error occurred - minimal backend provided',
+          api: { framework: 'Next.js API', routes: ['/api/health'] },
+          reasoning: 'Error occurred - using minimal backend',
         },
         nextStep: 'deploy',
       },
@@ -484,57 +444,55 @@ Return ONLY a JSON object with this exact structure:
 async function deploymentSetup(userRequest: string) {
   try {
     const { text } = await generateText({
-      model: groqProvider.chat('llama-3.3-70b-versatile'), // Using available model
+      model: getGroqInstance()('meta-llama/llama-4-scout-17b-16e-instruct'), // Senior backend uses scout model
       messages: [
         {
           role: 'system',
           content:
-            'You are a Senior DevOps Engineer. Create deployment configuration and respond ONLY with valid JSON.',
+            'You are a Senior DevOps Engineer. Create deployment setup and respond ONLY with valid JSON.',
         },
         {
           role: 'user',
           content: `
-Create deployment configuration for:
+Create deployment setup for:
 
 "${userRequest}"
 
 Return ONLY a JSON object with this exact structure:
 {
-  "packageJson": {
-    "name": "project-name",
-    "version": "1.0.0",
-    "scripts": {
-      "dev": "next dev",
-      "build": "next build",
-      "start": "next start",
-      "lint": "next lint"
-    },
-    "dependencies": {},
-    "devDependencies": {}
+  "platform": "Vercel | Netlify | AWS | Railway | Docker",
+  "environment": {
+    "variables": ["list of env vars needed"],
+    "secrets": ["secrets management"],
+    "config": "configuration setup"
   },
-  "deployment": {
-    "platform": "Vercel | Netlify | Railway",
-    "environment": "environment variables needed",
-    "buildCommand": "build command",
-    "outputDirectory": "output directory"
+  "build": {
+    "commands": ["build commands"],
+    "artifacts": ["build outputs"],
+    "optimization": "build optimizations"
   },
-  "cicd": {
-    "workflow": "CI/CD pipeline configuration",
-    "testing": "automated testing setup",
-    "deployment": "deployment automation"
+  "database": {
+    "hosting": "database hosting solution",
+    "backups": "backup strategy",
+    "scaling": "scaling considerations"
   },
   "monitoring": {
-    "analytics": "analytics setup",
-    "errorTracking": "error monitoring",
-    "performance": "performance monitoring"
+    "logging": "logging setup",
+    "metrics": "monitoring tools",
+    "alerts": "alerting strategy"
   },
-  "instructions": [
-    "Step-by-step deployment instructions"
-  ],
-  "reasoning": "Your deployment strategy reasoning"
+  "security": {
+    "ssl": "SSL/TLS setup",
+    "headers": "security headers",
+    "auth": "authentication setup"
+  },
+  "ci_cd": {
+    "pipeline": "CI/CD pipeline",
+    "testing": "automated testing",
+    "deployment": "deployment strategy"
+  },
+  "reasoning": "Your deployment reasoning"
 }
-
-Focus on Next.js + TypeScript + Tailwind stack.
 `,
         },
       ],
@@ -543,52 +501,38 @@ Focus on Next.js + TypeScript + Tailwind stack.
     });
 
     const deployment = safeJsonParse(text, {
-      packageJson: {
-        name: 'zapdev-project',
-        version: '1.0.0',
-        scripts: {
-          dev: 'next dev',
-          build: 'next build',
-          start: 'next start',
-          lint: 'next lint',
-        },
-        dependencies: {
-          next: '14.0.0',
-          react: '18.2.0',
-          'react-dom': '18.2.0',
-          typescript: '5.0.0',
-        },
-        devDependencies: {
-          '@types/react': '18.2.0',
-          '@types/node': '20.0.0',
-          tailwindcss: '3.4.0',
-          autoprefixer: '10.4.0',
-          postcss: '8.4.0',
-        },
+      platform: 'Vercel',
+      environment: {
+        variables: ['NODE_ENV', 'DATABASE_URL', 'API_KEY'],
+        secrets: 'Vercel environment variables',
+        config: 'vercel.json configuration',
       },
-      deployment: {
-        platform: 'Vercel',
-        environment: 'NODE_ENV=production',
-        buildCommand: 'npm run build',
-        outputDirectory: '.next',
+      build: {
+        commands: ['npm run build'],
+        artifacts: ['.next', 'public'],
+        optimization: 'Next.js optimizations',
       },
-      cicd: {
-        workflow: 'GitHub Actions',
-        testing: 'Jest + React Testing Library',
-        deployment: 'Automatic on push to main',
+      database: {
+        hosting: 'Vercel Postgres',
+        backups: 'Automated backups',
+        scaling: 'Connection pooling',
       },
       monitoring: {
-        analytics: 'Vercel Analytics',
-        errorTracking: 'Sentry',
-        performance: 'Web Vitals',
+        logging: 'Vercel logs',
+        metrics: 'Vercel Analytics',
+        alerts: 'Email notifications',
       },
-      instructions: [
-        '1. Initialize git repository',
-        '2. Connect to Vercel',
-        '3. Configure environment variables',
-        '4. Deploy',
-      ],
-      reasoning: 'Standard Next.js deployment',
+      security: {
+        ssl: 'Automatic HTTPS',
+        headers: 'Security headers',
+        auth: 'Environment-based auth',
+      },
+      ci_cd: {
+        pipeline: 'GitHub Actions',
+        testing: 'Automated tests on PR',
+        deployment: 'Automatic deployment',
+      },
+      reasoning: 'Standard Vercel deployment setup',
     });
 
     errorLogger.info(ErrorCategory.API, 'AI Team: Deployment setup completed successfully');
@@ -597,23 +541,20 @@ Focus on Next.js + TypeScript + Tailwind stack.
       step: 'deploy',
       agent: 'Senior DevOps Engineer',
       result: deployment,
-      nextStep: 'complete',
+      status: 'complete',
     });
   } catch (error) {
-    errorLogger.error(ErrorCategory.API, 'Deployment error:', error);
+    errorLogger.error(ErrorCategory.API, 'Deployment error', error);
     return NextResponse.json(
       {
         step: 'deploy',
         agent: 'Senior DevOps Engineer',
         error: 'Failed to setup deployment',
         result: {
-          packageJson: {
-            name: 'project',
-            scripts: { dev: 'next dev' },
-          },
-          reasoning: 'Error occurred - minimal deployment config provided',
+          platform: 'Vercel',
+          reasoning: 'Error occurred - using basic deployment',
         },
-        nextStep: 'complete',
+        status: 'complete',
       },
       { status: 200 }
     );
@@ -622,21 +563,8 @@ Focus on Next.js + TypeScript + Tailwind stack.
 
 export async function GET() {
   return NextResponse.json({
-    message: 'AI Team Coordination API with Groq Models',
-    description: 'Complete project coordination with AI team specialists',
-    models: {
-      'Senior Business Analyst': 'llama-3.3-70b-versatile',
-      'Senior Software Architect': 'mixtral-8x7b-32768',
-      'Senior Frontend Developer': 'llama-3.1-70b-versatile',
-      'Senior Backend Developer': 'gemma2-9b-it',
-      'Senior DevOps Engineer': 'llama-3.3-70b-versatile',
-    },
-    features: [
-      'Step-by-step problem solving',
-      'Comprehensive architecture design',
-      'Production-ready code generation',
-      'Deployment automation',
-      'Error recovery and fallbacks',
-    ],
+    message: 'AI Team Coordination API',
+    availableSteps: ['analyze', 'architect', 'frontend', 'backend', 'deploy'],
+    usage: 'POST with { userRequest: "your request", step: "analyze" }',
   });
 }
