@@ -162,7 +162,7 @@ export const RateLimitConfigs = {
   // Strict limit for AI endpoints
   AI_ENDPOINTS: {
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 10, // 10 requests per minute
+    maxRequests: 30, // Increased from 10 to 30 requests per minute
     identifier: (req: NextRequest) => {
       // Use user ID from auth or IP address
       const userId = req.headers.get('x-user-id');
@@ -175,7 +175,7 @@ export const RateLimitConfigs = {
   // Standard limit for general API endpoints
   GENERAL_API: {
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 60, // 60 requests per minute
+    maxRequests: 120, // Increased from 60 to 120 requests per minute
     identifier: (req: NextRequest) => {
       const userId = req.headers.get('x-user-id');
       const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';

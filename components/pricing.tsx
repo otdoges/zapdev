@@ -22,41 +22,49 @@ import {
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { errorLogger, ErrorCategory } from '@/lib/error-logger';
-
-interface Plan {
-  id: string;
-  name: string;
-  description: string;
-  price: string;
-  originalPrice?: string;
-  productId: string;
-  features: string[];
-  popularPlan?: boolean;
-  icon: React.ReactNode;
-  highlight?: string;
-  savings?: string;
-}
+import { ProductWithPrices } from '@/lib/types';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface PricingContentProps {
-  plans: Plan[];
+  products: ProductWithPrices[];
 }
 
-export function PricingContent({ plans }: PricingContentProps) {
-  // Safety check to prevent map error
-  if (!plans || !Array.isArray(plans) || plans.length === 0) {
-    errorLogger.error(ErrorCategory.GENERAL, 'PricingContent: plans prop is', plans);
+export function PricingContent({ products }: PricingContentProps) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const handleCheckout = async (priceId: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/polar/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ priceId }),
+      });
+      const { url } = await res.json();
+      if (url) {
+        router.push(url);
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!products || products.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <div className="text-center text-white">
           <h2 className="mb-4 text-2xl font-bold">Loading pricing...</h2>
-          <p className="text-gray-400">Please wait while we load the pricing information.</p>
+          <p className="text-gray-400">No products available at this moment.</p>
         </div>
       </div>
     );
   }
-
-  errorLogger.info(ErrorCategory.GENERAL, 'PricingContent rendering with plans:', plans.length);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -116,99 +124,89 @@ export function PricingContent({ plans }: PricingContentProps) {
 
           <TabsContent value="monthly" className="space-y-8">
             <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {plans.map((plan, index) => (
-                <Card
-                  key={plan.id}
-                  className={`group relative flex flex-col border-2 bg-slate-900/50 text-white backdrop-blur-sm transition-all duration-500 hover:-translate-y-2 hover:scale-105 hover:shadow-2xl ${
-                    plan.popularPlan
-                      ? 'border-purple-500 bg-gradient-to-b from-purple-900/20 to-slate-900/50 shadow-lg shadow-purple-500/25'
-                      : 'border-slate-700 hover:border-slate-600'
-                  } duration-1000 animate-in slide-in-from-bottom-8`}
-                  style={{
-                    animationDelay: `${(index + 1) * 200}ms`,
-                  }}
-                >
-                  {plan.highlight && (
-                    <div className="absolute -top-4 left-0 right-0 flex justify-center">
-                      <Badge
-                        className={`${
-                          plan.popularPlan
-                            ? 'animate-pulse bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                            : 'bg-gradient-to-r from-emerald-600 to-blue-600 text-white'
-                        } px-4 py-1 text-sm font-medium shadow-lg`}
-                      >
-                        {plan.highlight}
-                      </Badge>
-                    </div>
-                  )}
+              {products.map((product, index) => {
+                const price = product.prices[0];
+                if (!price) return null;
 
-                  {plan.savings && (
-                    <div className="absolute -right-2 -top-2 animate-bounce rounded-full bg-red-500 px-2 py-1 text-xs font-bold text-white">
-                      {plan.savings}
-                    </div>
-                  )}
-
-                  <CardHeader className={`${plan.highlight ? 'pt-8' : 'pt-6'} pb-4`}>
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center space-x-3 transition-transform duration-300 group-hover:scale-110">
-                        {plan.icon}
-                        <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
-                      </div>
-                    </div>
-                    <CardDescription className="text-lg leading-relaxed text-gray-300">
-                      {plan.description}
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="flex-1 pt-0">
-                    <div className="mb-8">
-                      <div className="flex items-baseline space-x-2">
-                        <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-5xl font-bold text-transparent transition-transform duration-300 group-hover:scale-110">
-                          {plan.price}
-                        </span>
-                        {plan.originalPrice && (
-                          <span className="text-xl text-gray-500 line-through">
-                            {plan.originalPrice}
-                          </span>
-                        )}
-                        <span className="ml-2 text-lg text-gray-400">/month</span>
-                      </div>
-                      <p className="mt-1 text-sm text-gray-400">Billed monthly, cancel anytime</p>
-                    </div>
-
-                    <ul className="space-y-4">
-                      {plan.features.map((feature, featureIndex) => (
-                        <li
-                          key={`${plan.id}-${featureIndex}`}
-                          className="flex items-start space-x-3"
+                return (
+                  <Card
+                    key={product.id}
+                    className={`group relative flex flex-col border-2 bg-slate-900/50 text-white backdrop-blur-sm transition-all duration-500 hover:-translate-y-2 hover:scale-105 hover:shadow-2xl ${
+                      product.metadata?.popularPlan
+                        ? 'border-purple-500 bg-gradient-to-b from-purple-900/20 to-slate-900/50 shadow-lg shadow-purple-500/25'
+                        : 'border-slate-700 hover:border-slate-600'
+                    } duration-1000 animate-in slide-in-from-bottom-8`}
+                    style={{
+                      animationDelay: `${(index + 1) * 200}ms`,
+                    }}
+                  >
+                    {product.metadata?.highlight && (
+                      <div className="absolute -top-4 left-0 right-0 flex justify-center">
+                        <Badge
+                          className={`${
+                            product.metadata?.popularPlan
+                              ? 'animate-pulse bg-gradient-to-r from-purple-600 to-pink-600 text-white'
+                              : 'bg-gradient-to-r from-emerald-600 to-blue-600 text-white'
+                          } px-4 py-1 text-sm font-medium shadow-lg`}
                         >
-                          <CheckIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-400" />
-                          <span className="leading-relaxed text-gray-200">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
+                          {product.metadata.highlight}
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    <CardHeader className={`${product.metadata?.highlight ? 'pt-8' : 'pt-6'} pb-4`}>
+                      <div className="mb-4 flex items-center justify-between">
+                        <div className="flex items-center space-x-3 transition-transform duration-300 group-hover:scale-110">
+                          <ZapIcon className="h-8 w-8 text-blue-500" />
+                          <CardTitle className="text-2xl font-bold">{product.name}</CardTitle>
+                        </div>
+                      </div>
+                      <CardDescription className="text-lg leading-relaxed text-gray-300">
+                        {product.description}
+                      </CardDescription>
+                    </CardHeader>
 
-                  <CardFooter className="pt-6">
-                    <Button
-                      className={`h-12 w-full text-lg font-semibold transition-all duration-500 ${
-                        plan.popularPlan
-                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
-                          : 'border border-slate-600 bg-slate-800 hover:border-slate-500 hover:bg-slate-700'
-                      }`}
-                      asChild
-                    >
-                      <a
-                        href={`/api/polar/checkout?productId=${plan.productId}`}
-                        className="flex items-center justify-center"
+                    <CardContent className="flex-1 pt-0">
+                      <div className="mb-8">
+                        <div className="flex items-baseline space-x-2">
+                          <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-5xl font-bold text-transparent transition-transform duration-300 group-hover:scale-110">
+                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: price.currency! }).format((price.unit_amount || 0) / 100)}
+                          </span>
+                          <span className="ml-2 text-lg text-gray-400">/month</span>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-400">Billed monthly, cancel anytime</p>
+                      </div>
+
+                      <ul className="space-y-4">
+                        {(product.metadata?.features as string[] || []).map((feature, featureIndex) => (
+                          <li
+                            key={`${product.id}-${featureIndex}`}
+                            className="flex items-start space-x-3"
+                          >
+                            <CheckIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-400" />
+                            <span className="leading-relaxed text-gray-200">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+
+                    <CardFooter className="pt-6">
+                      <Button
+                        onClick={() => handleCheckout(price.id)}
+                        disabled={loading}
+                        className={`h-12 w-full text-lg font-semibold transition-all duration-500 ${
+                          product.metadata?.popularPlan
+                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                            : 'border border-slate-600 bg-slate-800 hover:border-slate-500 hover:bg-slate-700'
+                        }`}
                       >
-                        <span>Get Started with {plan.name}</span>
-                        <ArrowRightIcon className="ml-2 h-4 w-4" />
-                      </a>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
+                        {loading ? 'Processing...' : `Get Started with ${product.name}`}
+                        {!loading && <ArrowRightIcon className="ml-2 h-4 w-4" />}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                )
+              })}
             </div>
 
             {/* Features Comparison */}
@@ -307,50 +305,48 @@ export function PricingContent({ plans }: PricingContentProps) {
   );
 }
 
-// Simple default component that provides static data
 export default function Pricing() {
-  errorLogger.info(ErrorCategory.GENERAL, 'Default Pricing component rendering');
-
-  const staticPlans: Plan[] = [
+  // This is a fallback for when the page is rendered without props
+  // It should not happen in the normal flow, but it's a good safety measure
+  const staticPlans: ProductWithPrices[] = [
     {
       id: 'basic',
       name: 'Basic',
       description: 'Perfect for getting started',
-      price: '$9',
-      productId: '8c36fbf5-ad68-44d2-ba2c-682d88727c47',
-      features: ['1,000 AI generations per month', 'Basic templates', 'Community support'],
-      icon: <ZapIcon className="h-8 w-8 text-yellow-400" />,
-      highlight: 'Great Start',
+      prices: [{ id: 'price_1', unit_amount: 900, currency: 'USD' }],
+      metadata: {
+        features: ['1,000 AI generations per month', 'Basic templates', 'Community support'],
+        popularPlan: true,
+        highlight: 'Great Start',
+      },
     },
     {
       id: 'pro',
       name: 'Pro',
       description: 'Best for professionals',
-      price: '$29',
-      productId: '5b611f41-9eb8-413b-bf6c-0e1385b61a0',
-      features: [
-        '10,000 AI generations per month',
-        'Premium templates',
-        'Priority support',
-        'API access',
-      ],
-      popularPlan: true,
-      icon: <StarIcon className="h-8 w-8 text-purple-400" />,
-      highlight: 'Most Popular',
+      prices: [{ id: 'price_2', unit_amount: 2900, currency: 'USD' }],
+      metadata: {
+        features: [
+          '10,000 AI generations per month',
+          'Premium templates',
+          'Priority support',
+          'API access',
+        ],
+        popularPlan: true,
+        highlight: 'Most Popular',
+      },
     },
     {
       id: 'enterprise',
       name: 'Enterprise',
       description: 'For large teams',
-      price: '$99',
-      productId: 'e6970713-d3bd-4646-a1ed-e47dd8805b3d',
-      features: ['Unlimited generations', 'Custom templates', '24/7 support', 'Advanced API'],
-      icon: <ShieldIcon className="h-8 w-8 text-green-400" />,
-      highlight: 'Full Power',
+      prices: [{ id: 'price_3', unit_amount: 9900, currency: 'USD' }],
+      metadata: {
+        features: ['Unlimited generations', 'Custom templates', '24/7 support', 'Advanced API'],
+        highlight: 'Full Power',
+      },
     },
   ];
 
-  errorLogger.info(ErrorCategory.GENERAL, 'Static plans created:', staticPlans.length);
-
-  return <PricingContent plans={staticPlans} />;
+  return <PricingContent products={staticPlans} />;
 }
