@@ -13,6 +13,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  if (!successUrl || successUrl === 'undefined/success') {
+    console.error('NEXT_PUBLIC_SITE_URL is not configured');
+    return NextResponse.json(
+      { error: 'Application not properly configured. Please contact support.' },
+      { status: 500 }
+    );
+  }
+
   try {
     const checkoutHandler = Checkout({
       accessToken,

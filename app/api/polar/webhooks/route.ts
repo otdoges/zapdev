@@ -2,6 +2,11 @@ import { Webhooks } from '@polar-sh/nextjs';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 async function handleSubscription(subscription: any) {
+  if (!supabaseAdmin) {
+    console.error('Supabase admin client not available - cannot process subscription webhook');
+    return;
+  }
+
   await supabaseAdmin
     .from('subscriptions')
     .upsert({
@@ -21,6 +26,11 @@ async function handleSubscription(subscription: any) {
 }
 
 async function handleProduct(product: any) {
+  if (!supabaseAdmin) {
+    console.error('Supabase admin client not available - cannot process product webhook');
+    return;
+  }
+
   await supabaseAdmin
     .from('products')
     .upsert({

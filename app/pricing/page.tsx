@@ -1,25 +1,30 @@
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { ProductWithPrices } from '@/types';
+import { ProductWithPrices } from '@/lib/types';
 import { Navbar } from '@/components/navbar';
 import { PricingContent } from '@/components/pricing';
 
 export const dynamic = 'force-dynamic';
 
 async function getProductsWithPrices(): Promise<ProductWithPrices[]> {
-  const supabase = createServerComponentClient({ cookies });
-  const { data, error } = await supabase
-    .from('products')
-    .select('*, prices(*)')
-    .eq('active', true)
-    .eq('prices.active', true)
-    .order('metadata->index');
+  try {
+    const supabase = createServerComponentClient({ cookies });
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, prices(*)')
+      .eq('active', true)
+      .eq('prices.active', true)
+      .order('metadata->index');
 
-  if (error) {
-    console.error('Error fetching products with prices:', error);
+    if (error) {
+      console.error('Error fetching products with prices:', error);
+      return [];
+    }
+    return data || [];
+  } catch (error) {
+    console.error('Failed to initialize Supabase client:', error);
     return [];
   }
-  return data || [];
 }
 
 export default async function PricingPage() {
