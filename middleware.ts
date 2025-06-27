@@ -8,6 +8,14 @@ export async function middleware(request: NextRequest) {
     },
   })
 
+  // Add permissive CORS headers for development
+  if (process.env.NODE_ENV === 'development') {
+    response.headers.set('Access-Control-Allow-Origin', '*')
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    response.headers.set('Access-Control-Allow-Credentials', 'true')
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -32,6 +40,14 @@ export async function middleware(request: NextRequest) {
             value,
             ...options,
           })
+          
+          // Re-add CORS headers after cookie operations
+          if (process.env.NODE_ENV === 'development') {
+            response.headers.set('Access-Control-Allow-Origin', '*')
+            response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+            response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            response.headers.set('Access-Control-Allow-Credentials', 'true')
+          }
         },
         remove(name: string, options: CookieOptions) {
           request.cookies.set({
@@ -49,6 +65,14 @@ export async function middleware(request: NextRequest) {
             value: '',
             ...options,
           })
+          
+          // Re-add CORS headers after cookie operations
+          if (process.env.NODE_ENV === 'development') {
+            response.headers.set('Access-Control-Allow-Origin', '*')
+            response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+            response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            response.headers.set('Access-Control-Allow-Credentials', 'true')
+          }
         },
       },
     }

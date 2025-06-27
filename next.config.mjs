@@ -87,20 +87,36 @@ const nextConfig = {
     return config
   },
   async headers() {
-    const csp = [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net",
-      "connect-src 'self' http://localhost:* https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud https://fonts.googleapis.com https://fonts.gstatic.com https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com",
-      "img-src 'self' data: blob:",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "frame-src 'self' https://clerk.accounts.dev",
-      "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
-      "worker-src 'self' blob:",
-      "child-src 'self' blob:",
-    ].join('; ');
+    const isDev = process.env.NODE_ENV === 'development';
+    
+    // More permissive CSP for development, strict for production
+    const csp = isDev 
+      ? [
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' *",
+          "connect-src 'self' * ws: wss:",
+          "img-src 'self' data: blob: *",
+          "style-src 'self' 'unsafe-inline' *",
+          "frame-src 'self' *",
+          "font-src 'self' data: *",
+          "worker-src 'self' blob:",
+          "child-src 'self' blob:",
+        ].join('; ')
+      : [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net",
+          "connect-src 'self' http://localhost:* https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud https://fonts.googleapis.com https://fonts.gstatic.com https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com",
+          "img-src 'self' data: blob:",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          "frame-src 'self' https://clerk.accounts.dev",
+          "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
+          "worker-src 'self' blob:",
+          "child-src 'self' blob:",
+        ].join('; ');
 
     return [
-      {
+      // Only apply CSP in production or when explicitly enabled
+      ...(isDev ? [] : [{
         source: '/:path*',
         headers: [
           {
@@ -108,13 +124,13 @@ const nextConfig = {
             value: csp,
           },
         ],
-      },
+      }]),
       {
         source: '/_next/static/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: isDev ? 'no-cache' : 'public, max-age=31536000, immutable',
           },
           {
             key: 'X-Content-Type-Options',
@@ -127,7 +143,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: isDev ? 'no-cache' : 'public, max-age=31536000, immutable',
           }
         ],
       },
@@ -136,7 +152,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: isDev ? 'no-cache' : 'public, max-age=31536000, immutable',
           },
           {
             key: 'X-Content-Type-Options',

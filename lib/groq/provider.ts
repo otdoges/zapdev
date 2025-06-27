@@ -19,7 +19,7 @@ const getGroqApiKey = () => {
 let groqProviderInstance: ReturnType<typeof createGroq> | null = null;
 
 // Create the Groq provider instance with validation
-export const getGroqInstance = () => {
+export const getGroqInstance = (): ReturnType<typeof createGroq> => {
   const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
@@ -28,7 +28,7 @@ export const getGroqInstance = () => {
       'GROQ_API_KEY is not configured. AI features will be limited.'
     );
     // Return a function that creates mock model instances
-    return (modelId: string) => ({
+    const stub = (modelId: string) => ({
       // This will be caught by the error handling in responses.ts
       generateText: async () => {
         throw new Error(
@@ -41,6 +41,8 @@ export const getGroqInstance = () => {
         );
       },
     });
+
+    return stub as unknown as ReturnType<typeof createGroq>;
   }
 
   return createGroq({

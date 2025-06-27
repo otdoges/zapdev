@@ -14,7 +14,7 @@ export function ChunkErrorHandler() {
       const timeSinceLastRefresh = now - lastRefreshTimeRef.current;
 
       // Prevent infinite refresh loops by limiting refreshes
-      if (refreshCountRef.current >= 3) {
+      if (refreshCountRef.current >= 2) {
         errorLogger.warning(
           ErrorCategory.GENERAL,
           'Too many chunk error refreshes, stopping to prevent infinite loop'
@@ -22,8 +22,8 @@ export function ChunkErrorHandler() {
         return;
       }
 
-      // Don't refresh if we just refreshed within the last 10 seconds
-      if (timeSinceLastRefresh < 10000) {
+      // Don't refresh if we just refreshed within the last 30 seconds
+      if (timeSinceLastRefresh < 30000) {
         errorLogger.warning(
           ErrorCategory.GENERAL,
           'Chunk error detected but too soon since last refresh, skipping'
@@ -35,9 +35,10 @@ export function ChunkErrorHandler() {
       refreshCountRef.current++;
       lastRefreshTimeRef.current = now;
 
-      // Force a hard refresh to get latest chunks
-      const currentUrl = window.location.href.split('?')[0];
-      window.location.href = currentUrl + '?t=' + Date.now();
+      // Use a softer reload approach first
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     };
 
     // Handle script/chunk loading errors - but be more specific
@@ -46,7 +47,7 @@ export function ChunkErrorHandler() {
       if (target && target.tagName === 'SCRIPT') {
         const src = target.src || '';
         // Only trigger for actual Next.js chunk files, not all scripts
-        if (src.includes('/_next/static/chunks/') && src.includes('.js')) {
+        if (src.includes('/_next/static/chunks/') && src.includes('.js') && !src.includes('webpack')) {
           handleChunkError();
         }
       }
@@ -57,7 +58,8 @@ export function ChunkErrorHandler() {
       const message = event.message || '';
       if (
         (message.includes('Loading chunk') && message.includes('failed')) ||
-        message.includes('ChunkLoadError')
+        message.includes('ChunkLoadError') ||
+        message.includes('Loading CSS chunk')
       ) {
         handleChunkError();
       }
@@ -66,7 +68,11 @@ export function ChunkErrorHandler() {
     // Handle promise rejections from dynamic imports
     const handleRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
-      if (reason?.message?.includes('Loading chunk') || reason?.name === 'ChunkLoadError') {
+      if (
+        reason?.message?.includes('Loading chunk') || 
+        reason?.name === 'ChunkLoadError' ||
+        (typeof reason === 'string' && reason.includes('Loading chunk'))
+      ) {
         event.preventDefault();
         handleChunkError();
       }
