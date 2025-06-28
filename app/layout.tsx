@@ -9,6 +9,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { CookieConsentBanner } from '@/components/ui/cookie-consent-banner';
+import { QueryProvider } from '@/lib/query-client';
+import { SentryProvider } from '@/components/sentry-provider';
 
 export const viewport: Viewport = {
   themeColor: '#0D0D10',
@@ -69,14 +71,18 @@ export default function RootLayout({
       >
         <ChunkErrorHandler />
         <SupabaseProvider>
-          <PostHogProvider>
-            <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-              <main className="w-full flex-1">{children}</main>
-              <VersionCheck />
-              <Toaster />
-              <CookieConsentBanner />
-            </ThemeProvider>
-          </PostHogProvider>
+          <QueryProvider>
+            <SentryProvider>
+              <PostHogProvider>
+                <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+                  <main className="w-full flex-1">{children}</main>
+                  <VersionCheck />
+                  <Toaster />
+                  <CookieConsentBanner />
+                </ThemeProvider>
+              </PostHogProvider>
+            </SentryProvider>
+          </QueryProvider>
         </SupabaseProvider>
         <Analytics />
       </body>
