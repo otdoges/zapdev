@@ -2,6 +2,7 @@ import bundleAnalyzer from '@next/bundle-analyzer';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { withSentryConfig } from '@sentry/nextjs';
 
 // Import package.json
 const __filename = fileURLToPath(import.meta.url);
@@ -209,4 +210,39 @@ const nextConfig = {
 // Make sure the version is included in the build output
 console.log(`Building ZapDev version ${packageJson.version}`);
 
-export default withBundleAnalyzer(nextConfig);
+// Sentry configuration options
+const sentryWebpackPluginOptions = {
+  // For all available options, see:
+  // https://github.com/getsentry/sentry-webpack-plugin#options
+
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Only print logs for uploading source maps in CI
+  silent: !process.env.CI,
+
+  // For all available options, see:
+  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+
+  // Upload source maps during build step
+  widenClientFileUpload: true,
+
+  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
+  tunnelRoute: "/monitoring",
+
+  // Hides source maps from generated client bundles
+  hideSourceMaps: true,
+
+  // Automatically tree-shake Sentry logger statements to reduce bundle size
+  disableLogger: true,
+
+  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
+  automaticVercelMonitors: true,
+};
+
+// Apply Sentry configuration only if DSN is provided
+const finalConfig = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN
+  ? withSentryConfig(withBundleAnalyzer(nextConfig), sentryWebpackPluginOptions)
+  : withBundleAnalyzer(nextConfig);
+
+export default finalConfig;
