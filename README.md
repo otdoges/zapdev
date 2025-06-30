@@ -4,15 +4,14 @@ AI-powered development platform that lets you create web applications by chattin
 
 ## Features
 
-- 🤖 AI-powered code generation with GPT-4 agents
+- 🤖 AI-powered code generation with AI agents
 - 💻 Real-time Next.js application development in E2B sandboxes
-- 🔄 Live preview and code editing with split-pane interface
-- 📁 File explorer with syntax highlighting and code themes
+- 🔄 Live preview & code preview with split-pane interface
+- 📁 File explorer with syntax highlighting and code theme
 - 💬 Conversational project development with message history
 - 🎯 Smart usage tracking and rate limiting
 - 💳 Subscription management with pro features
 - 🔐 Authentication with Clerk
-- 📱 Mobile responsive design
 - ⚙️ Background job processing with Inngest
 - 🗃️ Project management and persistence
 
@@ -26,13 +25,43 @@ AI-powered development platform that lets you create web applications by chattin
 - tRPC
 - Prisma ORM
 - PostgreSQL
-- OpenAI GPT-4
+- OpenAI, Anthropic or Grok
 - E2B Code Interpreter
 - Clerk Authentication
 - Inngest
 - Prisma
 - Radix UI
 - Lucide React
+
+## Building E2B Template (REQUIRED)
+
+Before running the application, you must build the E2B template that the AI agents use to create sandboxes.
+
+**Prerequisites:**
+- Docker must be installed and running (the template build command uses Docker CLI)
+
+```bash
+# Install E2B CLI
+npm i -g @e2b/cli
+# or
+brew install e2b
+
+# Login to E2B
+e2b auth login
+
+# Navigate to the sandbox template directory
+cd sandbox-templates/nextjs
+
+# Build the template (replace 'your-template-name' with your desired name)
+e2b template build --name your-template-name --cmd "/compile_page.sh"
+```
+
+After building the template, update the template name in `src/inngest/functions.ts`:
+
+```typescript
+// Replace "vibe-nextjs-test-2" with your template name
+const sandbox = await Sandbox.create("your-template-name");
+```
 
 ## Development
 
@@ -41,7 +70,7 @@ AI-powered development platform that lets you create web applications by chattin
 npm install
 
 # Set up environment variables
-cp .env.example .env.local
+cp env.example .env
 # Fill in your API keys and database URL
 
 # Set up database
@@ -53,25 +82,25 @@ npm run dev
 
 ## Environment Variables
 
-Create a `.env.local` file with the following variables:
+Create a `.env` file with the following variables:
 
 ```bash
-# Database
-DATABASE_URL="your-postgres-connection-string"
+DATABASE_URL=""
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
-# Authentication (Clerk)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="your-clerk-publishable-key"
-CLERK_SECRET_KEY="your-clerk-secret-key"
+# OpenAI
+OPENAI_API_KEY=""
 
-# AI (OpenAI)
-OPENAI_API_KEY="your-openai-api-key"
+# E2B
+E2B_API_KEY=""
 
-# Sandbox (E2B)
-E2B_API_KEY="your-e2b-api-key"
-
-# Background Jobs (Inngest), needed only for production
-INNGEST_EVENT_KEY="your-inngest-event-key"
-INNGEST_SIGNING_KEY="your-inngest-signing-key"
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=""
+CLERK_SECRET_KEY=""
+NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
+NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL="/"
+NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL="/"
 ```
 
 ## Additional Commands
