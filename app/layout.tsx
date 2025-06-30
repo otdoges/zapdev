@@ -40,6 +40,9 @@ export const metadata: Metadata = {
     description:
       'The most powerful AI-driven development platform. Generate, preview, and deploy beautiful applications in seconds.',
   },
+  icons: {
+    shortcut: '/favicon.svg',
+  },
   formatDetection: {
     telephone: false,
   },
