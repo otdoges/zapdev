@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import packageJson from '../../../package.json';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const currentVersion = packageJson.version;
 
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
               updateInfo = `Latest development version (${masterData.sha.substring(0, 7)})`;
             }
           }
-        } catch (error) {
+        } catch {
           // If we can't check package.json, still notify about master commits if they're recent
           const masterCommitDate = new Date(masterData.commit.committer.date);
           const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);

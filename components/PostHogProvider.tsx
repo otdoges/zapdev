@@ -46,17 +46,17 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           sessionID: undefined,
         },
         // Enhanced error tracking - sanitize data before sending
-        sanitize_properties: (properties: any) => {
-          if (properties && typeof properties === 'object') {
-            const sanitized = { ...properties };
+        before_send: (event) => {
+          if (event && event.properties && typeof event.properties === 'object') {
+            const sanitized = { ...event.properties } as Record<string, unknown>;
             // Remove potential sensitive fields
             delete sanitized.password;
             delete sanitized.token;
             delete sanitized.apiKey;
             delete sanitized.authorization;
-            return sanitized;
+            event.properties = sanitized;
           }
-          return properties;
+          return event;
         },
       });
       
@@ -78,7 +78,6 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           stack: event.reason?.stack,
         });
       });
-      
     } else if (process.env.NODE_ENV === 'development') {
       errorLogger.warning(
         ErrorCategory.GENERAL,

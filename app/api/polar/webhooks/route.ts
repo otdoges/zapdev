@@ -1,7 +1,7 @@
 import { Webhooks } from '@polar-sh/nextjs';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
-async function handleSubscription(subscription: any) {
+async function handleSubscription(subscription: Record<string, unknown>) {
   if (!supabaseAdmin) {
     console.error('Supabase admin client not available - cannot process subscription webhook');
     return;
@@ -11,21 +11,21 @@ async function handleSubscription(subscription: any) {
     .from('subscriptions')
     .upsert({
       id: subscription.id,
-      user_id: subscription.customer_id, // Assuming customer_id is the supabase user_id
-      status: subscription.status,
-      price_id: subscription.price.id,
-      cancel_at_period_end: subscription.cancel_at_period_end,
-      current_period_start_at: subscription.current_period_start,
-      current_period_end_at: subscription.current_period_end,
-      ended_at: subscription.ended_at,
-      cancel_at: subscription.cancel_at,
-      canceled_at: subscription.canceled_at,
-      trial_start_at: subscription.trial_start,
-      trial_end_at: subscription.trial_end,
+      user_id: (subscription as { customer_id?: string }).customer_id, // Assuming customer_id is the supabase user_id
+      status: (subscription as { status?: string }).status,
+      price_id: (subscription as { price?: { id?: string } }).price?.id,
+      cancel_at_period_end: (subscription as { cancel_at_period_end?: boolean }).cancel_at_period_end,
+      current_period_start_at: (subscription as { current_period_start?: string }).current_period_start,
+      current_period_end_at: (subscription as { current_period_end?: string }).current_period_end,
+      ended_at: (subscription as { ended_at?: string }).ended_at,
+      cancel_at: (subscription as { cancel_at?: string }).cancel_at,
+      canceled_at: (subscription as { canceled_at?: string }).canceled_at,
+      trial_start_at: (subscription as { trial_start?: string }).trial_start,
+      trial_end_at: (subscription as { trial_end?: string }).trial_end,
     });
 }
 
-async function handleProduct(product: any) {
+async function handleProduct(product: Record<string, unknown>) {
   if (!supabaseAdmin) {
     console.error('Supabase admin client not available - cannot process product webhook');
     return;
@@ -35,10 +35,10 @@ async function handleProduct(product: any) {
     .from('products')
     .upsert({
       id: product.id,
-      active: product.is_archived ? false : true,
-      name: product.name,
-      description: product.description,
-      image: product.image,
+      active: (product as { is_archived?: boolean }).is_archived ? false : true,
+      name: (product as { name?: string }).name,
+      description: (product as { description?: string }).description,
+      image: (product as { image?: string }).image,
     });
 
   if (product.prices) {

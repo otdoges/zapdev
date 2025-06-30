@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Sparkles } from 'lucide-react';
 import { Message } from '@/lib/stores/chat-store';
-import { groqModelConfigs } from '@/lib/groq-provider';
+
 import MessageItem from './message-item';
 import TypingIndicator from './typing-indicator';
 

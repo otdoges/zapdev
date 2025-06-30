@@ -34,6 +34,37 @@
     --off-white: #eaeaea;
     --deep-violet: #6c52a0;
     --warm-pink: #a0527c;
+    
+    /* Performance-optimized theme transition */
+    --color-transition-duration: 0.15s;
+  }
+
+  /* Light theme support for better accessibility */
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    
+    --charcoal: #ffffff;
+    --off-white: #0a0a0a;
+    --deep-violet: #8b5fd6;
+    --warm-pink: #d65f8b;
   }
 }
 
@@ -45,13 +76,26 @@
     box-sizing: border-box;
   }
 
+  /* Prevent color flashing with preload styles */
+  html {
+    color-scheme: dark;
+    background-color: #0d0d10;
+    height: 100%;
+  }
+
+  html.light {
+    color-scheme: light;
+    background-color: #ffffff;
+  }
+
   html,
   body {
     width: 100%;
     height: 100%;
     overflow-x: hidden;
-    background-color: #0d0d10;
-    color: #eaeaea;
+    /* Remove hard-coded colors to prevent theme conflicts */
+    transition: background-color var(--color-transition-duration) ease,
+                color var(--color-transition-duration) ease;
   }
 
   body {
@@ -72,6 +116,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
+    /* Prevent layout shifts */
+    contain: layout style;
   }
 
   #__next {
@@ -97,12 +143,13 @@
   color: var(--deep-violet);
 }
 
-/* Gradient classes */
+/* Optimized gradient classes - reduced complexity for performance */
 .text-gradient {
   background: linear-gradient(135deg, var(--deep-violet) 0%, var(--warm-pink) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  will-change: auto; /* Only animate when needed */
 }
 
 .primary-gradient {
@@ -113,6 +160,7 @@
   background: linear-gradient(135deg, var(--warm-pink) 0%, var(--deep-violet) 100%);
 }
 
+/* Performance-optimized shimmer effect - only on hover/focus for low-end devices */
 .shimmer-effect {
   background: linear-gradient(
     90deg,
@@ -124,75 +172,50 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: shimmer 3s ease-in-out infinite;
 }
 
-/* Mouse glow effect */
-.mouse-glow {
-  position: fixed;
-  pointer-events: none;
-  z-index: 1;
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(
-    circle,
-    rgba(108, 82, 160, 0.15) 0%,
-    rgba(160, 82, 124, 0.05) 50%,
-    transparent 70%
-  );
-  transform: translate(-50%, -50%);
-  transition: opacity 0.3s ease;
+/* Reduced motion for accessibility and performance */
+@media (prefers-reduced-motion: no-preference) {
+  .shimmer-effect:hover,
+  .shimmer-effect:focus {
+    animation: shimmer 2s ease-in-out;
+  }
 }
 
-/* Glass effect */
+/* Lightweight glass effect - reduced blur for performance */
 .glass-effect {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(4px); /* Reduced from 10px */
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Modern shadow */
+/* Performance-optimized shadows */
 .modern-shadow {
   box-shadow:
-    0 20px 25px -5px rgba(0, 0, 0, 0.1),
-    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    0 4px 8px -2px rgba(0, 0, 0, 0.1),
+    0 2px 4px -2px rgba(0, 0, 0, 0.06);
 }
 
-/* Button hover effects */
+/* Optimized button hover effects */
 .button-hover-effect {
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  will-change: transform;
 }
 
 .button-hover-effect:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(108, 82, 160, 0.2);
+  transform: translateY(-1px); /* Reduced from -2px */
 }
 
-/* Animation classes */
+/* Reduced animation classes for performance */
 .fade-in-up {
-  animation: fadeInUp 0.6s ease-out forwards;
+  animation: fadeInUp 0.4s ease-out forwards;
 }
 
-.pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite alternate;
-}
-
-/* Full screen background */
-.full-screen-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: linear-gradient(
-    135deg,
-    #0d0d10 0%,
-    #1a1a20 25%,
-    #0d0d10 50%,
-    #161618 75%,
-    #0d0d10 100%
-  );
-  z-index: -1;
+/* Only animate pulse on user interaction */
+.pulse-glow:hover,
+.pulse-glow:focus {
+  animation: pulse-glow 1s ease-in-out;
 }
 
 /* Monaco editor styling */
@@ -213,9 +236,9 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar for WebContainer */
+/* Optimized scrollbars */
 .scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
+  width: 3px; /* Thinner for better performance */
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
@@ -231,21 +254,21 @@
   background: #666;
 }
 
-/* Improved scrollbars */
+/* Performance-optimized global scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  transition: background 0.2s ease;
+  border-radius: 2px;
+  transition: background 0.15s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -263,22 +286,7 @@
   color: white;
 }
 
-/* Animations */
-@keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-}
-
+/* Performance-optimized animations */
 @keyframes shimmer {
   0% {
     background-position: -100% 0;
@@ -291,7 +299,7 @@
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px); /* Reduced from 10px */
   }
   to {
     opacity: 1;
@@ -305,31 +313,70 @@
   }
   100% {
     box-shadow:
-      0 0 20px rgba(108, 82, 160, 0.8),
-      0 0 30px rgba(160, 82, 124, 0.6);
+      0 0 15px rgba(108, 82, 160, 0.7),
+      0 0 25px rgba(160, 82, 124, 0.5);
   }
 }
 
-@keyframes ripple {
+/* Removed infinite blob animation for performance */
+/* Loading states for better UX */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+.dark .loading-skeleton {
+  background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+  background-size: 200% 100%;
+}
+
+@keyframes loading {
   0% {
-    transform: scale(0.5);
-    opacity: 0.6;
+    background-position: 200% 0;
   }
   100% {
-    transform: scale(2);
-    opacity: 0;
+    background-position: -200% 0;
   }
 }
 
-/* Utility classes */
-.animate-blob {
-  animation: blob 7s infinite;
+/* Error states */
+.error-state {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
 }
 
-.animation-delay-2000 {
-  animation-delay: 2s;
+/* Success states */
+.success-state {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  color: #22c55e;
 }
 
-.animation-delay-4000 {
-  animation-delay: 4s;
+/* Performance utilities */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
 }
+
+.no-transitions {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Responsive performance */
+@media (max-width: 768px) {
+  .glass-effect {
+    backdrop-filter: blur(2px); /* Further reduced on mobile */
+    -webkit-backdrop-filter: blur(2px);
+  }
+  
+  /* Disable animations on low-end devices */
+  .reduce-motion * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+

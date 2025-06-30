@@ -1,0 +1,121 @@
+---
+description: Fixing UI/UX things
+globs: 
+alwaysApply: false
+---
+# Theme Management and Styling Guidelines
+
+## Anti-Flashing Theme System
+
+ZapDev implements a **zero-flash theme system** that prevents color flickering during page loads and theme switches.
+
+## Critical CSS Implementation
+- **Location**: [app/layout.tsx](mdc:app/layout.tsx)
+- **Inline Critical CSS**: Prevents FOUC (Flash of Unstyled Content)
+- **Theme Preloading**: Script in layout sets theme before hydration
+- **Loading States**: `.theme-loading` and `.theme-loaded` classes
+
+## Global Styles Architecture
+- **Primary Styles**: [app/globals.css](mdc:app/globals.css)
+- **Duplicate Removal**: No conflicting CSS files (styles/globals.css removed)
+- **Theme Variables**: CSS custom properties for both dark and light themes
+
+## Theme Structure
+
+### Dark Theme (Default)
+```css
+:root {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --charcoal: #0d0d10;
+  --off-white: #eaeaea;
+  --deep-violet: #6c52a0;
+  --warm-pink: #a0527c;
+}
+```
+
+### Light Theme Support  
+```css
+.light {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --charcoal: #ffffff;
+  --off-white: #0a0a0a;
+  --deep-violet: #8b5fd6;
+  --warm-pink: #d65f8b;
+}
+```
+
+## Performance-Optimized Styling
+
+### Animation Guidelines
+- **Infinite animations**: Removed or converted to user-triggered
+- **Heavy effects**: Reduced backdrop-filter blur (10px → 4px)
+- **Mobile optimization**: Further reduced effects (4px → 2px)
+- **Accessibility**: Respects `prefers-reduced-motion`
+
+### Responsive Performance Classes
+```css
+.reduce-motion * {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+.performance-mode * {
+  transition: none !important;
+  animation: none !important;
+}
+```
+
+## Theme Switching Best Practices
+
+1. **Never use hard-coded colors** in components
+2. **Always use CSS custom properties** for theme-aware styling  
+3. **Test both themes** for accessibility and contrast
+4. **Use transition timing** of 0.15s for smooth changes
+5. **Implement loading states** to prevent flashing
+
+## Component Styling Standards
+
+### Loading Components
+- **Location**: [components/loading-fallback.tsx](mdc:components/loading-fallback.tsx)
+- **Consistent styling** across all loading states
+- **Theme-aware colors** using custom properties
+- **Performance-optimized animations**
+
+### Glass Effects
+```css
+.glass-effect {
+  backdrop-filter: blur(4px); /* Reduced for performance */
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Mobile optimization */
+@media (max-width: 768px) {
+  .glass-effect {
+    backdrop-filter: blur(2px);
+  }
+}
+```
+
+## Color Utility Classes
+
+### Brand Colors
+- `.bg-charcoal` - Primary background
+- `.text-off-white` - Primary text  
+- `.bg-deep-violet` - Brand purple
+- `.text-deep-violet` - Brand purple text
+- `.primary-gradient` - Violet to pink gradient
+- `.cta-gradient` - Pink to violet gradient
+
+### State Classes  
+- `.loading-skeleton` - Shimmer loading effect
+- `.error-state` - Error styling
+- `.success-state` - Success styling
+
+## Accessibility Requirements
+
+- **Color contrast**: Minimum 4.5:1 ratio for text
+- **Reduced motion**: Honor user preferences
+- **Focus indicators**: Clear, visible focus rings
+- **Theme persistence**: Stored in localStorage as `zapdev-theme`

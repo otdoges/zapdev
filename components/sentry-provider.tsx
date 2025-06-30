@@ -31,7 +31,7 @@ export function SentryProvider({ children }: SentryProviderProps) {
     const originalError = errorLogger.error
     const originalWarning = errorLogger.warning
 
-    errorLogger.error = (category: ErrorCategory, message: string, ...args: any[]) => {
+    errorLogger.error = (category: ErrorCategory, message: string, ...args: unknown[]) => {
       // Call original logger
       originalError.call(errorLogger, category, message, ...args)
 
@@ -47,7 +47,7 @@ export function SentryProvider({ children }: SentryProviderProps) {
       })
     }
 
-    errorLogger.warning = (category: ErrorCategory, message: string, ...args: any[]) => {
+    errorLogger.warning = (category: ErrorCategory, message: string, ...args: unknown[]) => {
       // Call original logger
       originalWarning.call(errorLogger, category, message, ...args)
 
@@ -81,13 +81,32 @@ export function SentryProvider({ children }: SentryProviderProps) {
           email: user.email,
           username: user.name,
         })
-      } catch (e) {
+      } catch (_e) {
         // Ignore parse errors
       }
     } else {
       Sentry.setUser(null)
     }
   }, [])
+
+  useEffect(() => {
+    // Initialize Sentry only if DSN is provided
+    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+      Sentry.init({
+        dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+        integrations: [
+          Sentry.replayIntegration({
+            maskAllText: false,
+            blockAllMedia: false,
+          }),
+        ],
+        tracesSampleRate: 1.0,
+        replaysSessionSampleRate: 0.1,
+        replaysOnErrorSampleRate: 1.0,
+        debug: process.env.NODE_ENV === 'development',
+      });
+    }
+  }, []);
 
   return <>{children}</>
 }

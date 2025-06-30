@@ -1,209 +1,164 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { motion } from 'framer-motion';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Chrome } from 'lucide-react';
+import { AUTH_REDIRECTS } from '@/lib/auth-constants';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
+import { errorLogger, ErrorCategory } from '@/lib/error-logger';
+import { Label } from '@/components/ui/label';
+import { FancyLoadingScreen } from '@/components/fancy-loading-screen';
 
-export default function AuthFormContainer() {
+interface AuthFormContainerProps {
+  mode: 'signin' | 'signup';
+}
+
+export default function AuthFormContainer({ mode }: AuthFormContainerProps) {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('login');
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
-  // Set the active tab based on URL query parameter
+  // Check for existing session
   useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab === 'login' || tab === 'signup') {
-      setActiveTab(tab);
-    }
-  }, [searchParams]);
-
-  // Handle login with real Supabase authentication
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) {
-        setError(authError.message);
-        setIsLoading(false);
-        return;
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push(AUTH_REDIRECTS.afterLogin);
       }
+    };
 
-      if (data.user) {
-        router.push('/chat');
-      }
-    } catch (error) {
-      setError('An unexpected error occurred. Please try again.');
-      setIsLoading(false);
-    }
-  };
+    checkSession();
+  }, [router]);
 
-  // Handle signup with real Supabase authentication
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
-    // Validate
-    if (!name.trim()) {
-      setError('Name is required');
-      setIsLoading(false);
-      return;
-    }
-
+  const handleGoogleSignIn = async () => {
     try {
-      const { data, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
+      setGoogleLoading(true);
+      setError('');
+      
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
         options: {
-          data: {
-            full_name: name,
-          },
+          redirectTo: `${window.location.origin}/auth/callback?next=${AUTH_REDIRECTS.afterLogin}`,
         },
       });
 
-      if (authError) {
-        setError(authError.message);
-        setIsLoading(false);
-        return;
-      }
+      if (signInError) throw signInError;
+    } catch (__error) {
+      errorLogger.error(ErrorCategory.AUTH, 'Google sign-in failed', { error: _error });
+      setError('Google sign-in failed. Please try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
-      if (data.user) {
-        // Check if email confirmation is required
-        if (!data.session) {
-          setError('Please check your email for a confirmation link before signing in.');
-          setIsLoading(false);
-          return;
-        }
-        router.push('/chat');
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      if (mode === 'signin') {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (signInError) throw signInError;
+        
+        // Redirect on success
+        router.push(AUTH_REDIRECTS.afterLogin);
+      } else {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${AUTH_REDIRECTS.afterLogin}`,
+          },
+        });
+        
+        if (signUpError) throw signUpError;
+        
+        // Show confirmation message
+        setError('');
+        alert('Check your email for the confirmation link!');
       }
-    } catch (error) {
-      setError('An unexpected error occurred. Please try again.');
-      setIsLoading(false);
+    } catch (__error) {
+      errorLogger.error(
+        ErrorCategory.AUTH,
+        `${mode === 'signin' ? 'Sign in' : 'Sign up'} failed`,
+        { error: _error }
+      );
+      setError('Authentication failed. Please check your credentials and try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <Card className="border border-[#1E1E24] bg-[#121215]">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-4 grid grid-cols-2 bg-[#0D0D10]">
-          <TabsTrigger value="login">Login</TabsTrigger>
-          <TabsTrigger value="signup">Sign Up</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="login" className="p-6">
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="hello@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="border-[#1E1E24] bg-[#0D0D10]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <a href="#" className="text-xs text-[#EAEAEA]/70 hover:text-[#EAEAEA]">
-                  Forgot password?
-                </a>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border-[#1E1E24] bg-[#0D0D10]"
-              />
-            </div>
-
-            {error && <p className="text-sm text-red-500">{error}</p>}
-
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C]"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </form>
-        </TabsContent>
-
-        <TabsContent value="signup" className="p-6">
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="John Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="border-[#1E1E24] bg-[#0D0D10]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="signup-email">Email</Label>
-              <Input
-                id="signup-email"
-                type="email"
-                placeholder="hello@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="border-[#1E1E24] bg-[#0D0D10]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="signup-password">Password</Label>
-              <Input
-                id="signup-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border-[#1E1E24] bg-[#0D0D10]"
-              />
-            </div>
-
-            {error && <p className="text-sm text-red-500">{error}</p>}
-
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C]"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Creating account...' : 'Create Account'}
-            </Button>
-          </form>
-        </TabsContent>
-      </Tabs>
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-sm font-medium">{mode === 'signin' ? 'Sign In' : 'Sign Up'}</CardTitle>
+        <CardDescription>{error}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <div className="grid gap-2">
+          <Label className="sr-only" htmlFor="email">
+            Email
+          </Label>
+          <Input
+            id="email"
+            placeholder="name@example.com"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="border-[#1E1E24] bg-[#0D0D10]"
+            required
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label className="sr-only" htmlFor="password">
+            Password
+          </Label>
+          <Input
+            id="password"
+            placeholder="********"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="border-[#1E1E24] bg-[#0D0D10]"
+            required
+          />
+        </div>
+        <Button
+          onClick={handleEmailAuth}
+          className="w-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C]"
+          disabled={loading}
+        >
+          {loading ? 'Signing in...' : mode === 'signin' ? 'Sign In' : 'Sign Up'}
+        </Button>
+      </CardContent>
+      <CardFooter>
+        <div className="w-full">
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">
+              {mode === 'signin' ? 'Or continue with' : 'Already have an account?'}
+            </span>
+          </div>
+          <Link
+            href={mode === 'signin' ? '/signup' : '/signin'}
+            className="w-full bg-background text-sm text-muted-foreground hover:underline"
+          >
+            {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+          </Link>
+        </div>
+      </CardFooter>
     </Card>
   );
 }

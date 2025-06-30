@@ -43,7 +43,7 @@ export function ChunkErrorHandler() {
 
     // Handle script/chunk loading errors - but be more specific
     const handleError = (event: Event) => {
-      const target = event.target as any;
+      const target = event.target as HTMLScriptElement;
       if (target && target.tagName === 'SCRIPT') {
         const src = target.src || '';
         // Only trigger for actual Next.js chunk files, not all scripts

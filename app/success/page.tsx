@@ -3,8 +3,12 @@ import { getStripeClient } from '../../lib/stripe'; // Adjusted path
 import Link from 'next/link';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
-export default async function SuccessPage({ searchParams }: any) {
-  const sessionId = searchParams.session_id;
+export default async function SuccessPage({ 
+  searchParams 
+}: { 
+  searchParams: { [key: string]: string | string[] | undefined } 
+}) {
+  const sessionId = Array.isArray(searchParams.session_id) ? searchParams.session_id[0] : searchParams.session_id;
   const stripe = getStripeClient();
 
   if (!sessionId) {
@@ -104,7 +108,7 @@ export default async function SuccessPage({ searchParams }: any) {
       `Stripe session ${sessionId} has status: ${session.status}. Redirecting to home with error.`
     );
     return redirect('/?error=payment_not_completed');
-  } catch (error: any) {
+  } catch (error: unknown) {
     errorLogger.error(
       ErrorCategory.GENERAL,
       `Error retrieving Stripe session ${sessionId}:`,

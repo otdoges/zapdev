@@ -64,6 +64,9 @@ export default function Error({
           {error.digest && (
             <p className="font-mono text-sm text-[#EAEAEA]/50">Error ID: {error.digest}</p>
           )}
+          <p className="mt-2 text-base text-gray-400">
+            We've logged this issue and we'll look into it.
+          </p>
         </motion.div>
 
         {/* Action Buttons */}

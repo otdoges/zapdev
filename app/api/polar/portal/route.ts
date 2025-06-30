@@ -1,5 +1,5 @@
 import { CustomerPortal } from '@polar-sh/nextjs';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
@@ -8,7 +8,7 @@ const accessToken = process.env.POLAR_ACCESS_TOKEN;
 const server = (process.env.POLAR_SERVER as 'sandbox' | 'production') || 'sandbox';
 
 export const GET = !accessToken
-  ? async (request: NextRequest) => {
+  ? async () => {
       errorLogger.error(ErrorCategory.API, 'POLAR_ACCESS_TOKEN is not configured');
       return NextResponse.json(
         { error: 'Customer portal not available. Please contact support.' },
@@ -17,7 +17,7 @@ export const GET = !accessToken
     }
   : CustomerPortal({
       accessToken,
-      getCustomerId: async (req: NextRequest) => {
+      getCustomerId: async () => {
         // Get the current session to identify the customer
         const supabase = await createClient();
         const {

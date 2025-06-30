@@ -27,7 +27,7 @@ import {
   Maximize2,
   Minimize2,
   ArrowLeft,
-  Settings,
+
   BarChart3,
   Brain,
 } from 'lucide-react';
@@ -47,7 +47,19 @@ const BackButton = ({ onClick }: { onClick: () => void }) => (
   </motion.button>
 );
 
-const StatsDisplay = ({ stats }: { stats: any }) => (
+interface TokenStats {
+  tokens?: number;
+  characters?: number;
+  words?: number;
+  totalTokens?: number;
+  totalCost?: number;
+  used?: number;
+  remaining?: number;
+  percentage?: number;
+  availableModels?: number;
+}
+
+const StatsDisplay = ({ stats }: { stats: TokenStats }) => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
@@ -69,14 +81,13 @@ export default function ChatPage() {
   const params = useParams();
   const chatId = params.id as string;
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
-  const [tokenStats, setTokenStats] = useState<any>(null);
+  const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const [generatedCode, setGeneratedCode] = useState<string>('');
   const [hasMessagesSent, setHasMessagesSent] = useState(false);
-  const [aiTeamProject, setAiTeamProject] = useState<any>(null);
+  const [aiTeamProject, setAiTeamProject] = useState<object | null>(null);
   const [showWebContainer, setShowWebContainer] = useState(false);
   const { user, loading } = useSupabase();
   const isAuthenticated = !!user;
-  const isLoading = loading;
 
   // Memoized handlers
   const handleBack = useMemo(() => () => router.push('/chat'), [router]);

@@ -18,7 +18,7 @@ function AuthContent() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  const { signInWithGitHub, signInWithEmail, signUpWithEmail, resetPassword, user, loading } =
+  const { signInWithGitHub, signInWithEmail, signUpWithEmail, user, loading } =
     useSupabase();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -144,10 +144,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
           setMessage('Sign in successful! Redirecting...');
         }
       }
-    } catch (error) {
-      setError(
-        isSignUp ? 'Sign up failed. Please try again.' : 'Sign in failed. Please try again.'
-      );
+            } catch {
+          setError(
+            isSignUp ? 'Sign up failed. Please try again.' : 'Sign in failed. Please try again.'
+          );
     } finally {
       setIsLoading(false);
     }

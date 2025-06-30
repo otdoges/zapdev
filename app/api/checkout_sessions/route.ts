@@ -40,11 +40,12 @@ export async function POST() {
     }
 
     return NextResponse.redirect(session.url, { status: 303 });
-  } catch (err: any) {
-    errorLogger.error(ErrorCategory.API, 'Stripe API error:', err.message);
-    const statusCode = typeof err.statusCode === 'number' ? err.statusCode : 500;
+  } catch (err: unknown) {
+    const error = err as { message?: string; statusCode?: number };
+    errorLogger.error(ErrorCategory.API, 'Stripe API error:', error.message || 'Unknown error');
+    const statusCode = typeof error.statusCode === 'number' ? error.statusCode : 500;
     return NextResponse.json(
-      { error: err.message || 'An unknown error occurred' },
+      { error: error.message || 'An unknown error occurred' },
       { status: statusCode }
     );
   }

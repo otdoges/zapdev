@@ -14,10 +14,11 @@ function makeQueryClient() {
         // Cache time: data stays in cache for 10 minutes after becoming stale
         gcTime: 10 * 60 * 1000,
         // Retry failed requests with exponential backoff
-        retry: (failureCount, error: any) => {
-          // Don't retry on 4xx errors except 408 (timeout) and 429 (rate limit)
-          if (error?.status && error.status >= 400 && error.status < 500 && 
-              error.status !== 408 && error.status !== 429) {
+                  retry: (failureCount, error: unknown) => {
+            // Don't retry on 4xx errors except 408 (timeout) and 429 (rate limit)
+            const errorStatus = (error as { status?: number })?.status;
+            if (errorStatus && errorStatus >= 400 && errorStatus < 500 && 
+                errorStatus !== 408 && errorStatus !== 429) {
             return false
           }
           // Retry up to 3 times
@@ -54,19 +55,22 @@ function getQueryClient() {
 }
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
-  // NOTE: useState is used to avoid re-creating on every render
-  const [queryClient] = useState(() => getQueryClient())
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 60 * 1000, // 1 minute
+            retry: 1,
+          },
+        },
+      }),
+  )
 
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {process.env.NODE_ENV === 'development' && (
-        <ReactQueryDevtools 
-          initialIsOpen={false} 
-          position="bottom"
-          buttonPosition="bottom-left"
-        />
-      )}
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   )
 }

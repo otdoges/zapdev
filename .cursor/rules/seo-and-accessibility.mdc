@@ -1,0 +1,143 @@
+---
+description: SEO
+globs: 
+alwaysApply: false
+---
+# SEO and Accessibility Standards
+
+## SEO Architecture
+
+ZapDev implements comprehensive SEO optimization for maximum search engine visibility and user accessibility.
+
+## Metadata Implementation
+- **Layout**: [app/layout.tsx](mdc:app/layout.tsx)
+- **Structured Data**: JSON-LD schema for SoftwareApplication
+- **Open Graph**: Complete social media optimization
+- **Twitter Cards**: Summary with large image support
+
+## Site Structure
+
+### Sitemap Generation
+- **Dynamic Sitemap**: [app/sitemap.ts](mdc:app/sitemap.ts)  
+- **Auto-generated**: Updates with page changes
+- **Priority System**: Homepage (1.0) → Chat (0.9) → Pricing (0.8)
+
+### Robots.txt
+- **Location**: [public/robots.txt](mdc:public/robots.txt)
+- **Crawl Control**: Allows main sections, blocks sensitive areas
+- **Sitemap Reference**: Points to dynamic sitemap.xml
+
+### Web Manifest
+- **PWA Support**: [public/site.webmanifest](mdc:public/site.webmanifest)
+- **App-like Experience**: Standalone display mode
+- **Shortcuts**: Quick access to Chat and Pricing
+- **Icons**: Multiple sizes for all devices
+
+## Technical SEO Features
+
+### Performance Optimization
+```typescript
+// From layout.tsx
+export const metadata: Metadata = {
+  title: {
+    default: 'ZapDev - Build Amazing Apps with AI',
+    template: '%s | ZapDev', // SEO-friendly title templates
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+};
+```
+
+### Resource Preloading
+- **DNS Prefetch**: API endpoints (api.groq.com, openrouter.ai)
+- **Preconnect**: Google Fonts
+- **Critical Resources**: Favicon and core assets
+
+## Accessibility Standards
+
+### Color and Contrast
+- **WCAG AA Compliance**: Minimum 4.5:1 contrast ratio
+- **Theme Support**: Both dark and light themes accessible
+- **Color Independence**: No information conveyed by color alone
+
+### Motion and Animation
+- **Reduced Motion**: Respects `prefers-reduced-motion: reduce`
+- **Performance Mode**: Auto-disables animations on low-end devices
+- **User Control**: Animations can be disabled via system preferences
+
+### Keyboard Navigation
+- **Focus Management**: Clear focus indicators on all interactive elements
+- **Tab Order**: Logical navigation sequence
+- **Focus Rings**: Visible 2px outline using brand colors
+
+### Screen Reader Support
+- **Semantic HTML**: Proper heading hierarchy (h1 → h2 → h3)
+- **ARIA Labels**: Descriptive labels for complex interactions
+- **Role Attributes**: `role="main"` for primary content areas
+- **Alt Text**: Descriptive alternative text for all images
+
+## Content Strategy
+
+### Structured Data Schema
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ZapDev",
+  "applicationCategory": "DeveloperApplication",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+```
+
+### Meta Tags Best Practices
+- **Description Length**: 150-160 characters for optimal display
+- **Keyword Strategy**: Focus on AI development, no-code, app building
+- **Local SEO**: Not applicable (global SaaS product)
+
+## Performance SEO
+
+### Core Web Vitals Optimization
+- **LCP Target**: < 2.5 seconds
+- **FID Target**: < 100 milliseconds  
+- **CLS Target**: < 0.1
+- **Performance Monitoring**: Built into [components/performance-optimizer.tsx](mdc:components/performance-optimizer.tsx)
+
+### Image Optimization
+- **Modern Formats**: WebP and AVIF support configured
+- **Lazy Loading**: `loading="lazy"` for non-critical images
+- **Responsive Images**: Multiple sizes for different devices
+- **Alt Text**: Required for all images
+
+## Monitoring and Testing
+
+### Available Tools
+```bash
+# Performance analysis
+bun run perf-check
+
+# Lighthouse audit  
+bun run lighthouse
+
+# Bundle analysis
+bun run bundle-analyze
+```
+
+### SEO Checklist
+- ✅ Structured data implemented
+- ✅ Meta tags optimized  
+- ✅ Sitemap.xml auto-generated
+- ✅ Robots.txt configured
+- ✅ PWA manifest included
+- ✅ Performance optimized
+- ✅ Accessibility compliance
+- ✅ Mobile-first responsive design

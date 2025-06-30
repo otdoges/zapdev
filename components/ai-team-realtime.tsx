@@ -23,7 +23,7 @@ interface AIAgent {
   role: string;
   status: 'idle' | 'working' | 'complete' | 'error';
   currentTask?: string;
-  result?: any;
+  result?: object;
   progress?: number;
   startTime?: Date;
   endTime?: Date;
@@ -31,7 +31,7 @@ interface AIAgent {
 
 interface AITeamRealtimeProps {
   userRequest: string;
-  onComplete?: (result: any) => void;
+  onComplete?: (result: object) => void;
   onError?: (error: string) => void;
   className?: string;
 }
@@ -77,7 +77,7 @@ export default function AITeamRealtime({
 }: AITeamRealtimeProps) {
   const [agents, setAgents] = useState<AIAgent[]>(initialAgents);
   const [currentAgent, setCurrentAgent] = useState<string | null>(null);
-  const [teamResults, setTeamResults] = useState<Record<string, any>>({});
+  const [teamResults, setTeamResults] = useState<Record<string, object>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [overallProgress, setOverallProgress] = useState(0);
@@ -173,7 +173,7 @@ export default function AITeamRealtime({
     agentId: string,
     status: AIAgent['status'],
     task?: string,
-    result?: any
+    result?: object
   ) => {
     setAgents((prev) =>
       prev.map((agent) => {

@@ -1,21 +1,28 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
+import { ArrowRight, Sparkles, Zap, Code2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import useIsMobile from '@/hooks/useIsMobile';
 
 export default function Hero() {
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [isLoaded, setIsLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const particlesRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const isMobile = useIsMobile();
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  const [startTime] = useState(Date.now());
+
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isLoaded, setIsLoaded] = useState(false);
+  const particlesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
     setIsLoaded(true);
   }, []);
 
@@ -26,9 +33,11 @@ export default function Hero() {
       setMousePosition({ x: e.clientX, y: e.clientY });
 
       if (particlesRef.current) {
-        const particles = particlesRef.current.children;
+        const particles = particlesRef.current.querySelectorAll('.floating-particle');
+
         for (let i = 0; i < particles.length; i++) {
           const particle = particles[i] as HTMLElement;
+          const speed = parseFloat(particle.dataset.speed || '1');
           const rect = particle.getBoundingClientRect();
           const particleX = rect.left + rect.width / 2;
           const particleY = rect.top + rect.height / 2;
@@ -40,8 +49,8 @@ export default function Hero() {
 
           if (distance < maxDistance) {
             const intensity = 1 - distance / maxDistance;
-            const moveX = distX * intensity * 0.03;
-            const moveY = distY * intensity * 0.03;
+            const moveX = distX * intensity * 0.03 * speed;
+            const moveY = distY * intensity * 0.03 * speed;
 
             particle.style.transform = `translate(${moveX}px, ${moveY}px)`;
           } else {
@@ -187,6 +196,14 @@ export default function Hero() {
             Start building amazing websites today
           </div>
         </motion.div>
+
+        <p className="mb-8 text-lg text-[#EAEAEA]/70 md:text-xl">
+          Build complex apps 10x faster with our AI-powered platform that's designed for developers like you.
+        </p>
+
+        <p className="mb-8 text-lg text-[#EAEAEA]/70 md:text-xl">
+          Whether you're starting a new project or enhancing an existing one, ZapDev streamlines your entire development workflow.
+        </p>
       </motion.div>
 
       {/* Interface Preview */}

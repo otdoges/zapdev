@@ -33,12 +33,13 @@ export async function POST(req: Request) {
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!);
-  } catch (err: any) {
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    return NextResponse.json({ error: `Webhook Error: ${error.message || 'Unknown error'}` }, { status: 400 });
   }
 
   // Check if this is an event type we want to handle
-  if (!allowedEvents.includes(event.type as any)) {
+  if (!allowedEvents.includes(event.type as string)) {
     return NextResponse.json({
       received: true,
       message: `Skipping unhandled event type: ${event.type}`,

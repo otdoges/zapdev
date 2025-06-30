@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Home, ArrowLeft, Search } from 'lucide-react';
+import { Home, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function NotFound() {
@@ -31,9 +31,7 @@ export default function NotFound() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="mb-8"
         >
-          <h1 className="bg-gradient-to-r from-[#6C52A0] to-[#A0527C] bg-clip-text text-[150px] font-bold leading-none text-transparent">
-            404
-          </h1>
+          <h1 className="text-6xl font-bold text-white">404</h1>
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: '100%' }}

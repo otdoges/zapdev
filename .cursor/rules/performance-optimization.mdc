@@ -1,0 +1,73 @@
+---
+description: perfomance
+globs: 
+alwaysApply: false
+---
+# Performance Optimization Guidelines
+
+## Core Performance Principles
+
+ZapDev is optimized for **all device types**, from high-end computers to low-end mobile devices. Every feature must work reliably across different performance capabilities.
+
+## Performance Monitoring Components
+
+### PerformanceOptimizer Component
+- **Location**: [components/performance-optimizer.tsx](mdc:components/performance-optimizer.tsx)
+- **Purpose**: Automatically detects device capabilities and applies appropriate optimizations
+- **Key Features**:
+  - Device capability detection (CPU cores, RAM, connection speed)
+  - Automatic animation disabling on low-end devices
+  - Reduced motion support for accessibility
+  - Performance monitoring with Largest Contentful Paint tracking
+
+### CSS Performance Standards
+- **Location**: [app/globals.css](mdc:app/globals.css)
+- **Optimizations Applied**:
+  - Infinite animations converted to user-triggered only
+  - Backdrop-filter reduced from 10px to 4px blur
+  - Glass effects optimized for mobile (2px blur on small screens)
+  - Performance utilities added (.reduce-motion, .performance-mode)
+  - Responsive performance classes for low-end devices
+
+## Bundle Optimization
+
+### Next.js Configuration
+- **Location**: [next.config.mjs](mdc:next.config.mjs)
+- **Key Settings**:
+  - `optimizeCss: true` - CSS optimization enabled
+  - `optimizePackageImports` - Tree-shaking for framer-motion and lucide-react
+  - `removeConsole: true` in production
+  - Modern image formats (AVIF, WebP) configured
+
+### Performance Monitoring Scripts
+- **Performance Check**: [scripts/performance-check.js](mdc:scripts/performance-check.js)
+- **Usage**: `bun run perf-check`
+- **Analyzes**: Bundle size, CSS optimization, image optimization, dependencies
+
+## Performance Best Practices
+
+1. **Always use performance-optimized components** from [components/loading-fallback.tsx](mdc:components/loading-fallback.tsx)
+2. **Implement lazy loading** for images and heavy components
+3. **Use reduced motion classes** for accessibility
+4. **Test on low-end devices** using performance mode
+5. **Monitor bundle size** regularly with `bun run bundle-analyze`
+
+## Device Capability Detection
+
+```typescript
+// Example from PerformanceOptimizer
+const isLowEndDevice = () => {
+  const hardwareConcurrency = navigator.hardwareConcurrency || 1;
+  const deviceMemory = (navigator as any).deviceMemory || 1;
+  const connection = (navigator as any).connection;
+  
+  return hardwareConcurrency < 4 || deviceMemory < 4 || isSlowConnection;
+};
+```
+
+## Animation Guidelines
+
+- **Infinite animations**: Only on user interaction (hover/focus)
+- **Heavy effects**: Disabled automatically on low-end devices  
+- **Glass effects**: Reduced blur on mobile devices
+- **Transitions**: Maximum 0.3s duration for responsiveness

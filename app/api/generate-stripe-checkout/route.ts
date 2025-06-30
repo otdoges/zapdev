@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
     // Find the price that matches our product name
     const price = prices.data.find((p) => {
-      const product = p.product as any;
+      const product = p.product as { name?: string };
       return product.name === productName && p.active;
     });
 

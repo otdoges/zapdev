@@ -4,7 +4,7 @@ import { getGroqInstance } from '@/lib/groq-provider';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 // Helper to safely parse JSON from AI responses
-function safeJsonParse(text: string, defaultValue: any) {
+function safeJsonParse(text: string, defaultValue: Record<string, unknown>) {
   try {
     // Extract JSON from potential markdown code blocks
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);

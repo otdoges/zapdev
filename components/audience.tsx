@@ -20,11 +20,11 @@ export default function Audience() {
           transition={{ duration: 0.6 }}
           className="mb-16 text-center md:mb-24"
         >
-          <h2 className="mb-6 text-3xl font-bold md:text-5xl">
-            Whether You're a Creator or a Coder, ZapDev Empowers You
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 text-white">
+            Who's ZapDev For?
           </h2>
-          <p className="mx-auto max-w-2xl text-lg text-[#EAEAEA]/70">
-            A powerful platform that adapts to your skillset and workflow.
+          <p className="text-base text-[#EAEAEA]/70">
+            Turn your vision into reality with AI-powered development. From simple landing pages to complex web apps, we've got you covered. Build faster, ship sooner, and iterate with confidence.
           </p>
         </motion.div>
 
@@ -213,8 +213,8 @@ export default function Audience() {
                   <span className="text-orange-300">false</span>);
                   <br />
                   &nbsp;&nbsp;<span className="text-blue-400">return</span> (<br />
-                  &nbsp;&nbsp;&nbsp;&nbsp;&lt;<span className="text-red-400">div</span>&gt;...&lt;/
-                  <span className="text-red-400">div</span>&gt;
+                  &nbsp;&nbsp;&nbsp;&nbsp;<<span className="text-red-400">div</span>>...</
+                  <span className="text-red-400">div</span>>
                   <br />
                   &nbsp;&nbsp;);
                   <br />

@@ -1,0 +1,128 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Development Workflow and Optimization Tools
+
+## Package Management
+ZapDev uses **Bun** as the primary package manager. Always use `bun` commands instead of npm/yarn for consistency and performance.
+
+## Available Scripts
+
+### Core Development
+```bash
+bun run dev          # Start development server
+bun run build        # Production build
+bun run start        # Start production server
+bun run lint         # ESLint checking
+```
+
+### Performance and Analysis
+```bash
+bun run perf-check      # Comprehensive performance analysis
+bun run bundle-analyze  # Visual bundle size analysis  
+bun run lighthouse      # Lighthouse performance audit
+bun run analyze         # Build with bundle analyzer
+```
+
+### Optimization Scripts
+```bash
+bun run optimize-bundle    # Bundle optimization
+bun run remove-console     # Remove console logs
+bun run fix-chat          # Chat API fixes
+bun run fix-db            # Database fixes
+```
+
+## Performance Analysis Workflow
+
+### 1. Regular Performance Checks
+- **Tool**: [scripts/performance-check.js](mdc:scripts/performance-check.js)
+- **Usage**: `bun run perf-check`
+- **Analyzes**: Bundle size, CSS performance, image optimization, dependencies
+
+### 2. Bundle Analysis
+- **Configuration**: [next.config.mjs](mdc:next.config.mjs) with `ANALYZE=true`
+- **Visual Analysis**: Opens webpack-bundle-analyzer in browser
+- **Identifies**: Large dependencies, unused code, optimization opportunities
+
+### 3. Lighthouse Auditing
+- **Command**: `bun run lighthouse`
+- **Output**: HTML report in project root
+- **Metrics**: Performance, Accessibility, Best Practices, SEO
+
+## Code Quality Standards
+
+### TypeScript Configuration
+- **Strict Mode**: Enabled for type safety
+- **Build Errors**: Ignored during development for faster iteration
+- **ESLint**: Ignored during builds for deployment speed
+
+### Performance Optimization Guidelines
+1. **Always check device capabilities** using [components/performance-optimizer.tsx](mdc:components/performance-optimizer.tsx)
+2. **Use fallback systems** for critical features like WebContainer
+3. **Implement loading states** with [components/loading-fallback.tsx](mdc:components/loading-fallback.tsx)
+4. **Optimize for mobile first** with responsive performance classes
+
+## Build Optimization
+
+### Next.js Configuration
+- **CSS Optimization**: `optimizeCss: true`
+- **Package Imports**: Tree-shaking for framer-motion, lucide-react
+- **Console Removal**: Automatic in production builds
+- **Image Optimization**: Modern formats (AVIF, WebP)
+
+### Bundle Size Targets
+- **Total Bundle**: < 5MB for optimal performance
+- **Initial Load**: < 1MB for fast first paint
+- **Individual Chunks**: < 500KB for efficient loading
+
+## Development Environment Setup
+
+### Required Dependencies
+```json
+{
+  "runtime": "bun",
+  "node_version": ">=18.0.0",
+  "package_manager": "bun"
+}
+```
+
+### Environment Variables
+- **NEXT_PUBLIC_APP_URL**: Production domain for metadata
+- **ANALYZE**: Set to "true" for bundle analysis
+- **NODE_ENV**: Development/production environment
+
+## Testing Strategy
+
+### Performance Testing
+1. **Build Analysis**: `bun run build && bun run perf-check`
+2. **Lighthouse**: `bun run lighthouse` after starting dev server
+3. **Bundle Size**: `bun run bundle-analyze` for visual analysis
+
+### Device Testing
+- **Low-end Device Simulation**: DevTools performance throttling
+- **Network Simulation**: Slow 3G/2G connection testing
+- **Reduced Motion**: Test with accessibility preferences
+
+## Deployment Checklist
+
+1. ✅ **Performance Check**: `bun run perf-check` passes
+2. ✅ **Bundle Analysis**: No unexpected large dependencies
+3. ✅ **Lighthouse Score**: >90 for Performance, Accessibility, SEO
+4. ✅ **TypeScript**: No build-breaking errors
+5. ✅ **Environment Variables**: All production vars configured
+6. ✅ **SEO Metadata**: Sitemap and robots.txt generated
+7. ✅ **Fallback Systems**: WebContainer fallbacks tested
+
+## Monitoring and Maintenance
+
+### Regular Tasks
+- **Weekly**: Run performance checks
+- **Monthly**: Update dependencies and analyze bundle changes
+- **Quarterly**: Comprehensive Lighthouse audit and optimization review
+
+### Performance Regression Prevention
+- **Bundle Size Monitoring**: Alert if total size exceeds 5MB
+- **Core Web Vitals**: Monitor LCP, FID, CLS metrics
+- **Error Tracking**: Monitor WebContainer fallback usage rates

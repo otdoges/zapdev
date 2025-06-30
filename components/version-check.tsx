@@ -118,7 +118,7 @@ export function VersionCheck() {
         }
 
         setHasChecked(true);
-      } catch (error) {
+      } catch (_error) {
         // Silently fail for network errors
         errorLogger.warning(ErrorCategory.GENERAL, 'Error checking for updates:', error);
         setHasChecked(true);

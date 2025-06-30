@@ -75,7 +75,7 @@ export default function WebContainerRefactored({
         
         setIsLoading(false);
         addTerminalOutput('✅ Services initialized successfully');
-      } catch (error) {
+      } catch (_error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         setError(errorMessage);
         addTerminalOutput(`❌ Error: ${errorMessage}`);
@@ -130,7 +130,7 @@ export default function WebContainerRefactored({
       } else {
         throw new Error(result.message);
       }
-    } catch (error) {
+    } catch (_error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       addTerminalOutput(`❌ Setup error: ${errorMessage}`);
       setError(errorMessage);
@@ -153,7 +153,7 @@ export default function WebContainerRefactored({
 
       const status = aiTeamCoordinator.getServerStatus();
       setServerStatus(status);
-    } catch (error) {
+    } catch (_error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       addTerminalOutput(`❌ AI team error: ${errorMessage}`);
       setError('AI team development failed');

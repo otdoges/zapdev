@@ -9,17 +9,7 @@ interface BuildRequest {
   chatId?: string
 }
 
-interface BuildResponse {
-  success: boolean
-  chatId?: string
-  analysis: any
-  architecture: any
-  frontend: any
-  backend: any
-  deployment: any
-  projectFiles: Record<string, { file: { contents: string } }>
-  teamLog: string[]
-}
+// Build response is inlined where used for simplicity
 
 export async function POST(req: NextRequest) {
   try {
@@ -108,7 +98,7 @@ async function analyzeRequirements(userRequest: string) {
   return JSON.parse(text)
 }
 
-async function architectureDesign(userRequest: string, analysis: any) {
+async function architectureDesign(userRequest: string, analysis: object) {
   const { text } = await generateText({
     model: openrouterProvider.chat(getModelId('deepseek/deepseek-r1-0528-qwen3-8b:free')),
     prompt: `
@@ -131,7 +121,7 @@ async function architectureDesign(userRequest: string, analysis: any) {
   return JSON.parse(text)
 }
 
-async function frontendDevelopment(userRequest: string, architecture: any) {
+async function frontendDevelopment(userRequest: string, architecture: object) {
   const { text } = await generateText({
     model: openrouterProvider.chat(getModelId('agentica-org/deepcoder-14b-preview:free')),
     prompt: `
@@ -159,8 +149,8 @@ async function frontendDevelopment(userRequest: string, architecture: any) {
   return JSON.parse(text)
 }
 
-async function backendDevelopment(userRequest: string, architecture: any) {
-  const needsBackend = architecture.hasBackend || userRequest.toLowerCase().includes('api')
+async function backendDevelopment(userRequest: string, architecture: Record<string, unknown>) {
+  const needsBackend = (architecture as { hasBackend?: boolean }).hasBackend || userRequest.toLowerCase().includes('api')
   
   if (!needsBackend) {
     return { needsBackend: false }
@@ -187,14 +177,14 @@ async function backendDevelopment(userRequest: string, architecture: any) {
   return JSON.parse(text)
 }
 
-async function deploymentSetup(userRequest: string, architecture: any, frontend: any, backend: any) {
+async function deploymentSetup(userRequest: string, architecture: Record<string, unknown>, frontend: Record<string, unknown>, backend: Record<string, unknown>) {
   const { text } = await generateText({
     model: openrouterProvider.chat(getModelId('microsoft/phi-4-reasoning-plus:free')),
     prompt: `
-    Create deployment configuration for a ${architecture.projectType} project.
+    Create deployment configuration for a ${(architecture as { projectType?: string }).projectType || 'web'} project.
     
     Frontend: ${Object.keys(frontend).join(', ')}
-    Backend: ${backend.needsBackend ? 'Express server' : 'Static only'}
+    Backend: ${(backend as { needsBackend?: boolean }).needsBackend ? 'Express server' : 'Static only'}
 
     Respond in JSON format:
     {
@@ -213,13 +203,13 @@ async function deploymentSetup(userRequest: string, architecture: any, frontend:
   return JSON.parse(text)
 }
 
-async function generateProjectFiles(analysis: any, architecture: any, frontend: any, backend: any, deployment: any) {
+async function generateProjectFiles(analysis: Record<string, unknown>, architecture: Record<string, unknown>, frontend: Record<string, unknown>, backend: Record<string, unknown>, deployment: Record<string, unknown>) {
   const files: Record<string, { file: { contents: string } }> = {}
 
   // Package.json
   files['package.json'] = {
     file: {
-      contents: JSON.stringify(deployment.packageJson, null, 2)
+      contents: JSON.stringify((deployment as { packageJson?: object }).packageJson || {}, null, 2)
     }
   }
 
@@ -235,27 +225,29 @@ async function generateProjectFiles(analysis: any, architecture: any, frontend: 
   })
 
   // Backend files (if needed)
-  if (backend.needsBackend && backend['server.js']) {
+  const backendTyped = backend as { needsBackend?: boolean; 'server.js'?: string };
+  if (backendTyped.needsBackend && backendTyped['server.js']) {
     files['server.js'] = {
       file: {
-        contents: backend['server.js'] as string
+        contents: backendTyped['server.js']
       }
     }
   }
 
   // Configuration files
-  if (deployment.viteConfig) {
+  const deploymentTyped = deployment as { viteConfig?: string; tsConfig?: string };
+  if (deploymentTyped.viteConfig) {
     files['vite.config.ts'] = {
       file: {
-        contents: deployment.viteConfig
+        contents: deploymentTyped.viteConfig
       }
     }
   }
 
-  if (deployment.tsConfig) {
+  if (deploymentTyped.tsConfig) {
     files['tsconfig.json'] = {
       file: {
-        contents: deployment.tsConfig
+        contents: deploymentTyped.tsConfig
       }
     }
   }

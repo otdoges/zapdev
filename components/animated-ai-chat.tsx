@@ -1,23 +1,19 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useTransition, useMemo } from 'react';
-import { useState } from 'react';
-import { cn } from '@/lib/utils';
-import {
-  Paperclip,
-  Command,
-  SendIcon,
-  XIcon,
-  LoaderIcon,
-  Sparkles,
-  ImageIcon,
-  Figma,
-  MonitorIcon,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import * as React from 'react';
+import { motion } from 'framer-motion';
+import { Bot, User } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+
 import { useChat } from 'ai/react';
-import { groqModelConfigs } from '@/lib/groq-provider';
+import { useMemo, useRef, useCallback } from 'react';
+import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+
+import { buildSystemMessage } from '@/lib/groq/responses';
+import { useUser } from '@/lib/hooks/use-user';
+import toast from 'react-hot-toast';
+import { useEffect } from 'react';
 import { useChatStore } from '@/lib/stores/chat-store';
 import BuildingProgress from './building-progress';
 import CodeGenerationDisplay from './code-generation-display';
@@ -25,14 +21,22 @@ import MessageList from './chat/message-list';
 import ChatInput from './chat/chat-input';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
+import {
+  Sparkles,
+  ImageIcon,
+  Figma,
+  MonitorIcon,
+} from 'lucide-react';
+import * as React from 'react';
+import { useRouter, useParams } from 'next/navigation';
 
 // Throttle function for performance optimization
-function throttle<T extends (...args: any[]) => any>(
+function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
   let inThrottle: boolean = false;
-  return function (this: any, ...args: Parameters<T>): void {
+  return function (this: unknown, ...args: Parameters<T>): void {
     if (!inThrottle) {
       func.apply(this, args);
       inThrottle = true;
@@ -40,6 +44,18 @@ function throttle<T extends (...args: any[]) => any>(
     }
   };
 }
+
+const debounce = <T extends (...args: unknown[]) => unknown>(func: T, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: Parameters<T>) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
 
 interface UseAutoResizeTextareaProps {
   minHeight: number;
@@ -161,7 +177,7 @@ interface AnimatedAIChatProps {
   chatId?: string;
   onFirstMessageSent?: () => void;
   onCodeGenerated?: (code: string) => void;
-  onAITeamBuild?: (projectData: any) => void;
+  onAITeamBuild?: (projectData: unknown) => void;
   className?: string;
   useMultipleModels?: boolean;
   showThinking?: boolean;
@@ -371,7 +387,7 @@ export function AnimatedAIChat({
           }
 
           if (existingMessages && existingMessages.length > 0) {
-            const formattedMessages = existingMessages.map((msg: any) => ({
+            const formattedMessages = existingMessages.map((msg: unknown) => ({
               id: msg.id,
               role: msg.role,
               content: msg.content,
@@ -383,7 +399,7 @@ export function AnimatedAIChat({
             setAIMessages(formattedMessages);
           }
         }
-      } catch (error) {
+      } catch (_error) {
         errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to load messages:', error);
       } finally {
         setIsLoadingMessages(false);
@@ -444,7 +460,7 @@ export function AnimatedAIChat({
     try {
       await append({ role: 'user', content: message });
       updateMessage(newMessage.id, { status: 'sent' });
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to send message:', error);
       updateMessage(newMessage.id, { status: 'failed' });
     } finally {
@@ -460,7 +476,7 @@ export function AnimatedAIChat({
       try {
         await append({ role: message.role, content: message.content });
         updateMessage(messageId, { status: 'sent' });
-      } catch (error) {
+      } catch (_error) {
         errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to retry message:', error);
         updateMessage(messageId, { status: 'failed' });
       }

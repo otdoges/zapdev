@@ -1,16 +1,7 @@
 'use client';
 
 import {
-  CheckIcon,
-  StarIcon,
-  ZapIcon,
-  ShieldIcon,
-  HeadphonesIcon,
-  BarChart3Icon,
-  TrendingUpIcon,
-  UsersIcon,
-  ArrowRightIcon,
-} from 'lucide-react';
+  CheckIcon, ZapIcon, ShieldIcon, HeadphonesIcon, BarChart3Icon, TrendingUpIcon, UsersIcon, ArrowRightIcon, } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   Card,
@@ -48,7 +39,7 @@ export function PricingContent({ products }: PricingContentProps) {
       if (url) {
         router.push(url);
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Checkout error:', error);
     } finally {
       setLoading(false);

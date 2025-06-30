@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
-import { Message } from '@/lib/types'
+import { Message } from '@/lib/supabase'
 import { useToast } from '@/components/ui/use-toast'
 
 // Query keys factory for consistent cache management
@@ -159,7 +159,7 @@ export function useSaveMessage() {
     },
     onSuccess: (data, variables) => {
       // Invalidate and refetch messages
-      if (variables.chat_id) {
+      if ('chat_id' in variables && typeof variables.chat_id === 'string') {
         queryClient.invalidateQueries({ queryKey: chatKeys.messages(variables.chat_id) })
       }
     },

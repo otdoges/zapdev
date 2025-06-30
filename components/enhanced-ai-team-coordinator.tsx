@@ -41,7 +41,7 @@ export default function EnhancedAITeamCoordinator({ className }: EnhancedAITeamC
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('templates');
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
   const [customRequest, setCustomRequest] = useState('');
-  const [coordinationResults, setCoordinationResults] = useState<any>(null);
+  const [coordinationResults, setCoordinationResults] = useState<object | null>(null);
   const [projectFiles, setProjectFiles] = useState<Record<string, { file: { contents: string } }>>(
     {}
   );
@@ -62,7 +62,7 @@ export default function EnhancedAITeamCoordinator({ className }: EnhancedAITeamC
 
   // Handle coordination completion
   const handleCoordinationComplete = useCallback(
-    async (results: any) => {
+    async (results: object) => {
       try {
         setCoordinationResults(results);
 
@@ -89,7 +89,7 @@ export default function EnhancedAITeamCoordinator({ className }: EnhancedAITeamC
         } else {
           throw new Error('Build completed but no project files generated');
         }
-      } catch (error) {
+      } catch (_error) {
         errorLogger.error(ErrorCategory.AI_MODEL, 'Build error:', error);
         setError(error instanceof Error ? error.message : 'Unknown build error');
       }

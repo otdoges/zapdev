@@ -1,7 +1,8 @@
 'use client';
 
-import { useSupabase } from '@/components/SupabaseProvider';
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { useSupabase } from '@/lib/hooks/use-supabase';
 import { useState, useEffect } from 'react';
 import { AUTH_COOKIES, hasAuthCookies } from '@/lib/auth-constants';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
@@ -23,7 +24,7 @@ export function AuthButtons() {
     try {
       await signOut();
       setCookieAuth(false); // Update cookie state immediately
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.GENERAL, 'Sign out error:', error);
     } finally {
       setIsLoading(false);

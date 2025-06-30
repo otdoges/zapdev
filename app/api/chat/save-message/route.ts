@@ -5,7 +5,7 @@ import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    await createClient(); // Initialize supabase client for authentication
 
     // Check if user is authenticated
     const user = await requireAuth();

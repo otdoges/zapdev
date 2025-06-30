@@ -14,9 +14,9 @@ interface MonacoEditorProps {
   theme?: string;
   height?: string | number;
   width?: string | number;
-  options?: any;
+  options?: unknown;
   onChange?: (value: string | undefined) => void;
-  onMount?: (editor: any, monaco: any) => void;
+  onMount?: (editor: unknown, monaco: unknown) => void;
 }
 
 // Loading component
@@ -55,11 +55,11 @@ const MonacoEditorComponent = dynamic(
 
       const { default: Editor } = await import('@monaco-editor/react');
 
-      return ({ onError, ...props }: MonacoEditorProps & { onError?: (error: any) => void }) => {
+      return ({ onError, ...props }: MonacoEditorProps & { onError?: (error: unknown) => void }) => {
         const [hasError, setHasError] = useState(false);
         const [errorMessage, setErrorMessage] = useState<string>();
 
-        const handleError = (error: any) => {
+        const handleError = (error: unknown) => {
           errorLogger.error(ErrorCategory.GENERAL, 'Monaco Editor error:', error);
           setHasError(true);
           setErrorMessage(error?.message || 'Unknown error');
@@ -88,14 +88,14 @@ const MonacoEditorComponent = dynamic(
                     'editor.inactiveSelectionBackground': '#3a3d41',
                   },
                 });
-              } catch (error) {
+              } catch (_error) {
                 handleError(error);
               }
             }}
             onMount={(editor, monaco) => {
               try {
                 props.onMount?.(editor, monaco);
-              } catch (error) {
+              } catch (_error) {
                 handleError(error);
               }
             }}
@@ -103,7 +103,7 @@ const MonacoEditorComponent = dynamic(
           />
         );
       };
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.GENERAL, 'Failed to load Monaco Editor:', error);
       return () => <ErrorFallback error="Failed to load editor" />;
     }

@@ -2,30 +2,38 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import type { User } from '@supabase/supabase-js';
+import type { User, Session, AuthChangeEvent, SupabaseClient } from '@supabase/supabase-js';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
-interface SupabaseContext {
-  user: User | null;
-  loading: boolean;
-  signOut: () => Promise<void>;
-  signInWithGitHub: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<{ error?: any }>;
-  signUpWithEmail: (email: string, password: string) => Promise<{ error?: any }>;
-  resetPassword: (email: string) => Promise<{ error?: any }>;
+export interface SupabaseProviderProps {
+  children: React.ReactNode;
+  session?: Session | null;
 }
 
-const Context = createContext<SupabaseContext>({
-  user: null,
+type ProviderErrorHandler = (error: Error) => void;
+type ProviderAuthStateChangeHandler = (_event: AuthChangeEvent, session: Session | null) => void;
+
+interface SupabaseContextValue {
+  supabase: SupabaseClient;
+  session: Session | null;
+  loading: boolean;
+  signOut: () => Promise<void>;
+  onError?: ProviderErrorHandler;
+  onAuthStateChange?: ProviderAuthStateChangeHandler;
+  refresh?: () => Promise<Session | null>;
+}
+
+const Context = createContext<SupabaseContextValue>({
+  supabase: null,
+  session: null,
   loading: true,
   signOut: async () => {},
-  signInWithGitHub: async () => {},
-  signInWithEmail: async () => ({ error: null }),
-  signUpWithEmail: async () => ({ error: null }),
-  resetPassword: async () => ({ error: null }),
+  onError: () => {},
+  onAuthStateChange: () => {},
+  refresh: async () => null,
 });
 
-export default function SupabaseProvider({ children }: { children: React.ReactNode }) {
+export default function SupabaseProvider({ children }: SupabaseProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [supabase, setSupabase] = useState<ReturnType<typeof createBrowserClient> | null>(null);
@@ -84,7 +92,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
           if (isMounted) {
             setUser(session?.user ?? null);
           }
-        } catch (error) {
+        } catch (_error) {
           errorLogger.error(ErrorCategory.GENERAL, 'Error getting session:', error);
         } finally {
           if (isMounted) {
@@ -119,7 +127,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
             const { syncUserToDatabaseClient } = await import('@/lib/supabase-client-operations');
             await syncUserToDatabaseClient(session.user, client);
             errorLogger.info(ErrorCategory.GENERAL, 'Background user sync successful');
-          } catch (syncError) {
+          } catch (_syncError) {
             errorLogger.warning(
               ErrorCategory.GENERAL,
               'Background user sync failed (auth still valid):',
@@ -140,7 +148,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         subscription.unsubscribe();
         isMounted = false;
       };
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.GENERAL, 'Error initializing Supabase:', error);
       if (isMounted) {
         setIsConfigured(false);
@@ -170,7 +178,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       } else {
         setUser(null);
       }
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.GENERAL, 'Sign out error:', error);
     } finally {
       setLoading(false);
@@ -198,7 +206,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         setLoading(false);
         throw error;
       }
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.GENERAL, 'GitHub sign in error:', error);
       setLoading(false);
       throw error;
@@ -217,7 +225,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         password,
       });
       return { error };
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.GENERAL, 'Email sign in error:', error);
       return { error };
     } finally {
@@ -243,7 +251,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         },
       });
       return { error };
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.GENERAL, 'Email sign up error:', error);
       return { error };
     } finally {
@@ -261,20 +269,20 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
       });
       return { error };
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.GENERAL, 'Reset password error:', error);
       return { error };
     }
   };
 
-  const value = {
-    user,
+  const value: SupabaseContextValue = {
+    supabase,
+    session: null,
     loading,
     signOut,
-    signInWithGitHub,
-    signInWithEmail,
-    signUpWithEmail,
-    resetPassword,
+    onError: () => {},
+    onAuthStateChange: () => {},
+    refresh: async () => null,
   };
 
   return <Context.Provider value={value}>{children}</Context.Provider>;

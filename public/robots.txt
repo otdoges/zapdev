@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+# Allow crawling of main sections
+Allow: /chat
+Allow: /pricing
+Allow: /api/og
+
+# Disallow sensitive areas
+Disallow: /api/
+Disallow: /_next/
+Disallow: /admin
+Disallow: /auth/callback
+
+# Sitemap location
+Sitemap: https://zapdev-mu.vercel.app/sitemap.xml
+
+# Crawl delay for better server performance
+Crawl-delay: 1 

@@ -4,18 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { WebContainer } from '@webcontainer/api';
 import { motion } from 'framer-motion';
 import {
-  Play,
-  Square,
-  RefreshCw,
-  AlertTriangle,
-  CheckCircle,
-  Loader,
-  Terminal,
-  FileText,
-  Code2,
-  Users,
-  Brain,
-} from 'lucide-react';
+  Square, RefreshCw, AlertTriangle, CheckCircle, Loader, Terminal, FileText, Users, Brain, } from 'lucide-react';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 interface WebContainerProps {
@@ -111,7 +100,7 @@ export default function WebContainerComponent({
         if (aiTeamInstructions) {
           await startAITeamDevelopment(aiTeamInstructions, instance);
         }
-      } catch (error) {
+      } catch (_error) {
         errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to initialize WebContainer:', error);
 
         let errorMessage = 'Failed to initialize WebContainer';
@@ -139,7 +128,7 @@ export default function WebContainerComponent({
       cleanupFunctions.current.forEach((cleanup) => {
         try {
           cleanup();
-        } catch (error) {
+        } catch (_error) {
           errorLogger.error(ErrorCategory.AI_MODEL, 'Error during custom cleanup:', error);
         }
       });
@@ -149,7 +138,7 @@ export default function WebContainerComponent({
       if (webcontainerInstance.current) {
         try {
           webcontainerInstance.current.teardown();
-        } catch (cleanupError) {
+        } catch (_cleanupError) {
           errorLogger.error(
             ErrorCategory.AI_MODEL,
             'Error during WebContainer cleanup:',
@@ -216,7 +205,7 @@ export default function WebContainerComponent({
         // Generic JavaScript/TypeScript
         await setupGenericProject(containerInstance, codeContent);
       }
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to setup code:', error);
       addTerminalOutput(`❌ Setup error: ${error}`);
     }
@@ -269,7 +258,7 @@ export default function WebContainerComponent({
         setIsRunning(true);
         addTerminalOutput(`✅ Server ready at ${url}`);
       });
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to start HTML server:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       addTerminalOutput(`❌ Server error: ${errorMessage}`);
@@ -365,7 +354,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       addTerminalOutput('✅ React project structure created');
 
       await startDevelopmentServer(containerInstance);
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to setup React project:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       addTerminalOutput(`❌ React setup error: ${errorMessage}`);
@@ -404,7 +393,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       addTerminalOutput('✅ Generic project structure created');
 
       await startDevelopmentServer(containerInstance);
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to setup generic project:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       addTerminalOutput(`❌ Generic setup error: ${errorMessage}`);
@@ -449,7 +438,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       await startDevelopmentServer(containerInstance);
 
       addTerminalOutput('🎉 AI team development complete!');
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.AI_MODEL, 'AI team development failed:', error);
       addTerminalOutput(`❌ AI team error: ${error}`);
       setError('AI team development failed');
@@ -457,7 +446,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   };
 
   // Analyze project requirements (simulated AI decision making)
-  const analyzeProjectRequirements = async (instructions: string): Promise<any> => {
+  const analyzeProjectRequirements = async (instructions: string): Promise<unknown> => {
     await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate thinking time
 
     const lowerInstructions = instructions.toLowerCase();
@@ -498,7 +487,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   };
 
   // Setup project structure
-  const setupProjectStructure = async (containerInstance: WebContainer, structure: any) => {
+  const setupProjectStructure = async (containerInstance: WebContainer, structure: unknown) => {
     const files: FileSystemTree = {};
 
     if (structure.type === 'react') {
@@ -514,7 +503,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 build: 'vite build',
                 preview: 'vite preview',
               },
-              dependencies: structure.dependencies.reduce((acc: any, dep: string) => {
+              dependencies: structure.dependencies.reduce((acc: unknown, dep: string) => {
                 acc[dep] = 'latest';
                 return acc;
               }, {}),
@@ -651,7 +640,7 @@ body {
       }
 
       addTerminalOutput('✅ Dependencies installed successfully with pnpm');
-    } catch (error) {
+    } catch (_error) {
       addTerminalOutput('⚠️ pnpm setup failed, falling back to npm...');
 
       const installProcess = await containerInstance.spawn('npm', ['install']);
@@ -706,7 +695,7 @@ body {
         await containerInstance.fs.writeFile('/src/App.tsx', fallbackApp);
         addTerminalOutput('⚠️ Used fallback component (AI response missing App.tsx)');
       }
-    } catch (error) {
+    } catch (_error) {
       errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to generate AI components:', error);
       addTerminalOutput(`❌ AI component generation failed: ${error}`);
 
@@ -845,7 +834,7 @@ export default App`;
   const startDevelopmentServer = async (containerInstance: WebContainer) => {
     addTerminalOutput('🚀 Starting development server...');
 
-    let devProcess: any = null;
+    let devProcess: unknown = null;
     let serverStartTimeout: NodeJS.Timeout | null = null;
 
     try {
@@ -915,7 +904,7 @@ export default App`;
           devProcess.kill();
         }
       });
-    } catch (error) {
+    } catch (_error) {
       clearTimeout(serverStartTimeout!);
       errorLogger.error(ErrorCategory.AI_MODEL, 'Failed to start dev server:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);

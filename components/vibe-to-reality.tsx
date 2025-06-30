@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef} from 'react';
 import { motion, useInView } from 'framer-motion';
 
 const steps = [

@@ -1,0 +1,83 @@
+---
+description: Webcontainer fix 
+globs: 
+alwaysApply: false
+---
+# WebContainer Fallback Architecture
+
+## Three-Tier Execution System
+
+ZapDev implements a robust fallback system ensuring **100% compatibility** across all environments.
+
+## Tier 1: WebContainer (Primary)
+- **Component**: [components/enhanced-webcontainer.tsx](mdc:components/enhanced-webcontainer.tsx)
+- **Manager**: [lib/services/webcontainer/webcontainer-manager.ts](mdc:lib/services/webcontainer/webcontainer-manager.ts)
+- **Best Experience**: Full functionality, real-time preview, interactive features
+- **Requirements**: Modern browser with service worker support
+
+## Tier 2: Server Fallback (Secondary)
+- **Service**: [lib/services/webcontainer/server-fallback.ts](mdc:lib/services/webcontainer/server-fallback.ts)
+- **API Endpoint**: [app/api/webcontainer/fallback/route.ts](mdc:app/api/webcontainer/fallback/route.ts)
+- **Features**: Server-side rendering, safe HTML generation, framework conversion
+- **Compatibility**: Works on any device with internet connection
+
+## Tier 3: Static Preview (Tertiary)
+- **Purpose**: Offline compatibility, maximum device support
+- **Method**: Client-side HTML generation with blob URLs
+- **Security**: Code sanitization, script removal
+- **Use Case**: Very low-end devices, offline mode, emergency fallback
+
+## Implementation Pattern
+
+```typescript
+// Always use this pattern for WebContainer features
+const result = await fallbackServiceRef.current.executeWithFallback(
+  primaryWebContainerAction,
+  code,
+  projectType
+);
+
+if (result.success) {
+  setExecutionMethod(result.method); // 'webcontainer' | 'server' | 'static'
+  // Handle based on execution method
+}
+```
+
+## Framework Support
+
+### HTML Projects
+- Direct execution in all tiers
+- Static file serving via npm serve
+
+### React Projects  
+- **Tier 1**: Full Vite development server
+- **Tier 2**: JSX to HTML conversion
+- **Tier 3**: Static component preview
+
+### Vue/Svelte Projects
+- **Tier 1**: Framework-specific dev servers
+- **Tier 2**: Template extraction and conversion
+- **Tier 3**: Static template preview
+
+## Error Handling
+
+All WebContainer operations must include:
+1. **Timeout handling** (30-second default)
+2. **Graceful degradation** to next tier
+3. **User feedback** about execution method
+4. **Retry mechanisms** with exponential backoff
+
+## Performance Indicators
+
+The system automatically displays:
+- **Execution method**: WebContainer/Server/Static icons
+- **Connection status**: Online/Offline indicators  
+- **Performance mode**: Low-end device detection
+- **Loading states**: Method-specific loading messages
+
+## Security Considerations
+
+- **Code sanitization** in server and static tiers
+- **Script removal** for security in fallback modes
+- **Safe HTML generation** with XSS prevention
+- **Sandboxed iframe execution** for WebContainer
