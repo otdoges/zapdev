@@ -380,3 +380,53 @@
   }
 }
 
+/* Mouse spotlight effect */
+.mouse-spotlight {
+  position: fixed;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.05) 20%,
+    rgba(255, 255, 255, 0.02) 40%,
+    transparent 60%
+  );
+  box-shadow: 
+    0 0 40px rgba(255, 255, 255, 0.1),
+    inset 0 0 60px rgba(255, 255, 255, 0.05);
+  transition: opacity 0.3s ease;
+  mix-blend-mode: plus-lighter;
+}
+
+/* Smaller spotlight on mobile */
+@media (max-width: 768px) {
+  .mouse-spotlight {
+    width: 200px;
+    height: 200px;
+  }
+}
+
+/* Mouse glow effect - updated to be more subtle */
+.mouse-glow {
+  position: fixed;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle at center,
+    rgba(108, 82, 160, 0.15) 0%,
+    rgba(108, 82, 160, 0.05) 30%,
+    transparent 60%
+  );
+  filter: blur(40px);
+  transition: opacity 0.3s ease;
+}
+

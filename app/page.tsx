@@ -8,6 +8,7 @@ import Hero from '@/components/hero';
 import FinalCTA from '@/components/final-cta';
 import Pricing from '@/components/pricing';
 import { useSupabase } from '@/components/SupabaseProvider';
+import useIsMobile from '@/hooks/useIsMobile';
 
 const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), {
   loading: () => (
@@ -55,11 +56,27 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const { scrollY } = useScroll();
   const { user, loading } = useSupabase();
+  const isMobile = useIsMobile();
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   // Ensure component is mounted before complex interactions
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Mouse movement handler for spotlight
+  useEffect(() => {
+    if (!mounted || isMobile) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [mounted, isMobile]);
 
   const goToPricingPage = () => {
     router.push('/pricing');
@@ -194,6 +211,17 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0D0D10] text-white">
+      {/* Global Mouse spotlight effect */}
+      {!isMobile && mounted && (
+        <div
+          className="mouse-spotlight"
+          style={{
+            left: `${mousePosition.x}px`,
+            top: `${mousePosition.y}px`,
+          }}
+        />
+      )}
+
       {/* Auth buttons */}
       <motion.div
         className="fixed right-4 top-4 z-50 flex gap-4"

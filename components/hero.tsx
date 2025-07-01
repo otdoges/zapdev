@@ -117,6 +117,17 @@ export default function Hero() {
         />
       )}
 
+      {/* Mouse spotlight effect */}
+      {!isMobile && (
+        <div
+          className="mouse-spotlight"
+          style={{
+            left: `${mousePosition.x}px`,
+            top: `${mousePosition.y}px`,
+          }}
+        />
+      )}
+
       {/* Content */}
       <motion.div
         className="relative z-10 mx-auto max-w-5xl text-center"
