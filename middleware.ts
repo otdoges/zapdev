@@ -83,18 +83,26 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
+  const isAuthPage = pathname === '/auth'
 
-  // If user is not logged in and tries to access chat, redirect to auth
-  if (!user && pathname.startsWith('/chat')) {
-    const url = new URL(request.url)
-    url.pathname = '/auth'
-    return NextResponse.redirect(url)
+  // If the user is on the auth page, allow it to be rendered
+  if (isAuthPage) {
+    // But if they are logged in, redirect them away from the auth page
+    if (user) {
+      const nextUrl = request.nextUrl.searchParams.get('next')
+      const redirectTo = nextUrl && nextUrl.startsWith('/') ? nextUrl : '/chat'
+      const url = new URL(redirectTo, request.url)
+      url.searchParams.delete('next')
+      return NextResponse.redirect(url)
+    }
+    return response
   }
-
-  // If user is logged in and tries to access auth, redirect to chat
-  if (user && pathname.startsWith('/auth')) {
-    const url = new URL(request.url)
-    url.pathname = '/chat'
+  
+  // If user is not logged in and tries to access chat, redirect to auth page
+  // preserving the originally requested path
+  if (!user && pathname.startsWith('/chat')) {
+    const url = new URL('/auth', request.url)
+    url.searchParams.set('next', pathname)
     return NextResponse.redirect(url)
   }
 
@@ -108,8 +116,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - auth/callback (Supabase auth callback)
+     * - api (API routes)
      * Feel free to modify this pattern to include more paths.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|auth/callback|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 } 
