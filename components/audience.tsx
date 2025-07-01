@@ -198,27 +198,10 @@ export default function Audience() {
                   <div className="h-2 w-2 rounded-full bg-green-500/70"></div>
                   <div className="text-xs text-[#EAEAEA]/40">Code Editor</div>
                 </div>
-                <div className="rounded bg-[#111115] p-3 font-mono text-xs leading-relaxed text-[#EAEAEA]/70">
-                  <span className="text-blue-400">import</span>{' '}
-                  <span className="text-[#EAEAEA]">&#123; useState &#125;</span>{' '}
-                  <span className="text-blue-400">from</span>{' '}
-                  <span className="text-green-300">'react'</span>;<br />
-                  <br />
-                  <span className="text-purple-400">function</span>{' '}
-                  <span className="text-yellow-300">Component</span>() &#123;
-                  <br />
-                  &nbsp;&nbsp;<span className="text-blue-400">const</span> [
-                  <span className="text-[#EAEAEA]">state, setState</span>] ={' '}
-                  <span className="text-yellow-300">useState</span>(
-                  <span className="text-orange-300">false</span>);
-                  <br />
-                  &nbsp;&nbsp;<span className="text-blue-400">return</span> (<br />
-                  &nbsp;&nbsp;&nbsp;&nbsp;<<span className="text-red-400">div</span>>...</
-                  <span className="text-red-400">div</span>>
-                  <br />
-                  &nbsp;&nbsp;);
-                  <br />
-                  &#125;
+                <div className="space-y-2">
+                  <div className="h-2 rounded bg-[#111115]"></div>
+                  <div className="h-2 w-3/4 rounded bg-[#4F3A75]"></div>
+                  <div className="h-2 w-1/2 rounded bg-[#111115]"></div>
                 </div>
               </div>
             </div>
@@ -227,4 +210,4 @@ export default function Audience() {
       </div>
     </section>
   );
-}
+} 

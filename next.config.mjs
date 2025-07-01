@@ -35,8 +35,8 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['framer-motion', 'lucide-react'],
-    serverComponentsExternalPackages: ['@webcontainer/api'],
   },
+  serverExternalPackages: ['@webcontainer/api'],
   // Add output configuration for better static generation
   output: 'standalone',
   

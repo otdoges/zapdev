@@ -2,17 +2,17 @@
  * API request validation using Zod schemas
  */
 
-import { z } from &apos;zod';
-import { NextRequest, NextResponse } from 'next/server&apos;;
+import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server';
 import { errorLogger, ErrorCategory } from './error-logger';
 
 // Common validation schemas
 export const CommonSchemas = {
   // UUID validation
-  uuid: z.string().uuid(&apos;Invalid UUID format'),
+  uuid: z.string().uuid('Invalid UUID format'),
 
   // Email validation
-  email: z.string().email('Invalid email format&apos;),
+  email: z.string().email('Invalid email format'),
 
   // Pagination
   pagination: z.object({
@@ -29,7 +29,7 @@ export const CommonSchemas = {
   // Sort parameters
   sort: z.object({
     field: z.string(),
-    order: z.enum(['asc', &apos;desc']).default('asc&apos;),
+    order: z.enum(['asc', 'desc']).default('asc'),
   }),
 };
 
@@ -39,7 +39,7 @@ export const ApiSchemas = {
   createMessage: z.object({
     chatId: CommonSchemas.uuid,
     content: z.string().min(1).max(10000),
-    role: z.enum(['user', &apos;assistant', 'system&apos;]),
+    role: z.enum(['user', 'assistant', 'system']),
     metadata: z.record(z.any()).optional(),
   }),
 
@@ -53,7 +53,7 @@ export const ApiSchemas = {
   aiCompletion: z.object({
     prompt: z.string().min(1).max(10000),
     model: z
-      .enum(['llama-3.3-70b-versatile', &apos;llama-3.1-8b-instant', 'mixtral-8x7b-32768&apos;])
+      .enum(['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'])
       .optional(),
     temperature: z.number().min(0).max(2).optional(),
     maxTokens: z.number().int().min(1).max(4000).optional(),
@@ -82,8 +82,21 @@ export const ApiSchemas = {
 
   // Subscription management
   subscription: z.object({
-    planId: z.enum(['free', &apos;pro', 'enterprise&apos;]),
-    billingCycle: z.enum(['monthly', &apos;yearly']).optional(),
+    planId: z.enum(['free', 'pro', 'enterprise']),
+    billingCycle: z.enum(['monthly', 'yearly']).optional(),
+  }),
+
+  // Chat input validation
+  chatInput: z.object({
+    messages: z.array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string().min(1).max(10000),
+      })
+    ).min(1),
+    modelId: z.string().optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().int().min(1).max(4000).optional(),
   }),
 };
 
@@ -99,7 +112,7 @@ interface ValidationError {
  */
 function formatZodErrors(error: z.ZodError): ValidationError[] {
   return error.errors.map((err) => ({
-    field: err.path.join('.&apos;),
+    field: err.path.join('.'),
     message: err.message,
     code: err.code,
   }));
@@ -129,9 +142,9 @@ export async function validateBody<T>(
         data: null,
         error: NextResponse.json(
           {
-            error: &apos;Validation failed',
+            error: 'Validation failed',
             errors,
-            message: 'The request body contains invalid data&apos;,
+            message: 'The request body contains invalid data',
           },
           { status: 400 }
         ),
@@ -149,8 +162,8 @@ export async function validateBody<T>(
       data: null,
       error: NextResponse.json(
         {
-          error: &apos;Invalid request',
-          message: 'The request body must be valid JSON&apos;,
+          error: 'Invalid request',
+          message: 'The request body must be valid JSON',
         },
         { status: 400 }
       ),
@@ -195,7 +208,7 @@ export function validateQuery<T>(
     if (!result.success) {
       const errors = formatZodErrors(result.error);
 
-      errorLogger.warning(ErrorCategory.API, &apos;Query validation failed', undefined, {
+      errorLogger.warning(ErrorCategory.API, 'Query validation failed', undefined, {
         endpoint: req.url,
         method: req.method,
         errors,
@@ -205,7 +218,7 @@ export function validateQuery<T>(
         data: null,
         error: NextResponse.json(
           {
-            error: 'Validation failed&apos;,
+            error: 'Validation failed',
             errors,
             message: 'The query parameters contain invalid data',
           },
@@ -216,7 +229,7 @@ export function validateQuery<T>(
 
     return { data: result.data, error: null };
   } catch (_error) {
-    errorLogger.error(ErrorCategory.API, &apos;Failed to parse query parameters', error, {
+    errorLogger.error(ErrorCategory.API, 'Failed to parse query parameters', error, {
       endpoint: req.url,
       method: req.method,
     });
@@ -225,7 +238,7 @@ export function validateQuery<T>(
       data: null,
       error: NextResponse.json(
         {
-          error: 'Invalid request&apos;,
+          error: 'Invalid request',
           message: 'Failed to parse query parameters',
         },
         { status: 400 }
@@ -254,7 +267,7 @@ export function validateHeaders<T>(
     if (!result.success) {
       const errors = formatZodErrors(result.error);
 
-      errorLogger.warning(ErrorCategory.API, &apos;Header validation failed', undefined, {
+      errorLogger.warning(ErrorCategory.API, 'Header validation failed', undefined, {
         endpoint: req.url,
         method: req.method,
         errors,
@@ -264,7 +277,7 @@ export function validateHeaders<T>(
         data: null,
         error: NextResponse.json(
           {
-            error: 'Validation failed&apos;,
+            error: 'Validation failed',
             errors,
             message: 'The request headers contain invalid data',
           },
@@ -275,7 +288,7 @@ export function validateHeaders<T>(
 
     return { data: result.data, error: null };
   } catch (_error) {
-    errorLogger.error(ErrorCategory.API, &apos;Failed to validate headers', error, {
+    errorLogger.error(ErrorCategory.API, 'Failed to validate headers', error, {
       endpoint: req.url,
       method: req.method,
     });
@@ -284,7 +297,7 @@ export function validateHeaders<T>(
       data: null,
       error: NextResponse.json(
         {
-          error: 'Invalid request&apos;,
+          error: 'Invalid request',
           message: 'Failed to validate request headers',
         },
         { status: 400 }
@@ -343,5 +356,32 @@ export function withValidation<TBody = any, TQuery = any, THeaders = any>(
   };
 }
 
+/**
+ * Validate chat input specifically
+ */
+export async function validateChatInput(
+  req: Request
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const body = await req.json();
+    const result = ApiSchemas.chatInput.safeParse(body);
+
+    if (!result.success) {
+      const errors = formatZodErrors(result.error);
+      return {
+        success: false,
+        error: `Validation failed: ${errors.map(e => e.message).join(', ')}`
+      };
+    }
+
+    return { success: true, data: result.data };
+  } catch (error) {
+    return {
+      success: false,
+      error: 'Invalid JSON in request body'
+    };
+  }
+}
+
 // Export Zod for convenience
-export { z } from &apos;zod';
+export { z } from 'zod';

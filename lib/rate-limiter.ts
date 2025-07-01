@@ -221,3 +221,82 @@ export function withRateLimit(
     return handler(req);
   };
 }
+
+/**
+ * Main rate limiting function for easy use in API routes
+ */
+export async function checkRateLimit(
+  identifier: string,
+  config: RateLimitConfig = RateLimitConfigs.AI_ENDPOINTS
+): Promise<{ 
+  success: boolean; 
+  headers: Record<string, string>; 
+  error?: string;
+  remaining?: number;
+  reset?: string;
+}> {
+  try {
+    // Create a mock NextRequest for compatibility
+    const mockReq = {
+      headers: new Map([
+        ['x-user-id', identifier],
+        ['x-forwarded-for', identifier]
+      ]),
+    } as any;
+
+    // Override identifier function to use our passed identifier
+    const configWithIdentifier = {
+      ...config,
+      identifier: () => identifier
+    };
+
+    const response = await rateLimiter.middleware(configWithIdentifier)(mockReq);
+    
+    if (response) {
+      // Rate limit exceeded
+      const data = await response.json();
+      return {
+        success: false,
+        headers: {
+          'X-RateLimit-Limit': response.headers.get('X-RateLimit-Limit') || '0',
+          'X-RateLimit-Remaining': response.headers.get('X-RateLimit-Remaining') || '0',
+          'X-RateLimit-Reset': response.headers.get('X-RateLimit-Reset') || new Date().toISOString(),
+          'Retry-After': response.headers.get('Retry-After') || '60'
+        },
+        error: data.error || 'Rate limit exceeded'
+      };
+    }
+
+    // Rate limit check passed
+    const status = await rateLimiter.getStatus(identifier);
+    const remaining = config.maxRequests - (status?.count || 0);
+    const resetTime = status?.resetTime || Date.now() + config.windowMs;
+
+    return {
+      success: true,
+      headers: {
+        'X-RateLimit-Limit': config.maxRequests.toString(),
+        'X-RateLimit-Remaining': Math.max(0, remaining).toString(),
+        'X-RateLimit-Reset': new Date(resetTime).toISOString(),
+      },
+      remaining: Math.max(0, remaining),
+      reset: new Date(resetTime).toISOString()
+    };
+  } catch (error) {
+    // On error, allow the request to continue
+    return {
+      success: true,
+      headers: {},
+      error: 'Rate limiter error - allowing request'
+    };
+  }
+}
+
+/**
+ * Pre-configured rate limiter instance for chat API
+ */
+export const chatApiLimiter = {
+  ...RateLimitConfigs.AI_ENDPOINTS,
+  maxRequests: 30, // 30 requests per minute for chat
+  windowMs: 60 * 1000, // 1 minute window
+};
