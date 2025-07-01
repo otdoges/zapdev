@@ -1,7 +1,11 @@
 import { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://zapdev-mu.vercel.app'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL 
+    ? (process.env.NEXT_PUBLIC_APP_URL.startsWith('http') 
+        ? process.env.NEXT_PUBLIC_APP_URL 
+        : `https://${process.env.NEXT_PUBLIC_APP_URL}`)
+    : 'https://zapdev-mu.vercel.app'
   
   return [
     {

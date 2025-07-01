@@ -50,7 +50,13 @@ export const metadata: Metadata = {
   authors: [{ name: 'ZapDev Team', url: 'https://zapdev-mu.vercel.app' }],
   creator: 'ZapDev Team',
   publisher: 'ZapDev',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://zapdev-mu.vercel.app'),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL 
+      ? (process.env.NEXT_PUBLIC_APP_URL.startsWith('http') 
+          ? process.env.NEXT_PUBLIC_APP_URL 
+          : `https://${process.env.NEXT_PUBLIC_APP_URL}`)
+      : 'https://zapdev-mu.vercel.app'
+  ),
   alternates: {
     canonical: '/',
   },
