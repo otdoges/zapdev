@@ -2,15 +2,18 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { PostHogProvider } from '@/components/PostHogProvider';
-import SupabaseProvider from '@/components/SupabaseProvider';
+import { AuthProvider } from '@/providers/AuthProvider';
+import { RealtimeProvider } from '@/providers/RealtimeProvider';
+import { SentryProvider } from '@/components/sentry-provider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { VersionCheck } from '@/components/version-check';
 import { ChunkErrorHandler } from '@/components/chunk-error-handler';
 import { Toaster } from '@/components/ui/toaster';
-import { Analytics } from '@vercel/analytics/next';
+import { Analytics } from '@vercel/analytics/react';
 import './globals.css';
 import { CookieConsentBanner } from '@/components/ui/cookie-consent-banner';
 import { QueryProvider } from '@/lib/query-client';
-import { SentryProvider } from '@/components/sentry-provider';
 
 export const viewport: Viewport = {
   themeColor: '#0D0D10',
@@ -58,6 +61,29 @@ const inter = Inter({
   fallback: ['system-ui', 'arial'],
 });
 
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
+      refetchOnWindowFocus: false,
+      retry: (failureCount, error: any) => {
+        // Don't retry on 4xx errors except 408, 429
+        if (error?.status >= 400 && error?.status < 500 && ![408, 429].includes(error?.status)) {
+          return false;
+        }
+        // Retry up to 3 times for other errors
+        return failureCount < 3;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+    mutations: {
+      retry: false, // Don't retry mutations by default
+    },
+  },
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -73,21 +99,31 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ChunkErrorHandler />
-        <SupabaseProvider>
-          <QueryProvider>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
             <SentryProvider>
-              <PostHogProvider>
-                <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-                  <main className="w-full flex-1">{children}</main>
-                  <VersionCheck />
-                  <Toaster />
-                  <CookieConsentBanner />
-                </ThemeProvider>
-              </PostHogProvider>
+              <AuthProvider>
+                <RealtimeProvider>
+                  <QueryProvider>
+                    <PostHogProvider>
+                      <main className="w-full flex-1">{children}</main>
+                      <VersionCheck />
+                      <Toaster />
+                      <CookieConsentBanner />
+                      <Analytics />
+                    </PostHogProvider>
+                  </QueryProvider>
+                </RealtimeProvider>
+              </AuthProvider>
             </SentryProvider>
-          </QueryProvider>
-        </SupabaseProvider>
-        <Analytics />
+          </ThemeProvider>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
       </body>
     </html>
   );
