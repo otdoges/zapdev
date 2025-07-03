@@ -49,9 +49,7 @@ STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
 STRIPE_WEBHOOK_SECRET=whsec_your_stripe_webhook_secret
 
-# Optional: PostHog for analytics
-NEXT_PUBLIC_POSTHOG_KEY=your_posthog_key
-NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com`;
+# Analytics are provided by Plausible and Umami (configured in layout.tsx)`;
 
   fs.writeFileSync(envPath, envTemplate);
   console.log('✅ Template .env.local file created!');

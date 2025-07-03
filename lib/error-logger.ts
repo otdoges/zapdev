@@ -228,17 +228,18 @@ class ErrorLogger {
   }
 
   /**
-   * Send to monitoring service (Sentry, PostHog, etc.)
+   * Send to monitoring service (Sentry, Plausible, etc.)
    */
   private sendToMonitoring(entry: LogEntry): void {
     // TODO: Integrate with Sentry
-    // For now, we'll use PostHog if available
-    if (typeof window !== 'undefined' && (window as any).posthog) {
-      (window as any).posthog.capture('error_logged', {
-        level: entry.level,
-        category: entry.category,
-        message: entry.message,
-        ...entry.context,
+    // For now, we'll use Plausible if available
+    if (typeof window !== 'undefined' && (window as any).plausible) {
+      (window as any).plausible('Error Logged', {
+        props: {
+          level: entry.level,
+          category: entry.category,
+          message: entry.message.substring(0, 100), // Limit message length
+        }
       });
     }
   }
