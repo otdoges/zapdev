@@ -5,8 +5,6 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { RealtimeProvider } from '@/providers/RealtimeProvider';
 import { SentryProvider } from '@/components/sentry-provider';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { VersionCheck } from '@/components/version-check';
 import { ChunkErrorHandler } from '@/components/chunk-error-handler';
 import { Toaster } from '@/components/ui/toaster';
@@ -61,28 +59,7 @@ const inter = Inter({
   fallback: ['system-ui', 'arial'],
 });
 
-// Create a client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
-      refetchOnWindowFocus: false,
-      retry: (failureCount, error: any) => {
-        // Don't retry on 4xx errors except 408, 429
-        if (error?.status >= 400 && error?.status < 500 && ![408, 429].includes(error?.status)) {
-          return false;
-        }
-        // Retry up to 3 times for other errors
-        return failureCount < 3;
-      },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    },
-    mutations: {
-      retry: false, // Don't retry mutations by default
-    },
-  },
-});
+
 
 export default function RootLayout({
   children,
@@ -116,7 +93,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ChunkErrorHandler />
-        <QueryClientProvider client={queryClient}>
+        <QueryProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="dark"
@@ -126,19 +103,16 @@ export default function RootLayout({
             <SentryProvider>
               <AuthProvider>
                 <RealtimeProvider>
-                  <QueryProvider>
-                    <main className="w-full flex-1">{children}</main>
-                    <VersionCheck />
-                    <Toaster />
-                    <CookieConsentBanner />
-                    <Analytics />
-                  </QueryProvider>
+                  <main className="w-full flex-1">{children}</main>
+                  <VersionCheck />
+                  <Toaster />
+                  <CookieConsentBanner />
+                  <Analytics />
                 </RealtimeProvider>
               </AuthProvider>
             </SentryProvider>
           </ThemeProvider>
-          <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
+        </QueryProvider>
       </body>
     </html>
   );

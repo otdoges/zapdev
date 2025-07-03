@@ -4,8 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Graceful handling for build time when env vars might not be available
 if (!supabaseUrl) {
-  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL');
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('Missing env.NEXT_PUBLIC_SUPABASE_URL - admin operations will not work');
+  }
 }
 
 if (!supabaseServiceRoleKey) {
@@ -14,7 +17,7 @@ if (!supabaseServiceRoleKey) {
 
 // Note: supabaseAdmin uses the SERVICE_ROLE_KEY which you must only use in a secure server-side context
 // as it has admin privileges and can bypass your RLS policies!
-const supabaseAdmin = supabaseServiceRoleKey 
+const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey) 
   ? createClient(supabaseUrl, supabaseServiceRoleKey)
   : null;
 
