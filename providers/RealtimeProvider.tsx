@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { User, RealtimeChannel } from '@supabase/supabase-js';
