@@ -93,23 +93,9 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} font-sans`} suppressHydrationWarning>
       <head>
         <meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
-        {/* Plausible Analytics */}
-        <script 
-          defer 
-          data-domain="zapdev-mu.vercel.app" 
-          src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }`
-          }}
-        />
-        {/* Umami Analytics */}
-        <script 
-          defer 
-          src="https://cloud.umami.is/script.js" 
-          data-website-id="ad8b9534-5d4b-4039-a361-c71d2a6accee"
-        />
+        <script defer data-domain="zapdev-mu.vercel.app" src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"></script>
+        <script>window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }</script>
+        <script defer src="https://cloud.umami.is/script.js" data-website-id="ad8b9534-5d4b-4039-a361-c71d2a6accee"></script>
       </head>
       <body
         className="m-0 flex min-h-screen w-full flex-col overflow-x-hidden bg-[#0D0D10] p-0 text-[#EAEAEA]"
