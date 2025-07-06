@@ -2,6 +2,7 @@
 
 import { useSupabase } from '@/components/SupabaseProvider';
 import { Button } from '@/components/ui/button';
+import { CrossBrowserButton } from '@/components/ui/cross-browser-button';
 import { useState, useEffect } from 'react';
 import { AUTH_COOKIES, hasAuthCookies } from '@/lib/auth-constants';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
@@ -47,33 +48,43 @@ export function AuthButtons() {
     return (
       <div className="flex items-center gap-2">
         <span className="text-sm text-zinc-300">{user?.email || 'Authenticated'}</span>
-        <Button
-          variant="ghost"
+        <CrossBrowserButton
           onClick={handleSignOut}
           disabled={isLoading}
-          className="text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          className="cross-browser-button text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          motionProps={{
+            whileHover: { scale: 1.02 },
+            whileTap: { scale: 0.98 }
+          }}
         >
           {isLoading ? 'Signing out...' : 'Sign Out'}
-        </Button>
+        </CrossBrowserButton>
       </div>
     );
   }
 
   return (
     <div className="flex items-center gap-2">
-      <Button
-        variant="ghost"
+      <CrossBrowserButton
         onClick={() => (window.location.href = '/auth')}
-        className="text-zinc-300 hover:bg-zinc-800 hover:text-white"
+        className="cross-browser-button text-zinc-300 hover:bg-zinc-800 hover:text-white"
+        motionProps={{
+          whileHover: { scale: 1.02 },
+          whileTap: { scale: 0.98 }
+        }}
       >
         Login
-      </Button>
-      <Button
+      </CrossBrowserButton>
+      <CrossBrowserButton
         onClick={() => (window.location.href = '/auth')}
-        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+        className="cross-browser-button gradient-button-primary"
+        motionProps={{
+          whileHover: { scale: 1.02 },
+          whileTap: { scale: 0.98 }
+        }}
       >
         Sign Up
-      </Button>
+      </CrossBrowserButton>
     </div>
   );
 }

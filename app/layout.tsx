@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
+import '@/lib/browser-polyfills';
 
 import { AuthProvider } from '@/providers/AuthProvider';
 import { RealtimeProvider } from '@/providers/RealtimeProvider';

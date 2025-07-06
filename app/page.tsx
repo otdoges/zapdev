@@ -8,6 +8,7 @@ import Hero from '@/components/hero';
 import FinalCTA from '@/components/final-cta';
 import Pricing from '@/components/pricing';
 import { useSupabase } from '@/components/SupabaseProvider';
+import { CrossBrowserButton } from '@/components/ui/cross-browser-button';
 
 const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), {
   loading: () => (
@@ -102,44 +103,52 @@ export default function Home() {
     if (user) {
       return (
         <div className="flex items-center gap-4">
-          <motion.button
+          <CrossBrowserButton
             onClick={goToChat}
-            className="rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-4 py-2 text-sm font-medium text-white transition-all hover:from-[#7C62B0] hover:to-[#B0627C]"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className="cross-browser-button gradient-button-primary rounded-lg px-4 py-2 text-sm font-medium"
+            motionProps={{
+              whileHover: { scale: 1.05 },
+              whileTap: { scale: 0.95 }
+            }}
           >
             Chat
-          </motion.button>
-          <motion.button
+          </CrossBrowserButton>
+          <CrossBrowserButton
             onClick={goToPricingPage}
-            className="rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] px-4 py-2 text-sm font-medium text-white transition-all hover:from-[#B0627C] hover:to-[#7C62B0]"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className="cross-browser-button gradient-button-secondary rounded-lg px-4 py-2 text-sm font-medium"
+            motionProps={{
+              whileHover: { scale: 1.05 },
+              whileTap: { scale: 0.95 }
+            }}
           >
             Subscribe
-          </motion.button>
+          </CrossBrowserButton>
         </div>
       );
     }
 
     return (
       <div className="flex items-center gap-4">
-        <motion.button
+        <CrossBrowserButton
           onClick={goToAuth}
-          className="rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-4 py-2 text-sm font-medium text-white transition-all hover:from-[#7C62B0] hover:to-[#B0627C]"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          className="cross-browser-button gradient-button-primary rounded-lg px-4 py-2 text-sm font-medium"
+          motionProps={{
+            whileHover: { scale: 1.05 },
+            whileTap: { scale: 0.95 }
+          }}
         >
           Sign In
-        </motion.button>
-        <motion.button
+        </CrossBrowserButton>
+        <CrossBrowserButton
           onClick={goToAuth}
-          className="rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] px-4 py-2 text-sm font-medium text-white transition-all hover:from-[#B0627C] hover:to-[#7C62B0]"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          className="cross-browser-button gradient-button-secondary rounded-lg px-4 py-2 text-sm font-medium"
+          motionProps={{
+            whileHover: { scale: 1.05 },
+            whileTap: { scale: 0.95 }
+          }}
         >
           Sign Up
-        </motion.button>
+        </CrossBrowserButton>
       </div>
     );
   };
@@ -150,11 +159,13 @@ export default function Home() {
     const targetRoute = user ? '/chat' : '/auth';
 
     return (
-      <motion.button
+      <CrossBrowserButton
         onClick={() => router.push(targetRoute)}
-        className="flex items-center gap-2 rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-6 py-3 font-medium text-white shadow-lg shadow-purple-900/20 hover:from-[#7C62B0] hover:to-[#B0627C]"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        className="cross-browser-button gradient-button-primary flex items-center gap-2 rounded-full px-6 py-3 font-medium text-white shadow-lg shadow-purple-900/20"
+        motionProps={{
+          whileHover: { scale: 1.05 },
+          whileTap: { scale: 0.95 }
+        }}
       >
         <span>{buttonText}</span>
         <svg
@@ -179,7 +190,7 @@ export default function Home() {
             strokeLinejoin="round"
           />
         </svg>
-      </motion.button>
+      </CrossBrowserButton>
     );
   };
 
@@ -223,11 +234,13 @@ export default function Home() {
           exit={{ opacity: 0, x: -50 }}
           transition={{ duration: 0.3 }}
         >
-          <motion.button
+          <CrossBrowserButton
             onClick={user ? goToPricingPage : goToAuth}
-            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-[#A0527C] to-[#6C52A0] px-6 py-3 font-medium text-white shadow-lg shadow-purple-900/20 hover:from-[#B0627C] hover:to-[#7C62B0]"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className="cross-browser-button gradient-button-secondary flex items-center gap-2 rounded-full px-6 py-3 font-medium text-white shadow-lg shadow-purple-900/20"
+            motionProps={{
+              whileHover: { scale: 1.05 },
+              whileTap: { scale: 0.95 }
+            }}
           >
             <span>{user ? 'Subscribe' : 'Sign Up'}</span>
             <svg
@@ -244,7 +257,7 @@ export default function Home() {
                 strokeLinecap="round"
               />
             </svg>
-          </motion.button>
+          </CrossBrowserButton>
         </motion.div>
       )}
 
