@@ -84,6 +84,13 @@ export function CookieConsentBanner() {
       // Disable analytics if user opted out
           // Plausible doesn't require explicit opt-out as it respects DNT headers
     }
+
+    // Dispatch custom event to notify analytics scripts of preference change
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('cookiePreferencesChanged', {
+        detail: prefs
+      }));
+    }
   };
 
   const resetConsent = () => {
