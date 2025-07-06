@@ -237,7 +237,7 @@
 }
 
 .cross-browser-button:focus {
-  outline: 2px solid var(--deep-violet);
+  outline: 2px solid #6c52a0;
   outline-offset: 2px;
 }
 
@@ -247,15 +247,15 @@
   pointer-events: none;
 }
 
-/* Gradient button styles with fallbacks */
+/* Gradient button styles with extensive browser support */
 .gradient-button-primary {
-  background: linear-gradient(135deg, var(--deep-violet) 0%, var(--warm-pink) 100%);
-  background: -webkit-linear-gradient(135deg, var(--deep-violet) 0%, var(--warm-pink) 100%);
-  background: -moz-linear-gradient(135deg, var(--deep-violet) 0%, var(--warm-pink) 100%);
-  background: -o-linear-gradient(135deg, var(--deep-violet) 0%, var(--warm-pink) 100%);
-  background: -ms-linear-gradient(135deg, var(--deep-violet) 0%, var(--warm-pink) 100%);
-  /* Fallback for older browsers */
-  background: #6c52a0;
+  background: linear-gradient(135deg, #6c52a0 0%, #a0527c 100%);
+  background: -webkit-linear-gradient(135deg, #6c52a0 0%, #a0527c 100%);
+  background: -moz-linear-gradient(135deg, #6c52a0 0%, #a0527c 100%);
+  background: -o-linear-gradient(135deg, #6c52a0 0%, #a0527c 100%);
+  background: -ms-linear-gradient(135deg, #6c52a0 0%, #a0527c 100%);
+  /* Solid fallback for very old browsers */
+  background-color: #6c52a0;
   color: white;
 }
 
@@ -265,18 +265,16 @@
   background: -moz-linear-gradient(135deg, #7c62b0 0%, #b0627c 100%);
   background: -o-linear-gradient(135deg, #7c62b0 0%, #b0627c 100%);
   background: -ms-linear-gradient(135deg, #7c62b0 0%, #b0627c 100%);
-  /* Fallback for older browsers */
-  background: #7c62b0;
+  background-color: #7c62b0;
 }
 
 .gradient-button-secondary {
-  background: linear-gradient(135deg, var(--warm-pink) 0%, var(--deep-violet) 100%);
-  background: -webkit-linear-gradient(135deg, var(--warm-pink) 0%, var(--deep-violet) 100%);
-  background: -moz-linear-gradient(135deg, var(--warm-pink) 0%, var(--deep-violet) 100%);
-  background: -o-linear-gradient(135deg, var(--warm-pink) 0%, var(--deep-violet) 100%);
-  background: -ms-linear-gradient(135deg, var(--warm-pink) 0%, var(--deep-violet) 100%);
-  /* Fallback for older browsers */
-  background: #a0527c;
+  background: linear-gradient(135deg, #a0527c 0%, #6c52a0 100%);
+  background: -webkit-linear-gradient(135deg, #a0527c 0%, #6c52a0 100%);
+  background: -moz-linear-gradient(135deg, #a0527c 0%, #6c52a0 100%);
+  background: -o-linear-gradient(135deg, #a0527c 0%, #6c52a0 100%);
+  background: -ms-linear-gradient(135deg, #a0527c 0%, #6c52a0 100%);
+  background-color: #a0527c;
   color: white;
 }
 
@@ -286,8 +284,26 @@
   background: -moz-linear-gradient(135deg, #b0627c 0%, #7c62b0 100%);
   background: -o-linear-gradient(135deg, #b0627c 0%, #7c62b0 100%);
   background: -ms-linear-gradient(135deg, #b0627c 0%, #7c62b0 100%);
-  /* Fallback for older browsers */
-  background: #b0627c;
+  background-color: #b0627c;
+}
+
+/* Simple scale animations that work everywhere */
+@keyframes button-scale-up {
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
+}
+
+@keyframes button-scale-down {
+  from { transform: scale(1); }
+  to { transform: scale(0.95); }
+}
+
+.cross-browser-button:hover {
+  animation: button-scale-up 0.2s ease-out forwards;
+}
+
+.cross-browser-button:active {
+  animation: button-scale-down 0.2s ease-out forwards;
 }
 
 /* Animation classes */

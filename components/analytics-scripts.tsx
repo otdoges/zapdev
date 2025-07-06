@@ -62,7 +62,7 @@ export function AnalyticsScripts() {
     <>
       <Script
         defer
-        data-domain="zapdev-mu.vercel.app"
+        data-domain="zapdev.link"
         src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"
         strategy="afterInteractive"
       />
