@@ -105,8 +105,8 @@ const nextConfig = {
         ].join('; ')
       : [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://js.clerk.com https://clerk.accounts.dev https://cdn.jsdelivr.net https://cdn.mxpnl.com https://app.posthog.com",
-          "connect-src 'self' http://localhost:* https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud https://fonts.googleapis.com https://fonts.gstatic.com https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com https://api.mixpanel.com https://app.posthog.com https://us.i.posthog.com",
+          "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://js.clerk.com https://clerk.accounts.dev https://cdn.jsdelivr.net https://plausible.io",
+          "connect-src 'self' http://localhost:* https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud https://fonts.googleapis.com https://fonts.gstatic.com https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com https://plausible.io",
           "img-src 'self' data: blob:",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "frame-src 'self' https://clerk.accounts.dev",
