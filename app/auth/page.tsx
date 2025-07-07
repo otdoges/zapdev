@@ -26,6 +26,13 @@ function AuthContent() {
   const authError = searchParams.get('error');
   const authSuccess = searchParams.get('success');
 
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (user) {
+      router.replace(redirectTo);
+    }
+  }, [user, router, redirectTo]);
+
   // Check if Supabase is configured
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -69,7 +76,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
     );
   }
 
-  if (loading || user) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0D0D10]">
         <div className="text-center text-white">
