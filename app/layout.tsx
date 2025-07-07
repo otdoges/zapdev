@@ -12,7 +12,6 @@ import { Analytics } from '@vercel/analytics/react';
 import './globals.css';
 import { CookieConsentBanner } from '@/components/ui/cookie-consent-banner';
 import { QueryProvider } from '@/lib/query-client';
-import { AnalyticsScripts } from '@/components/analytics-scripts';
 
 export const viewport: Viewport = {
   themeColor: '#0D0D10',
@@ -53,14 +52,6 @@ export const metadata: Metadata = {
       'Generate, preview, and deploy stunning web applications in seconds with our AI-driven development platform.',
     url: 'https://zapdev.link',
     siteName: 'ZapDev',
-    images: [
-      {
-        url: 'https://zapdev.link/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'ZapDev AI-Powered Development Platform',
-      },
-    ],
     locale: 'en_US',
     type: 'website',
   },
@@ -69,8 +60,6 @@ export const metadata: Metadata = {
     title: 'ZapDev: AI-Powered Development Platform',
     description:
       'Generate, preview, and deploy stunning web applications in seconds with our AI-driven development platform.',
-    creator: '@zapdev',
-    images: ['https://zapdev.link/twitter-image.png'],
   },
   robots: {
     index: true,
@@ -86,7 +75,6 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
-    apple: '/apple-touch-icon.png',
   },
   manifest: '/site.webmanifest',
 };
@@ -116,10 +104,7 @@ export default function RootLayout({
               '@type': 'Organization',
               name: 'ZapDev',
               url: 'https://zapdev.link',
-              logo: 'https://zapdev.link/logo.png',
-              sameAs: [
-                'https://twitter.com/zapdev',
-              ],
+              description: 'AI-Powered Development Platform to Build and Deploy Web Apps',
             }),
           }}
         />
@@ -144,7 +129,6 @@ export default function RootLayout({
                   <Toaster />
                   <CookieConsentBanner />
                   <Analytics />
-                  <AnalyticsScripts />
                 </RealtimeProvider>
               </AuthProvider>
             </SentryProvider>

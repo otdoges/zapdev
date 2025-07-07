@@ -90,39 +90,23 @@ const nextConfig = {
   async headers() {
     const isDev = process.env.NODE_ENV === 'development';
     
-    // More permissive CSP for development, strict for production
-    const csp = isDev 
-      ? [
-          "default-src 'self' 'unsafe-inline' 'unsafe-eval'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' *",
-          "connect-src 'self' * ws: wss:",
-          "img-src 'self' data: blob: *",
-          "style-src 'self' 'unsafe-inline' *",
-          "frame-src 'self' *",
-          "font-src 'self' data: *",
-          "worker-src 'self' blob:",
-          "child-src 'self' blob:",
-        ].join('; ')
-      : [
-          "default-src 'self'",
-          "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://js.clerk.com https://clerk.accounts.dev https://cdn.jsdelivr.net https://plausible.io https://cloud.umami.is https://cdn.databuddy.cc",
-          "connect-src 'self' http://localhost:* https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud https://fonts.googleapis.com https://fonts.gstatic.com https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com https://plausible.io https://cloud.umami.is https://cdn.databuddy.cc",
-          "img-src 'self' data: blob:",
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-          "frame-src 'self' https://clerk.accounts.dev",
-          "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
-          "worker-src 'self' blob:",
-          "child-src 'self' blob:",
-        ].join('; ');
-
     return [
-      // Only apply CSP in production or when explicitly enabled
+      // Disable CSP in development to prevent blocking issues
       ...(isDev ? [] : [{
         source: '/:path*',
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: csp,
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://plausible.io https://cloud.umami.is https://cdn.databuddy.cc",
+              "connect-src 'self' https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com https://plausible.io https://cloud.umami.is https://cdn.databuddy.cc",
+              "img-src 'self' data: blob:",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' data: https://fonts.gstatic.com",
+              "worker-src 'self' blob:",
+              "child-src 'self' blob:",
+            ].join('; '),
           },
         ],
       }]),

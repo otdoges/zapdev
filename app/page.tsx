@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import Hero from '@/components/hero';
 import FinalCTA from '@/components/final-cta';
 import Pricing from '@/components/pricing';
+import { useSupabase } from '@/components/SupabaseProvider';
 import { AuthButtons } from '@/components/auth-buttons';
 import { CrossBrowserButton } from '@/components/ui/cross-browser-button';
 
@@ -112,7 +113,23 @@ export default function Home() {
           transition={{ delay: 0.3 }}
           className="flex items-center gap-4"
         >
-          <AuthButtons />
+          {/* Debug: Simple static buttons to confirm they show */}
+          <div className="flex items-center gap-4 rounded-lg bg-black/20 px-4 py-2 backdrop-blur-sm border border-white/10">
+            <button
+              onClick={() => router.push('/auth')}
+              className="gradient-button-primary rounded-lg px-4 py-2 text-sm font-medium text-white"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => router.push('/auth')}
+              className="gradient-button-secondary rounded-lg px-4 py-2 text-sm font-medium text-white"
+            >
+              Sign Up
+            </button>
+          </div>
+          {/* Uncomment this after we confirm the basic buttons work */}
+          {/* <AuthButtons /> */}
         </motion.div>
       </motion.header>
 

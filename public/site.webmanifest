@@ -1,0 +1,16 @@
+{
+  "name": "ZapDev",
+  "short_name": "ZapDev",
+  "description": "AI-Powered Development Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D0D10",
+  "theme_color": "#6C52A0",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+} 
