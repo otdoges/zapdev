@@ -99,7 +99,7 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://plausible.io https://cloud.umami.is https://cdn.databuddy.cc",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://plausible.io https://cloud.umami.is https://cdn.databuddy.cc https://static.cloudflareinsights.com",
               "connect-src 'self' https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com https://plausible.io https://cloud.umami.is https://cdn.databuddy.cc",
               "img-src 'self' data: blob:",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
