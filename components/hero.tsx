@@ -122,8 +122,8 @@ export default function Hero() {
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.3 }}
         >
-          <span className="text-gradient">ZapDev:</span> Design with Feeling.
-          <br /> Build with <span className="shimmer-effect">Speed.</span>
+          <span className="text-gradient">ZapDev:</span> Turn UI Prompts into
+          <br /> <span className="shimmer-effect">Production-Grade</span> Code
         </motion.h1>
 
         <motion.p
@@ -132,8 +132,8 @@ export default function Hero() {
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.5 }}
         >
-          Describe your desired vibe, and let ZapDev's AI instantly craft stunning, responsive
-          websites in Svelte, Astro, and more. No-code simplicity, pro-dev power.
+          The fastest way to turn UI prompts into production-grade Tailwind/React code—without locking you into a design system. 
+          <span className="text-[#A0527C] font-medium"> Your code, your style, your freedom.</span>
         </motion.p>
 
         <motion.div
@@ -142,6 +142,17 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 0.7 }}
           className="flex flex-col justify-center gap-4 sm:flex-row"
         >
+<<<<<<< HEAD
+          <Button
+            className="rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-8 py-6 text-lg font-medium text-white hover:from-[#7C62B0] hover:to-[#B0627C]"
+            onClick={() => router.push('/#playground')}
+          >
+            Try It Free - No Login
+          </Button>
+          <Button
+            variant="outline"
+            className="rounded-full border-[#4F3A75] px-8 py-6 text-lg text-white hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
+=======
           <CrossBrowserButton
             className="cross-browser-button gradient-button-primary rounded-full px-8 py-6 text-lg font-medium text-white"
             onClick={() => router.push('/auth')}
@@ -154,14 +165,20 @@ export default function Hero() {
           </CrossBrowserButton>
           <CrossBrowserButton
             className="cross-browser-button rounded-full border border-[#4F3A75] bg-transparent px-8 py-6 text-lg text-white hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
+>>>>>>> f975414d0fc27fc5df0c6bfdee5d45995fa23c95
             onClick={() => router.push('/#examples')}
             motionProps={{
               whileHover: { scale: 1.02 },
               whileTap: { scale: 0.98 }
             }}
           >
+<<<<<<< HEAD
+            See Real Examples
+          </Button>
+=======
             Explore Examples
           </CrossBrowserButton>
+>>>>>>> f975414d0fc27fc5df0c6bfdee5d45995fa23c95
         </motion.div>
 
         {/* Subscribe Button */}
@@ -179,7 +196,7 @@ export default function Hero() {
               whileTap: { scale: 0.98 }
             }}
           >
-            <span className="relative z-10">Sign Up Free</span>
+            <span className="relative z-10">Get Full Access</span>
             <svg
               className="relative z-10 h-5 w-5"
               xmlns="http://www.w3.org/2000/svg"

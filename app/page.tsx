@@ -7,6 +7,9 @@ import { useEffect, useState } from 'react';
 import Hero from '@/components/hero';
 import FinalCTA from '@/components/final-cta';
 import Pricing from '@/components/pricing';
+import PublicPlayground from '@/components/public-playground';
+import ExampleGallery from '@/components/example-gallery';
+import CompetitiveEdge from '@/components/competitive-edge';
 import { useSupabase } from '@/components/SupabaseProvider';
 import { AuthButtons } from '@/components/auth-buttons';
 import { CrossBrowserButton } from '@/components/ui/cross-browser-button';
@@ -145,6 +148,9 @@ export default function Home() {
 
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <Hero />
+        <PublicPlayground />
+        <ExampleGallery />
+        <CompetitiveEdge />
         <FeaturesShowcase />
         <VisualShowcase />
         <VibeToReality />
