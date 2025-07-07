@@ -7,6 +7,9 @@ import { useEffect, useState } from 'react';
 import Hero from '@/components/hero';
 import FinalCTA from '@/components/final-cta';
 import Pricing from '@/components/pricing';
+import PublicPlayground from '@/components/public-playground';
+import ExampleGallery from '@/components/example-gallery';
+import CompetitiveEdge from '@/components/competitive-edge';
 import { useSupabase } from '@/components/SupabaseProvider';
 
 const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), {
@@ -251,6 +254,9 @@ export default function Home() {
       {/* Main content */}
       <main>
         <Hero />
+        <PublicPlayground />
+        <ExampleGallery />
+        <CompetitiveEdge />
         <FeaturesShowcase />
         <VisualShowcase />
         <VibeToReality />

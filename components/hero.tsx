@@ -121,8 +121,8 @@ export default function Hero() {
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.3 }}
         >
-          <span className="text-gradient">ZapDev:</span> Design with Feeling.
-          <br /> Build with <span className="shimmer-effect">Speed.</span>
+          <span className="text-gradient">ZapDev:</span> Turn UI Prompts into
+          <br /> <span className="shimmer-effect">Production-Grade</span> Code
         </motion.h1>
 
         <motion.p
@@ -131,8 +131,8 @@ export default function Hero() {
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.5 }}
         >
-          Describe your desired vibe, and let ZapDev's AI instantly craft stunning, responsive
-          websites in Svelte, Astro, and more. No-code simplicity, pro-dev power.
+          The fastest way to turn UI prompts into production-grade Tailwind/React code—without locking you into a design system. 
+          <span className="text-[#A0527C] font-medium"> Your code, your style, your freedom.</span>
         </motion.p>
 
         <motion.div
@@ -143,16 +143,16 @@ export default function Hero() {
         >
           <Button
             className="rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-8 py-6 text-lg font-medium text-white hover:from-[#7C62B0] hover:to-[#B0627C]"
-            onClick={() => router.push('/auth')}
+            onClick={() => router.push('/#playground')}
           >
-            Start Weaving Your Web
+            Try It Free - No Login
           </Button>
           <Button
             variant="outline"
             className="rounded-full border-[#4F3A75] px-8 py-6 text-lg text-white hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
             onClick={() => router.push('/#examples')}
           >
-            Explore Examples
+            See Real Examples
           </Button>
         </motion.div>
 
@@ -167,7 +167,7 @@ export default function Hero() {
             className="group relative flex items-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-[#A0527C] to-[#6C52A0] px-10 py-6 text-lg font-medium text-white shadow-lg shadow-[#6C52A0]/20 hover:from-[#B0627C] hover:to-[#7C62B0]"
             onClick={() => router.push('/auth')}
           >
-            <span className="relative z-10">Sign Up Free</span>
+            <span className="relative z-10">Get Full Access</span>
             <svg
               className="relative z-10 h-5 w-5"
               xmlns="http://www.w3.org/2000/svg"
