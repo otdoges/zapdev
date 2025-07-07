@@ -88,28 +88,11 @@ const nextConfig = {
     return config
   },
   async headers() {
-<<<<<<< HEAD
     const isDev = process.env.NODE_ENV === 'development';
     
     return [
       // Disable CSP in development to prevent blocking issues
       ...(isDev ? [] : [{
-=======
-    const csp = [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net",
-      "connect-src 'self' http://localhost:* https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud https://fonts.googleapis.com https://fonts.gstatic.com https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com",
-      "img-src 'self' data: blob:",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "frame-src 'self' https://clerk.accounts.dev",
-      "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
-      "worker-src 'self' blob:",
-      "child-src 'self' blob:",
-    ].join('; ');
-
-    return [
-      {
->>>>>>> parent of df6da25 (Trying to fix things for now)
         source: '/:path*',
         headers: [
           {
@@ -126,7 +109,7 @@ const nextConfig = {
             ].join('; '),
           },
         ],
-      },
+      }]),
       {
         source: '/_next/static/:path*',
         headers: [
