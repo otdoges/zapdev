@@ -33,6 +33,15 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     let isMounted = true;
+    
+    // Set up a global timeout to prevent infinite loading
+    const globalTimeout = setTimeout(() => {
+      if (isMounted && loading) {
+        errorLogger.warning(ErrorCategory.GENERAL, 'Auth initialization timeout - setting loading to false');
+        setLoading(false);
+        setUser(null);
+      }
+    }, 15000); // 15 second max timeout
 
     // Check if Supabase is configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -42,7 +51,9 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       !supabaseUrl ||
       !supabaseAnonKey ||
       supabaseUrl === 'https://placeholder.supabase.co' ||
-      supabaseAnonKey === 'placeholder-key'
+      supabaseAnonKey === 'placeholder-key' ||
+      supabaseUrl.includes('placeholder') ||
+      supabaseAnonKey.includes('placeholder')
     ) {
       errorLogger.warning(
         ErrorCategory.GENERAL,
@@ -52,6 +63,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         setIsConfigured(false);
         setLoading(false);
       }
+      clearTimeout(globalTimeout);
       return;
     }
 
@@ -71,25 +83,36 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       setSupabase(client);
       setIsConfigured(true);
 
-      // Get initial session
+      // Get initial session with timeout
       const getInitialSession = async () => {
         try {
-          const {
-            data: { session },
-            error,
-          } = await client.auth.getSession();
-          if (error) {
-            errorLogger.error(ErrorCategory.GENERAL, 'Error getting initial session:', error);
+          // Create a timeout promise that rejects
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Session check timeout')), 10000)
+          );
+
+          // Race between session check and timeout
+          const sessionPromise = client.auth.getSession();
+          
+          const result = await Promise.race([sessionPromise, timeoutPromise]);
+          
+          if (result.error) {
+            errorLogger.error(ErrorCategory.GENERAL, 'Error getting initial session:', result.error);
           }
           if (isMounted) {
-            setUser(session?.user ?? null);
+            setUser(result.data?.session?.user ?? null);
           }
         } catch (error) {
-          errorLogger.error(ErrorCategory.GENERAL, 'Error getting session:', error);
+          errorLogger.error(ErrorCategory.GENERAL, 'Error getting session (falling back to no auth):', error);
+          // On error, assume no user and continue
+          if (isMounted) {
+            setUser(null);
+          }
         } finally {
           if (isMounted) {
             setLoading(false);
           }
+          clearTimeout(globalTimeout);
         }
       };
 
@@ -138,6 +161,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
 
       return () => {
         subscription.unsubscribe();
+        clearTimeout(globalTimeout);
         isMounted = false;
       };
     } catch (error) {
@@ -146,9 +170,11 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         setIsConfigured(false);
         setLoading(false);
       }
+      clearTimeout(globalTimeout);
     }
 
     return () => {
+      clearTimeout(globalTimeout);
       isMounted = false;
     };
   }, []);
