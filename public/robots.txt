@@ -1,0 +1,9 @@
+# Allow all user agents to crawl the site
+User-agent: *
+Allow: /
+
+# Disallow crawling of specific routes that don't provide value to search engines
+Disallow: /auth/callback
+
+# Point to the sitemap
+Sitemap: https://zapdev.link/sitemap.xml 

@@ -83,27 +83,17 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
-  const isAuthPage = pathname === '/auth'
 
-  // If the user is on the auth page, allow it to be rendered
-  if (isAuthPage) {
-    // But if they are logged in, redirect them away from the auth page
-    if (user) {
-      const nextUrl = request.nextUrl.searchParams.get('next')
-      const redirectTo = nextUrl && nextUrl.startsWith('/') ? nextUrl : '/chat'
-      const url = new URL(redirectTo, request.url)
-      url.searchParams.delete('next')
-      return NextResponse.redirect(url)
-    }
-    return response
-  }
-  
-  // If user is not logged in and tries to access chat, redirect to auth page
-  // preserving the originally requested path
+  // Protect the /chat route
   if (!user && pathname.startsWith('/chat')) {
     const url = new URL('/auth', request.url)
-    url.searchParams.set('next', pathname)
+    url.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(url)
+  }
+  
+  // If a logged-in user tries to access the /auth page, redirect them to /chat
+  if (user && pathname === '/auth') {
+    return NextResponse.redirect(new URL('/chat', request.url))
   }
 
   return response

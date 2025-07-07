@@ -1,86 +1,92 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { useSupabase } from '@/components/SupabaseProvider';
-import { Button } from '@/components/ui/button';
 import { CrossBrowserButton } from '@/components/ui/cross-browser-button';
-import { useState, useEffect } from 'react';
-import { AUTH_COOKIES, hasAuthCookies } from '@/lib/auth-constants';
-import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 export function AuthButtons() {
-  const { user, loading, signOut } = useSupabase();
-  const [isLoading, setIsLoading] = useState(false);
-  const [cookieAuth, setCookieAuth] = useState<boolean | null>(null);
+  const router = useRouter();
+  const { user, loading } = useSupabase();
 
-  // Quick cookie check for instant feedback
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setCookieAuth(hasAuthCookies(document.cookie));
-    }
-  }, []);
-
-  const handleSignOut = async () => {
-    setIsLoading(true);
-    try {
-      await signOut();
-      setCookieAuth(false); // Update cookie state immediately
-    } catch (error) {
-      errorLogger.error(ErrorCategory.GENERAL, 'Sign out error:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const goToPricingPage = () => {
+    router.push('/pricing');
   };
 
-  // Use user data if available, otherwise fall back to cookie check
-  const isAuthenticated = !loading && user !== undefined ? !!user : cookieAuth;
+  const goToAuth = () => {
+    router.push('/auth');
+  };
 
-  // Show loading placeholder only if we have no information at all
-  if (loading && cookieAuth === null) {
+  const goToChat = () => {
+    router.push('/chat');
+  };
+
+  if (loading) {
     return (
-      <div className="flex items-center gap-2">
-        <div className="h-8 w-16 animate-pulse rounded bg-zinc-800"></div>
-        <div className="h-8 w-20 animate-pulse rounded bg-zinc-800"></div>
+      <div className="flex items-center gap-4">
+        <div className="h-8 w-20 animate-pulse rounded-lg bg-white/10 px-4 py-2"></div>
+        <div className="h-8 w-16 animate-pulse rounded-lg bg-white/10 px-4 py-2"></div>
       </div>
     );
   }
 
-  if (isAuthenticated) {
+  if (user) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-zinc-300">{user?.email || 'Authenticated'}</span>
+      <div className="flex items-center gap-4">
         <CrossBrowserButton
-          onClick={handleSignOut}
-          disabled={isLoading}
-          className="cross-browser-button text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          onClick={goToChat}
+          className="cross-browser-button gradient-button-primary rounded-lg px-4 py-2 text-sm font-medium"
           motionProps={{
-            whileHover: { scale: 1.02 },
-            whileTap: { scale: 0.98 }
+            initial: { opacity: 0, y: -10 },
+            animate: { opacity: 1, y: 0 },
+            transition: { duration: 0.3, delay: 0.1 },
+            whileHover: { scale: 1.05, y: -2 },
+            whileTap: { scale: 0.95 },
           }}
         >
-          {isLoading ? 'Signing out...' : 'Sign Out'}
+          Chat
+        </CrossBrowserButton>
+        <CrossBrowserButton
+          onClick={goToPricingPage}
+          className="cross-browser-button gradient-button-secondary rounded-lg px-4 py-2 text-sm font-medium"
+          motionProps={{
+            initial: { opacity: 0, y: -10 },
+            animate: { opacity: 1, y: 0 },
+            transition: { duration: 0.3, delay: 0.2 },
+            whileHover: { scale: 1.05, y: -2 },
+            whileTap: { scale: 0.95 },
+          }}
+        >
+          Subscribe
         </CrossBrowserButton>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-4">
       <CrossBrowserButton
-        onClick={() => (window.location.href = '/auth')}
-        className="cross-browser-button text-zinc-300 hover:bg-zinc-800 hover:text-white"
+        onClick={goToAuth}
+        className="cross-browser-button gradient-button-primary rounded-lg px-4 py-2 text-sm font-medium"
         motionProps={{
-          whileHover: { scale: 1.02 },
-          whileTap: { scale: 0.98 }
+          initial: { opacity: 0, y: -10 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.3, delay: 0.1 },
+          whileHover: { scale: 1.05, y: -2 },
+          whileTap: { scale: 0.95 },
         }}
       >
-        Login
+        Sign In
       </CrossBrowserButton>
       <CrossBrowserButton
-        onClick={() => (window.location.href = '/auth')}
-        className="cross-browser-button gradient-button-primary"
+        onClick={goToAuth}
+        className="cross-browser-button gradient-button-secondary rounded-lg px-4 py-2 text-sm font-medium"
         motionProps={{
-          whileHover: { scale: 1.02 },
-          whileTap: { scale: 0.98 }
+          initial: { opacity: 0, y: -10 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.3, delay: 0.2 },
+          whileHover: { scale: 1.05, y: -2 },
+          whileTap: { scale: 0.95 },
         }}
       >
         Sign Up
