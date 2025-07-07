@@ -94,7 +94,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
     try {
       await signInWithGitHub();
     } catch (error) {
-      errorLogger.error(ErrorCategory.AUTH, 'GitHub auth failed:', error);
+      errorLogger.error(ErrorCategory.AUTH, 'GitHub auth failed', error);
       setError('GitHub authentication failed. Please try again.');
       setIsLoading(false);
     }

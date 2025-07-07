@@ -34,18 +34,24 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
   useEffect(() => {
     let isMounted = true;
     
-    // Set up a global timeout to prevent infinite loading
+    // Set up a shorter global timeout to prevent infinite loading
     const globalTimeout = setTimeout(() => {
-      if (isMounted && loading) {
+      if (isMounted) {
         errorLogger.warning(ErrorCategory.GENERAL, 'Auth initialization timeout - setting loading to false');
         setLoading(false);
         setUser(null);
       }
-    }, 15000); // 15 second max timeout
+    }, 5000); // Reduced to 5 seconds for faster feedback
 
     // Check if Supabase is configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    console.log('🔧 Supabase Environment Check:', {
+      url: supabaseUrl ? 'Set' : 'Missing',
+      key: supabaseAnonKey ? 'Set' : 'Missing',
+      urlValue: supabaseUrl,
+    });
 
     if (
       !supabaseUrl ||
@@ -55,6 +61,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       supabaseUrl.includes('placeholder') ||
       supabaseAnonKey.includes('placeholder')
     ) {
+      console.error('❌ Supabase environment variables are missing or using placeholders');
       errorLogger.warning(
         ErrorCategory.GENERAL,
         'Supabase environment variables are missing or using placeholders. Authentication will be disabled.'
@@ -62,10 +69,13 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       if (isMounted) {
         setIsConfigured(false);
         setLoading(false);
+        setUser(null);
       }
       clearTimeout(globalTimeout);
       return;
     }
+
+    console.log('✅ Supabase environment variables configured');
 
     try {
       // Create Supabase client
@@ -78,17 +88,23 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         },
       });
 
-      if (!isMounted) return;
+      if (!isMounted) {
+        clearTimeout(globalTimeout);
+        return;
+      }
 
       setSupabase(client);
       setIsConfigured(true);
+      console.log('✅ Supabase client created successfully');
 
-      // Get initial session with timeout
+      // Get initial session with shorter timeout
       const getInitialSession = async () => {
         try {
-          // Create a timeout promise that rejects
+          console.log('🔍 Getting initial session...');
+          
+          // Create a shorter timeout promise
           const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Session check timeout')), 10000)
+            setTimeout(() => reject(new Error('Session check timeout')), 3000) // Reduced to 3 seconds
           );
 
           // Race between session check and timeout
@@ -97,12 +113,17 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
           const result = await Promise.race([sessionPromise, timeoutPromise]);
           
           if (result.error) {
+            console.error('❌ Error getting initial session:', result.error);
             errorLogger.error(ErrorCategory.GENERAL, 'Error getting initial session:', result.error);
+          } else {
+            console.log('✅ Initial session check completed', result.data?.session?.user ? 'User found' : 'No user');
           }
+
           if (isMounted) {
             setUser(result.data?.session?.user ?? null);
           }
         } catch (error) {
+          console.error('❌ Session check failed, continuing without auth:', error);
           errorLogger.error(ErrorCategory.GENERAL, 'Error getting session (falling back to no auth):', error);
           // On error, assume no user and continue
           if (isMounted) {
@@ -111,6 +132,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         } finally {
           if (isMounted) {
             setLoading(false);
+            console.log('✅ Auth loading completed');
           }
           clearTimeout(globalTimeout);
         }
@@ -122,7 +144,8 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       const {
         data: { subscription },
       } = client.auth.onAuthStateChange(async (event, session) => {
-        errorLogger.info(ErrorCategory.GENERAL, 'Auth state changed:', event, session?.user?.email);
+        console.log('🔄 Auth state changed:', event, session?.user?.email);
+        errorLogger.info(ErrorCategory.GENERAL, `Auth state changed: ${event} ${session?.user?.email || 'no user'}`);
 
         if (!isMounted) return;
 
@@ -132,10 +155,12 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         // Handle different auth events
         if (event === 'SIGNED_OUT') {
           // Clear any cached data - but don't force redirect
+          console.log('👋 User signed out');
           errorLogger.info(ErrorCategory.GENERAL, 'User signed out');
         } else if (event === 'SIGNED_IN' && session?.user) {
           // Handle successful sign in
-          errorLogger.info(ErrorCategory.GENERAL, 'User signed in:', session.user.email);
+          console.log('👤 User signed in:', session.user.email);
+          errorLogger.info(ErrorCategory.GENERAL, `User signed in: ${session.user.email}`);
 
           // Try to sync user to database in background (non-blocking)
           try {
@@ -145,7 +170,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
           } catch (syncError) {
             errorLogger.warning(
               ErrorCategory.GENERAL,
-              'Background user sync failed (auth still valid):',
+              'Background user sync failed (auth still valid)',
               syncError
             );
             // Don't fail the auth flow for this
@@ -153,8 +178,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         } else if (event === 'TOKEN_REFRESHED') {
           errorLogger.info(
             ErrorCategory.GENERAL,
-            'Token refreshed for user:',
-            session?.user?.email
+            `Token refreshed for user: ${session?.user?.email}`
           );
         }
       });
@@ -165,10 +189,12 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         isMounted = false;
       };
     } catch (error) {
-      errorLogger.error(ErrorCategory.GENERAL, 'Error initializing Supabase:', error);
+      console.error('❌ Error initializing Supabase:', error);
+      errorLogger.error(ErrorCategory.GENERAL, 'Error initializing Supabase', error);
       if (isMounted) {
         setIsConfigured(false);
         setLoading(false);
+        setUser(null);
       }
       clearTimeout(globalTimeout);
     }
@@ -178,6 +204,18 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       isMounted = false;
     };
   }, []);
+
+  // Emergency fallback - force loading to false after 8 seconds no matter what
+  useEffect(() => {
+    const emergencyTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ Emergency timeout: forcing loading to false');
+        setLoading(false);
+      }
+    }, 8000);
+
+    return () => clearTimeout(emergencyTimeout);
+  }, [loading]);
 
   const signOut = async () => {
     if (!supabase || !isConfigured) {
@@ -192,12 +230,12 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       setLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) {
-        errorLogger.error(ErrorCategory.GENERAL, 'Sign out error:', error);
+        errorLogger.error(ErrorCategory.GENERAL, 'Sign out error', error);
       } else {
         setUser(null);
       }
     } catch (error) {
-      errorLogger.error(ErrorCategory.GENERAL, 'Sign out error:', error);
+      errorLogger.error(ErrorCategory.GENERAL, 'Sign out error', error);
     } finally {
       setLoading(false);
     }
@@ -211,7 +249,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
     try {
       setLoading(true);
       const redirectTo = `${window.location.origin}/auth/callback?next=/chat`;
-      errorLogger.info(ErrorCategory.GENERAL, 'GitHub OAuth redirect URL:', redirectTo);
+      errorLogger.info(ErrorCategory.GENERAL, `GitHub OAuth redirect URL: ${redirectTo}`);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
@@ -220,12 +258,12 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         },
       });
       if (error) {
-        errorLogger.error(ErrorCategory.GENERAL, 'GitHub sign in error:', error);
+        errorLogger.error(ErrorCategory.GENERAL, 'GitHub sign in error', error);
         setLoading(false);
         throw error;
       }
     } catch (error) {
-      errorLogger.error(ErrorCategory.GENERAL, 'GitHub sign in error:', error);
+      errorLogger.error(ErrorCategory.GENERAL, 'GitHub sign in error', error);
       setLoading(false);
       throw error;
     }
@@ -244,7 +282,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       });
       return { error };
     } catch (error) {
-      errorLogger.error(ErrorCategory.GENERAL, 'Email sign in error:', error);
+      errorLogger.error(ErrorCategory.GENERAL, 'Email sign in error', error);
       return { error };
     } finally {
       setLoading(false);
@@ -270,7 +308,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       });
       return { error };
     } catch (error) {
-      errorLogger.error(ErrorCategory.GENERAL, 'Email sign up error:', error);
+      errorLogger.error(ErrorCategory.GENERAL, 'Email sign up error', error);
       return { error };
     } finally {
       setLoading(false);
@@ -288,7 +326,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       });
       return { error };
     } catch (error) {
-      errorLogger.error(ErrorCategory.GENERAL, 'Reset password error:', error);
+      errorLogger.error(ErrorCategory.GENERAL, 'Reset password error', error);
       return { error };
     }
   };
