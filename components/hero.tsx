@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from './ui/button';
-import { CrossBrowserButton } from './ui/cross-browser-button';
 import { useRouter } from 'next/navigation';
 import useIsMobile from '@/hooks/useIsMobile';
 
@@ -142,7 +141,6 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 0.7 }}
           className="flex flex-col justify-center gap-4 sm:flex-row"
         >
-<<<<<<< HEAD
           <Button
             className="rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-8 py-6 text-lg font-medium text-white hover:from-[#7C62B0] hover:to-[#B0627C]"
             onClick={() => router.push('/#playground')}
@@ -152,33 +150,10 @@ export default function Hero() {
           <Button
             variant="outline"
             className="rounded-full border-[#4F3A75] px-8 py-6 text-lg text-white hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
-=======
-          <CrossBrowserButton
-            className="cross-browser-button gradient-button-primary rounded-full px-8 py-6 text-lg font-medium text-white"
-            onClick={() => router.push('/auth')}
-            motionProps={{
-              whileHover: { scale: 1.02 },
-              whileTap: { scale: 0.98 }
-            }}
-          >
-            Start Weaving Your Web
-          </CrossBrowserButton>
-          <CrossBrowserButton
-            className="cross-browser-button rounded-full border border-[#4F3A75] bg-transparent px-8 py-6 text-lg text-white hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
->>>>>>> f975414d0fc27fc5df0c6bfdee5d45995fa23c95
             onClick={() => router.push('/#examples')}
-            motionProps={{
-              whileHover: { scale: 1.02 },
-              whileTap: { scale: 0.98 }
-            }}
           >
-<<<<<<< HEAD
             See Real Examples
           </Button>
-=======
-            Explore Examples
-          </CrossBrowserButton>
->>>>>>> f975414d0fc27fc5df0c6bfdee5d45995fa23c95
         </motion.div>
 
         {/* Subscribe Button */}
@@ -188,13 +163,9 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 0.9 }}
           className="mt-8 flex flex-col items-center"
         >
-          <CrossBrowserButton
-            className="cross-browser-button gradient-button-secondary group relative flex items-center gap-2 overflow-hidden rounded-full px-10 py-6 text-lg font-medium text-white shadow-lg shadow-[#6C52A0]/20"
+          <Button
+            className="group relative flex items-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-[#A0527C] to-[#6C52A0] px-10 py-6 text-lg font-medium text-white shadow-lg shadow-[#6C52A0]/20 hover:from-[#B0627C] hover:to-[#7C62B0]"
             onClick={() => router.push('/auth')}
-            motionProps={{
-              whileHover: { scale: 1.02 },
-              whileTap: { scale: 0.98 }
-            }}
           >
             <span className="relative z-10">Get Full Access</span>
             <svg
@@ -211,7 +182,7 @@ export default function Hero() {
             </svg>
             <span className="absolute inset-0 bg-gradient-to-r from-[#B0627C] to-[#7C62B0] opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
             <span className="absolute -right-12 -top-12 h-24 w-24 scale-0 transform rounded-full bg-white/10 blur-xl transition-transform duration-500 group-hover:scale-100"></span>
-          </CrossBrowserButton>
+          </Button>
           <div className="mt-2 text-sm text-[#EAEAEA]/50">
             Start building amazing websites today
           </div>
