@@ -141,19 +141,22 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 0.7 }}
           className="flex flex-col justify-center gap-4 sm:flex-row"
         >
-          <Button
-            className="rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-8 py-6 text-lg font-medium text-white hover:from-[#7C62B0] hover:to-[#B0627C]"
-            onClick={() => router.push('/#playground')}
+          <CrossBrowserButton
+            className="cross-browser-button gradient-button-primary rounded-full px-8 py-6 text-lg font-medium text-white"
+            onClick={() => router.push('/auth')}
+            motionProps={{
+              whileHover: { scale: 1.02 },
+              whileTap: { scale: 0.98 }
+            }}
           >
-            Try It Free - No Login
-          </Button>
-          <Button
-            variant="outline"
-            className="rounded-full border-[#4F3A75] px-8 py-6 text-lg text-white hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
+            Start Weaving Your Web
+          </CrossBrowserButton>
+          <CrossBrowserButton
+            className="cross-browser-button rounded-full border border-[#4F3A75] bg-transparent px-8 py-6 text-lg text-white hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
             onClick={() => router.push('/#examples')}
           >
-            See Real Examples
-          </Button>
+            Explore Examples
+          </CrossBrowserButton>
         </motion.div>
 
         {/* Subscribe Button */}
