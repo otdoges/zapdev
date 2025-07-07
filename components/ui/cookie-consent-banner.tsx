@@ -82,9 +82,14 @@ export function CookieConsentBanner() {
     // Apply preferences
     if (!prefs.analytics) {
       // Disable analytics if user opted out
-      if (typeof window !== 'undefined' && (window as any).posthog) {
-        (window as any).posthog.opt_out_capturing();
-      }
+          // Plausible doesn't require explicit opt-out as it respects DNT headers
+    }
+
+    // Dispatch custom event to notify analytics scripts of preference change
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('cookiePreferencesChanged', {
+        detail: prefs
+      }));
     }
   };
 
@@ -258,7 +263,7 @@ export function CookieConsentBanner() {
                   Help us understand how you use our platform to improve your experience.
                 </p>
                 <div className="text-xs text-gray-500">
-                  <strong>Note:</strong> Analytics are only active if PostHog is configured
+                  <strong>Note:</strong> Analytics are provided by Plausible and Umami
                 </div>
               </div>
             </div>

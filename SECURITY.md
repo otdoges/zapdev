@@ -32,6 +32,8 @@ You can expect an initial response to your report within 1-3 days. We take all s
 ### What to Expect
 
 - **Accepted Vulnerabilities**: If the vulnerability is accepted, you will receive updates on the fix progress and may be credited (if desired) when the fix is released.
-- **Declined Reports**: If the report is declined, you will receive an explanation of why the issue is not considered a vulnerability.
+- **Declined Reports**: If the report is declined, you will receive an explanation of why the issue is not considered a vulnerability. 
+
+Heres our email, support@zapdev.link
 
 Thank you for helping to keep our project secure.

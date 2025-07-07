@@ -26,6 +26,28 @@ import ChatInput from './chat/chat-input';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
+// Add missing utility functions
+function filterMessage(content: string): string {
+  // Remove any tool calls or special formatting from assistant messages
+  return content
+    .replace(/\[tool_call:.*?\]/g, '')
+    .replace(/\[\/tool_call\]/g, '')
+    .trim();
+}
+
+function extractCodeFromMessage(content: string): string | null {
+  // Extract code blocks from markdown
+  const codeBlockRegex = /```(?:[\w+]+)?\n([\s\S]*?)```/g;
+  const matches = content.match(codeBlockRegex);
+  
+  if (matches && matches.length > 0) {
+    // Return the first code block without the markdown formatting
+    return matches[0].replace(/```[\w+]*\n?/g, '').replace(/```$/g, '');
+  }
+  
+  return null;
+}
+
 // Throttle function for performance optimization
 function throttle<T extends (...args: any[]) => any>(
   func: T,
@@ -196,45 +218,6 @@ const commandSuggestions: CommandSuggestion[] = [
     prefix: '/improve',
   },
 ];
-
-// Function to extract code from AI messages
-const extractCodeFromMessage = (content: string): string => {
-  // Look for HTML code blocks
-  const htmlMatch = content.match(/```html\n([\s\S]*?)\n```/);
-  if (htmlMatch) return htmlMatch[1];
-
-  // Look for any code blocks
-  const codeMatch = content.match(/```\w*\n([\s\S]*?)\n```/);
-  if (codeMatch) return codeMatch[1];
-
-  // Look for HTML-like content
-  const htmlPattern = /<(?:html|div|section|article|main|header|footer|nav|aside)[^>]*>/i;
-  if (htmlPattern.test(content)) {
-    return content;
-  }
-
-  return '';
-};
-
-// Function to filter out tool calls and clean up AI responses
-const filterMessage = (content: string): string => {
-  // Remove tool call patterns and technical explanations
-  const toolCallPatterns = [
-    /\[THINKING\][\s\S]*?\[\/THINKING\]/g,
-    /\[TOOL_CALL\][\s\S]*?\[\/TOOL_CALL\]/g,
-    /```json\s*\{[\s\S]*?\}\s*```/g,
-  ];
-
-  let filteredContent = content;
-  toolCallPatterns.forEach((pattern) => {
-    filteredContent = filteredContent.replace(pattern, '');
-  });
-
-  // Clean up extra whitespace
-  filteredContent = filteredContent.replace(/\n{3,}/g, '\n\n').trim();
-
-  return filteredContent;
-};
 
 export function AnimatedAIChat({
   chatId = 'default',

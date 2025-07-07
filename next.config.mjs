@@ -2,6 +2,7 @@ import bundleAnalyzer from '@next/bundle-analyzer';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { withSentryConfig } from '@sentry/nextjs';
 
 // Import package.json
 const __filename = fileURLToPath(import.meta.url);
@@ -89,39 +90,23 @@ const nextConfig = {
   async headers() {
     const isDev = process.env.NODE_ENV === 'development';
     
-    // More permissive CSP for development, strict for production
-    const csp = isDev 
-      ? [
-          "default-src 'self' 'unsafe-inline' 'unsafe-eval'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' *",
-          "connect-src 'self' * ws: wss:",
-          "img-src 'self' data: blob: *",
-          "style-src 'self' 'unsafe-inline' *",
-          "frame-src 'self' *",
-          "font-src 'self' data: *",
-          "worker-src 'self' blob:",
-          "child-src 'self' blob:",
-        ].join('; ')
-      : [
-          "default-src 'self'",
-          "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net",
-          "connect-src 'self' http://localhost:* https://api.github.com https://funky-humpback-59.clerk.accounts.dev https://cdn.jsdelivr.net wss://original-meerkat-657.convex.cloud https://fonts.googleapis.com https://fonts.gstatic.com https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com",
-          "img-src 'self' data: blob:",
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-          "frame-src 'self' https://clerk.accounts.dev",
-          "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
-          "worker-src 'self' blob:",
-          "child-src 'self' blob:",
-        ].join('; ');
-
     return [
-      // Only apply CSP in production or when explicitly enabled
+      // Disable CSP in development to prevent blocking issues
       ...(isDev ? [] : [{
         source: '/:path*',
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: csp,
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://plausible.io https://cloud.umami.is https://cdn.databuddy.cc",
+              "connect-src 'self' https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com https://plausible.io https://cloud.umami.is https://cdn.databuddy.cc",
+              "img-src 'self' data: blob:",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' data: https://fonts.gstatic.com",
+              "worker-src 'self' blob:",
+              "child-src 'self' blob:",
+            ].join('; '),
           },
         ],
       }]),
@@ -130,7 +115,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: isDev ? 'no-cache' : 'public, max-age=31536000, immutable',
+            value: 'public, max-age=31536000, immutable',
           },
           {
             key: 'X-Content-Type-Options',
@@ -143,7 +128,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: isDev ? 'no-cache' : 'public, max-age=31536000, immutable',
+            value: 'public, max-age=31536000, immutable',
           }
         ],
       },
@@ -152,7 +137,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: isDev ? 'no-cache' : 'public, max-age=31536000, immutable',
+            value: 'public, max-age=31536000, immutable',
           },
           {
             key: 'X-Content-Type-Options',
@@ -209,4 +194,39 @@ const nextConfig = {
 // Make sure the version is included in the build output
 console.log(`Building ZapDev version ${packageJson.version}`);
 
-export default withBundleAnalyzer(nextConfig);
+// Sentry configuration options
+const sentryWebpackPluginOptions = {
+  // For all available options, see:
+  // https://github.com/getsentry/sentry-webpack-plugin#options
+
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Only print logs for uploading source maps in CI
+  silent: !process.env.CI,
+
+  // For all available options, see:
+  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+
+  // Upload source maps during build step
+  widenClientFileUpload: true,
+
+  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
+  tunnelRoute: "/monitoring",
+
+  // Hides source maps from generated client bundles
+  hideSourceMaps: true,
+
+  // Automatically tree-shake Sentry logger statements to reduce bundle size
+  disableLogger: true,
+
+  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
+  automaticVercelMonitors: true,
+};
+
+// Apply Sentry configuration only if DSN is provided
+const finalConfig = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN
+  ? withSentryConfig(withBundleAnalyzer(nextConfig), sentryWebpackPluginOptions)
+  : withBundleAnalyzer(nextConfig);
+
+export default finalConfig;

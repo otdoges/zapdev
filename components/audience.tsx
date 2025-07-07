@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Button } from './ui/button';
+import { CrossBrowserButton } from './ui/cross-browser-button';
 
 export default function Audience() {
   const sectionRef = useRef(null);
@@ -103,9 +104,15 @@ export default function Audience() {
               ))}
             </ul>
 
-            <Button className="w-full rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-8 py-6 md:w-auto">
+            <CrossBrowserButton 
+              className="cross-browser-button gradient-button-primary w-full rounded-full px-8 py-6 md:w-auto"
+              motionProps={{
+                whileHover: { scale: 1.02 },
+                whileTap: { scale: 0.98 }
+              }}
+            >
               Start Creating Without Code
-            </Button>
+            </CrossBrowserButton>
 
             <div className="relative mt-10">
               <div className="rounded-xl border border-[#1E1E24] bg-[#191920] p-4">
@@ -186,9 +193,15 @@ export default function Audience() {
               ))}
             </ul>
 
-            <Button className="w-full rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-8 py-6 md:w-auto">
+            <CrossBrowserButton 
+              className="cross-browser-button gradient-button-primary w-full rounded-full px-8 py-6 md:w-auto"
+              motionProps={{
+                whileHover: { scale: 1.02 },
+                whileTap: { scale: 0.98 }
+              }}
+            >
               Explore Developer Features
-            </Button>
+            </CrossBrowserButton>
 
             <div className="relative mt-10">
               <div className="rounded-xl border border-[#1E1E24] bg-[#191920] p-4">

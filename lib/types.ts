@@ -2,6 +2,9 @@ import { Message } from 'ai';
 
 export type ChatHistory = Message[];
 
+// Re-export Message type
+export type { Message };
+
 export interface Product {
   id: string;
   active?: boolean;

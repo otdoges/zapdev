@@ -267,6 +267,61 @@ export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
   return data || [];
 }
 
+// Paginated message fetching with cursor-based pagination
+export async function getMessagesByChatIdPaginated(
+  chatId: string, 
+  pageSize: number = 50, 
+  cursor?: string
+): Promise<{ messages: Message[], hasMore: boolean, nextCursor?: string, totalCount: number }> {
+  const supabase = await createClient();
+  
+  // Get total count
+  const { count } = await supabase
+    .from('messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('chat_id', chatId);
+
+  // Build query
+  let query = supabase
+    .from('messages')
+    .select('*')
+    .eq('chat_id', chatId)
+    .order('created_at', { ascending: true })
+    .limit(pageSize + 1); // Fetch one extra to check if there are more
+
+  // Add cursor condition if provided
+  if (cursor) {
+    query = query.gt('created_at', cursor);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    errorLogger.error(ErrorCategory.DATABASE, 'Error getting paginated messages:', error);
+    throw error;
+  }
+
+  const messages = data || [];
+  const hasMore = messages.length > pageSize;
+  
+  // Remove the extra message if we have more
+  if (hasMore) {
+    messages.pop();
+  }
+
+  // Get the cursor for the next page (created_at of the last message)
+  const nextCursor = hasMore && messages.length > 0 
+    ? messages[messages.length - 1].created_at 
+    : undefined;
+
+  return {
+    messages,
+    hasMore,
+    nextCursor,
+    totalCount: count || 0
+  };
+}
+
 // Auth helpers - SECURE SERVER-SIDE AUTHENTICATION
 export async function getUserFromSession() {
   try {

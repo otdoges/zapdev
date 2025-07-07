@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Button } from './ui/button';
+import { CrossBrowserButton } from './ui/cross-browser-button';
 
 interface FinalCtaProps {
   onGetStarted?: () => void;
@@ -69,19 +70,26 @@ export default function FinalCta({ onGetStarted }: FinalCtaProps) {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="mb-12 flex flex-col justify-center gap-4 sm:flex-row md:gap-6"
           >
-            <Button
-              className="rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-10 py-7 text-lg text-white hover:from-[#7C62B0] hover:to-[#B0627C]"
+            <CrossBrowserButton
+              className="cross-browser-button gradient-button-primary rounded-full px-10 py-7 text-lg text-white"
               onClick={onGetStarted}
+              motionProps={{
+                whileHover: { scale: 1.02 },
+                whileTap: { scale: 0.98 }
+              }}
             >
               Get Started with ZapDev Free
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-full border-[#4F3A75] px-10 py-7 text-lg hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
+            </CrossBrowserButton>
+            <CrossBrowserButton
+              className="cross-browser-button rounded-full border border-[#4F3A75] bg-transparent px-10 py-7 text-lg text-white hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
               onClick={() => window.open('/pricing', '_self')}
+              motionProps={{
+                whileHover: { scale: 1.02 },
+                whileTap: { scale: 0.98 }
+              }}
             >
               View Pricing
-            </Button>
+            </CrossBrowserButton>
           </motion.div>
 
           {/* Secondary links */}

@@ -61,6 +61,17 @@ export default function Error({
           <p className="text-lg text-[#EAEAEA]/70">
             An unexpected error occurred. Don't worry, we've been notified and are working on it.
           </p>
+          <p className="text-lg text-[#EAEAEA]/70">
+            Make an issue on{' '}
+            <a 
+              href="https://github.com/otdoges/zapdev/issues" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[#6C52A0] hover:text-[#7C62B0] underline transition-colors"
+            >
+              GitHub
+            </a>
+          </p>
           {error.digest && (
             <p className="font-mono text-sm text-[#EAEAEA]/50">Error ID: {error.digest}</p>
           )}

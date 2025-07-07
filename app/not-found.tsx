@@ -70,7 +70,11 @@ export default function NotFound() {
           </Link>
 
           <Button
-            onClick={() => window.history.back()}
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.history.back();
+              }
+            }}
             variant="outline"
             className="flex items-center gap-2 rounded-xl border-[#EAEAEA]/20 px-6 py-3 text-white hover:border-[#EAEAEA]/30"
           >

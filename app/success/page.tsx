@@ -3,7 +3,14 @@ import { getStripeClient } from '../../lib/stripe'; // Adjusted path
 import Link from 'next/link';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
-export default async function SuccessPage({ searchParams }: any) {
+// Define the expected shape of searchParams for type safety
+interface SuccessPageProps {
+  searchParams: {
+    session_id?: string;
+  };
+}
+
+export default async function SuccessPage({ searchParams }: SuccessPageProps) {
   const sessionId = searchParams.session_id;
   const stripe = getStripeClient();
 

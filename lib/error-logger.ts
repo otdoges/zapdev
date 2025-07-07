@@ -97,58 +97,42 @@ class ErrorLogger {
     }
   }
 
-  // Flexible convenience methods ----------------------------------
-  private buildLogParams(
+  /**
+   * Convenience methods for different log levels
+   */
+  debug(category: ErrorCategory, message: string, context?: ErrorContext): void {
+    this.log(ErrorLevel.DEBUG, category, message, undefined, context);
+  }
+
+  info(category: ErrorCategory, message: string, context?: ErrorContext): void {
+    this.log(ErrorLevel.INFO, category, message, undefined, context);
+  }
+
+  warning(
+    category: ErrorCategory,
     message: string,
-    extras: any[]
-  ): { fullMessage: string; error?: Error | unknown; context?: ErrorContext } {
-    let error: Error | unknown | undefined;
-    let context: ErrorContext | undefined;
-    const messageParts: any[] = [];
-
-    extras.forEach((item) => {
-      if (item instanceof Error && !error) {
-        error = item;
-      } else if (
-        typeof item === 'object' &&
-        item !== null &&
-        !Array.isArray(item) &&
-        !(item instanceof Error) &&
-        !context
-      ) {
-        context = item as ErrorContext;
-      } else {
-        messageParts.push(item);
-      }
-    });
-
-    const fullMessage = [message, ...messageParts.map(String)].join(' ');
-    return { fullMessage, error, context };
+    error?: Error | unknown,
+    context?: ErrorContext
+  ): void {
+    this.log(ErrorLevel.WARNING, category, message, error, context);
   }
 
-  debug(category: ErrorCategory, message: string, ...extras: any[]): void {
-    const { fullMessage, error, context } = this.buildLogParams(message, extras);
-    this.log(ErrorLevel.DEBUG, category, fullMessage, error, context);
+  error(
+    category: ErrorCategory,
+    message: string,
+    error?: Error | unknown,
+    context?: ErrorContext
+  ): void {
+    this.log(ErrorLevel.ERROR, category, message, error, context);
   }
 
-  info(category: ErrorCategory, message: string, ...extras: any[]): void {
-    const { fullMessage, error, context } = this.buildLogParams(message, extras);
-    this.log(ErrorLevel.INFO, category, fullMessage, error, context);
-  }
-
-  warning(category: ErrorCategory, message: string, ...extras: any[]): void {
-    const { fullMessage, error, context } = this.buildLogParams(message, extras);
-    this.log(ErrorLevel.WARNING, category, fullMessage, error, context);
-  }
-
-  error(category: ErrorCategory, message: string, ...extras: any[]): void {
-    const { fullMessage, error, context } = this.buildLogParams(message, extras);
-    this.log(ErrorLevel.ERROR, category, fullMessage, error, context);
-  }
-
-  critical(category: ErrorCategory, message: string, ...extras: any[]): void {
-    const { fullMessage, error, context } = this.buildLogParams(message, extras);
-    this.log(ErrorLevel.CRITICAL, category, fullMessage, error, context);
+  critical(
+    category: ErrorCategory,
+    message: string,
+    error?: Error | unknown,
+    context?: ErrorContext
+  ): void {
+    this.log(ErrorLevel.CRITICAL, category, message, error, context);
   }
 
   /**
@@ -228,17 +212,18 @@ class ErrorLogger {
   }
 
   /**
-   * Send to monitoring service (Sentry, PostHog, etc.)
+   * Send to monitoring service (Sentry, Plausible, etc.)
    */
   private sendToMonitoring(entry: LogEntry): void {
     // TODO: Integrate with Sentry
-    // For now, we'll use PostHog if available
-    if (typeof window !== 'undefined' && (window as any).posthog) {
-      (window as any).posthog.capture('error_logged', {
-        level: entry.level,
-        category: entry.category,
-        message: entry.message,
-        ...entry.context,
+    // For now, we'll use Plausible if available
+    if (typeof window !== 'undefined' && (window as any).plausible) {
+      (window as any).plausible('Error Logged', {
+        props: {
+          level: entry.level,
+          category: entry.category,
+          message: entry.message.substring(0, 100), // Limit message length
+        }
       });
     }
   }

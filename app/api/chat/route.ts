@@ -19,7 +19,14 @@ const chatRequestSchema = z.object({
     .min(1),
   chatId: z.string().optional(),
   modelId: z
-    .enum(['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'])
+    .enum([
+      'llama-3.3-70b-versatile', 
+      'llama-3.1-8b-instant', 
+      'mixtral-8x7b-32768',
+      'deepseek-r1-distill-qwen-32b',
+      'qwen-qwq-32b',
+      'gemma2-9b-it'
+    ])
     .optional(),
   useReasoning: z.boolean().optional(),
   reasoningFormat: z.string().optional(),

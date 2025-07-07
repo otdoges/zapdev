@@ -27,8 +27,7 @@ const ENV_VARS = {
     { key: 'AZURE_RESOURCE_NAME', description: 'Azure AI resource name' },
     { key: 'AZURE_API_KEY', description: 'Azure AI API key' },
     { key: 'AZURE_DEPLOYMENT_NAME', description: 'Azure AI deployment name' },
-    { key: 'NEXT_PUBLIC_POSTHOG_KEY', description: 'PostHog analytics key' },
-    { key: 'NEXT_PUBLIC_POSTHOG_HOST', description: 'PostHog host URL' },
+    
     { key: 'NODE_ENV', description: 'Node environment (development/production)' },
     { key: 'NEXT_PUBLIC_APP_URL', description: 'Application base URL' },
   ],

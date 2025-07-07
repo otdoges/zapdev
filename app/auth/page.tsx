@@ -26,6 +26,13 @@ function AuthContent() {
   const authError = searchParams.get('error');
   const authSuccess = searchParams.get('success');
 
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (user) {
+      router.replace(redirectTo);
+    }
+  }, [user, router, redirectTo]);
+
   // Check if Supabase is configured
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -44,13 +51,6 @@ function AuthContent() {
       setMessage('Email confirmed successfully! You can now sign in.');
     }
   }, [authError, authSuccess]);
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (user && !loading) {
-      router.push(redirectTo);
-    }
-  }, [user, loading, router, redirectTo]);
 
   if (!isSupabaseConfigured) {
     return (
@@ -76,12 +76,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
     );
   }
 
-  if (user && !loading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0D0D10]">
         <div className="text-center text-white">
           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-[#6C52A0]"></div>
-          <p className="text-[#EAEAEA]/70">Redirecting to chat...</p>
+          <p className="text-[#EAEAEA]/70">Loading authentication status...</p>
         </div>
       </div>
     );

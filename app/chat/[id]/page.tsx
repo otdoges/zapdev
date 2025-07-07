@@ -98,78 +98,31 @@ export default function ChatPage() {
     }
   }, [isAuthenticated]);
 
-  // Redirect if not authenticated (with delay to allow auth to settle)
-  useEffect(() => {
-    // Don't redirect during initial loading
-    if (loading) return;
-
-    let redirectTimer: NodeJS.Timeout | null = null;
-
-    if (!user) {
-      // Check if we have auth cookies that indicate recent authentication
-      const hasRecentAuth = typeof window !== 'undefined' && hasAuthCookies(document.cookie);
-
-      if (hasRecentAuth) {
-        // Give auth more time to settle after OAuth callback
-        redirectTimer = setTimeout(() => {
-          // Re-check auth state before redirecting
-          if (!user && !loading) {
-            errorLogger.info(
-              ErrorCategory.GENERAL,
-              'Redirecting to auth: user not authenticated after extended delay'
-            );
-            router.push('/auth');
-          }
-        }, AUTH_TIMEOUTS.OAUTH_SETTLE_DELAY * 2); // Double the delay for OAuth flows
-      } else {
-        // No recent auth cookies, redirect sooner
-        redirectTimer = setTimeout(() => {
-          if (!user && !loading) {
-            errorLogger.info(ErrorCategory.GENERAL, 'Redirecting to auth: user not authenticated');
-            router.push('/auth');
-          }
-        }, 1000); // Shorter delay for regular checks
-      }
-    }
-
-    return () => {
-      if (redirectTimer) {
-        clearTimeout(redirectTimer);
-      }
-    };
-  }, [user, loading, router]);
-
   // Show loading state while authentication is being determined
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0D0D10]">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-white"></div>
-          <p className="text-white/60">Verifying authentication...</p>
+          <p className="text-white/60">Verifying session...</p>
         </div>
       </div>
     );
   }
 
-  // Check authentication after loading completes
+  // The middleware should prevent this page from rendering if the user is not authenticated.
+  // If we reach here without a user, it's an unexpected state, but we shouldn't
+  // show a redirecting message as the middleware is the source of truth.
+  // We can just show a generic loading/error state.
   if (!user) {
-    // Check for recent authentication tokens as fallback
-    const hasRecentAuthCookies = typeof window !== 'undefined' && hasAuthCookies(document.cookie);
-
-    if (!hasRecentAuthCookies) {
-      // Show a brief loading state before redirect
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-[#0D0D10]">
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-white"></div>
-            <p className="text-white/60">Redirecting to authentication...</p>
-          </div>
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0D0D10]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-white"></div>
+          <p className="text-white/60">Verifying session...</p>
         </div>
-      );
-    }
-
-    // If we have auth cookies, allow the component to render
-    // The useEffect above will handle the redirect if auth doesn't settle
+      </div>
+    );
   }
 
   return (
