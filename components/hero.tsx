@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from './ui/button';
+import { CrossBrowserButton } from './ui/cross-browser-button';
 import { useRouter } from 'next/navigation';
 import useIsMobile from '@/hooks/useIsMobile';
 
