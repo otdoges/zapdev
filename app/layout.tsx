@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 
-import { AuthProvider } from '@/providers/AuthProvider';
+import SupabaseProvider from '@/components/SupabaseProvider';
 import { RealtimeProvider } from '@/providers/RealtimeProvider';
 import { SentryProvider } from '@/components/sentry-provider';
 import { VersionCheck } from '@/components/version-check';
@@ -124,7 +124,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <SentryProvider>
-              <AuthProvider>
+              <SupabaseProvider>
                 <RealtimeProvider>
                   <main className="w-full flex-1">{children}</main>
                   <VersionCheck />
@@ -132,7 +132,7 @@ export default function RootLayout({
                   <CookieConsentBanner />
                   <Analytics />
                 </RealtimeProvider>
-              </AuthProvider>
+              </SupabaseProvider>
             </SentryProvider>
           </ThemeProvider>
         </QueryProvider>
