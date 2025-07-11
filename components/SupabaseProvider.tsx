@@ -34,14 +34,15 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
   useEffect(() => {
     let isMounted = true;
     
-    // Set up a shorter global timeout to prevent infinite loading
+    // Set up a global timeout to prevent infinite loading
     const globalTimeout = setTimeout(() => {
       if (isMounted) {
+        console.log('⏰ Auth initialization timeout - proceeding without authentication');
         errorLogger.warning(ErrorCategory.GENERAL, 'Auth initialization timeout - setting loading to false');
         setLoading(false);
         setUser(null);
       }
-    }, 5000); // Reduced to 5 seconds for faster feedback
+    }, 2000); // Reduced to 2 seconds for faster feedback
 
     // Check if Supabase is configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -102,9 +103,9 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         try {
           console.log('🔍 Getting initial session...');
           
-          // Create a shorter timeout promise
+          // Create a timeout promise
           const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Session check timeout')), 3000) // Reduced to 3 seconds
+            setTimeout(() => reject(new Error('Session check timeout')), 1500) // Reduced to 1.5 seconds
           );
 
           // Race between session check and timeout
