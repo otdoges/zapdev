@@ -42,7 +42,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         setLoading(false);
         setUser(null);
       }
-    }, 2000); // Reduced to 2 seconds for faster feedback
+    }, 1000); // Reduced to 1 second for faster feedback
 
     // Check if Supabase is configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -105,7 +105,7 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
           
           // Create a timeout promise
           const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Session check timeout')), 1500) // Reduced to 1.5 seconds
+            setTimeout(() => reject(new Error('Session check timeout')), 800) // Reduced to 800ms
           );
 
           // Race between session check and timeout
@@ -206,14 +206,14 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
     };
   }, []);
 
-  // Emergency fallback - force loading to false after 8 seconds no matter what
+  // Emergency fallback - force loading to false after 3 seconds no matter what
   useEffect(() => {
     const emergencyTimeout = setTimeout(() => {
       if (loading) {
         console.warn('⚠️ Emergency timeout: forcing loading to false');
         setLoading(false);
       }
-    }, 8000);
+    }, 3000);
 
     return () => clearTimeout(emergencyTimeout);
   }, [loading]);

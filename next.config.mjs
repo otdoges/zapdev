@@ -91,8 +91,28 @@ const nextConfig = {
     const isDev = process.env.NODE_ENV === 'development';
     
     return [
-      // Disable CSP in development to prevent blocking issues
-      ...(isDev ? [] : [{
+      // More permissive CSP in development, strict in production
+      ...(isDev ? [
+        {
+          source: '/:path*',
+          headers: [
+            {
+              key: 'Content-Security-Policy',
+              value: [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: data:",
+                "connect-src 'self' https://*.supabase.co https://*.supabase.com wss://*.supabase.co wss://*.supabase.com ws://localhost:* http://localhost:*",
+                "img-src 'self' data: blob: https:",
+                "style-src 'self' 'unsafe-inline'",
+                "font-src 'self' data:",
+                "worker-src 'self' blob: data:",
+                "child-src 'self' blob: data:",
+                "frame-src 'self' blob: data:",
+              ].join('; '),
+            },
+          ],
+        }
+      ] : [{
         source: '/:path*',
         headers: [
           {

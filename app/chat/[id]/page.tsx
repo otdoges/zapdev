@@ -74,6 +74,7 @@ export default function ChatPage() {
   const [hasMessagesSent, setHasMessagesSent] = useState(false);
   const [aiTeamProject, setAiTeamProject] = useState<any>(null);
   const [showWebContainer, setShowWebContainer] = useState(false);
+  const [forceSkipAuth, setForceSkipAuth] = useState(false);
   const { user, loading } = useSupabase();
   const isAuthenticated = !!user;
   const isLoading = loading;
@@ -99,12 +100,34 @@ export default function ChatPage() {
   }, [isAuthenticated]);
 
   // Show loading state while authentication is being determined
-  if (loading) {
+  if (loading && !forceSkipAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0D0D10]">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-white"></div>
-          <p className="text-white/60">Verifying session...</p>
+          <motion.div 
+            className="h-8 w-8 rounded-full border-b-2 border-[#6C52A0]"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
+          <motion.p 
+            className="text-white/60"
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            Verifying session...
+          </motion.p>
+          <motion.button
+            onClick={() => {
+              setForceSkipAuth(true);
+              errorLogger.info(ErrorCategory.GENERAL, 'User manually bypassed auth loading');
+            }}
+            className="mt-4 text-sm text-[#6C52A0] hover:text-[#7C62B0] underline"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 3 }}
+          >
+            Continue anyway
+          </motion.button>
         </div>
       </div>
     );
@@ -114,7 +137,7 @@ export default function ChatPage() {
   // If we reach here without a user, it's an unexpected state, but we shouldn't
   // show a redirecting message as the middleware is the source of truth.
   // We can just show a generic loading/error state.
-  if (!user) {
+  if (!user && !forceSkipAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0D0D10]">
         <div className="flex flex-col items-center gap-4">
