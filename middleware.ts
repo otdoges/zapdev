@@ -67,9 +67,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
   
-  // If a logged-in user tries to access the /auth page, redirect them to /chat
+  // If a logged-in user tries to access the /auth page, redirect them directly to a new chat
   if (user && pathname === '/auth') {
-    return NextResponse.redirect(new URL('/chat', request.url))
+    const { v4: uuidv4 } = await import('uuid');
+    const chatId = uuidv4();
+    return NextResponse.redirect(new URL(`/chat/${chatId}`, request.url))
   }
 
   return response

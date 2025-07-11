@@ -150,13 +150,13 @@ export default function Hero() {
               whileTap: { scale: 0.98 }
             }}
           >
-            Start Weaving Your Web
+            Start Building - Free
           </CrossBrowserButton>
           <CrossBrowserButton
             className="cross-browser-button rounded-full border border-[#4F3A75] bg-transparent px-8 py-6 text-lg text-white hover:border-[#7A3F6D] hover:bg-[#0D0D10]/50"
             onClick={() => router.push('/#examples')}
           >
-            Explore Examples
+            See Examples
           </CrossBrowserButton>
         </motion.div>
 
@@ -171,7 +171,7 @@ export default function Hero() {
             className="group relative flex items-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-[#A0527C] to-[#6C52A0] px-10 py-6 text-lg font-medium text-white shadow-lg shadow-[#6C52A0]/20 hover:from-[#B0627C] hover:to-[#7C62B0]"
             onClick={() => router.push('/auth')}
           >
-            <span className="relative z-10">Get Full Access</span>
+            <span className="relative z-10">Try Pro Features</span>
             <svg
               className="relative z-10 h-5 w-5"
               xmlns="http://www.w3.org/2000/svg"

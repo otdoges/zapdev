@@ -91,17 +91,9 @@ export default function Home() {
     return () => unsubscribe();
   }, [scrollY, showFloatingCTA, mounted]);
 
-  // Simple auth buttons that don't cause re-renders
+  // Fast auth buttons that show immediately
   const AuthButtons = () => {
-    if (loading) {
-      return (
-        <div className="flex items-center gap-4">
-          <div className="h-8 w-20 animate-pulse rounded-lg bg-white/10 px-4 py-2"></div>
-          <div className="h-8 w-16 animate-pulse rounded-lg bg-white/10 px-4 py-2"></div>
-        </div>
-      );
-    }
-
+    // Show auth buttons immediately, don't wait for loading
     if (user) {
       return (
         <div className="flex items-center gap-4">
@@ -125,6 +117,7 @@ export default function Home() {
       );
     }
 
+    // Show sign in/up buttons immediately (even during loading)
     return (
       <div className="flex items-center gap-4">
         <motion.button
@@ -132,6 +125,8 @@ export default function Home() {
           className="rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-4 py-2 text-sm font-medium text-white transition-all hover:from-[#7C62B0] hover:to-[#B0627C]"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
+          disabled={loading}
+          style={{ opacity: loading ? 0.7 : 1 }}
         >
           Sign In
         </motion.button>
@@ -140,6 +135,8 @@ export default function Home() {
           className="rounded-lg bg-gradient-to-r from-[#A0527C] to-[#6C52A0] px-4 py-2 text-sm font-medium text-white transition-all hover:from-[#B0627C] hover:to-[#7C62B0]"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
+          disabled={loading}
+          style={{ opacity: loading ? 0.7 : 1 }}
         >
           Sign Up
         </motion.button>

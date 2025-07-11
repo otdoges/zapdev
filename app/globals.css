@@ -124,7 +124,7 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: shimmer 3s ease-in-out infinite;
+  /* Removed potentially seizure-inducing shimmer animation */
 }
 
 /* Mouse glow effect */
@@ -311,6 +311,22 @@
   animation: fadeInUp 0.6s ease-out forwards;
 }
 
+.fade-in-scale {
+  animation: fadeInScale 0.5s ease-out forwards;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.6s ease-out forwards;
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.6s ease-out forwards;
+}
+
+.gentle-bounce {
+  animation: gentleBounce 0.6s ease-out;
+}
+
 .pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite alternate;
 }
@@ -402,27 +418,23 @@
 }
 
 /* Animations */
-@keyframes blob {
+/* Removed blob keyframes - replaced with static styling for accessibility */
+@keyframes gentle-fade {
   0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
+    opacity: 0.4;
   }
   100% {
-    transform: translate(0px, 0px) scale(1);
+    opacity: 0.8;
   }
 }
 
-@keyframes shimmer {
+/* Removed shimmer keyframes for accessibility */
+@keyframes subtle-glow {
   0% {
-    background-position: -100% 0;
+    opacity: 0.8;
   }
   100% {
-    background-position: 200% 0;
+    opacity: 1;
   }
 }
 
@@ -434,6 +446,48 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes gentleBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
   }
 }
 
@@ -459,9 +513,11 @@
   }
 }
 
-/* Utility classes */
+/* Utility classes - Removed potentially problematic blob animation */
 .animate-blob {
-  animation: blob 7s infinite;
+  /* Disabled blob animation for accessibility */
+  opacity: 0.6;
+  transform: scale(1);
 }
 
 .animation-delay-2000 {
