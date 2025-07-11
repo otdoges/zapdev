@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getStripeClient } from '../../lib/stripe'; // Adjusted path
+import polar from '@/lib/polar';
 import Link from 'next/link';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
@@ -7,117 +7,121 @@ import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 interface SuccessPageProps {
   searchParams: {
     session_id?: string;
+    checkout_id?: string;
   };
 }
 
 export default async function SuccessPage({ searchParams }: SuccessPageProps) {
   const sessionId = searchParams.session_id;
-  const stripe = getStripeClient();
+  const checkoutId = searchParams.checkout_id;
+  
+  // Support both Polar (checkout_id) and legacy Stripe (session_id) for backward compatibility
+  const paymentId = checkoutId || sessionId;
 
-  if (!sessionId) {
+  if (!paymentId) {
     errorLogger.error(
       ErrorCategory.GENERAL,
-      'Missing session_id in success page query parameters.'
+      'Missing checkout_id or session_id in success page query parameters.'
     );
-    // Optionally, redirect to an error page or home with a message
-    return redirect('/?error=missing_session_id');
+    return redirect('/?error=missing_payment_id');
   }
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['line_items', 'payment_intent', 'customer'],
-    });
-
-    // Safely access customer email
-    const customerEmail =
-      session.customer_details?.email ||
-      (session.customer && typeof session.customer === 'object' && 'email' in session.customer
-        ? session.customer.email
-        : null) ||
-      'your email address';
-
-    if (session.status === 'open') {
-      // This session is still active, perhaps the user navigated back.
-      // Redirecting to home or the cart page might be appropriate.
+    // Handle Polar checkout
+    if (checkoutId && polar) {
+      const checkout = await polar.checkouts.get(checkoutId);
+      const customerEmail = checkout.customer_email || 'your email address';
+      
+      if (checkout.status === 'confirmed') {
+        return (
+          <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#0D0D10] via-[#1a1a20] to-[#0D0D10]">
+            <div className="max-w-md mx-auto text-center space-y-6 p-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
+              <div className="text-6xl mb-4">🎉</div>
+              <h1 className="text-3xl font-bold text-white mb-4">
+                Welcome to ZapDev Pro!
+              </h1>
+              <p className="text-gray-300 text-lg leading-relaxed">
+                Thank you for subscribing! A confirmation email has been sent to{' '}
+                <strong className="text-[#6C52A0]">{customerEmail}</strong>.
+              </p>
+              <p className="text-gray-400 text-sm">
+                You now have access to all Pro features. If you have any questions, please email{' '}
+                <a
+                  href="mailto:support@zapdev.ai"
+                  className="text-[#6C52A0] hover:text-[#7C62B0] transition-colors"
+                >
+                  support@zapdev.ai
+                </a>
+                .
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4 pt-6">
+                <Link
+                  href="/chat"
+                  className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-[#6C52A0] to-[#A0527C] rounded-lg text-white font-medium hover:from-[#7C62B0] hover:to-[#B0627C] transition-all"
+                >
+                  Start Building →
+                </Link>
+                <Link
+                  href="/api/polar/portal"
+                  className="inline-flex items-center justify-center px-6 py-3 border-2 border-[#6C52A0] text-[#6C52A0] rounded-lg font-medium hover:bg-[#6C52A0] hover:text-white transition-all"
+                >
+                  Manage Subscription
+                </Link>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      
+      // Other checkout statuses
       errorLogger.warning(
         ErrorCategory.GENERAL,
-        `Stripe session ${sessionId} is still open. Redirecting to home.`
+        `Polar checkout ${checkoutId} has status: ${checkout.status}. Redirecting to home.`
       );
-      return redirect('/');
+      return redirect('/?error=payment_not_completed');
     }
-
-    if (session.status === 'complete') {
+    
+    // Fallback to legacy Stripe handling if no Polar checkout
+    if (sessionId) {
       return (
-        <div
-          style={{
-            fontFamily: 'Arial, sans-serif',
-            padding: '40px',
-            textAlign: 'center',
-            backgroundColor: '#f0f2f5',
-            minHeight: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              padding: '40px',
-              borderRadius: '8px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-            }}
-          >
-            <h1 style={{ color: '#333', fontSize: '24px', marginBottom: '20px' }}>
-              Payment Successful!
-            </h1>
-            <p style={{ color: '#555', fontSize: '16px', lineHeight: '1.6' }}>
-              We appreciate your business! A confirmation email has been sent to{' '}
-              <strong style={{ color: '#007bff' }}>{customerEmail}</strong>.
-            </p>
-            <p style={{ color: '#555', fontSize: '16px', lineHeight: '1.6', marginTop: '10px' }}>
-              If you have any questions, please email{' '}
-              <a
-                href="mailto:orders@example.com"
-                style={{ color: '#007bff', textDecoration: 'none' }}
-              >
-                orders@example.com
-              </a>
-              .
-            </p>
+        <div className="flex min-h-screen items-center justify-center bg-[#0D0D10] text-white">
+          <div className="text-center space-y-6 p-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
+            <h1 className="text-2xl font-bold mb-4">Payment Processing</h1>
+            <p className="text-gray-400 mb-6">We're updating our payment system. Please check your subscription status.</p>
             <Link
               href="/"
-              style={{
-                display: 'inline-block',
-                marginTop: '30px',
-                padding: '10px 20px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: '4px',
-              }}
+              className="inline-block px-6 py-3 bg-gradient-to-r from-[#6C52A0] to-[#A0527C] rounded-lg text-white font-medium hover:from-[#7C62B0] hover:to-[#B0627C] transition-all"
             >
-              Return to Homepage
+              Return to Home
             </Link>
           </div>
         </div>
       );
     }
-
-    // Fallback for other statuses or if status is not 'complete' or 'open'
-    errorLogger.warning(
-      ErrorCategory.GENERAL,
-      `Stripe session ${sessionId} has status: ${session.status}. Redirecting to home with error.`
-    );
+    
     return redirect('/?error=payment_not_completed');
   } catch (error: any) {
     errorLogger.error(
       ErrorCategory.GENERAL,
-      `Error retrieving Stripe session ${sessionId}:`,
+      `Error retrieving payment session ${paymentId}:`,
       error.message
     );
-    // Redirect to an error page or home with a generic error message
-    return redirect('/?error=session_retrieval_failed');
+    
+    // Graceful fallback on error
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0D0D10] text-white">
+        <div className="text-center space-y-6 p-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
+          <h1 className="text-2xl font-bold mb-4">Thank You!</h1>
+          <p className="text-gray-400 mb-6">Your payment has been processed successfully.</p>
+          <Link
+            href="/"
+            className="inline-block px-6 py-3 bg-gradient-to-r from-[#6C52A0] to-[#A0527C] rounded-lg text-white font-medium hover:from-[#7C62B0] hover:to-[#B0627C] transition-all"
+          >
+            Start Building →
+          </Link>
+        </div>
+      </div>
+    );
   }
 }

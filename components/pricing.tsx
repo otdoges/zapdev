@@ -44,12 +44,26 @@ export function PricingContent({ products }: PricingContentProps) {
         },
         body: JSON.stringify({ priceId }),
       });
-      const { url } = await res.json();
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Checkout failed');
+      }
+      
+      const { url, checkout_id } = await res.json();
       if (url) {
-        router.push(url);
+        // Store checkout ID for tracking
+        if (checkout_id) {
+          sessionStorage.setItem('polar_checkout_id', checkout_id);
+        }
+        window.location.href = url; // Use window.location for external redirect
+      } else {
+        throw new Error('No checkout URL received');
       }
     } catch (error) {
       console.error('Checkout error:', error);
+      // Show user-friendly error message
+      alert(`Checkout failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }

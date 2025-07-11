@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 export async function GET(request: NextRequest) {
   const accessToken = process.env.POLAR_ACCESS_TOKEN;
   const server = process.env.POLAR_SERVER || 'sandbox';
 
+  errorLogger.info(ErrorCategory.API, 'Polar API test initiated', { server, hasToken: !!accessToken });
+
   if (!accessToken) {
+    errorLogger.error(ErrorCategory.API, 'POLAR_ACCESS_TOKEN not configured');
     return NextResponse.json(
       {
         error: 'POLAR_ACCESS_TOKEN not configured',
@@ -27,6 +31,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (!response.ok) {
+      errorLogger.error(ErrorCategory.API, `Polar API connection failed with status ${response.status}`);
       return NextResponse.json(
         {
           error: 'Failed to connect to Polar API',
@@ -38,6 +43,8 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
+
+    errorLogger.info(ErrorCategory.API, `Polar API test successful - found ${data.items?.length || 0} organizations`);
 
     return NextResponse.json({
       success: true,
@@ -53,6 +60,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    errorLogger.error(ErrorCategory.API, 'Polar API test failed:', error);
     return NextResponse.json(
       {
         error: 'Error testing Polar API',
