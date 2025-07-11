@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Github, Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react';
+import { Github, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { useSupabase } from '@/components/SupabaseProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,9 @@ import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 function AuthContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailForm, setEmailForm] = useState({ email: '', password: '', confirmPassword: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -171,10 +174,67 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -inset-10 opacity-30">
-          <div className="animate-blob absolute left-1/4 top-1/4 h-96 w-96 rounded-full bg-[#6C52A0] mix-blend-multiply blur-3xl filter"></div>
-          <div className="animate-blob animation-delay-2000 absolute right-1/4 top-1/3 h-96 w-96 rounded-full bg-[#A0527C] mix-blend-multiply blur-3xl filter"></div>
-          <div className="animate-blob animation-delay-4000 absolute bottom-1/4 left-1/3 h-96 w-96 rounded-full bg-[#4F3A75] mix-blend-multiply blur-3xl filter"></div>
+          <motion.div 
+            className="absolute left-1/4 top-1/4 h-96 w-96 rounded-full bg-[#6C52A0] mix-blend-multiply blur-3xl filter"
+            animate={{
+              scale: [1, 1.2, 1],
+              rotate: [0, 90, 0],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+          />
+          <motion.div 
+            className="absolute right-1/4 top-1/3 h-96 w-96 rounded-full bg-[#A0527C] mix-blend-multiply blur-3xl filter"
+            animate={{
+              scale: [1.2, 1, 1.2],
+              rotate: [90, 180, 90],
+            }}
+            transition={{
+              duration: 25,
+              repeat: Infinity,
+              ease: "linear",
+              delay: 2
+            }}
+          />
+          <motion.div 
+            className="absolute bottom-1/4 left-1/3 h-96 w-96 rounded-full bg-[#4F3A75] mix-blend-multiply blur-3xl filter"
+            animate={{
+              scale: [1, 1.1, 1.3, 1],
+              rotate: [180, 270, 0, 180],
+            }}
+            transition={{
+              duration: 30,
+              repeat: Infinity,
+              ease: "linear",
+              delay: 4
+            }}
+          />
         </div>
+        
+        {/* Floating particles */}
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute h-2 w-2 rounded-full bg-[#6C52A0]/30"
+            style={{
+              left: `${20 + (i * 15)}%`,
+              top: `${10 + (i * 12)}%`,
+            }}
+            animate={{
+              y: [-20, 20, -20],
+              opacity: [0.3, 0.8, 0.3],
+            }}
+            transition={{
+              duration: 3 + (i * 0.5),
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: i * 0.2,
+            }}
+          />
+        ))}
       </div>
 
       {/* Auth Container */}
@@ -184,7 +244,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
         transition={{ duration: 0.6 }}
         className="relative z-10 mx-auto w-full max-w-md"
       >
-        <div className="rounded-3xl border border-white/10 bg-[#0D0D10]/80 p-8 shadow-2xl backdrop-blur-xl">
+        <motion.div 
+          className="rounded-3xl border border-white/10 bg-[#0D0D10]/80 p-8 shadow-2xl backdrop-blur-xl"
+          whileHover={{ scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        >
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -192,14 +256,39 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             transition={{ duration: 0.6, delay: 0.1 }}
             className="mb-8 text-center"
           >
-            <h1 className="mb-2 text-3xl font-bold text-white">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ 
+                type: "spring", 
+                stiffness: 260, 
+                damping: 20,
+                delay: 0.2 
+              }}
+              className="mb-4 flex justify-center"
+            >
+              <div className="rounded-full bg-gradient-to-r from-[#6C52A0] to-[#A0527C] p-3">
+                <Sparkles className="h-6 w-6 text-white" />
+              </div>
+            </motion.div>
+            <motion.h1 
+              className="mb-2 text-3xl font-bold text-white"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
               {isSignUp ? 'Create an account' : 'Welcome back'}
-            </h1>
-            <p className="text-[#EAEAEA]/70">
+            </motion.h1>
+            <motion.p 
+              className="text-[#EAEAEA]/70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
               {isSignUp
                 ? 'Enter your email below to create your account'
                 : 'Enter your credentials to access your account'}
-            </p>
+            </motion.p>
           </motion.div>
 
           {/* Error/Success Messages */}
@@ -242,33 +331,70 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             className="mb-6 space-y-4"
           >
             <div className="space-y-2">
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-[#EAEAEA]/40" />
+              <motion.div 
+                className="relative"
+                whileHover={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              >
+                <motion.div
+                  animate={{
+                    color: focusedField === 'email' ? '#6C52A0' : '#EAEAEA66',
+                    scale: focusedField === 'email' ? 1.1 : 1,
+                  }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform z-10" />
+                </motion.div>
                 <Input
                   type="email"
                   placeholder="name@example.com"
                   value={emailForm.email}
                   onChange={(e) => updateEmailForm('email', e.target.value)}
-                  className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0]"
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField('')}
+                  className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0] focus:ring-2 focus:ring-[#6C52A0]/20 focus:bg-[#0D0D10]/70"
                   disabled={isLoading}
                   required
                 />
-              </div>
+              </motion.div>
             </div>
 
             <div className="space-y-2">
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-[#EAEAEA]/40" />
+              <motion.div 
+                className="relative"
+                whileHover={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              >
+                <motion.div
+                  animate={{
+                    color: focusedField === 'password' ? '#6C52A0' : '#EAEAEA66',
+                    scale: focusedField === 'password' ? 1.1 : 1,
+                  }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform z-10" />
+                </motion.div>
                 <Input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Password"
                   value={emailForm.password}
                   onChange={(e) => updateEmailForm('password', e.target.value)}
-                  className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0]"
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField('')}
+                  className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 pr-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0] focus:ring-2 focus:ring-[#6C52A0]/20 focus:bg-[#0D0D10]/70"
                   disabled={isLoading}
                   required
                 />
-              </div>
+                <motion.button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transform text-[#EAEAEA]/40 hover:text-[#6C52A0] transition-colors z-10"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </motion.button>
+              </motion.div>
             </div>
 
             {isSignUp && (
@@ -278,33 +404,89 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-2"
               >
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-[#EAEAEA]/40" />
+                <motion.div 
+                  className="relative"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                >
+                  <motion.div
+                    animate={{
+                      color: focusedField === 'confirmPassword' ? '#6C52A0' : '#EAEAEA66',
+                      scale: focusedField === 'confirmPassword' ? 1.1 : 1,
+                    }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform z-10" />
+                  </motion.div>
                   <Input
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm password"
                     value={emailForm.confirmPassword}
                     onChange={(e) => updateEmailForm('confirmPassword', e.target.value)}
-                    className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0]"
+                    onFocus={() => setFocusedField('confirmPassword')}
+                    onBlur={() => setFocusedField('')}
+                    className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 pr-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0] focus:ring-2 focus:ring-[#6C52A0]/20 focus:bg-[#0D0D10]/70"
                     disabled={isLoading}
                     required
                   />
-                </div>
+                  <motion.button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 transform text-[#EAEAEA]/40 hover:text-[#6C52A0] transition-colors z-10"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </motion.button>
+                </motion.div>
               </motion.div>
             )}
 
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <motion.div 
+              whileHover={{ scale: 1.02 }} 
+              whileTap={{ scale: 0.98 }}
+              className="relative overflow-hidden rounded-xl"
+            >
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-[#6C52A0] to-[#A0527C]"
+                animate={{
+                  backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "linear"
+                }}
+                style={{
+                  backgroundSize: '200% 200%'
+                }}
+              />
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#6C52A0] to-[#A0527C] font-medium text-white transition-all duration-300 hover:from-[#7C62B0] hover:to-[#B0627C] disabled:opacity-50"
+                className="relative flex h-12 w-full items-center justify-center gap-2 rounded-xl border-0 bg-transparent font-medium text-white transition-all duration-300 hover:shadow-lg hover:shadow-[#6C52A0]/25 disabled:opacity-50"
               >
                 {isLoading ? (
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <motion.div 
+                    className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
                 ) : (
                   <>
-                    {isSignUp ? 'Sign Up with Email' : 'Sign In with Email'}
-                    <ArrowRight className="h-4 w-4" />
+                    <motion.span
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 }}
+                    >
+                      {isSignUp ? 'Sign Up with Email' : 'Sign In with Email'}
+                    </motion.span>
+                    <motion.div
+                      animate={{ x: [0, 5, 0] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </motion.div>
                   </>
                 )}
               </Button>
@@ -333,20 +515,40 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, borderColor: '#EAEAEA50' }}
             whileTap={{ scale: 0.98 }}
+            className="group relative overflow-hidden rounded-xl"
           >
+            <motion.div 
+              className="absolute inset-0 bg-gradient-to-r from-[#333]/20 to-[#666]/20 opacity-0 group-hover:opacity-100"
+              transition={{ duration: 0.3 }}
+            />
             <Button
               onClick={handleGitHubAuth}
               disabled={isLoading}
-              className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#EAEAEA]/20 bg-[#0D0D10]/50 font-medium text-white transition-all duration-300 hover:border-[#EAEAEA]/30 hover:bg-[#EAEAEA]/10 disabled:opacity-50"
+              className="relative flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#EAEAEA]/20 bg-[#0D0D10]/50 font-medium text-white transition-all duration-300 hover:border-[#EAEAEA]/30 hover:bg-[#EAEAEA]/5 disabled:opacity-50"
             >
               {isLoading ? (
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                <motion.div 
+                  className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                />
               ) : (
                 <>
-                  <Github className="h-5 w-5" />
-                  GitHub
+                  <motion.div
+                    whileHover={{ rotate: [0, -10, 10, 0] }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <Github className="h-5 w-5" />
+                  </motion.div>
+                  <motion.span
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    Continue with GitHub
+                  </motion.span>
                 </>
               )}
             </Button>
@@ -400,19 +602,66 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
               .
             </p>
           </motion.div>
-        </div>
+        </motion.div>
       </motion.div>
 
       <style jsx>{`
         .animate-blob {
           opacity: 0.6;
           transform: scale(1);
+          animation: blob 15s infinite;
         }
+        
+        @keyframes blob {
+          0%, 100% {
+            transform: translateY(0px) scale(1) rotate(0deg);
+          }
+          33% {
+            transform: translateY(-30px) scale(1.1) rotate(120deg);
+          }
+          66% {
+            transform: translateY(20px) scale(0.9) rotate(240deg);
+          }
+        }
+        
         .animation-delay-2000 {
           animation-delay: 2s;
         }
         .animation-delay-4000 {
           animation-delay: 4s;
+        }
+        
+        /* Subtle glow effect */
+        .auth-glow {
+          box-shadow: 
+            0 0 20px rgba(108, 82, 160, 0.1),
+            0 0 40px rgba(160, 82, 124, 0.05),
+            0 0 80px rgba(79, 58, 117, 0.03);
+        }
+        
+        /* Custom input focus effect */
+        .input-focus-effect {
+          position: relative;
+        }
+        
+        .input-focus-effect::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border-radius: 12px;
+          padding: 1px;
+          background: linear-gradient(45deg, #6C52A0, #A0527C);
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+        
+        .input-focus-effect:focus-within::before {
+          opacity: 1;
         }
       `}</style>
     </div>

@@ -11,6 +11,7 @@ import PublicPlayground from '@/components/public-playground';
 import ExampleGallery from '@/components/example-gallery';
 import CompetitiveEdge from '@/components/competitive-edge';
 import { useSupabase } from '@/components/SupabaseProvider';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const FeaturesShowcase = dynamic(() => import('@/components/features-showcase'), {
   loading: () => (
@@ -97,13 +98,22 @@ export default function Home() {
     if (user) {
       return (
         <div className="flex items-center gap-4">
+          <Avatar className="h-8 w-8">
+            <AvatarImage 
+              src={user.user_metadata?.avatar_url || user.user_metadata?.picture} 
+              alt={user.user_metadata?.full_name || user.email || 'User'} 
+            />
+            <AvatarFallback className="bg-gradient-to-r from-[#6C52A0] to-[#A0527C] text-white text-sm">
+              {(user.user_metadata?.full_name || user.email || 'U').charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <motion.button
             onClick={goToChat}
             className="rounded-lg bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-4 py-2 text-sm font-medium text-white transition-all hover:from-[#7C62B0] hover:to-[#B0627C]"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            Chat
+            Go to Chat
           </motion.button>
           <motion.button
             onClick={goToPricingPage}
