@@ -109,11 +109,39 @@ async function handleChatRequest(
     try {
       const model = groqProvider.chat(modelId || 'llama-3.3-70b-versatile');
 
+      // Enhanced system prompt for better code generation
+      const enhancedMessages = [
+        {
+          role: 'system' as const,
+          content: `You are ZapDev AI, an expert full-stack developer assistant. You help users build web applications with live preview capabilities.
+
+Guidelines:
+- For web development requests, provide complete, working code
+- Use modern frameworks (React, Vue, or vanilla HTML/CSS/JS)
+- Include proper styling and responsive design
+- Generate code that works immediately in a development environment
+- When creating components, make them functional and visually appealing
+- Always explain what you're building and include helpful comments
+- Format code in markdown code blocks with proper language tags
+
+For code generation:
+- React: Use functional components with hooks
+- Vue: Use Composition API
+- HTML: Include CSS and JavaScript inline for simplicity
+- Always include responsive design principles
+- Use modern CSS features (flexbox, grid, animations)
+
+Be conversational but technical, and always aim to create something that works immediately.`
+        },
+        ...messages
+      ];
+
       const result = await streamText({
         model: model as any,
-        messages,
+        messages: enhancedMessages,
         temperature: 0.7,
-        maxTokens: 2048,
+        maxTokens: 4096, // Increased for longer code responses
+        stream: true,
         onFinish: async ({ text, usage, finishReason }) => {
           // Log AI completion metrics
           const duration = Date.now() - startTime;
@@ -142,9 +170,22 @@ async function handleChatRequest(
         },
       });
 
-      // Return the properly formatted data stream response with chat ID header
+      // Check if response contains code for WebContainer triggering
+      const responseText = await result.textStream?.getReader().read();
+      const hasCodeBlock = responseText?.value?.includes('```');
+      const isBuildRequest = messages.some(msg => 
+        /\b(build|create|make|generate|app|website|component|project)\b/i.test(msg.content)
+      );
+
+      // Return the properly formatted data stream response with enhanced headers
       const streamResponse = result.toDataStreamResponse();
       streamResponse.headers.set('X-Chat-ID', finalChatId);
+      
+      // Set headers to trigger WebContainer if code is being generated
+      if (hasCodeBlock && isBuildRequest) {
+        streamResponse.headers.set('X-Build-Triggered', 'true');
+        streamResponse.headers.set('X-Code-Generated', 'true');
+      }
 
       // Convert to NextResponse
       return new NextResponse(streamResponse.body, {

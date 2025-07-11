@@ -9,9 +9,15 @@ export default function ChatPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Generate a new unique chat ID and redirect
-    const chatId = uuidv4();
-    router.push(`/chat/${chatId}`);
+    // Check if user prefers enhanced interface
+    const useEnhanced = localStorage.getItem('zapdev-use-enhanced') === 'true';
+    
+    if (useEnhanced) {
+      router.push('/chat/enhanced');
+    } else {
+      // Generate a new unique chat ID and redirect to enhanced by default
+      router.push('/chat/enhanced');
+    }
   }, [router]);
 
   return (
