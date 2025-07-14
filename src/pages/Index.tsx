@@ -106,7 +106,7 @@ const Index = () => {
           >
             <div className="overflow-hidden w-screen relative left-1/2 -translate-x-1/2">
               <img
-                alt="WebFluin Dashboard"
+                alt="WebBuilder Dashboard"
                 className="w-full h-auto"
                 src="/lovable-uploads/e5028882-3e9c-4315-b720-bae1fe817df8.png"
               />

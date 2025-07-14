@@ -9,7 +9,7 @@ const Footer = () => {
         <div className="glass glass-hover rounded-xl p-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="space-y-4">
-              <h3 className="font-medium text-lg">WebFluin</h3>
+              <h3 className="font-medium text-lg">WebBuilder</h3>
               <p className="text-sm text-muted-foreground">
                 The fastest way for tech founders to get professionally designed websites with AI.
               </p>
@@ -74,7 +74,7 @@ const Footer = () => {
 
           <div className="mt-8 pt-8 border-t border-white/10">
             <p className="text-sm text-muted-foreground text-center">
-              © {new Date().getFullYear()} WebFluin. All rights reserved.
+              © {new Date().getFullYear()} WebBuilder. All rights reserved.
             </p>
           </div>
         </div>
