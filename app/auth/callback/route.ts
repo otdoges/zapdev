@@ -10,12 +10,25 @@ export async function GET(request: Request) {
   const next = searchParams.get('next') ?? '/chat';
   const error = searchParams.get('error');
   const error_description = searchParams.get('error_description');
+  const state = searchParams.get('state');
+
+  console.log('🔄 Auth callback received:', {
+    hasCode: !!code,
+    hasError: !!error,
+    next,
+    origin,
+    type,
+    state,
+    fullUrl: request.url,
+  });
 
   errorLogger.info(ErrorCategory.AUTH, 'Auth callback received:', {
     hasCode: !!code,
     hasError: !!error,
     next,
     origin,
+    type,
+    state,
     fullUrl: request.url,
   });
 

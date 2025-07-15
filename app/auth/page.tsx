@@ -95,10 +95,24 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
     setError('');
 
     try {
+      console.log('🚀 Starting GitHub OAuth flow...');
       await signInWithGitHub();
+      console.log('✅ GitHub OAuth flow initiated successfully');
     } catch (error) {
+      console.error('❌ GitHub OAuth flow failed:', error);
       errorLogger.error(ErrorCategory.AUTH, 'GitHub auth failed', error);
-      setError('GitHub authentication failed. Please try again.');
+      
+      // Provide more specific error messages
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage.includes('not configured')) {
+        setError('Supabase is not properly configured. Please check your environment variables.');
+      } else if (errorMessage.includes('network')) {
+        setError('Network error. Please check your internet connection and try again.');
+      } else {
+        setError(`GitHub authentication failed: ${errorMessage}`);
+      }
+      
       setIsLoading(false);
     }
   };

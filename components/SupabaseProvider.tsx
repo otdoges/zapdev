@@ -89,6 +89,12 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
           persistSession: true,
           detectSessionInUrl: true,
           flowType: 'pkce',
+          debug: process.env.NODE_ENV === 'development',
+        },
+        global: {
+          headers: {
+            'x-client-info': 'zapdev@1.0.0',
+          },
         },
       });
 
@@ -266,21 +272,38 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
 
     try {
       setLoading(true);
-      const redirectTo = `${window.location.origin}/auth/callback?next=/chat`;
+      
+      // Use the current URL origin for redirect
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const redirectTo = `${origin}/auth/callback?next=/chat`;
+      
+      console.log('🔗 GitHub OAuth redirect URL:', redirectTo);
       errorLogger.info(ErrorCategory.GENERAL, `GitHub OAuth redirect URL: ${redirectTo}`);
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
           redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
+      
+      console.log('🔐 GitHub OAuth response:', { data, error });
+      
       if (error) {
+        console.error('❌ GitHub sign in error:', error);
         errorLogger.error(ErrorCategory.GENERAL, 'GitHub sign in error', error);
         setLoading(false);
         throw error;
       }
+      
+      // Don't set loading to false here as we're redirecting
+      console.log('✅ GitHub OAuth initiated successfully');
     } catch (error) {
+      console.error('❌ GitHub sign in exception:', error);
       errorLogger.error(ErrorCategory.GENERAL, 'GitHub sign in error', error);
       setLoading(false);
       throw error;
