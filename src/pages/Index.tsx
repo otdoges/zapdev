@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { FeaturesSection } from "@/components/features/FeaturesSection";
 import { PricingSection } from "@/components/pricing/PricingSection";
@@ -9,6 +10,8 @@ import TestimonialsSection from "@/components/TestimonialsSection";
 import Footer from "@/components/Footer";
 
 const Index = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-black text-foreground">
       <Navigation />
@@ -46,7 +49,7 @@ const Index = () => {
           }} className="inline-block mb-4 px-4 py-1.5 rounded-full glass">
             <span className="text-sm font-medium">
               <Sparkles className="w-4 h-4 inline-block mr-2" />
-              AI-powered website builder for founders
+              AI-powered website builder for developers
             </span>
           </motion.div>
           
@@ -62,11 +65,11 @@ const Index = () => {
               delay: 0.3
             }} className="text-5xl md:text-7xl font-normal mb-4 tracking-tight">
               <span className="text-white font-medium">
-                The website builder
+                Build with AI.
               </span>
               <br />
               <span className="text-gradient font-medium">
-                for AI founders.
+                Ship faster.
               </span>
             </motion.h1>
             
@@ -79,8 +82,8 @@ const Index = () => {
             }} transition={{
               delay: 0.4
             }} className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl mx-auto">
-              We give you the templates and prompts; Lovable's AI does the rest.{" "}
-              <span className="text-white">Launch your startup's website in minutes, not weeks.</span>
+              Generate full-stack web applications with AI.{" "}
+              <span className="text-white">From idea to deployment in minutes, not hours.</span>
             </motion.p>
             
             <motion.div
@@ -89,11 +92,11 @@ const Index = () => {
               transition={{ delay: 0.5 }}
               className="flex flex-col sm:flex-row gap-4 items-center justify-center"
             >
-              <Button size="lg" className="button-gradient">
+              <Button size="lg" className="button-gradient" onClick={() => navigate('/auth')}>
                 Start Building Now
               </Button>
               <Button size="lg" variant="link" className="text-white">
-                View Templates <ArrowRight className="ml-2 w-4 h-4" />
+                View Examples <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </motion.div>
           </div>
@@ -169,7 +172,7 @@ const Index = () => {
           <p className="text-lg text-white/80 mb-8 max-w-2xl mx-auto">
             Join thousands of founders who have already discovered the power of AI-driven web design.
           </p>
-          <Button size="lg" className="bg-white text-blue-600 hover:bg-white/90">
+          <Button size="lg" className="bg-white text-blue-600 hover:bg-white/90" onClick={() => navigate('/auth')}>
             Get Started
             <ArrowRight className="ml-2 w-4 h-4" />
           </Button>

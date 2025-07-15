@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
-import IpadReseller from "./pages/IpadReseller";
+import Auth from "./pages/Auth";
+import Chat from "./pages/Chat";
+import AuthGuard from "./components/AuthGuard";
 
 const queryClient = new QueryClient();
 
@@ -17,7 +19,12 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/ipad-reseller" element={<IpadReseller />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/chat" element={
+              <AuthGuard>
+                <Chat />
+              </AuthGuard>
+            } />
           </Routes>
         </BrowserRouter>
       </div>

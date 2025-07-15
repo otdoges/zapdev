@@ -3,12 +3,13 @@ import { useState, useEffect } from "react";
 import { Sparkles, Menu } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -42,18 +43,12 @@ const Navigation = () => {
     }
   };
 
-  const navItems = location.pathname === '/ipad-reseller' 
-    ? [
-        { name: "AI Builder", href: "/", isLink: true },
-        { name: "iPads", href: "#features", onClick: () => scrollToSection('features') },
-        { name: "About", href: "#testimonials", onClick: () => scrollToSection('testimonials') },
-      ]
-    : [
-        { name: "Features", href: "#features", onClick: () => scrollToSection('features') },
-        { name: "Pricing", href: "#pricing", onClick: () => scrollToSection('pricing') },
-        { name: "Templates", href: "#testimonials", onClick: () => scrollToSection('testimonials') },
-        { name: "iPad Store", href: "/ipad-reseller", isLink: true },
-      ];
+  const navItems = [
+    { name: "Features", href: "#features", onClick: () => scrollToSection('features') },
+    { name: "Pricing", href: "#pricing", onClick: () => scrollToSection('pricing') },
+    { name: "Templates", href: "#testimonials", onClick: () => scrollToSection('testimonials') },
+    { name: "AI Builder", href: "/chat", isLink: true },
+  ];
 
   return (
     <header
@@ -67,7 +62,7 @@ const Navigation = () => {
         <nav className="flex items-center justify-between h-full">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            <span className="font-bold text-base">WebBuilder</span>
+            <span className="font-bold text-base">zapdev</span>
           </div>
 
           {/* Desktop Navigation */}
@@ -98,7 +93,7 @@ const Navigation = () => {
               )
             ))}
             <Button 
-              onClick={() => scrollToSection('cta')}
+              onClick={() => navigate('/auth')}
               size="sm"
               className="button-gradient"
             >
@@ -146,7 +141,7 @@ const Navigation = () => {
                   <Button 
                     onClick={() => {
                       setIsMobileMenuOpen(false);
-                      scrollToSection('cta');
+                      navigate('/auth');
                     }}
                     className="button-gradient mt-4"
                   >
