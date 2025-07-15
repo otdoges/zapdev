@@ -4,7 +4,10 @@ import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 async function handleSubscription(subscription: any) {
   if (!supabaseAdmin) {
-    errorLogger.error(ErrorCategory.API, 'Supabase admin client not available - cannot process subscription webhook');
+    errorLogger.error(
+      ErrorCategory.API,
+      'Supabase admin client not available - cannot process subscription webhook'
+    );
     return;
   }
 
@@ -17,7 +20,11 @@ async function handleSubscription(subscription: any) {
       .single();
 
     if (userError || !user) {
-      errorLogger.error(ErrorCategory.API, `User not found for email: ${subscription.customer_email}`, userError);
+      errorLogger.error(
+        ErrorCategory.API,
+        `User not found for email: ${subscription.customer_email}`,
+        userError
+      );
       return;
     }
 
@@ -42,7 +49,10 @@ async function handleSubscription(subscription: any) {
     if (error) {
       errorLogger.error(ErrorCategory.API, 'Failed to upsert subscription:', error);
     } else {
-      errorLogger.info(ErrorCategory.API, `Successfully processed subscription ${subscription.id} for user ${user.id}`);
+      errorLogger.info(
+        ErrorCategory.API,
+        `Successfully processed subscription ${subscription.id} for user ${user.id}`
+      );
     }
   } catch (error) {
     errorLogger.error(ErrorCategory.API, 'Error processing subscription webhook:', error);
@@ -51,7 +61,10 @@ async function handleSubscription(subscription: any) {
 
 async function handleProduct(product: any) {
   if (!supabaseAdmin) {
-    errorLogger.error(ErrorCategory.API, 'Supabase admin client not available - cannot process product webhook');
+    errorLogger.error(
+      ErrorCategory.API,
+      'Supabase admin client not available - cannot process product webhook'
+    );
     return;
   }
 
@@ -79,19 +92,17 @@ async function handleProduct(product: any) {
     if (product.prices && Array.isArray(product.prices)) {
       for (const price of product.prices) {
         try {
-          const { error: priceError } = await supabaseAdmin
-            .from('prices')
-            .upsert({
-              id: price.id,
-              product_id: product.id,
-              active: price.is_archived ? false : true,
-              unit_amount: price.price_amount,
-              currency: price.price_currency,
-              type: price.type,
-              interval: price.recurring_interval,
-              description: price.description,
-              metadata: price.metadata || {},
-            });
+          const { error: priceError } = await supabaseAdmin.from('prices').upsert({
+            id: price.id,
+            product_id: product.id,
+            active: price.is_archived ? false : true,
+            unit_amount: price.price_amount,
+            currency: price.price_currency,
+            type: price.type,
+            interval: price.recurring_interval,
+            description: price.description,
+            metadata: price.metadata || {},
+          });
 
           if (priceError) {
             errorLogger.error(ErrorCategory.API, `Failed to upsert price ${price.id}:`, priceError);
@@ -99,7 +110,11 @@ async function handleProduct(product: any) {
             errorLogger.info(ErrorCategory.API, `Successfully processed price ${price.id}`);
           }
         } catch (priceProcessingError) {
-          errorLogger.error(ErrorCategory.API, `Error processing price ${price.id}:`, priceProcessingError);
+          errorLogger.error(
+            ErrorCategory.API,
+            `Error processing price ${price.id}:`,
+            priceProcessingError
+          );
         }
       }
     }
@@ -113,7 +128,7 @@ export const POST = Webhooks({
   onPayload: async (payload) => {
     try {
       errorLogger.info(ErrorCategory.API, `Processing Polar webhook: ${payload.type}`);
-      
+
       switch (payload.type) {
         case 'subscription.created':
         case 'subscription.updated':
@@ -125,15 +140,25 @@ export const POST = Webhooks({
           break;
         case 'checkout.created':
         case 'checkout.updated':
-          errorLogger.info(ErrorCategory.API, `Checkout event ${payload.type}: ${payload.data?.id}`);
+          errorLogger.info(
+            ErrorCategory.API,
+            `Checkout event ${payload.type}: ${payload.data?.id}`
+          );
           break;
         default:
-          errorLogger.warning(ErrorCategory.API, `Unhandled Polar webhook event type: ${payload.type}`);
+          errorLogger.warning(
+            ErrorCategory.API,
+            `Unhandled Polar webhook event type: ${payload.type}`
+          );
       }
-      
+
       errorLogger.info(ErrorCategory.API, `Successfully processed Polar webhook: ${payload.type}`);
     } catch (error) {
-      errorLogger.error(ErrorCategory.API, `Failed to process Polar webhook ${payload.type}:`, error);
+      errorLogger.error(
+        ErrorCategory.API,
+        `Failed to process Polar webhook ${payload.type}:`,
+        error
+      );
       throw error; // Re-throw to signal failure to Polar
     }
   },

@@ -1,6 +1,14 @@
-"use client";
+'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  ReactNode,
+  useRef,
+} from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { User, RealtimeChannel } from '@supabase/supabase-js';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
@@ -19,17 +27,17 @@ interface RealtimeContextType {
   isConnecting: boolean;
   connectionError: string | null;
   reconnectAttempts: number;
-  
+
   // Typing indicators
   typingUsers: TypingUser[];
-  
+
   // Methods
   connect: () => Promise<void>;
   disconnect: () => void;
   subscribeToChat: (chatId: string) => void;
   unsubscribeFromChat: (chatId: string) => void;
   sendTypingIndicator: (chatId: string, isTyping: boolean) => void;
-  
+
   // Message subscriptions
   subscribeToMessages: (chatId: string, onMessage: (message: any) => void) => () => void;
   subscribeToPresence: (chatId: string, onPresenceChange: (users: User[]) => void) => () => void;
@@ -66,7 +74,7 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
-  
+
   // Track active subscriptions
   const channelsRef = useRef<Map<string, RealtimeChannel>>(new Map());
   const typingTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -104,9 +112,7 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      setTypingUsers(prev => 
-        prev.filter(user => now - user.timestamp < TYPING_TIMEOUT)
-      );
+      setTypingUsers((prev) => prev.filter((user) => now - user.timestamp < TYPING_TIMEOUT));
     }, 1000);
 
     return () => clearInterval(interval);
@@ -133,12 +139,12 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
         setIsConnected(false);
         setIsConnecting(false);
         errorLogger.warning(ErrorCategory.GENERAL, 'Realtime connection closed');
-        
+
         // Attempt reconnection if not manually disconnected
         if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
           const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttempts); // Exponential backoff
           reconnectTimerRef.current = setTimeout(() => {
-            setReconnectAttempts(prev => prev + 1);
+            setReconnectAttempts((prev) => prev + 1);
             connect();
           }, delay);
         } else {
@@ -154,7 +160,6 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
 
       // Connect to realtime
       supabase.realtime.connect();
-      
     } catch (error) {
       setIsConnecting(false);
       setConnectionError('Failed to initialize realtime connection');
@@ -179,13 +184,13 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
 
     // Disconnect from realtime
     supabase.realtime.disconnect();
-    
+
     setIsConnected(false);
     setIsConnecting(false);
     setReconnectAttempts(0);
     setConnectionError(null);
     setTypingUsers([]);
-    
+
     errorLogger.info(ErrorCategory.GENERAL, 'Realtime connection disconnected');
   }, [supabase]);
 
@@ -203,173 +208,205 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
   }, [user, isConfigured, connect, disconnect]);
 
   // Chat-specific subscriptions
-  const subscribeToChat = useCallback((chatId: string) => {
-    if (!supabase || !user || !isConnected) return;
+  const subscribeToChat = useCallback(
+    (chatId: string) => {
+      if (!supabase || !user || !isConnected) return;
 
-    const channelName = `chat:${chatId}`;
-    
-    // Remove existing channel if it exists
-    const existingChannel = channelsRef.current.get(channelName);
-    if (existingChannel) {
-      supabase.removeChannel(existingChannel);
-    }
+      const channelName = `chat:${chatId}`;
 
-    const channel = supabase
-      .channel(channelName)
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        errorLogger.info(ErrorCategory.GENERAL, `Presence sync for chat ${chatId}:`, state);
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }: { key: string; newPresences: any[] }) => {
-        errorLogger.info(ErrorCategory.GENERAL, `User joined chat ${chatId}:`, { key, newPresences });
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }: { key: string; leftPresences: any[] }) => {
-        errorLogger.info(ErrorCategory.GENERAL, `User left chat ${chatId}:`, { key, leftPresences });
-      })
-      .on('broadcast', { event: 'typing' }, ({ payload }: { payload: any }) => {
-        const { userId, userName, isTyping, timestamp } = payload;
-        
-        if (userId === user.id) return; // Ignore own typing
-        
-        setTypingUsers(prev => {
-          const filtered = prev.filter(u => u.id !== userId || u.chatId !== chatId);
-          
-          if (isTyping) {
-            return [...filtered, {
-              id: userId,
-              name: userName,
-              chatId,
-              timestamp: timestamp || Date.now(),
-            }];
+      // Remove existing channel if it exists
+      const existingChannel = channelsRef.current.get(channelName);
+      if (existingChannel) {
+        supabase.removeChannel(existingChannel);
+      }
+
+      const channel = supabase
+        .channel(channelName)
+        .on('presence', { event: 'sync' }, () => {
+          const state = channel.presenceState();
+          errorLogger.info(ErrorCategory.GENERAL, `Presence sync for chat ${chatId}:`, state);
+        })
+        .on(
+          'presence',
+          { event: 'join' },
+          ({ key, newPresences }: { key: string; newPresences: any[] }) => {
+            errorLogger.info(ErrorCategory.GENERAL, `User joined chat ${chatId}:`, {
+              key,
+              newPresences,
+            });
           }
-          
-          return filtered;
-        });
-      })
-      .subscribe((status: string) => {
-        if (status === 'SUBSCRIBED') {
-          errorLogger.info(ErrorCategory.GENERAL, `Subscribed to chat ${chatId}`);
-          
-          // Track presence
-          channel.track({
-            user_id: user.id,
-            user_name: user.user_metadata?.name || user.email,
-            online_at: new Date().toISOString(),
+        )
+        .on(
+          'presence',
+          { event: 'leave' },
+          ({ key, leftPresences }: { key: string; leftPresences: any[] }) => {
+            errorLogger.info(ErrorCategory.GENERAL, `User left chat ${chatId}:`, {
+              key,
+              leftPresences,
+            });
+          }
+        )
+        .on('broadcast', { event: 'typing' }, ({ payload }: { payload: any }) => {
+          const { userId, userName, isTyping, timestamp } = payload;
+
+          if (userId === user.id) return; // Ignore own typing
+
+          setTypingUsers((prev) => {
+            const filtered = prev.filter((u) => u.id !== userId || u.chatId !== chatId);
+
+            if (isTyping) {
+              return [
+                ...filtered,
+                {
+                  id: userId,
+                  name: userName,
+                  chatId,
+                  timestamp: timestamp || Date.now(),
+                },
+              ];
+            }
+
+            return filtered;
           });
-        } else if (status === 'CHANNEL_ERROR') {
-          errorLogger.error(ErrorCategory.GENERAL, `Failed to subscribe to chat ${chatId}`);
-        }
-      });
+        })
+        .subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            errorLogger.info(ErrorCategory.GENERAL, `Subscribed to chat ${chatId}`);
 
-    channelsRef.current.set(channelName, channel);
-  }, [supabase, user, isConnected]);
+            // Track presence
+            channel.track({
+              user_id: user.id,
+              user_name: user.user_metadata?.name || user.email,
+              online_at: new Date().toISOString(),
+            });
+          } else if (status === 'CHANNEL_ERROR') {
+            errorLogger.error(ErrorCategory.GENERAL, `Failed to subscribe to chat ${chatId}`);
+          }
+        });
 
-  const unsubscribeFromChat = useCallback((chatId: string) => {
-    if (!supabase) return;
+      channelsRef.current.set(channelName, channel);
+    },
+    [supabase, user, isConnected]
+  );
 
-    const channelName = `chat:${chatId}`;
-    const channel = channelsRef.current.get(channelName);
-    
-    if (channel) {
-      supabase.removeChannel(channel);
-      channelsRef.current.delete(channelName);
-      errorLogger.info(ErrorCategory.GENERAL, `Unsubscribed from chat ${chatId}`);
-    }
+  const unsubscribeFromChat = useCallback(
+    (chatId: string) => {
+      if (!supabase) return;
 
-    // Clear typing indicators for this chat
-    setTypingUsers(prev => prev.filter(u => u.chatId !== chatId));
-  }, [supabase]);
+      const channelName = `chat:${chatId}`;
+      const channel = channelsRef.current.get(channelName);
+
+      if (channel) {
+        supabase.removeChannel(channel);
+        channelsRef.current.delete(channelName);
+        errorLogger.info(ErrorCategory.GENERAL, `Unsubscribed from chat ${chatId}`);
+      }
+
+      // Clear typing indicators for this chat
+      setTypingUsers((prev) => prev.filter((u) => u.chatId !== chatId));
+    },
+    [supabase]
+  );
 
   // Typing indicator
-  const sendTypingIndicator = useCallback((chatId: string, isTyping: boolean) => {
-    if (!supabase || !user || !isConnected) return;
+  const sendTypingIndicator = useCallback(
+    (chatId: string, isTyping: boolean) => {
+      if (!supabase || !user || !isConnected) return;
 
-    const channelName = `chat:${chatId}`;
-    const channel = channelsRef.current.get(channelName);
-    
-    if (!channel) return;
+      const channelName = `chat:${chatId}`;
+      const channel = channelsRef.current.get(channelName);
 
-    // Clear existing timer for this chat
-    const timerKey = `${user.id}:${chatId}`;
-    const existingTimer = typingTimersRef.current.get(timerKey);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-    }
+      if (!channel) return;
 
-    // Send typing indicator
-    channel.send({
-      type: 'broadcast',
-      event: 'typing',
-      payload: {
-        userId: user.id,
-        userName: user.user_metadata?.name || user.email,
-        isTyping,
-        timestamp: Date.now(),
-      },
-    });
+      // Clear existing timer for this chat
+      const timerKey = `${user.id}:${chatId}`;
+      const existingTimer = typingTimersRef.current.get(timerKey);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
 
-    // Auto-stop typing after timeout
-    if (isTyping) {
-      const timer = setTimeout(() => {
-        channel.send({
-          type: 'broadcast',
-          event: 'typing',
-          payload: {
-            userId: user.id,
-            userName: user.user_metadata?.name || user.email,
-            isTyping: false,
-            timestamp: Date.now(),
-          },
-        });
-        typingTimersRef.current.delete(timerKey);
-      }, TYPING_TIMEOUT);
-      
-      typingTimersRef.current.set(timerKey, timer);
-    }
-  }, [supabase, user, isConnected]);
+      // Send typing indicator
+      channel.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: {
+          userId: user.id,
+          userName: user.user_metadata?.name || user.email,
+          isTyping,
+          timestamp: Date.now(),
+        },
+      });
+
+      // Auto-stop typing after timeout
+      if (isTyping) {
+        const timer = setTimeout(() => {
+          channel.send({
+            type: 'broadcast',
+            event: 'typing',
+            payload: {
+              userId: user.id,
+              userName: user.user_metadata?.name || user.email,
+              isTyping: false,
+              timestamp: Date.now(),
+            },
+          });
+          typingTimersRef.current.delete(timerKey);
+        }, TYPING_TIMEOUT);
+
+        typingTimersRef.current.set(timerKey, timer);
+      }
+    },
+    [supabase, user, isConnected]
+  );
 
   // Message subscriptions
-  const subscribeToMessages = useCallback((chatId: string, onMessage: (message: any) => void) => {
-    if (!supabase || !isConnected) return () => {};
+  const subscribeToMessages = useCallback(
+    (chatId: string, onMessage: (message: any) => void) => {
+      if (!supabase || !isConnected) return () => {};
 
-    const channel = supabase
-      .channel(`messages:${chatId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${chatId}`,
-        },
-                 (payload: any) => {
-           onMessage(payload.new);
-         }
-      )
-      .subscribe();
+      const channel = supabase
+        .channel(`messages:${chatId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `chat_id=eq.${chatId}`,
+          },
+          (payload: any) => {
+            onMessage(payload.new);
+          }
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, isConnected]);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    },
+    [supabase, isConnected]
+  );
 
   // Presence subscriptions
-  const subscribeToPresence = useCallback((chatId: string, onPresenceChange: (users: User[]) => void) => {
-    if (!supabase || !isConnected) return () => {};
+  const subscribeToPresence = useCallback(
+    (chatId: string, onPresenceChange: (users: User[]) => void) => {
+      if (!supabase || !isConnected) return () => {};
 
-    const channel = supabase
-      .channel(`presence:${chatId}`)
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const users = Object.values(state).flat();
-        onPresenceChange(users as User[]);
-      })
-      .subscribe();
+      const channel = supabase
+        .channel(`presence:${chatId}`)
+        .on('presence', { event: 'sync' }, () => {
+          const state = channel.presenceState();
+          const users = Object.values(state).flat();
+          onPresenceChange(users as User[]);
+        })
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, isConnected]);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    },
+    [supabase, isConnected]
+  );
 
   const value: RealtimeContextType = {
     isConnected,
@@ -400,15 +437,16 @@ export const useRealtime = () => {
 // Convenience hooks
 export const useTypingIndicators = (chatId?: string) => {
   const { typingUsers } = useRealtime();
-  
+
   if (!chatId) return typingUsers;
-  
-  return typingUsers.filter(user => user.chatId === chatId);
+
+  return typingUsers.filter((user) => user.chatId === chatId);
 };
 
 export const useRealtimeConnection = () => {
-  const { isConnected, isConnecting, connectionError, reconnectAttempts, connect, disconnect } = useRealtime();
-  
+  const { isConnected, isConnecting, connectionError, reconnectAttempts, connect, disconnect } =
+    useRealtime();
+
   return {
     isConnected,
     isConnecting,
@@ -418,4 +456,4 @@ export const useRealtimeConnection = () => {
     connect,
     disconnect,
   };
-}; 
+};

@@ -5,10 +5,12 @@ This document provides step-by-step instructions to fix all the performance and 
 ## Issues Addressed
 
 ### Performance Issues
+
 1. **Auth RLS Initialization Plan** - Optimized RLS policies to prevent unnecessary re-evaluation of `auth.uid()` for each row
 2. **Multiple Permissive Policies** - Consolidated duplicate RLS policies to improve query performance
 
 ### Security Issues
+
 1. **Function Search Path Mutable** - Fixed `update_updated_at_column` function with immutable search path
 2. **Auth OTP Long Expiry** - Instructions to reduce OTP expiry time
 3. **Leaked Password Protection** - Instructions to enable compromised password checking
@@ -51,24 +53,27 @@ The following settings cannot be changed via SQL and must be configured through 
 After running the SQL script, you can verify the changes:
 
 #### Check RLS Policies
+
 ```sql
 SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual
-FROM pg_policies 
-WHERE schemaname = 'public' 
+FROM pg_policies
+WHERE schemaname = 'public'
 AND tablename IN ('users', 'chats', 'messages')
 ORDER BY tablename, cmd, policyname;
 ```
 
 #### Check RLS Status
+
 ```sql
 SELECT schemaname, tablename, rowsecurity, relforcerowsecurity
 FROM pg_tables t
 JOIN pg_class c ON c.relname = t.tablename
-WHERE schemaname = 'public' 
+WHERE schemaname = 'public'
 AND tablename IN ('users', 'chats', 'messages');
 ```
 
 #### Test Performance
+
 Run your typical queries to ensure they still work correctly and perform better.
 
 ## What Was Changed
@@ -76,12 +81,14 @@ Run your typical queries to ensure they still work correctly and perform better.
 ### RLS Policy Optimizations
 
 **Before (Problematic)**:
+
 ```sql
 -- This re-evaluates auth.uid() for every row
 USING (user_id = auth.uid())
 ```
 
 **After (Optimized)**:
+
 ```sql
 -- This evaluates auth.uid() once per query
 USING (user_id = (SELECT auth.uid()))
@@ -90,11 +97,13 @@ USING (user_id = (SELECT auth.uid()))
 ### Policy Consolidation
 
 **Before**: Multiple overlapping policies like:
+
 - "Users can view their own chats."
 - "Users can view own chats"
 - "Users can manage their own chats"
 
 **After**: Single, clear policies:
+
 - `chats_select_own` - Users can view their own chats
 - `chats_insert_own` - Users can insert their own chats
 - `chats_update_own` - Users can update their own chats
@@ -103,12 +112,14 @@ USING (user_id = (SELECT auth.uid()))
 ### Function Security Fix
 
 **Before**:
+
 ```sql
 CREATE FUNCTION update_updated_at_column()
 -- No explicit search_path (security risk)
 ```
 
 **After**:
+
 ```sql
 CREATE FUNCTION update_updated_at_column()
 SET search_path = public
@@ -165,8 +176,8 @@ If you encounter any issues:
 This fix addresses all the major performance and security issues identified by Supabase's database linter:
 
 - ✅ **18 Auth RLS Initialization Plan warnings** - Fixed with optimized queries
-- ✅ **47 Multiple Permissive Policies warnings** - Fixed by consolidating policies  
+- ✅ **47 Multiple Permissive Policies warnings** - Fixed by consolidating policies
 - ✅ **1 Function Search Path warning** - Fixed with explicit search path
 - ⚠️ **2 Manual auth settings** - Require dashboard configuration
 
-Expected outcome: Significantly improved database performance and enhanced security posture. 
+Expected outcome: Significantly improved database performance and enhanced security posture.

@@ -21,13 +21,14 @@ const examples: Example[] = [
     id: 'saas-pricing',
     category: 'SaaS',
     prompt: 'A SaaS pricing page with testimonials',
-    description: 'Modern pricing page with three tiers, feature comparison, testimonials carousel, and FAQ section',
+    description:
+      'Modern pricing page with three tiers, feature comparison, testimonials carousel, and FAQ section',
     features: [
       'Responsive 3-tier pricing layout',
       'Testimonials with star ratings',
       'Feature comparison table',
       'FAQ accordion section',
-      'Gradient buttons with hover effects'
+      'Gradient buttons with hover effects',
     ],
     preview: '🎯',
     code: `// Complete pricing page with testimonials
@@ -47,19 +48,20 @@ const PricingPage = () => {
     </div>
   );
 };`,
-    tags: ['Pricing', 'SaaS', 'Testimonials', 'FAQ']
+    tags: ['Pricing', 'SaaS', 'Testimonials', 'FAQ'],
   },
   {
     id: 'dashboard',
     category: 'Dashboard',
     prompt: 'A sleek analytics dashboard with charts',
-    description: 'Data-rich dashboard with interactive charts, KPI cards, sidebar navigation, and real-time metrics',
+    description:
+      'Data-rich dashboard with interactive charts, KPI cards, sidebar navigation, and real-time metrics',
     features: [
       'Interactive chart components',
       'KPI metric cards with trends',
       'Responsive sidebar navigation',
       'Data table with sorting',
-      'Real-time update indicators'
+      'Real-time update indicators',
     ],
     preview: '📊',
     code: `// Analytics dashboard with charts
@@ -81,19 +83,20 @@ const Dashboard = () => {
     </div>
   );
 };`,
-    tags: ['Dashboard', 'Analytics', 'Charts', 'Admin']
+    tags: ['Dashboard', 'Analytics', 'Charts', 'Admin'],
   },
   {
     id: 'ecommerce',
     category: 'E-commerce',
     prompt: 'An e-commerce product page with reviews',
-    description: 'Complete product page with image gallery, variant selection, reviews, and related products',
+    description:
+      'Complete product page with image gallery, variant selection, reviews, and related products',
     features: [
       'Product image gallery with zoom',
       'Variant selection (size, color)',
       'Customer reviews with ratings',
       'Related products carousel',
-      'Add to cart functionality'
+      'Add to cart functionality',
     ],
     preview: '🛍️',
     code: `// E-commerce product page
@@ -113,19 +116,20 @@ const ProductPage = ({ product }) => {
     </div>
   );
 };`,
-    tags: ['E-commerce', 'Product', 'Reviews', 'Shopping']
+    tags: ['E-commerce', 'Product', 'Reviews', 'Shopping'],
   },
   {
     id: 'landing',
     category: 'Landing Page',
     prompt: 'A tech startup landing page with hero video',
-    description: 'Modern landing page with video hero, feature highlights, team section, and contact form',
+    description:
+      'Modern landing page with video hero, feature highlights, team section, and contact form',
     features: [
       'Hero section with video background',
       'Feature cards with icons',
       'Team member profiles',
       'Contact form with validation',
-      'Newsletter signup'
+      'Newsletter signup',
     ],
     preview: '🚀',
     code: `// Tech startup landing page
@@ -142,7 +146,7 @@ const LandingPage = () => {
     </div>
   );
 };`,
-    tags: ['Landing', 'Startup', 'Video', 'Contact']
+    tags: ['Landing', 'Startup', 'Video', 'Contact'],
   },
   {
     id: 'blog',
@@ -154,7 +158,7 @@ const LandingPage = () => {
       'Category filtering system',
       'Search functionality',
       'Pagination controls',
-      'Author profiles'
+      'Author profiles',
     ],
     preview: '📝',
     code: `// Modern blog layout
@@ -176,19 +180,20 @@ const BlogPage = () => {
     </div>
   );
 };`,
-    tags: ['Blog', 'Content', 'Search', 'Categories']
+    tags: ['Blog', 'Content', 'Search', 'Categories'],
   },
   {
     id: 'portfolio',
     category: 'Portfolio',
     prompt: 'A creative portfolio with project showcases',
-    description: 'Designer portfolio with project gallery, skill showcase, contact form, and testimonials',
+    description:
+      'Designer portfolio with project gallery, skill showcase, contact form, and testimonials',
     features: [
       'Project gallery with filters',
       'Skill progress indicators',
       'Testimonials slider',
       'Contact form integration',
-      'Smooth scroll animations'
+      'Smooth scroll animations',
     ],
     preview: '🎨',
     code: `// Creative portfolio site
@@ -205,37 +210,38 @@ const Portfolio = () => {
     </div>
   );
 };`,
-    tags: ['Portfolio', 'Creative', 'Gallery', 'Design']
-  }
+    tags: ['Portfolio', 'Creative', 'Gallery', 'Design'],
+  },
 ];
 
-const categories = ['All', ...Array.from(new Set(examples.map(ex => ex.category)))];
+const categories = ['All', ...Array.from(new Set(examples.map((ex) => ex.category)))];
 
 export default function ExampleGallery() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedExample, setSelectedExample] = useState<Example | null>(null);
   const router = useRouter();
 
-  const filteredExamples = selectedCategory === 'All' 
-    ? examples 
-    : examples.filter(ex => ex.category === selectedCategory);
+  const filteredExamples =
+    selectedCategory === 'All'
+      ? examples
+      : examples.filter((ex) => ex.category === selectedCategory);
 
   return (
-    <section id="examples" className="py-20 bg-[#0D0D10]">
-      <div className="max-w-7xl mx-auto px-4">
-        <motion.div 
-          className="text-center mb-16"
+    <section id="examples" className="bg-[#0D0D10] py-20">
+      <div className="mx-auto max-w-7xl px-4">
+        <motion.div
+          className="mb-16 text-center"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+          <h2 className="mb-6 text-4xl font-bold text-white md:text-5xl">
             See What You Can <span className="text-gradient">Build</span>
           </h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
-            Real examples of production-ready components generated from simple prompts. 
-            Each example shows the prompt, generated UI, and clean React/Tailwind code.
+          <p className="mx-auto mb-8 max-w-3xl text-xl text-gray-300">
+            Real examples of production-ready components generated from simple prompts. Each example
+            shows the prompt, generated UI, and clean React/Tailwind code.
           </p>
 
           {/* Category Filter */}
@@ -244,13 +250,12 @@ export default function ExampleGallery() {
               <Button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                variant={selectedCategory === category ? "default" : "outline"}
-                className={`
-                  ${selectedCategory === category 
-                    ? 'bg-gradient-to-r from-[#6C52A0] to-[#A0527C] text-white' 
-                    : 'border-[#2A2A32] text-gray-300 hover:border-[#6C52A0] hover:text-white bg-transparent'
-                  }
-                `}
+                variant={selectedCategory === category ? 'default' : 'outline'}
+                className={` ${
+                  selectedCategory === category
+                    ? 'bg-gradient-to-r from-[#6C52A0] to-[#A0527C] text-white'
+                    : 'border-[#2A2A32] bg-transparent text-gray-300 hover:border-[#6C52A0] hover:text-white'
+                } `}
               >
                 {category}
               </Button>
@@ -259,10 +264,7 @@ export default function ExampleGallery() {
         </motion.div>
 
         {/* Examples Grid */}
-        <motion.div 
-          className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
-          layout
-        >
+        <motion.div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3" layout>
           <AnimatePresence>
             {filteredExamples.map((example, index) => (
               <motion.div
@@ -272,36 +274,37 @@ export default function ExampleGallery() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="bg-[#1E1E24] rounded-xl border border-[#2A2A32] overflow-hidden hover:border-[#6C52A0] transition-all cursor-pointer group"
+                className="group cursor-pointer overflow-hidden rounded-xl border border-[#2A2A32] bg-[#1E1E24] transition-all hover:border-[#6C52A0]"
                 onClick={() => setSelectedExample(example)}
               >
                 {/* Preview */}
-                <div className="h-48 bg-gradient-to-br from-[#6C52A0]/20 to-[#A0527C]/20 flex items-center justify-center text-6xl group-hover:scale-105 transition-transform">
+                <div className="flex h-48 items-center justify-center bg-gradient-to-br from-[#6C52A0]/20 to-[#A0527C]/20 text-6xl transition-transform group-hover:scale-105">
                   {example.preview}
                 </div>
 
                 {/* Content */}
                 <div className="p-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs px-2 py-1 bg-[#6C52A0]/20 text-[#A0527C] rounded-full">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="rounded-full bg-[#6C52A0]/20 px-2 py-1 text-xs text-[#A0527C]">
                       {example.category}
                     </span>
                     <div className="flex gap-1">
                       {example.tags.slice(0, 2).map((tag) => (
-                        <span key={tag} className="text-xs px-2 py-1 bg-[#2A2A32] text-gray-400 rounded">
+                        <span
+                          key={tag}
+                          className="rounded bg-[#2A2A32] px-2 py-1 text-xs text-gray-400"
+                        >
                           {tag}
                         </span>
                       ))}
                     </div>
                   </div>
 
-                  <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-[#A0527C] transition-colors">
+                  <h3 className="mb-2 text-lg font-semibold text-white transition-colors group-hover:text-[#A0527C]">
                     "{example.prompt}"
                   </h3>
-                  
-                  <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-                    {example.description}
-                  </p>
+
+                  <p className="mb-4 line-clamp-2 text-sm text-gray-400">{example.description}</p>
 
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">
@@ -324,24 +327,26 @@ export default function ExampleGallery() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
               onClick={() => setSelectedExample(null)}
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-[#1E1E24] rounded-xl border border-[#2A2A32] max-w-4xl w-full max-h-[90vh] overflow-auto"
+                className="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-xl border border-[#2A2A32] bg-[#1E1E24]"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="p-6 border-b border-[#2A2A32] flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-[#2A2A32] p-6">
                   <div>
-                    <h3 className="text-xl font-semibold text-white mb-1">"{selectedExample.prompt}"</h3>
+                    <h3 className="mb-1 text-xl font-semibold text-white">
+                      "{selectedExample.prompt}"
+                    </h3>
                     <span className="text-sm text-[#A0527C]">{selectedExample.category}</span>
                   </div>
-                  <Button 
+                  <Button
                     onClick={() => setSelectedExample(null)}
-                    variant="ghost" 
+                    variant="ghost"
                     size="sm"
                     className="text-gray-400 hover:text-white"
                   >
@@ -349,18 +354,18 @@ export default function ExampleGallery() {
                   </Button>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="space-y-6 p-6">
                   <div>
-                    <h4 className="text-lg font-medium text-white mb-3">Description</h4>
+                    <h4 className="mb-3 text-lg font-medium text-white">Description</h4>
                     <p className="text-gray-300">{selectedExample.description}</p>
                   </div>
 
                   <div>
-                    <h4 className="text-lg font-medium text-white mb-3">Key Features</h4>
-                    <ul className="grid md:grid-cols-2 gap-2">
+                    <h4 className="mb-3 text-lg font-medium text-white">Key Features</h4>
+                    <ul className="grid gap-2 md:grid-cols-2">
                       {selectedExample.features.map((feature, index) => (
-                        <li key={index} className="flex items-center text-gray-300 text-sm">
-                          <span className="text-[#A0527C] mr-2">✓</span>
+                        <li key={index} className="flex items-center text-sm text-gray-300">
+                          <span className="mr-2 text-[#A0527C]">✓</span>
                           {feature}
                         </li>
                       ))}
@@ -368,8 +373,8 @@ export default function ExampleGallery() {
                   </div>
 
                   <div>
-                    <h4 className="text-lg font-medium text-white mb-3">Generated Code Preview</h4>
-                    <div className="bg-[#0D0D10] rounded-lg p-4 border border-[#2A2A32] overflow-x-auto">
+                    <h4 className="mb-3 text-lg font-medium text-white">Generated Code Preview</h4>
+                    <div className="overflow-x-auto rounded-lg border border-[#2A2A32] bg-[#0D0D10] p-4">
                       <pre className="text-sm text-green-400">
                         <code>{selectedExample.code}</code>
                       </pre>
@@ -377,13 +382,13 @@ export default function ExampleGallery() {
                   </div>
 
                   <div className="flex gap-4 pt-4">
-                    <Button 
+                    <Button
                       onClick={() => router.push('/#playground')}
                       className="flex-1 bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C]"
                     >
                       Try This Prompt
                     </Button>
-                    <Button 
+                    <Button
                       onClick={() => router.push('/auth')}
                       variant="outline"
                       className="flex-1 border-[#2A2A32] text-gray-300 hover:border-[#6C52A0] hover:text-white"
@@ -398,32 +403,30 @@ export default function ExampleGallery() {
         </AnimatePresence>
 
         {/* Bottom CTA */}
-        <motion.div 
-          className="text-center mt-16"
+        <motion.div
+          className="mt-16 text-center"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           viewport={{ once: true }}
         >
-          <div className="bg-gradient-to-r from-[#6C52A0]/10 to-[#A0527C]/10 rounded-2xl border border-[#6C52A0]/20 p-8">
-            <h3 className="text-2xl font-bold text-white mb-4">
-              Ready to Build Your Own?
-            </h3>
-            <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
-              Join thousands of developers who are building faster with ZapDev. 
-              Turn your ideas into production-ready code in seconds.
+          <div className="rounded-2xl border border-[#6C52A0]/20 bg-gradient-to-r from-[#6C52A0]/10 to-[#A0527C]/10 p-8">
+            <h3 className="mb-4 text-2xl font-bold text-white">Ready to Build Your Own?</h3>
+            <p className="mx-auto mb-6 max-w-2xl text-gray-300">
+              Join thousands of developers who are building faster with ZapDev. Turn your ideas into
+              production-ready code in seconds.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
+            <div className="flex flex-col justify-center gap-4 sm:flex-row">
+              <Button
                 onClick={() => router.push('/#playground')}
-                className="bg-gradient-to-r from-[#6C52A0] to-[#A0527C] hover:from-[#7C62B0] hover:to-[#B0627C] px-8 py-3"
+                className="bg-gradient-to-r from-[#6C52A0] to-[#A0527C] px-8 py-3 hover:from-[#7C62B0] hover:to-[#B0627C]"
               >
                 Try the Demo
               </Button>
-              <Button 
+              <Button
                 onClick={() => router.push('/auth')}
                 variant="outline"
-                className="border-[#2A2A32] text-gray-300 hover:border-[#6C52A0] hover:text-white px-8 py-3"
+                className="border-[#2A2A32] px-8 py-3 text-gray-300 hover:border-[#6C52A0] hover:text-white"
               >
                 Sign Up Free
               </Button>
@@ -433,4 +436,4 @@ export default function ExampleGallery() {
       </div>
     </section>
   );
-} 
+}

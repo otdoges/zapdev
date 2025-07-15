@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { getMessagesByChatId, getMessagesByChatIdPaginated, getChatById, requireAuth } from '@/lib/supabase-operations';
+import {
+  getMessagesByChatId,
+  getMessagesByChatIdPaginated,
+  getChatById,
+  requireAuth,
+} from '@/lib/supabase-operations';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 export async function GET(request: NextRequest) {
@@ -49,12 +54,12 @@ export async function GET(request: NextRequest) {
       );
       // Return paginated format if pageSize is specified
       if (searchParams.has('pageSize')) {
-        return NextResponse.json({ 
-          messages: [], 
+        return NextResponse.json({
+          messages: [],
           chatId: null,
           hasMore: false,
           nextCursor: undefined,
-          totalCount: 0
+          totalCount: 0,
         });
       }
       return NextResponse.json({ messages: [], chatId: null });
@@ -83,7 +88,11 @@ export async function GET(request: NextRequest) {
     // Check if pagination is requested
     if (searchParams.has('pageSize')) {
       // Use paginated fetching
-      const paginatedResult = await getMessagesByChatIdPaginated(chatId, pageSize, cursor || undefined);
+      const paginatedResult = await getMessagesByChatIdPaginated(
+        chatId,
+        pageSize,
+        cursor || undefined
+      );
 
       errorLogger.info(
         ErrorCategory.API,

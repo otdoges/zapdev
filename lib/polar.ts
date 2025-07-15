@@ -2,13 +2,16 @@ import { Polar } from '@polar-sh/sdk';
 import { errorLogger, ErrorCategory } from '@/lib/error-logger';
 
 const accessToken = process.env.POLAR_ACCESS_TOKEN;
-const server = process.env.POLAR_SERVER as 'sandbox' | 'production' || 'sandbox';
+const server = (process.env.POLAR_SERVER as 'sandbox' | 'production') || 'sandbox';
 
 if (!accessToken) {
-  errorLogger.warning(ErrorCategory.GENERAL, 'POLAR_ACCESS_TOKEN is not set. Polar operations will not work.');
+  errorLogger.warning(
+    ErrorCategory.GENERAL,
+    'POLAR_ACCESS_TOKEN is not set. Polar operations will not work.'
+  );
 }
 
-const polar = accessToken 
+const polar = accessToken
   ? new Polar({
       accessToken,
       server,
@@ -36,4 +39,4 @@ export function getPolarConfig() {
     server,
     hasAccessToken: !!accessToken,
   };
-} 
+}

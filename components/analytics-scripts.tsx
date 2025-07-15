@@ -12,12 +12,12 @@ export function AnalyticsScripts() {
 
   useEffect(() => {
     setMounted(true);
-    
+
     // Check if user has given consent and enabled analytics
     const checkAnalyticsConsent = () => {
       const hasConsent = localStorage.getItem(COOKIE_CONSENT_KEY);
       const savedPreferences = localStorage.getItem(COOKIE_PREFERENCES_KEY);
-      
+
       if (hasConsent && savedPreferences) {
         try {
           const preferences = JSON.parse(savedPreferences);
@@ -40,16 +40,21 @@ export function AnalyticsScripts() {
     window.addEventListener('cookiePreferencesChanged', handlePreferencesChange as EventListener);
 
     return () => {
-      window.removeEventListener('cookiePreferencesChanged', handlePreferencesChange as EventListener);
+      window.removeEventListener(
+        'cookiePreferencesChanged',
+        handlePreferencesChange as EventListener
+      );
     };
   }, []);
 
   useEffect(() => {
     // Initialize Plausible tracking function safely on client side
     if (typeof window !== 'undefined' && analyticsEnabled) {
-      window.plausible = window.plausible || function() { 
-        (window.plausible.q = window.plausible.q || []).push(arguments) 
-      };
+      window.plausible =
+        window.plausible ||
+        function () {
+          (window.plausible.q = window.plausible.q || []).push(arguments);
+        };
     }
   }, [analyticsEnabled]);
 
@@ -89,4 +94,4 @@ declare global {
   interface Window {
     plausible: any;
   }
-} 
+}

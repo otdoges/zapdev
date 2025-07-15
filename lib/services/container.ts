@@ -39,10 +39,12 @@ export class DIContainer {
   }
 
   // Create project setup service with dependencies
-  createProjectSetupService(config: {
-    onOutput?: (output: string) => void;
-    onProgress?: (step: string, progress: number) => void;
-  } = {}): ProjectSetupService {
+  createProjectSetupService(
+    config: {
+      onOutput?: (output: string) => void;
+      onProgress?: (step: string, progress: number) => void;
+    } = {}
+  ): ProjectSetupService {
     const templateRegistry = this.get<TemplateRegistry>('templateRegistry');
     const webContainerManager = this.get<WebContainerManager>('webContainerManager');
 
@@ -54,10 +56,12 @@ export class DIContainer {
   }
 
   // Create AI team coordinator with dependencies
-  createAITeamCoordinator(config: {
-    onAgentUpdate?: (agents: any[]) => void;
-    onOutput?: (output: string) => void;
-  } = {}): AITeamCoordinator {
+  createAITeamCoordinator(
+    config: {
+      onAgentUpdate?: (agents: any[]) => void;
+      onOutput?: (output: string) => void;
+    } = {}
+  ): AITeamCoordinator {
     const projectSetupService = this.createProjectSetupService(config);
 
     return new AITeamCoordinator({
@@ -70,11 +74,11 @@ export class DIContainer {
   createFileManager(): FileManager | null {
     const webContainerManager = this.get<WebContainerManager>('webContainerManager');
     const instance = webContainerManager.getInstance();
-    
+
     if (!instance) {
       return null;
     }
-    
+
     return new FileManager(instance);
   }
 
@@ -109,7 +113,7 @@ export class DIContainer {
   async cleanup(): Promise<void> {
     const webContainerManager = this.get<WebContainerManager>('webContainerManager');
     await webContainerManager.teardown();
-    
+
     this.services.clear();
     this.initialized = false;
   }

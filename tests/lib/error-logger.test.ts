@@ -18,31 +18,23 @@ describe('Error Logger', () => {
   describe('basic logging', () => {
     it('should log info messages', () => {
       errorLogger.info(ErrorCategory.GENERAL, 'Test info message');
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining('Test info message')
-      );
+      expect(consoleSpy.log).toHaveBeenCalledWith(expect.stringContaining('Test info message'));
     });
 
     it('should log warning messages', () => {
       errorLogger.warning(ErrorCategory.API, 'Test warning message');
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining('Test warning message')
-      );
+      expect(consoleSpy.log).toHaveBeenCalledWith(expect.stringContaining('Test warning message'));
     });
 
     it('should log error messages', () => {
       const testError = new Error('Test error');
       errorLogger.error(ErrorCategory.DATABASE, 'Test error message', testError);
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining('Test error message')
-      );
+      expect(consoleSpy.log).toHaveBeenCalledWith(expect.stringContaining('Test error message'));
     });
 
     it('should log debug messages', () => {
       errorLogger.debug(ErrorCategory.AI_MODEL, 'Test debug message');
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining('Test debug message')
-      );
+      expect(consoleSpy.log).toHaveBeenCalledWith(expect.stringContaining('Test debug message'));
     });
   });
 
@@ -57,11 +49,9 @@ describe('Error Logger', () => {
         ErrorCategory.WEBCONTAINER,
       ];
 
-      categories.forEach(category => {
+      categories.forEach((category) => {
         errorLogger.info(category, `Test message for ${category}`);
-        expect(consoleSpy.log).toHaveBeenCalledWith(
-          expect.stringContaining(category)
-        );
+        expect(consoleSpy.log).toHaveBeenCalledWith(expect.stringContaining(category));
       });
     });
   });
@@ -70,19 +60,15 @@ describe('Error Logger', () => {
     it('should include context in log entries', () => {
       const context = { userId: '123', action: 'test' };
       errorLogger.error(ErrorCategory.GENERAL, 'Test with context', new Error('test'), context);
-      
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining('Test with context')
-      );
+
+      expect(consoleSpy.log).toHaveBeenCalledWith(expect.stringContaining('Test with context'));
     });
 
     it('should handle error objects with stack traces', () => {
       const error = new Error('Test error with stack');
       errorLogger.error(ErrorCategory.GENERAL, 'Error with stack', error);
-      
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining('Error with stack')
-      );
+
+      expect(consoleSpy.log).toHaveBeenCalledWith(expect.stringContaining('Error with stack'));
     });
   });
 
@@ -93,4 +79,4 @@ describe('Error Logger', () => {
       }).not.toThrow();
     });
   });
-}); 
+});

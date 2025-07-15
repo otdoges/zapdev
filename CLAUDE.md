@@ -9,6 +9,7 @@ ZapDev is an AI-powered development platform built with Next.js 15 that enables 
 ## Key Technologies & Architecture
 
 **Stack:**
+
 - Next.js 15 (App Router) with React 18 & TypeScript
 - Supabase (PostgreSQL, Auth, Realtime)
 - Tailwind CSS + Radix UI components
@@ -17,11 +18,13 @@ ZapDev is an AI-powered development platform built with Next.js 15 that enables 
 - Stripe for payments, Sentry for monitoring
 
 **Authentication:**
+
 - Dual system: GitHub OAuth + Email/Password via Supabase Auth
 - Row Level Security (RLS) policies protect user data
 - Middleware-based route protection in `middleware.ts`
 
 **Project Structure:**
+
 - `app/` - Next.js App Router (pages, API routes, auth callbacks)
 - `components/` - React components including UI library in `ui/`
 - `lib/` - Core utilities, services, and business logic
@@ -34,7 +37,7 @@ ZapDev is an AI-powered development platform built with Next.js 15 that enables 
 ```bash
 # Development
 bun run dev              # Start development server
-bun run build           # Build for production  
+bun run build           # Build for production
 bun run start           # Start production server
 
 # Testing
@@ -48,7 +51,7 @@ bun run lint            # Run Next.js ESLint
 bun run format          # Format with Prettier
 bun run format:check    # Check formatting
 
-# Bundle Analysis  
+# Bundle Analysis
 bun run analyze         # Analyze bundle with @next/bundle-analyzer
 
 # Utility Scripts
@@ -82,8 +85,9 @@ NEXT_PUBLIC_SENTRY_DSN=
 ## AI Team Coordination
 
 The platform features an AI team system with specialized roles:
+
 - **System Architect**: Requirements analysis and project structure
-- **Frontend Developer**: React/TypeScript/Tailwind components  
+- **Frontend Developer**: React/TypeScript/Tailwind components
 - **Backend Developer**: API and server logic
 - **DevOps Engineer**: Build configuration and deployment
 
@@ -92,8 +96,9 @@ API coordination happens through `/api/ai-team/coordinate` with structured step-
 ## Database Schema
 
 Core tables with RLS policies:
+
 - `users` - User profiles linked to auth.users
-- `chats` - Chat sessions  
+- `chats` - Chat sessions
 - `messages` - Chat messages with role-based content
 
 All tables use UUID primary keys and have proper foreign key relationships with cascade deletes.
@@ -101,6 +106,7 @@ All tables use UUID primary keys and have proper foreign key relationships with 
 ## WebContainers Integration
 
 Browser-based Node.js environment enabling:
+
 - Real-time code execution and preview
 - Package management (pnpm/npm)
 - Terminal access and file system operations

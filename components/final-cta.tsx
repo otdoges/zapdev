@@ -75,7 +75,7 @@ export default function FinalCta({ onGetStarted }: FinalCtaProps) {
               onClick={onGetStarted}
               motionProps={{
                 whileHover: { scale: 1.02 },
-                whileTap: { scale: 0.98 }
+                whileTap: { scale: 0.98 },
               }}
             >
               Get Started with ZapDev Free
@@ -85,7 +85,7 @@ export default function FinalCta({ onGetStarted }: FinalCtaProps) {
               onClick={() => window.open('/pricing', '_self')}
               motionProps={{
                 whileHover: { scale: 1.02 },
-                whileTap: { scale: 0.98 }
+                whileTap: { scale: 0.98 },
               }}
             >
               View Pricing

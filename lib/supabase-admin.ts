@@ -17,8 +17,7 @@ if (!supabaseServiceRoleKey) {
 
 // Note: supabaseAdmin uses the SERVICE_ROLE_KEY which you must only use in a secure server-side context
 // as it has admin privileges and can bypass your RLS policies!
-const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey) 
-  ? createClient(supabaseUrl, supabaseServiceRoleKey)
-  : null;
+const supabaseAdmin =
+  supabaseUrl && supabaseServiceRoleKey ? createClient(supabaseUrl, supabaseServiceRoleKey) : null;
 
-export { supabaseAdmin }; 
+export { supabaseAdmin };

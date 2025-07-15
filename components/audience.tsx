@@ -104,11 +104,11 @@ export default function Audience() {
               ))}
             </ul>
 
-            <CrossBrowserButton 
+            <CrossBrowserButton
               className="cross-browser-button gradient-button-primary w-full rounded-full px-8 py-6 md:w-auto"
               motionProps={{
                 whileHover: { scale: 1.02 },
-                whileTap: { scale: 0.98 }
+                whileTap: { scale: 0.98 },
               }}
             >
               Start Creating Without Code
@@ -193,11 +193,11 @@ export default function Audience() {
               ))}
             </ul>
 
-            <CrossBrowserButton 
+            <CrossBrowserButton
               className="cross-browser-button gradient-button-primary w-full rounded-full px-8 py-6 md:w-auto"
               motionProps={{
                 whileHover: { scale: 1.02 },
-                whileTap: { scale: 0.98 }
+                whileTap: { scale: 0.98 },
               }}
             >
               Explore Developer Features

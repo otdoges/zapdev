@@ -31,10 +31,10 @@ function AuthContent() {
 
   // Redirect if user is already logged in
   useEffect(() => {
-    if (user) {
+    if (user && !loading) {
       router.replace(redirectTo);
     }
-  }, [user, router, redirectTo]);
+  }, [user, loading, router, redirectTo]);
 
   // Check if Supabase is configured
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -142,9 +142,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
         if (error) {
           setError(error.message || 'Sign in failed');
         } else {
-          // Don't redirect immediately - let the useEffect handle it
-          // This prevents race conditions with auth state
+          // Sign in successful - redirect immediately
           setMessage('Sign in successful! Redirecting...');
+          // Small delay to let auth state update, then redirect
+          setTimeout(() => {
+            router.push(redirectTo);
+          }, 100);
         }
       }
     } catch (error) {
@@ -174,7 +177,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -inset-10 opacity-30">
-          <motion.div 
+          <motion.div
             className="absolute left-1/4 top-1/4 h-96 w-96 rounded-full bg-[#6C52A0] mix-blend-multiply blur-3xl filter"
             animate={{
               scale: [1, 1.2, 1],
@@ -183,10 +186,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             transition={{
               duration: 20,
               repeat: Infinity,
-              ease: "linear"
+              ease: 'linear',
             }}
           />
-          <motion.div 
+          <motion.div
             className="absolute right-1/4 top-1/3 h-96 w-96 rounded-full bg-[#A0527C] mix-blend-multiply blur-3xl filter"
             animate={{
               scale: [1.2, 1, 1.2],
@@ -195,11 +198,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             transition={{
               duration: 25,
               repeat: Infinity,
-              ease: "linear",
-              delay: 2
+              ease: 'linear',
+              delay: 2,
             }}
           />
-          <motion.div 
+          <motion.div
             className="absolute bottom-1/4 left-1/3 h-96 w-96 rounded-full bg-[#4F3A75] mix-blend-multiply blur-3xl filter"
             animate={{
               scale: [1, 1.1, 1.3, 1],
@@ -208,29 +211,29 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             transition={{
               duration: 30,
               repeat: Infinity,
-              ease: "linear",
-              delay: 4
+              ease: 'linear',
+              delay: 4,
             }}
           />
         </div>
-        
+
         {/* Floating particles */}
         {[...Array(6)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute h-2 w-2 rounded-full bg-[#6C52A0]/30"
             style={{
-              left: `${20 + (i * 15)}%`,
-              top: `${10 + (i * 12)}%`,
+              left: `${20 + i * 15}%`,
+              top: `${10 + i * 12}%`,
             }}
             animate={{
               y: [-20, 20, -20],
               opacity: [0.3, 0.8, 0.3],
             }}
             transition={{
-              duration: 3 + (i * 0.5),
+              duration: 3 + i * 0.5,
               repeat: Infinity,
-              ease: "easeInOut",
+              ease: 'easeInOut',
               delay: i * 0.2,
             }}
           />
@@ -244,10 +247,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
         transition={{ duration: 0.6 }}
         className="relative z-10 mx-auto w-full max-w-md"
       >
-        <motion.div 
+        <motion.div
           className="rounded-3xl border border-white/10 bg-[#0D0D10]/80 p-8 shadow-2xl backdrop-blur-xl"
           whileHover={{ scale: 1.02 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         >
           {/* Header */}
           <motion.div
@@ -259,11 +262,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ 
-                type: "spring", 
-                stiffness: 260, 
+              transition={{
+                type: 'spring',
+                stiffness: 260,
                 damping: 20,
-                delay: 0.2 
+                delay: 0.2,
               }}
               className="mb-4 flex justify-center"
             >
@@ -271,7 +274,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
                 <Sparkles className="h-6 w-6 text-white" />
               </div>
             </motion.div>
-            <motion.h1 
+            <motion.h1
               className="mb-2 text-3xl font-bold text-white"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -279,7 +282,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             >
               {isSignUp ? 'Create an account' : 'Welcome back'}
             </motion.h1>
-            <motion.p 
+            <motion.p
               className="text-[#EAEAEA]/70"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -331,10 +334,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             className="mb-6 space-y-4"
           >
             <div className="space-y-2">
-              <motion.div 
+              <motion.div
                 className="relative"
                 whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
               >
                 <motion.div
                   animate={{
@@ -343,7 +346,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
                   }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform z-10" />
+                  <Mail className="absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 transform" />
                 </motion.div>
                 <Input
                   type="email"
@@ -352,7 +355,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
                   onChange={(e) => updateEmailForm('email', e.target.value)}
                   onFocus={() => setFocusedField('email')}
                   onBlur={() => setFocusedField('')}
-                  className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0] focus:ring-2 focus:ring-[#6C52A0]/20 focus:bg-[#0D0D10]/70"
+                  className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0] focus:bg-[#0D0D10]/70 focus:ring-2 focus:ring-[#6C52A0]/20"
                   disabled={isLoading}
                   required
                 />
@@ -360,10 +363,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             </div>
 
             <div className="space-y-2">
-              <motion.div 
+              <motion.div
                 className="relative"
                 whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
               >
                 <motion.div
                   animate={{
@@ -372,23 +375,23 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
                   }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform z-10" />
+                  <Lock className="absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 transform" />
                 </motion.div>
                 <Input
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Password"
                   value={emailForm.password}
                   onChange={(e) => updateEmailForm('password', e.target.value)}
                   onFocus={() => setFocusedField('password')}
                   onBlur={() => setFocusedField('')}
-                  className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 pr-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0] focus:ring-2 focus:ring-[#6C52A0]/20 focus:bg-[#0D0D10]/70"
+                  className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 pr-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0] focus:bg-[#0D0D10]/70 focus:ring-2 focus:ring-[#6C52A0]/20"
                   disabled={isLoading}
                   required
                 />
                 <motion.button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 transform text-[#EAEAEA]/40 hover:text-[#6C52A0] transition-colors z-10"
+                  className="absolute right-3 top-1/2 z-10 -translate-y-1/2 transform text-[#EAEAEA]/40 transition-colors hover:text-[#6C52A0]"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                 >
@@ -404,10 +407,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-2"
               >
-                <motion.div 
+                <motion.div
                   className="relative"
                   whileHover={{ scale: 1.02 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
                   <motion.div
                     animate={{
@@ -416,34 +419,38 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
                     }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform z-10" />
+                    <Lock className="absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 transform" />
                   </motion.div>
                   <Input
-                    type={showConfirmPassword ? "text" : "password"}
+                    type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirm password"
                     value={emailForm.confirmPassword}
                     onChange={(e) => updateEmailForm('confirmPassword', e.target.value)}
                     onFocus={() => setFocusedField('confirmPassword')}
                     onBlur={() => setFocusedField('')}
-                    className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 pr-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0] focus:ring-2 focus:ring-[#6C52A0]/20 focus:bg-[#0D0D10]/70"
+                    className="h-12 rounded-xl border-[#EAEAEA]/20 bg-[#0D0D10]/50 pl-12 pr-12 text-white placeholder-[#EAEAEA]/40 transition-all duration-300 focus:border-[#6C52A0] focus:bg-[#0D0D10]/70 focus:ring-2 focus:ring-[#6C52A0]/20"
                     disabled={isLoading}
                     required
                   />
                   <motion.button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 transform text-[#EAEAEA]/40 hover:text-[#6C52A0] transition-colors z-10"
+                    className="absolute right-3 top-1/2 z-10 -translate-y-1/2 transform text-[#EAEAEA]/40 transition-colors hover:text-[#6C52A0]"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                   >
-                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
                   </motion.button>
                 </motion.div>
               </motion.div>
             )}
 
-            <motion.div 
-              whileHover={{ scale: 1.02 }} 
+            <motion.div
+              whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="relative overflow-hidden rounded-xl"
             >
@@ -455,10 +462,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
                 transition={{
                   duration: 3,
                   repeat: Infinity,
-                  ease: "linear"
+                  ease: 'linear',
                 }}
                 style={{
-                  backgroundSize: '200% 200%'
+                  backgroundSize: '200% 200%',
                 }}
               />
               <Button
@@ -467,10 +474,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
                 className="relative flex h-12 w-full items-center justify-center gap-2 rounded-xl border-0 bg-transparent font-medium text-white transition-all duration-300 hover:shadow-lg hover:shadow-[#6C52A0]/25 disabled:opacity-50"
               >
                 {isLoading ? (
-                  <motion.div 
+                  <motion.div
                     className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white"
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                   />
                 ) : (
                   <>
@@ -519,7 +526,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             whileTap={{ scale: 0.98 }}
             className="group relative overflow-hidden rounded-xl"
           >
-            <motion.div 
+            <motion.div
               className="absolute inset-0 bg-gradient-to-r from-[#333]/20 to-[#666]/20 opacity-0 group-hover:opacity-100"
               transition={{ duration: 0.3 }}
             />
@@ -529,10 +536,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
               className="relative flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#EAEAEA]/20 bg-[#0D0D10]/50 font-medium text-white transition-all duration-300 hover:border-[#EAEAEA]/30 hover:bg-[#EAEAEA]/5 disabled:opacity-50"
             >
               {isLoading ? (
-                <motion.div 
+                <motion.div
                   className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white"
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                 />
               ) : (
                 <>
@@ -611,9 +618,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
           transform: scale(1);
           animation: blob 15s infinite;
         }
-        
+
         @keyframes blob {
-          0%, 100% {
+          0%,
+          100% {
             transform: translateY(0px) scale(1) rotate(0deg);
           }
           33% {
@@ -623,27 +631,27 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
             transform: translateY(20px) scale(0.9) rotate(240deg);
           }
         }
-        
+
         .animation-delay-2000 {
           animation-delay: 2s;
         }
         .animation-delay-4000 {
           animation-delay: 4s;
         }
-        
+
         /* Subtle glow effect */
         .auth-glow {
-          box-shadow: 
+          box-shadow:
             0 0 20px rgba(108, 82, 160, 0.1),
             0 0 40px rgba(160, 82, 124, 0.05),
             0 0 80px rgba(79, 58, 117, 0.03);
         }
-        
+
         /* Custom input focus effect */
         .input-focus-effect {
           position: relative;
         }
-        
+
         .input-focus-effect::before {
           content: '';
           position: absolute;
@@ -653,13 +661,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key`}
           bottom: 0;
           border-radius: 12px;
           padding: 1px;
-          background: linear-gradient(45deg, #6C52A0, #A0527C);
-          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          background: linear-gradient(45deg, #6c52a0, #a0527c);
+          mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
           mask-composite: exclude;
           opacity: 0;
           transition: opacity 0.3s ease;
         }
-        
+
         .input-focus-effect:focus-within::before {
           opacity: 1;
         }

@@ -25,7 +25,7 @@ vi.mock('next/image', () => ({
 // Mock environment variables
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -78,4 +78,4 @@ Object.defineProperty(global, 'crypto', {
   value: {
     randomUUID: () => 'mock-uuid-' + Math.random().toString(36).substr(2, 9),
   },
-}); 
+});

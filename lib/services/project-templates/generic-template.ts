@@ -13,10 +13,12 @@ export class GenericProjectTemplate extends BaseProjectTemplate {
 
   detectProjectType(codeContent: string): boolean {
     // If it's not HTML or React, default to generic
-    return !codeContent.includes('<!DOCTYPE html>') && 
-           !codeContent.includes('<html') &&
-           !codeContent.includes('import React') && 
-           !codeContent.includes('from "react"');
+    return (
+      !codeContent.includes('<!DOCTYPE html>') &&
+      !codeContent.includes('<html') &&
+      !codeContent.includes('import React') &&
+      !codeContent.includes('from "react"')
+    );
   }
 
   getDefaultDependencies(): string[] {
@@ -37,7 +39,7 @@ export class GenericProjectTemplate extends BaseProjectTemplate {
 
   async generateFiles(options: ProjectSetupOptions): Promise<FileSystemTree> {
     const { codeContent = '', instructions = '' } = options;
-    
+
     const analysis = this.analyzeInstructions(instructions);
     const mainContent = codeContent || this.generateDefaultCode(analysis);
 
@@ -61,7 +63,7 @@ export class GenericProjectTemplate extends BaseProjectTemplate {
     if (analysis.hasApi) {
       return this.generateExpressServer();
     }
-    
+
     return this.generateSimpleNodeApp();
   }
 

@@ -99,11 +99,11 @@ export default function Home() {
       return (
         <div className="flex items-center gap-4">
           <Avatar className="h-8 w-8">
-            <AvatarImage 
-              src={user.user_metadata?.avatar_url || user.user_metadata?.picture} 
-              alt={user.user_metadata?.full_name || user.email || 'User'} 
+            <AvatarImage
+              src={user.user_metadata?.avatar_url || user.user_metadata?.picture}
+              alt={user.user_metadata?.full_name || user.email || 'User'}
             />
-            <AvatarFallback className="bg-gradient-to-r from-[#6C52A0] to-[#A0527C] text-white text-sm">
+            <AvatarFallback className="bg-gradient-to-r from-[#6C52A0] to-[#A0527C] text-sm text-white">
               {(user.user_metadata?.full_name || user.email || 'U').charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>

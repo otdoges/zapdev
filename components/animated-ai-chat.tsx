@@ -39,12 +39,12 @@ function extractCodeFromMessage(content: string): string | null {
   // Extract code blocks from markdown
   const codeBlockRegex = /```(?:[\w+]+)?\n([\s\S]*?)```/g;
   const matches = content.match(codeBlockRegex);
-  
+
   if (matches && matches.length > 0) {
     // Return the first code block without the markdown formatting
     return matches[0].replace(/```[\w+]*\n?/g, '').replace(/```$/g, '');
   }
-  
+
   return null;
 }
 

@@ -33,7 +33,7 @@ export class TemplateRegistry {
   }
 
   getTemplateInfo() {
-    return Array.from(this.templates.values()).map(template => template.getInfo());
+    return Array.from(this.templates.values()).map((template) => template.getInfo());
   }
 
   detectProjectType(codeContent: string): BaseProjectTemplate {

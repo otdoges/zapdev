@@ -63,11 +63,11 @@ export default function Error({
           </p>
           <p className="text-lg text-[#EAEAEA]/70">
             Make an issue on{' '}
-            <a 
-              href="https://github.com/otdoges/zapdev/issues" 
-              target="_blank" 
+            <a
+              href="https://github.com/otdoges/zapdev/issues"
+              target="_blank"
               rel="noopener noreferrer"
-              className="text-[#6C52A0] hover:text-[#7C62B0] underline transition-colors"
+              className="text-[#6C52A0] underline transition-colors hover:text-[#7C62B0]"
             >
               GitHub
             </a>

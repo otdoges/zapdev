@@ -20,13 +20,13 @@ const chatRequestSchema = z.object({
   chatId: z.string().optional(),
   modelId: z
     .enum([
-      'llama-3.3-70b-versatile', 
-      'llama-3.1-8b-instant', 
+      'llama-3.3-70b-versatile',
+      'llama-3.1-8b-instant',
       'mixtral-8x7b-32768',
       'deepseek-r1-distill-qwen-32b',
       'qwen-qwq-32b',
       'gemma2-9b-it',
-      'moonshotai/kimi-k2-instruct'
+      'moonshotai/kimi-k2-instruct',
     ])
     .optional(),
   useReasoning: z.boolean().optional(),
@@ -132,9 +132,9 @@ For code generation:
 - Always include responsive design principles
 - Use modern CSS features (flexbox, grid, animations)
 
-Be conversational but technical, and always aim to create something that works immediately.`
+Be conversational but technical, and always aim to create something that works immediately.`,
         },
-        ...messages
+        ...messages,
       ];
 
       const result = await streamText({
@@ -174,14 +174,14 @@ Be conversational but technical, and always aim to create something that works i
       // Check if response contains code for WebContainer triggering
       const responseText = await result.textStream?.getReader().read();
       const hasCodeBlock = responseText?.value?.includes('```');
-      const isBuildRequest = messages.some(msg => 
+      const isBuildRequest = messages.some((msg) =>
         /\b(build|create|make|generate|app|website|component|project)\b/i.test(msg.content)
       );
 
       // Return the properly formatted data stream response with enhanced headers
       const streamResponse = result.toDataStreamResponse();
       streamResponse.headers.set('X-Chat-ID', finalChatId);
-      
+
       // Set headers to trigger WebContainer if code is being generated
       if (hasCodeBlock && isBuildRequest) {
         streamResponse.headers.set('X-Build-Triggered', 'true');

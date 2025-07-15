@@ -16,14 +16,7 @@ interface CrossBrowserButtonProps extends ButtonProps {
 }
 
 const CrossBrowserButton = React.forwardRef<HTMLButtonElement, CrossBrowserButtonProps>(
-  ({ 
-    className, 
-    children, 
-    enableMotion = true, 
-    motionProps = {},
-    style,
-    ...props 
-  }, ref) => {
+  ({ className, children, enableMotion = true, motionProps = {}, style, ...props }, ref) => {
     // Simple CSS classes for the button
     const buttonClasses = cn(
       'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium',
@@ -33,15 +26,10 @@ const CrossBrowserButton = React.forwardRef<HTMLButtonElement, CrossBrowserButto
       'transform-gpu',
       className
     );
-    
+
     // Use regular button with CSS-only animations for maximum compatibility
     return (
-      <button
-        ref={ref}
-        className={buttonClasses}
-        style={style}
-        {...props}
-      >
+      <button ref={ref} className={buttonClasses} style={style} {...props}>
         {children}
       </button>
     );
@@ -51,4 +39,4 @@ const CrossBrowserButton = React.forwardRef<HTMLButtonElement, CrossBrowserButto
 CrossBrowserButton.displayName = 'CrossBrowserButton';
 
 export { CrossBrowserButton };
-export type { CrossBrowserButtonProps }; 
+export type { CrossBrowserButtonProps };

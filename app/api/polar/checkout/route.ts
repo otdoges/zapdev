@@ -33,41 +33,32 @@ export async function GET(request: NextRequest) {
     return await checkoutHandler(request);
   } catch (error) {
     errorLogger.error(ErrorCategory.API, 'Polar checkout error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create checkout session' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { priceId } = await request.json();
-    
+
     if (!priceId) {
-      return NextResponse.json(
-        { error: 'Price ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Price ID is required' }, { status: 400 });
     }
 
     if (!polar) {
       errorLogger.error(ErrorCategory.API, 'Polar client not initialized');
-      return NextResponse.json(
-        { error: 'Payment system not available' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Payment system not available' }, { status: 500 });
     }
 
     // Get current user for customer info
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     // Create checkout session with Polar SDK
@@ -83,12 +74,8 @@ export async function POST(request: NextRequest) {
       url: checkout.url,
       checkout_id: checkout.id,
     });
-
   } catch (error: any) {
     errorLogger.error(ErrorCategory.API, 'Failed to create checkout session:', error);
-    return NextResponse.json(
-      { error: 'Failed to create checkout session' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 });
   }
 }

@@ -33,12 +33,15 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     let isMounted = true;
-    
+
     // Set up a global timeout to prevent infinite loading
     const globalTimeout = setTimeout(() => {
       if (isMounted) {
         console.log('⏰ Auth initialization timeout - proceeding without authentication');
-        errorLogger.warning(ErrorCategory.GENERAL, 'Auth initialization timeout - setting loading to false');
+        errorLogger.warning(
+          ErrorCategory.GENERAL,
+          'Auth initialization timeout - setting loading to false'
+        );
         setLoading(false);
         setUser(null);
       }
@@ -102,22 +105,29 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
       const getInitialSession = async () => {
         try {
           console.log('🔍 Getting initial session...');
-          
+
           // Create a timeout promise
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Session check timeout')), 800) // Reduced to 800ms
+          const timeoutPromise = new Promise<never>(
+            (_, reject) => setTimeout(() => reject(new Error('Session check timeout')), 800) // Reduced to 800ms
           );
 
           // Race between session check and timeout
           const sessionPromise = client.auth.getSession();
-          
+
           const result = await Promise.race([sessionPromise, timeoutPromise]);
-          
+
           if (result.error) {
             console.error('❌ Error getting initial session:', result.error);
-            errorLogger.error(ErrorCategory.GENERAL, 'Error getting initial session:', result.error);
+            errorLogger.error(
+              ErrorCategory.GENERAL,
+              'Error getting initial session:',
+              result.error
+            );
           } else {
-            console.log('✅ Initial session check completed', result.data?.session?.user ? 'User found' : 'No user');
+            console.log(
+              '✅ Initial session check completed',
+              result.data?.session?.user ? 'User found' : 'No user'
+            );
           }
 
           if (isMounted) {
@@ -125,7 +135,11 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
           }
         } catch (error) {
           console.error('❌ Session check failed, continuing without auth:', error);
-          errorLogger.error(ErrorCategory.GENERAL, 'Error getting session (falling back to no auth):', error);
+          errorLogger.error(
+            ErrorCategory.GENERAL,
+            'Error getting session (falling back to no auth):',
+            error
+          );
           // On error, assume no user and continue
           if (isMounted) {
             setUser(null);
@@ -146,7 +160,10 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
         data: { subscription },
       } = client.auth.onAuthStateChange(async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email);
-        errorLogger.info(ErrorCategory.GENERAL, `Auth state changed: ${event} ${session?.user?.email || 'no user'}`);
+        errorLogger.info(
+          ErrorCategory.GENERAL,
+          `Auth state changed: ${event} ${session?.user?.email || 'no user'}`
+        );
 
         if (!isMounted) return;
 

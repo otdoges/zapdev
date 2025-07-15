@@ -12,11 +12,13 @@ export class ReactProjectTemplate extends BaseProjectTemplate {
   }
 
   detectProjectType(codeContent: string): boolean {
-    return codeContent.includes('import React') || 
-           codeContent.includes('from "react"') || 
-           codeContent.includes('from \'react\'') ||
-           codeContent.includes('useState') ||
-           codeContent.includes('useEffect');
+    return (
+      codeContent.includes('import React') ||
+      codeContent.includes('from "react"') ||
+      codeContent.includes("from 'react'") ||
+      codeContent.includes('useState') ||
+      codeContent.includes('useEffect')
+    );
   }
 
   getDefaultDependencies(): string[] {
@@ -47,11 +49,11 @@ export class ReactProjectTemplate extends BaseProjectTemplate {
 
   async generateFiles(options: ProjectSetupOptions): Promise<FileSystemTree> {
     const { codeContent = '', instructions = '' } = options;
-    
+
     const analysis = this.analyzeInstructions(instructions);
-    
+
     const appContent = codeContent || this.generateAppComponent(analysis);
-    
+
     return {
       'package.json': {
         file: { contents: this.createPackageJson() },
@@ -99,16 +101,20 @@ export class ReactProjectTemplate extends BaseProjectTemplate {
               'Features.tsx': {
                 file: { contents: this.generateFeaturesComponent() },
               },
-              ...(analysis.hasForm ? {
-                'ContactForm.tsx': {
-                  file: { contents: this.generateContactFormComponent() },
-                },
-              } : {}),
-              ...(analysis.hasList ? {
-                'DataList.tsx': {
-                  file: { contents: this.generateDataListComponent() },
-                },
-              } : {}),
+              ...(analysis.hasForm
+                ? {
+                    'ContactForm.tsx': {
+                      file: { contents: this.generateContactFormComponent() },
+                    },
+                  }
+                : {}),
+              ...(analysis.hasList
+                ? {
+                    'DataList.tsx': {
+                      file: { contents: this.generateDataListComponent() },
+                    },
+                  }
+                : {}),
             },
           },
           hooks: {

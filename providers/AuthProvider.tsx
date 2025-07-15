@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
@@ -127,14 +127,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Get initial session with timeout
         const sessionPromise = client.auth.getSession();
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Session timeout')), AUTH_TIMEOUTS.SESSION_CHECK_TIMEOUT)
+          setTimeout(
+            () => reject(new Error('Session timeout')),
+            AUTH_TIMEOUTS.SESSION_CHECK_TIMEOUT
+          )
         );
 
         try {
-          const { data: { session }, error } = await Promise.race([
-            sessionPromise,
-            timeoutPromise,
-          ]) as any;
+          const {
+            data: { session },
+            error,
+          } = (await Promise.race([sessionPromise, timeoutPromise])) as any;
 
           if (error) {
             handleError(error, 'initial session');
@@ -153,13 +156,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         // Enhanced auth state listener
-        const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
+        const {
+          data: { subscription },
+        } = client.auth.onAuthStateChange(async (event, session) => {
           if (!isMounted) return;
 
-          errorLogger.info(ErrorCategory.AUTH, 'Auth state changed:', { 
-            event, 
+          errorLogger.info(ErrorCategory.AUTH, 'Auth state changed:', {
+            event,
             userEmail: session?.user?.email,
-            expiresAt: session?.expires_at 
+            expiresAt: session?.expires_at,
           });
 
           setUser(session?.user ?? null);
@@ -180,7 +185,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
                 // Background user sync (non-blocking)
                 try {
-                  const { syncUserToDatabaseClient } = await import('@/lib/supabase-client-operations');
+                  const { syncUserToDatabaseClient } = await import(
+                    '@/lib/supabase-client-operations'
+                  );
                   await syncUserToDatabaseClient(session.user, client);
                   errorLogger.info(ErrorCategory.AUTH, 'User sync successful');
                 } catch (syncError) {
@@ -241,7 +248,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setLoading(true);
       clearError();
-      
+
       const { error } = await supabase.auth.signOut();
       if (error) {
         handleError(error, 'signOut');
@@ -264,9 +271,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setLoading(true);
       clearError();
-      
+
       const redirectTo = `${window.location.origin}/auth/callback?next=/chat`;
-      
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
@@ -290,94 +297,103 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [supabase, isConfigured, handleError, clearError]);
 
-  const signInWithEmail = useCallback(async (email: string, password: string) => {
-    if (!supabase || !isConfigured) {
-      return { error: new Error('Supabase not initialized') };
-    }
+  const signInWithEmail = useCallback(
+    async (email: string, password: string) => {
+      if (!supabase || !isConfigured) {
+        return { error: new Error('Supabase not initialized') };
+      }
 
-    try {
-      setLoading(true);
-      clearError();
-      
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      try {
+        setLoading(true);
+        clearError();
 
-      if (error) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          handleError(error, 'email sign in');
+        } else {
+          errorLogger.info(ErrorCategory.AUTH, 'Email sign in successful');
+        }
+
+        return { error };
+      } catch (error) {
         handleError(error, 'email sign in');
-      } else {
-        errorLogger.info(ErrorCategory.AUTH, 'Email sign in successful');
+        return { error };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [supabase, isConfigured, handleError, clearError]
+  );
+
+  const signUpWithEmail = useCallback(
+    async (email: string, password: string) => {
+      if (!supabase || !isConfigured) {
+        return { error: new Error('Supabase not initialized') };
       }
 
-      return { error };
-    } catch (error) {
-      handleError(error, 'email sign in');
-      return { error };
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase, isConfigured, handleError, clearError]);
+      try {
+        setLoading(true);
+        clearError();
 
-  const signUpWithEmail = useCallback(async (email: string, password: string) => {
-    if (!supabase || !isConfigured) {
-      return { error: new Error('Supabase not initialized') };
-    }
-
-    try {
-      setLoading(true);
-      clearError();
-      
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          data: {
-            next: '/chat',
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            data: {
+              next: '/chat',
+            },
           },
-        },
-      });
+        });
 
-      if (error) {
+        if (error) {
+          handleError(error, 'email sign up');
+        } else {
+          errorLogger.info(ErrorCategory.AUTH, 'Email sign up successful');
+        }
+
+        return { error };
+      } catch (error) {
         handleError(error, 'email sign up');
-      } else {
-        errorLogger.info(ErrorCategory.AUTH, 'Email sign up successful');
+        return { error };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [supabase, isConfigured, handleError, clearError]
+  );
+
+  const resetPassword = useCallback(
+    async (email: string) => {
+      if (!supabase || !isConfigured) {
+        return { error: new Error('Supabase not initialized') };
       }
 
-      return { error };
-    } catch (error) {
-      handleError(error, 'email sign up');
-      return { error };
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase, isConfigured, handleError, clearError]);
+      try {
+        clearError();
 
-  const resetPassword = useCallback(async (email: string) => {
-    if (!supabase || !isConfigured) {
-      return { error: new Error('Supabase not initialized') };
-    }
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+        });
 
-    try {
-      clearError();
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
-      });
+        if (error) {
+          handleError(error, 'password reset');
+        } else {
+          errorLogger.info(ErrorCategory.AUTH, 'Password reset email sent');
+        }
 
-      if (error) {
+        return { error };
+      } catch (error) {
         handleError(error, 'password reset');
-      } else {
-        errorLogger.info(ErrorCategory.AUTH, 'Password reset email sent');
+        return { error };
       }
-
-      return { error };
-    } catch (error) {
-      handleError(error, 'password reset');
-      return { error };
-    }
-  }, [supabase, isConfigured, handleError, clearError]);
+    },
+    [supabase, isConfigured, handleError, clearError]
+  );
 
   const value: AuthContextType = {
     user,
@@ -407,7 +423,7 @@ export const useAuth = () => {
 // Enhanced hook for authentication status
 export const useAuthStatus = () => {
   const { user, loading, error } = useAuth();
-  
+
   return {
     isAuthenticated: !!user,
     isLoading: loading,
@@ -419,16 +435,16 @@ export const useAuthStatus = () => {
 
 // Hook for authentication actions
 export const useAuthActions = () => {
-  const { 
-    signOut, 
-    signInWithGitHub, 
-    signInWithEmail, 
-    signUpWithEmail, 
-    resetPassword, 
-    refreshSession, 
-    clearError 
+  const {
+    signOut,
+    signInWithGitHub,
+    signInWithEmail,
+    signUpWithEmail,
+    resetPassword,
+    refreshSession,
+    clearError,
   } = useAuth();
-  
+
   return {
     signOut,
     signInWithGitHub,
@@ -438,4 +454,4 @@ export const useAuthActions = () => {
     refreshSession,
     clearError,
   };
-}; 
+};

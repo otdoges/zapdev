@@ -269,12 +269,12 @@ export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
 
 // Paginated message fetching with cursor-based pagination
 export async function getMessagesByChatIdPaginated(
-  chatId: string, 
-  pageSize: number = 50, 
+  chatId: string,
+  pageSize: number = 50,
   cursor?: string
-): Promise<{ messages: Message[], hasMore: boolean, nextCursor?: string, totalCount: number }> {
+): Promise<{ messages: Message[]; hasMore: boolean; nextCursor?: string; totalCount: number }> {
   const supabase = await createClient();
-  
+
   // Get total count
   const { count } = await supabase
     .from('messages')
@@ -303,22 +303,21 @@ export async function getMessagesByChatIdPaginated(
 
   const messages = data || [];
   const hasMore = messages.length > pageSize;
-  
+
   // Remove the extra message if we have more
   if (hasMore) {
     messages.pop();
   }
 
   // Get the cursor for the next page (created_at of the last message)
-  const nextCursor = hasMore && messages.length > 0 
-    ? messages[messages.length - 1].created_at 
-    : undefined;
+  const nextCursor =
+    hasMore && messages.length > 0 ? messages[messages.length - 1].created_at : undefined;
 
   return {
     messages,
     hasMore,
     nextCursor,
-    totalCount: count || 0
+    totalCount: count || 0,
   };
 }
 

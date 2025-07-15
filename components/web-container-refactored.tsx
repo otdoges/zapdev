@@ -63,16 +63,16 @@ export default function WebContainerRefactored({
 
       try {
         addTerminalOutput('🔄 Initializing services...');
-        
+
         containerRef.current = getContainer();
-        
+
         // Setup AI team if instructions provided
         if (aiTeamInstructions) {
           await startAITeamDevelopment(aiTeamInstructions);
         } else if (code && code.trim()) {
           await setupCodeInContainer(code);
         }
-        
+
         setIsLoading(false);
         addTerminalOutput('✅ Services initialized successfully');
       } catch (error) {
@@ -246,8 +246,12 @@ export default function WebContainerRefactored({
       <div className="flex items-center justify-between border-b border-gray-700 p-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className={`h-3 w-3 rounded-full ${serverStatus.isRunning ? 'bg-green-500' : 'bg-gray-500'}`} />
-            <span className="text-sm text-white">{serverStatus.isRunning ? 'Running' : 'Stopped'}</span>
+            <div
+              className={`h-3 w-3 rounded-full ${serverStatus.isRunning ? 'bg-green-500' : 'bg-gray-500'}`}
+            />
+            <span className="text-sm text-white">
+              {serverStatus.isRunning ? 'Running' : 'Stopped'}
+            </span>
           </div>
           {serverStatus.url && <span className="text-sm text-gray-400">{serverStatus.url}</span>}
         </div>

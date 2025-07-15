@@ -101,7 +101,11 @@ export class WebContainerManager {
       try {
         await this.instance.teardown();
       } catch (cleanupError) {
-        errorLogger.error(ErrorCategory.AI_MODEL, 'Error during WebContainer cleanup:', cleanupError);
+        errorLogger.error(
+          ErrorCategory.AI_MODEL,
+          'Error during WebContainer cleanup:',
+          cleanupError
+        );
       } finally {
         this.instance = null;
       }

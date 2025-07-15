@@ -132,8 +132,9 @@ export default function Hero() {
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.5 }}
         >
-          The fastest way to turn UI prompts into production-grade Tailwind/React code—without locking you into a design system. 
-          <span className="text-[#A0527C] font-medium"> Your code, your style, your freedom.</span>
+          The fastest way to turn UI prompts into production-grade Tailwind/React code—without
+          locking you into a design system.
+          <span className="font-medium text-[#A0527C]"> Your code, your style, your freedom.</span>
         </motion.p>
 
         <motion.div
@@ -147,7 +148,7 @@ export default function Hero() {
             onClick={() => router.push('/auth')}
             motionProps={{
               whileHover: { scale: 1.02 },
-              whileTap: { scale: 0.98 }
+              whileTap: { scale: 0.98 },
             }}
           >
             Start Building - Free

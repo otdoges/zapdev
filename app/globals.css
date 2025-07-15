@@ -289,13 +289,21 @@
 
 /* Simple scale animations that work everywhere */
 @keyframes button-scale-up {
-  from { transform: scale(1); }
-  to { transform: scale(1.05); }
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.05);
+  }
 }
 
 @keyframes button-scale-down {
-  from { transform: scale(1); }
-  to { transform: scale(0.95); }
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0.95);
+  }
 }
 
 .cross-browser-button:hover {
@@ -483,7 +491,8 @@
 }
 
 @keyframes gentleBounce {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {

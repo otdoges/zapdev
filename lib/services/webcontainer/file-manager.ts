@@ -82,7 +82,11 @@ export class FileManager {
       const contents = await this.readFile(source);
       await this.writeFile(destination, contents);
     } catch (error) {
-      errorLogger.error(ErrorCategory.AI_MODEL, `Failed to copy file ${source} to ${destination}:`, error);
+      errorLogger.error(
+        ErrorCategory.AI_MODEL,
+        `Failed to copy file ${source} to ${destination}:`,
+        error
+      );
       throw new Error(`Failed to copy file ${source} to ${destination}: ${error}`);
     }
   }

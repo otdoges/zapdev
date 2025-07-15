@@ -1,17 +1,17 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, AlertCircle, TrendingUp } from 'lucide-react'
-import { Progress } from '@/components/ui/progress'
-import { cn } from '@/lib/utils'
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Zap, AlertCircle, TrendingUp } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 
 interface TokenUsageProps {
-  currentTokens: number
-  maxTokens?: number
-  costPerToken?: number
-  isGenerating?: boolean
-  className?: string
+  currentTokens: number;
+  maxTokens?: number;
+  costPerToken?: number;
+  isGenerating?: boolean;
+  className?: string;
 }
 
 export function TokenUsage({
@@ -19,54 +19,54 @@ export function TokenUsage({
   maxTokens = 131072,
   costPerToken = 0.000002, // Default cost per token in USD
   isGenerating = false,
-  className
+  className,
 }: TokenUsageProps) {
-  const [displayTokens, setDisplayTokens] = useState(currentTokens)
-  const percentage = (displayTokens / maxTokens) * 100
-  const estimatedCost = displayTokens * costPerToken
-  const isWarning = percentage > 75
-  const isDanger = percentage > 90
+  const [displayTokens, setDisplayTokens] = useState(currentTokens);
+  const percentage = (displayTokens / maxTokens) * 100;
+  const estimatedCost = displayTokens * costPerToken;
+  const isWarning = percentage > 75;
+  const isDanger = percentage > 90;
 
   // Animate token count changes
   useEffect(() => {
-    const difference = currentTokens - displayTokens
-    if (difference === 0) return
+    const difference = currentTokens - displayTokens;
+    if (difference === 0) return;
 
-    const increment = difference / 20 // Animate over 20 frames
-    let frame = 0
+    const increment = difference / 20; // Animate over 20 frames
+    let frame = 0;
 
     const timer = setInterval(() => {
-      frame++
-      setDisplayTokens(prev => {
-        const next = prev + increment
+      frame++;
+      setDisplayTokens((prev) => {
+        const next = prev + increment;
         if (frame >= 20) {
-          clearInterval(timer)
-          return currentTokens
+          clearInterval(timer);
+          return currentTokens;
         }
-        return Math.round(next)
-      })
-    }, 16) // ~60fps
+        return Math.round(next);
+      });
+    }, 16); // ~60fps
 
-    return () => clearInterval(timer)
-  }, [currentTokens, displayTokens])
+    return () => clearInterval(timer);
+  }, [currentTokens, displayTokens]);
 
   const getColorClass = () => {
-    if (isDanger) return 'text-red-500'
-    if (isWarning) return 'text-yellow-500'
-    return 'text-purple-500'
-  }
+    if (isDanger) return 'text-red-500';
+    if (isWarning) return 'text-yellow-500';
+    return 'text-purple-500';
+  };
 
   const getProgressColorClass = () => {
-    if (isDanger) return 'bg-red-500'
-    if (isWarning) return 'bg-yellow-500'
-    return 'bg-purple-500'
-  }
+    if (isDanger) return 'bg-red-500';
+    if (isWarning) return 'bg-yellow-500';
+    return 'bg-purple-500';
+  };
 
   return (
     <div className={cn('rounded-lg border border-zinc-800 bg-zinc-900/50 p-4', className)}>
-      <div className="flex items-center justify-between mb-3">
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Zap className={cn('w-4 h-4', getColorClass())} />
+          <Zap className={cn('h-4 w-4', getColorClass())} />
           <span className="text-sm font-medium text-zinc-300">Token Usage</span>
         </div>
         <AnimatePresence mode="wait">
@@ -81,7 +81,7 @@ export function TokenUsage({
                 {[0, 1, 2].map((i) => (
                   <motion.div
                     key={i}
-                    className="w-1.5 h-1.5 bg-purple-500 rounded-full"
+                    className="h-1.5 w-1.5 rounded-full bg-purple-500"
                     animate={{
                       y: [0, -8, 0],
                     }}
@@ -93,7 +93,7 @@ export function TokenUsage({
                   />
                 ))}
               </div>
-              <span className="text-xs text-zinc-500 ml-1">Generating</span>
+              <span className="ml-1 text-xs text-zinc-500">Generating</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -114,9 +114,7 @@ export function TokenUsage({
               </span>
               <span className="text-sm text-zinc-500">/ {maxTokens.toLocaleString()}</span>
             </div>
-            <div className="text-xs text-zinc-600">
-              ~${estimatedCost.toFixed(4)} estimated
-            </div>
+            <div className="text-xs text-zinc-600">~${estimatedCost.toFixed(4)} estimated</div>
           </motion.div>
 
           {/* Warning indicators */}
@@ -128,7 +126,7 @@ export function TokenUsage({
                 exit={{ opacity: 0, x: 10 }}
                 className="flex items-center gap-1"
               >
-                <AlertCircle className={cn('w-4 h-4', getColorClass())} />
+                <AlertCircle className={cn('h-4 w-4', getColorClass())} />
                 <span className={cn('text-xs', getColorClass())}>
                   {isDanger ? 'Near limit!' : 'High usage'}
                 </span>
@@ -175,10 +173,10 @@ export function TokenUsage({
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className="pt-2 border-t border-zinc-800"
+            className="border-t border-zinc-800 pt-2"
           >
             <div className="flex items-start gap-2">
-              <TrendingUp className="w-3 h-3 text-zinc-500 mt-0.5" />
+              <TrendingUp className="mt-0.5 h-3 w-3 text-zinc-500" />
               <div className="text-xs text-zinc-500">
                 {isDanger ? (
                   <span>Consider starting a new chat to avoid token limits.</span>
@@ -193,27 +191,33 @@ export function TokenUsage({
         )}
       </div>
     </div>
-  )
+  );
 }
 
 // Mini version for inline display
-export function TokenUsageMini({ currentTokens, maxTokens = 131072 }: { currentTokens: number; maxTokens?: number }) {
-  const percentage = (currentTokens / maxTokens) * 100
-  const isWarning = percentage > 75
-  const isDanger = percentage > 90
+export function TokenUsageMini({
+  currentTokens,
+  maxTokens = 131072,
+}: {
+  currentTokens: number;
+  maxTokens?: number;
+}) {
+  const percentage = (currentTokens / maxTokens) * 100;
+  const isWarning = percentage > 75;
+  const isDanger = percentage > 90;
 
   const getColorClass = () => {
-    if (isDanger) return 'text-red-500'
-    if (isWarning) return 'text-yellow-500'
-    return 'text-zinc-500'
-  }
+    if (isDanger) return 'text-red-500';
+    if (isWarning) return 'text-yellow-500';
+    return 'text-zinc-500';
+  };
 
   return (
     <div className="flex items-center gap-2">
-      <Zap className={cn('w-3 h-3', getColorClass())} />
+      <Zap className={cn('h-3 w-3', getColorClass())} />
       <span className={cn('text-xs', getColorClass())}>
         {currentTokens.toLocaleString()} / {maxTokens.toLocaleString()}
       </span>
     </div>
-  )
+  );
 }

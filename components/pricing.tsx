@@ -44,12 +44,12 @@ export function PricingContent({ products }: PricingContentProps) {
         },
         body: JSON.stringify({ priceId }),
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Checkout failed');
       }
-      
+
       const { url, checkout_id } = await res.json();
       if (url) {
         // Store checkout ID for tracking
@@ -167,7 +167,7 @@ export function PricingContent({ products }: PricingContentProps) {
                         </Badge>
                       </div>
                     )}
-                    
+
                     <CardHeader className={`${product.metadata?.highlight ? 'pt-8' : 'pt-6'} pb-4`}>
                       <div className="mb-4 flex items-center justify-between">
                         <div className="flex items-center space-x-3 transition-transform duration-300 group-hover:scale-110">
@@ -184,7 +184,10 @@ export function PricingContent({ products }: PricingContentProps) {
                       <div className="mb-8">
                         <div className="flex items-baseline space-x-2">
                           <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-5xl font-bold text-transparent transition-transform duration-300 group-hover:scale-110">
-                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: price.currency! }).format((price.unit_amount || 0) / 100)}
+                            {new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: price.currency!,
+                            }).format((price.unit_amount || 0) / 100)}
                           </span>
                           <span className="ml-2 text-lg text-gray-400">/month</span>
                         </div>
@@ -192,15 +195,17 @@ export function PricingContent({ products }: PricingContentProps) {
                       </div>
 
                       <ul className="space-y-4">
-                        {(product.metadata?.features as string[] || []).map((feature, featureIndex) => (
-                          <li
-                            key={`${product.id}-${featureIndex}`}
-                            className="flex items-start space-x-3"
-                          >
-                            <CheckIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-400" />
-                            <span className="leading-relaxed text-gray-200">{feature}</span>
-                          </li>
-                        ))}
+                        {((product.metadata?.features as string[]) || []).map(
+                          (feature, featureIndex) => (
+                            <li
+                              key={`${product.id}-${featureIndex}`}
+                              className="flex items-start space-x-3"
+                            >
+                              <CheckIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-400" />
+                              <span className="leading-relaxed text-gray-200">{feature}</span>
+                            </li>
+                          )
+                        )}
                       </ul>
                     </CardContent>
 
@@ -219,7 +224,7 @@ export function PricingContent({ products }: PricingContentProps) {
                       </Button>
                     </CardFooter>
                   </Card>
-                )
+                );
               })}
             </div>
 

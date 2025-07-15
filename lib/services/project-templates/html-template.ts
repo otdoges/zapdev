@@ -33,9 +33,9 @@ export class HTMLProjectTemplate extends BaseProjectTemplate {
 
   async generateFiles(options: ProjectSetupOptions): Promise<FileSystemTree> {
     const { codeContent = '', instructions = '' } = options;
-    
+
     const analysis = this.analyzeInstructions(instructions);
-    
+
     const htmlContent = codeContent || this.generateDefaultHTML(analysis);
     const cssContent = this.generateCSS(analysis);
     const jsContent = this.generateJavaScript(analysis);

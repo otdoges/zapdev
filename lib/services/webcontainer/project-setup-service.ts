@@ -62,7 +62,7 @@ export class ProjectSetupService {
       // Step 2: Generate project files using template
       this.log('📁 Generating project files...');
       const setupResult = await this.templateRegistry.setupProject(projectType, options);
-      
+
       if (!setupResult.success) {
         throw new Error(setupResult.message);
       }
@@ -90,12 +90,11 @@ export class ProjectSetupService {
         ...setupResult,
         message: 'Project setup completed successfully',
       };
-
     } catch (error) {
       errorLogger.error(ErrorCategory.AI_MODEL, 'Project setup failed:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.log(`❌ Setup failed: ${errorMessage}`);
-      
+
       return {
         success: false,
         files: {},
@@ -111,7 +110,10 @@ export class ProjectSetupService {
         await container.spawn('corepack', ['enable']);
         await container.spawn('corepack', ['prepare', 'pnpm@latest', '--activate']);
 
-        const installProcess = await container.spawn('pnpm', ['install', '--prefer-frozen-lockfile']);
+        const installProcess = await container.spawn('pnpm', [
+          'install',
+          '--prefer-frozen-lockfile',
+        ]);
         installProcess.output.pipeTo(
           new WritableStream({
             write: (data) => this.log(data),

@@ -223,7 +223,7 @@ class ErrorLogger {
           level: entry.level,
           category: entry.category,
           message: entry.message.substring(0, 100), // Limit message length
-        }
+        },
       });
     }
   }

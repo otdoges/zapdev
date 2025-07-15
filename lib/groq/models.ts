@@ -60,11 +60,19 @@ export const groqModelConfigs: GroqModelConfig[] = [
   {
     id: 'moonshotai/kimi-k2-instruct',
     name: 'Kimi K2 Instruct',
-    description: 'Ultra-large context model with 131K tokens for massive codebases and complex analysis',
+    description:
+      'Ultra-large context model with 131K tokens for massive codebases and complex analysis',
     maxTokens: 131072,
     priority: 0,
     isReasoning: true,
-    capabilities: ['massive_context', 'code_generation', 'programming', 'technical', 'development', 'large_codebase_analysis'],
+    capabilities: [
+      'massive_context',
+      'code_generation',
+      'programming',
+      'technical',
+      'development',
+      'large_codebase_analysis',
+    ],
   },
 ];
 

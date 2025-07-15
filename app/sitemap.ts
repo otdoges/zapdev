@@ -12,4 +12,4 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: 'weekly',
     priority: path === '/' ? 1 : 0.8,
   }));
-} 
+}

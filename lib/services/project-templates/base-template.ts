@@ -52,7 +52,7 @@ export abstract class BaseProjectTemplate {
   async setupProject(options: ProjectSetupOptions = {}): Promise<ProjectSetupResult> {
     try {
       const files = await this.generateFiles(options);
-      
+
       return {
         success: true,
         files,
@@ -79,7 +79,7 @@ export abstract class BaseProjectTemplate {
   protected createPackageJson(customDeps: string[] = [], customDevDeps: string[] = []): string {
     const dependencies = [...this.getDefaultDependencies(), ...customDeps];
     const devDependencies = [...this.getDefaultDevDependencies(), ...customDevDeps];
-    
+
     const packageJson = {
       name: this.config.name.toLowerCase().replace(/\s+/g, '-'),
       version: this.config.version || '1.0.0',
@@ -88,14 +88,20 @@ export abstract class BaseProjectTemplate {
         ...this.getDefaultScripts(),
         ...this.config.scripts,
       },
-      dependencies: dependencies.reduce((acc, dep) => {
-        acc[dep] = 'latest';
-        return acc;
-      }, {} as Record<string, string>),
-      devDependencies: devDependencies.reduce((acc, dep) => {
-        acc[dep] = 'latest';
-        return acc;
-      }, {} as Record<string, string>),
+      dependencies: dependencies.reduce(
+        (acc, dep) => {
+          acc[dep] = 'latest';
+          return acc;
+        },
+        {} as Record<string, string>
+      ),
+      devDependencies: devDependencies.reduce(
+        (acc, dep) => {
+          acc[dep] = 'latest';
+          return acc;
+        },
+        {} as Record<string, string>
+      ),
     };
 
     return JSON.stringify(packageJson, null, 2);
@@ -109,14 +115,17 @@ export abstract class BaseProjectTemplate {
     complexity: 'simple' | 'standard' | 'complex';
   } {
     const lower = instructions.toLowerCase();
-    
+
     return {
       hasForm: lower.includes('form'),
       hasChart: lower.includes('chart') || lower.includes('graph'),
       hasList: lower.includes('list') || lower.includes('table'),
       hasApi: lower.includes('api') || lower.includes('server'),
-      complexity: lower.includes('simple') ? 'simple' : 
-                  lower.includes('complex') || lower.includes('advanced') ? 'complex' : 'standard',
+      complexity: lower.includes('simple')
+        ? 'simple'
+        : lower.includes('complex') || lower.includes('advanced')
+          ? 'complex'
+          : 'standard',
     };
   }
 }

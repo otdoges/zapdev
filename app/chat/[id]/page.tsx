@@ -104,12 +104,12 @@ export default function ChatPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0D0D10]">
         <div className="flex flex-col items-center gap-4">
-          <motion.div 
+          <motion.div
             className="h-8 w-8 rounded-full border-b-2 border-[#6C52A0]"
             animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
           />
-          <motion.p 
+          <motion.p
             className="text-white/60"
             animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{ duration: 2, repeat: Infinity }}
@@ -121,7 +121,7 @@ export default function ChatPage() {
               setForceSkipAuth(true);
               errorLogger.info(ErrorCategory.GENERAL, 'User manually bypassed auth loading');
             }}
-            className="mt-4 text-sm text-[#6C52A0] hover:text-[#7C62B0] underline"
+            className="mt-4 text-sm text-[#6C52A0] underline hover:text-[#7C62B0]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 3 }}
