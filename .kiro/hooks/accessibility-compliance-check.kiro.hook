@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "name": "Accessibility Compliance Check",
+  "description": "Automatically reviews front-end components and pages to ensure they follow WCAG and ADA accessibility guidelines whenever UI files are modified",
+  "version": "1",
+  "when": {
+    "type": "userTriggered",
+    "patterns": [
+      "src/components/**/*.tsx",
+      "src/pages/**/*.tsx",
+      "src/App.tsx",
+      "src/main.tsx",
+      "src/**/*.css",
+      "index.html"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the modified front-end files for WCAG and ADA accessibility compliance. Check for: 1) Proper semantic HTML elements, 2) ARIA labels and roles where needed, 3) Keyboard navigation support, 4) Color contrast ratios, 5) Alt text for images, 6) Focus management, 7) Screen reader compatibility. Provide specific recommendations to fix any accessibility issues found and ensure the code meets WCAG 2.1 AA standards."
+  }
+}

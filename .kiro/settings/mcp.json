@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "Polar": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--package",
+        "@polar-sh/sdk",
+        "--",
+        "mcp",
+        "start",
+        "--access-token",
+        "polar_oat_L0P5XX3c5s4PUBv38NHILrioQ8Uo1pWjYv41y3HdOaS"
+      ]
+    }
+  }
+}
