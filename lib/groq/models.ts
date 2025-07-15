@@ -57,6 +57,15 @@ export const groqModelConfigs: GroqModelConfig[] = [
     isReasoning: false,
     capabilities: ['instant', 'quick_responses', 'general'],
   },
+  {
+    id: 'moonshotai/kimi-k2-instruct',
+    name: 'Kimi K2 Instruct',
+    description: 'Ultra-large context model with 131K tokens for massive codebases and complex analysis',
+    maxTokens: 131072,
+    priority: 0,
+    isReasoning: true,
+    capabilities: ['massive_context', 'code_generation', 'programming', 'technical', 'development', 'large_codebase_analysis'],
+  },
 ];
 
 // Reasoning format options for Groq models

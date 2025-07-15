@@ -16,7 +16,7 @@ interface TokenUsageProps {
 
 export function TokenUsage({
   currentTokens,
-  maxTokens = 4096,
+  maxTokens = 131072,
   costPerToken = 0.000002, // Default cost per token in USD
   isGenerating = false,
   className
@@ -197,7 +197,7 @@ export function TokenUsage({
 }
 
 // Mini version for inline display
-export function TokenUsageMini({ currentTokens, maxTokens = 4096 }: { currentTokens: number; maxTokens?: number }) {
+export function TokenUsageMini({ currentTokens, maxTokens = 131072 }: { currentTokens: number; maxTokens?: number }) {
   const percentage = (currentTokens / maxTokens) * 100
   const isWarning = percentage > 75
   const isDanger = percentage > 90

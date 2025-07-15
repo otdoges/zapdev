@@ -25,7 +25,8 @@ const chatRequestSchema = z.object({
       'mixtral-8x7b-32768',
       'deepseek-r1-distill-qwen-32b',
       'qwen-qwq-32b',
-      'gemma2-9b-it'
+      'gemma2-9b-it',
+      'moonshotai/kimi-k2-instruct'
     ])
     .optional(),
   useReasoning: z.boolean().optional(),
