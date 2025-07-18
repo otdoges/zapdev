@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import {
   AlertCircle,
   CheckCircle
 } from "lucide-react";
+import { WebContainer } from '@webcontainer/api';
 
 interface WebContainerProps {
   code?: string;
@@ -18,151 +19,148 @@ interface WebContainerProps {
   isRunning?: boolean;
 }
 
-const WebContainer = ({ code, language = "html", isRunning = false }: WebContainerProps) => {
+const WebContainerComponent = ({ code, language = "html", isRunning = false }: WebContainerProps) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [status, setStatus] = useState<"idle" | "running" | "error" | "success">("idle");
   const [isLoading, setIsLoading] = useState(false);
+  const [webcontainerInstance, setWebcontainerInstance] = useState<WebContainer | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
 
-  // Simulate WebContainer functionality
-  const runCode = async () => {
+  // Initialize WebContainer instance
+  useEffect(() => {
+    const initWebContainer = async () => {
+      try {
+        const webcontainer = await WebContainer.boot();
+        setWebcontainerInstance(webcontainer);
+        
+        // Listen for server-ready event
+        webcontainer.on('server-ready', (port, url) => {
+          setPreviewUrl(url);
+          if (iframeRef.current) {
+            iframeRef.current.src = url;
+          }
+          setStatus("success");
+          setIsLoading(false);
+        });
+      } catch (error) {
+        console.error('Failed to initialize WebContainer:', error);
+        setStatus("error");
+        setIsLoading(false);
+      }
+    };
+
+    initWebContainer();
+  }, []);
+
+  // Parse code to extract HTML, CSS, and JS
+  const parseCode = (codeString: string) => {
+    const htmlMatch = codeString.match(/```html\n([\s\S]*?)```/);
+    const cssMatch = codeString.match(/```css\n([\s\S]*?)```/);
+    const jsMatch = codeString.match(/```(?:javascript|js)\n([\s\S]*?)```/);
+    
+    const html = htmlMatch ? htmlMatch[1] : codeString.includes('<html') ? codeString : `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Preview</title>
+        <link rel="stylesheet" href="style.css">
+      </head>
+      <body>
+        ${codeString}
+        <script src="script.js"></script>
+      </body>
+      </html>
+    `;
+    
+    const css = cssMatch ? cssMatch[1] : `
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f8fafc;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+    `;
+    
+    const js = jsMatch ? jsMatch[1] : `
+      console.log('Welcome to zapdev preview!');
+    `;
+    
+    return { html, css, js };
+  };
+
+  const runCode = useCallback(async () => {
+    if (!webcontainerInstance || !code) return;
+    
     setIsLoading(true);
     setStatus("running");
     
-    // Simulate build process
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    if (code) {
-      // Create a blob URL for the HTML content
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Preview</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              margin: 0;
-              padding: 20px;
-              background: #f8fafc;
-            }
-            .container {
-              max-width: 1200px;
-              margin: 0 auto;
-              background: white;
-              padding: 40px;
-              border-radius: 12px;
-              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 40px;
-            }
-            .title {
-              font-size: 2.5rem;
-              font-weight: 700;
-              color: #1f2937;
-              margin-bottom: 16px;
-            }
-            .subtitle {
-              font-size: 1.125rem;
-              color: #6b7280;
-              margin-bottom: 32px;
-            }
-            .button {
-              background: #3b82f6;
-              color: white;
-              padding: 12px 24px;
-              border: none;
-              border-radius: 8px;
-              font-size: 1rem;
-              font-weight: 600;
-              cursor: pointer;
-              transition: all 0.2s;
-            }
-            .button:hover {
-              background: #2563eb;
-              transform: translateY(-1px);
-            }
-            .features {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-              gap: 24px;
-              margin-top: 40px;
-            }
-            .feature {
-              padding: 24px;
-              background: #f8fafc;
-              border-radius: 8px;
-              border: 1px solid #e5e7eb;
-            }
-            .feature-title {
-              font-size: 1.25rem;
-              font-weight: 600;
-              color: #1f2937;
-              margin-bottom: 8px;
-            }
-            .feature-desc {
-              color: #6b7280;
-              line-height: 1.6;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1 class="title">Welcome to zapdev</h1>
-              <p class="subtitle">AI-powered web development made simple</p>
-              <button class="button">Get Started</button>
-            </div>
-            
-            <div class="features">
-              <div class="feature">
-                <h3 class="feature-title">AI-Powered</h3>
-                <p class="feature-desc">Generate complete web applications using advanced AI models</p>
-              </div>
-              <div class="feature">
-                <h3 class="feature-title">Real-time Preview</h3>
-                <p class="feature-desc">See your changes instantly with our live preview system</p>
-              </div>
-              <div class="feature">
-                <h3 class="feature-title">Export Ready</h3>
-                <p class="feature-desc">Download production-ready code for your projects</p>
-              </div>
-            </div>
-          </div>
-          
-          <script>
-            document.querySelector('.button').addEventListener('click', function() {
-              this.textContent = 'Building...';
-              this.style.background = '#10b981';
-              setTimeout(() => {
-                this.textContent = 'Ready to Deploy!';
-              }, 1000);
-            });
-          </script>
-        </body>
-        </html>
-      `;
+    try {
+      const { html, css, js } = parseCode(code);
       
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
+      // Create project files
+      const files = {
+        'index.html': {
+          file: {
+            contents: html,
+          },
+        },
+        'style.css': {
+          file: {
+            contents: css,
+          },
+        },
+        'script.js': {
+          file: {
+            contents: js,
+          },
+        },
+        'package.json': {
+          file: {
+            contents: JSON.stringify({
+              name: "zapdev-preview",
+              version: "1.0.0",
+              scripts: {
+                dev: "python -m http.server 3000",
+                start: "python -m http.server 3000"
+              }
+            }, null, 2),
+          },
+        },
+      };
+
+      // Mount the files
+      await webcontainerInstance.mount(files);
       
-      if (iframeRef.current) {
-        iframeRef.current.src = url;
-      }
+      // Start the dev server
+      const serverProcess = await webcontainerInstance.spawn('python', ['-m', 'http.server', '3000']);
       
-      setStatus("success");
-    } else {
+      // Handle server output
+      serverProcess.output.pipeTo(new WritableStream({
+        write(data) {
+          console.log('Server output:', data);
+        },
+      }));
+      
+    } catch (error) {
+      console.error('Error running code:', error);
       setStatus("error");
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
-  };
+  }, [webcontainerInstance, code]);
 
   const stopCode = () => {
     setStatus("idle");
+    setPreviewUrl("");
     if (iframeRef.current) {
       iframeRef.current.src = "about:blank";
     }
@@ -174,11 +172,17 @@ const WebContainer = ({ code, language = "html", isRunning = false }: WebContain
     }
   };
 
+  const openInNewTab = () => {
+    if (previewUrl) {
+      window.open(previewUrl, '_blank');
+    }
+  };
+
   useEffect(() => {
     if (isRunning && code) {
       runCode();
     }
-  }, [isRunning, code]);
+  }, [isRunning, code, runCode]);
 
   const getStatusColor = () => {
     switch (status) {
@@ -257,6 +261,7 @@ const WebContainer = ({ code, language = "html", isRunning = false }: WebContain
           <Button
             variant="outline"
             size="sm"
+            onClick={openInNewTab}
             disabled={status !== "success"}
             className="border-gray-600 text-gray-300 hover:bg-gray-700"
           >
@@ -311,4 +316,4 @@ const WebContainer = ({ code, language = "html", isRunning = false }: WebContain
   );
 };
 
-export default WebContainer;
+export default WebContainerComponent;

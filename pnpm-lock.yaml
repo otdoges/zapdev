@@ -107,6 +107,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.56.2
         version: 5.83.0(react@18.3.1)
+      '@webcontainer/api':
+        specifier: ^1.6.1
+        version: 1.6.1
       aceternity-ui:
         specifier: ^0.2.2
         version: 0.2.2(typescript@5.8.3)
@@ -1842,6 +1845,9 @@ packages:
     resolution: {integrity: sha512-xD3Rdvrt5LgANug7WekBn1KhcvLn1H3jNBfJRL3reeOIua/WnZOEV5qi5qIBq5T8R0jUDmRtxuvk4bPhzGHDWw==}
     peerDependencies:
       vite: ^4 || ^5 || ^6 || ^7.0.0-beta.0
+
+  '@webcontainer/api@1.6.1':
+    resolution: {integrity: sha512-2RS2KiIw32BY1Icf6M1DvqSmcon9XICZCDgS29QJb2NmF12ZY2V5Ia+949hMKB3Wno+P/Y8W+sPP59PZeXSELg==}
 
   aceternity-ui@0.2.2:
     resolution: {integrity: sha512-Z+3dearhf4+NilAf4fCqM4POAMNsWkUNNFjj/2YilNfd4DIghbZk3IU5eu7nsECkMFFzWup2JLKcprNURp0Big==}
@@ -4971,6 +4977,8 @@ snapshots:
       vite: 5.4.19(@types/node@22.16.4)
     transitivePeerDependencies:
       - '@swc/helpers'
+
+  '@webcontainer/api@1.6.1': {}
 
   aceternity-ui@0.2.2(typescript@5.8.3):
     dependencies:
