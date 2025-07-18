@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Send, 
   Code, 
@@ -23,31 +22,25 @@ import {
   Bot,
   User,
   LogOut,
-  MessageSquare,
   Lightbulb,
   Rocket
 } from "lucide-react";
 import WebContainerComponent from "@/components/WebContainer";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { streamResponse, generateCode, generateWebsite, type ChatMessage } from "@/lib/ai";
-import { getAllModels, getReasoningModels, type GroqModelId } from "@/lib/groq";
-import PromptModeSelector, { type PromptMode } from "@/components/PromptModeSelector";
+import { type ChatMessage } from "@/lib/ai";
+import { multiModelAI } from "@/lib/multiModelAI";
 
 const Chat = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"preview" | "code">("preview");
-  const [selectedModel, setSelectedModel] = useState<GroqModelId>('llama-3.3-70b-versatile');
   const [generatedCode, setGeneratedCode] = useState('');
-  const [promptMode, setPromptMode] = useState<PromptMode>('advanced');
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const models = getAllModels();
-  const reasoningModels = getReasoningModels();
 
   const isWelcomeScreen = messages.length === 0 && !hasStartedChat;
 
@@ -81,71 +74,35 @@ const Chat = () => {
         role: "assistant",
         content: "",
         timestamp: new Date(),
-        model: selectedModel,
+        model: "DeepSeek R1 + Kimi K2",
       };
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      // Choose the appropriate response method based on prompt mode
-      let result;
-      if (promptMode === 'code') {
-        result = await generateCode(inputValue, 'typescript', { model: selectedModel });
-        // For code generation, we get a single response, not a stream
-        if (result.content) {
-          setMessages(prev => prev.map(msg => 
-            msg.id === assistantMessage.id 
-              ? { ...msg, content: result.content }
-              : msg
-          ));
-          if (result.content.includes('```')) {
-            setGeneratedCode(result.content);
-          }
+      // Use streaming multi-model response
+      const stream = await multiModelAI.streamMultiModelResponse(
+        [...messages, userMessage],
+        {
+          temperature: 0.7,
+          maxTokens: 4000,
         }
-      } else if (promptMode === 'website') {
-        result = await generateWebsite(inputValue, { model: selectedModel });
-        // For website generation, we get a single response, not a stream
-        if (result.content) {
-          setMessages(prev => prev.map(msg => 
-            msg.id === assistantMessage.id 
-              ? { ...msg, content: result.content }
-              : msg
-          ));
-          if (result.content.includes('```')) {
-            setGeneratedCode(result.content);
-          }
-        }
-      } else {
-        // Stream the response for advanced and simple modes
-        result = await streamResponse(
-          [...messages, userMessage],
-          { 
-            model: selectedModel,
-            useAdvancedPrompt: promptMode === 'advanced'
-          }
-        );
+      );
 
-        if (result.error) {
-          throw new Error(result.error);
-        }
+      let accumulatedText = "";
+      
+      for await (const chunk of stream) {
+        accumulatedText += chunk;
+        
+        setMessages(prev => prev.map(msg => 
+          msg.id === assistantMessage.id 
+            ? { ...msg, content: accumulatedText }
+            : msg
+        ));
+      }
 
-        if (result.textStream) {
-          let accumulatedText = "";
-          
-          for await (const chunk of result.textStream) {
-            accumulatedText += chunk;
-            
-            setMessages(prev => prev.map(msg => 
-              msg.id === assistantMessage.id 
-                ? { ...msg, content: accumulatedText }
-                : msg
-            ));
-          }
-
-          // Check if response contains code
-          if (accumulatedText.includes('```')) {
-            setGeneratedCode(accumulatedText);
-          }
-        }
+      // Check if response contains code
+      if (accumulatedText.includes('```')) {
+        setGeneratedCode(accumulatedText);
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -206,145 +163,54 @@ const Chat = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="text-center mb-12"
+              className="text-center mb-16"
             >
-              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Zap className="w-10 h-10 text-white" />
-              </div>
-              <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Welcome to zapdev
+              <h1 className="text-6xl font-bold mb-6 text-white">
+                What can I help you build?
               </h1>
-              <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-                Your AI-powered website builder. Create stunning websites, web apps, and components with the power of advanced AI models.
+              <p className="text-xl text-gray-400 mb-12 max-w-2xl mx-auto">
+                Describe your project and I'll help you create it with code, components, and full applications.
               </p>
             </motion.div>
 
-            {/* Feature Cards */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
-            >
-              <Card className="bg-gray-900/50 border-gray-700 p-6 text-center hover:bg-gray-900/70 transition-colors">
-                <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <Code className="w-6 h-6 text-blue-400" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Code Generation</h3>
-                <p className="text-gray-400 text-sm">Generate clean, efficient code for any web project</p>
-              </Card>
-              <Card className="bg-gray-900/50 border-gray-700 p-6 text-center hover:bg-gray-900/70 transition-colors">
-                <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <Eye className="w-6 h-6 text-purple-400" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Live Preview</h3>
-                <p className="text-gray-400 text-sm">See your creations come to life in real-time</p>
-              </Card>
-              <Card className="bg-gray-900/50 border-gray-700 p-6 text-center hover:bg-gray-900/70 transition-colors">
-                <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <Rocket className="w-6 h-6 text-green-400" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Deploy Ready</h3>
-                <p className="text-gray-400 text-sm">Export production-ready code instantly</p>
-              </Card>
-            </motion.div>
 
-            {/* Configuration */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="flex items-center justify-center space-x-4 mb-8"
-            >
-              <PromptModeSelector
-                currentMode={promptMode}
-                onModeChange={setPromptMode}
-              />
-              <Select value={selectedModel} onValueChange={(value: GroqModelId) => setSelectedModel(value)}>
-                <SelectTrigger className="w-56 bg-gray-800 border-gray-700 text-gray-300">
-                  <SelectValue placeholder="Select Model" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  <div className="px-2 py-1 text-xs text-gray-400 font-medium">Production Models</div>
-                  {models.filter(m => m.type === 'production').map(model => (
-                    <SelectItem key={model.id} value={model.id} className="text-gray-300">
-                      <div className="flex items-center justify-between w-full">
-                        <span>{model.name}</span>
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          {model.contextWindow.toLocaleString()} tokens
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                  <div className="px-2 py-1 text-xs text-gray-400 font-medium mt-2">Preview Models</div>
-                  {models.filter(m => m.type === 'preview').map(model => (
-                    <SelectItem key={model.id} value={model.id} className="text-gray-300">
-                      <div className="flex items-center justify-between w-full">
-                        <span>{model.name}</span>
-                        <div className="flex items-center space-x-1">
-                          {model.reasoning && (
-                            <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-400">
-                              Reasoning
-                            </Badge>
-                          )}
-                          <Badge variant="secondary" className="text-xs">
-                            {model.contextWindow.toLocaleString()} tokens
-                          </Badge>
-                        </div>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </motion.div>
 
             {/* Input Section */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              className="max-w-2xl mx-auto"
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="max-w-3xl mx-auto"
             >
-              <Card className="bg-gray-900/30 border-gray-700 p-6">
-                <div className="flex items-center space-x-2 mb-4">
-                  <MessageSquare className="w-5 h-5 text-blue-400" />
-                  <span className="text-lg font-semibold">What would you like to build?</span>
-                </div>
-                <div className="relative">
-                  <Textarea
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Describe your website, app, or component idea..."
-                    className="bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 resize-none min-h-[80px] pr-12 text-lg"
-                    rows={3}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!inputValue.trim() || isLoading}
-                    className="absolute right-2 bottom-2 bg-blue-600 hover:bg-blue-700 text-white p-2 h-10 w-10"
-                  >
-                    <Send className="w-5 h-5" />
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
-                  <span>Press Enter to send, Shift+Enter for new line</span>
-                  <div className="flex items-center space-x-1">
-                    <Sparkles className="w-4 h-4" />
-                    <span>AI-powered</span>
-                  </div>
-                </div>
-              </Card>
+              <div className="relative">
+                <Textarea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Describe your project..."
+                  className="w-full bg-gray-900/50 border-gray-700 text-white placeholder-gray-400 resize-none min-h-[120px] pr-16 text-lg p-6 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  rows={4}
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!inputValue.trim() || isLoading}
+                  className="absolute right-3 bottom-3 bg-white hover:bg-gray-100 text-black p-3 h-12 w-12 rounded-lg"
+                >
+                  <Send className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className="flex items-center justify-center mt-4 text-sm text-gray-500">
+                <span>Press Enter to send, Shift+Enter for new line</span>
+              </div>
             </motion.div>
 
             {/* Quick Start Examples */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.8 }}
-              className="mt-8 text-center"
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="mt-12 text-center"
             >
-              <p className="text-gray-400 mb-4">Try these examples:</p>
               <div className="flex flex-wrap justify-center gap-3">
                 {[
                   "Build a modern landing page for a SaaS product",
@@ -356,7 +222,7 @@ const Chat = () => {
                     key={index}
                     variant="outline"
                     size="sm"
-                    className="border-gray-600 text-gray-300 hover:bg-gray-800"
+                    className="border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white hover:border-gray-600 rounded-full px-4 py-2"
                     onClick={() => setInputValue(example)}
                   >
                     {example}
@@ -391,46 +257,9 @@ const Chat = () => {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <PromptModeSelector
-              currentMode={promptMode}
-              onModeChange={setPromptMode}
-            />
-            <Select value={selectedModel} onValueChange={(value: GroqModelId) => setSelectedModel(value)}>
-              <SelectTrigger className="w-48 bg-gray-800 border-gray-700 text-gray-300">
-                <SelectValue placeholder="Select Model" />
-              </SelectTrigger>
-              <SelectContent className="bg-gray-800 border-gray-700">
-                <div className="px-2 py-1 text-xs text-gray-400 font-medium">Production Models</div>
-                {models.filter(m => m.type === 'production').map(model => (
-                  <SelectItem key={model.id} value={model.id} className="text-gray-300">
-                    <div className="flex items-center justify-between w-full">
-                      <span>{model.name}</span>
-                      <Badge variant="secondary" className="ml-2 text-xs">
-                        {model.contextWindow.toLocaleString()} tokens
-                      </Badge>
-                    </div>
-                  </SelectItem>
-                ))}
-                <div className="px-2 py-1 text-xs text-gray-400 font-medium mt-2">Preview Models</div>
-                {models.filter(m => m.type === 'preview').map(model => (
-                  <SelectItem key={model.id} value={model.id} className="text-gray-300">
-                    <div className="flex items-center justify-between w-full">
-                      <span>{model.name}</span>
-                      <div className="flex items-center space-x-1">
-                        {model.reasoning && (
-                          <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-400">
-                            Reasoning
-                          </Badge>
-                        )}
-                        <Badge variant="secondary" className="text-xs">
-                          {model.contextWindow.toLocaleString()} tokens
-                        </Badge>
-                      </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Badge variant="outline" className="text-xs text-green-400 border-green-400">
+              Preview Models
+            </Badge>
             <Button variant="outline" size="sm" className="border-gray-700 text-gray-300">
               <Share2 className="w-4 h-4 mr-2" />
               Share
@@ -472,7 +301,7 @@ const Chat = () => {
                         {message.role === "user" ? "You" : "AI Assistant"}
                       </span>
                       {message.model && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs text-green-400 border-green-400">
                           {message.model}
                         </Badge>
                       )}
@@ -542,7 +371,7 @@ const Chat = () => {
             <span>Press Enter to send, Shift+Enter for new line</span>
             <div className="flex items-center space-x-1">
               <Sparkles className="w-3 h-3" />
-              <span>AI-powered</span>
+              <span>DeepSeek R1 + Kimi K2</span>
             </div>
           </div>
         </div>
