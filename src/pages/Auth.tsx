@@ -20,8 +20,20 @@ const Auth = () => {
   const navigate = useNavigate();
   const { signIn, signUp, signInWithGitHub, loading, user } = useAuth();
 
-  // Redirect if already authenticated
+  // Handle OAuth callback and redirect if already authenticated
   useEffect(() => {
+    // Handle OAuth callback from URL hash
+    const handleOAuthCallback = async () => {
+      const hashFragment = window.location.hash;
+      if (hashFragment && hashFragment.includes('access_token')) {
+        console.log('OAuth callback detected, processing...');
+        // Let Supabase handle the session automatically
+        window.location.hash = '';
+      }
+    };
+
+    handleOAuthCallback();
+
     if (user) {
       navigate('/chat');
     }
