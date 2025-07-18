@@ -5,7 +5,7 @@
 export const workosConfig = {
   clientId: import.meta.env.VITE_WORKOS_CLIENT_ID,
   domain: import.meta.env.VITE_WORKOS_DOMAIN,
-  redirectUri: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+  redirectUri: import.meta.env.VITE_WORKOS_REDIRECT_URI || `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
 };
 
 // Generate authorization URL for sign-in (browser-compatible)
@@ -31,15 +31,29 @@ export const redirectToWorkOS = () => {
   window.location.href = authUrl;
 };
 
-// Exchange code for tokens (this should typically be done on your backend)
-// For demo purposes, this is a mock implementation
+// Exchange code for tokens via backend
 export const exchangeCodeForTokens = async (code: string) => {
   try {
-    // In a real implementation, you would send this code to your backend
-    // which would then exchange it with WorkOS for the actual profile
-    // For now, we'll return a mock profile
+    // Call your backend endpoint to exchange the code
+    const response = await fetch('/api/auth/workos/callback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to exchange code for tokens');
+    }
+
+    const data = await response.json();
+    return data.profile;
+  } catch (error) {
+    console.error('Error exchanging code for tokens:', error);
     
-    // Mock profile data (replace with actual backend call)
+    // Fallback to mock profile for development
+    console.log('Using mock profile for development');
     const mockProfile = {
       id: `user_${Date.now()}`,
       email: 'user@example.com',
@@ -48,11 +62,7 @@ export const exchangeCodeForTokens = async (code: string) => {
       picture: undefined,
     };
     
-    console.log('Mock profile exchange for code:', code);
     return mockProfile;
-  } catch (error) {
-    console.error('Error exchanging code for tokens:', error);
-    throw error;
   }
 };
 

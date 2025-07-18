@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { trpc } from "@/lib/trpc";
 import { httpBatchLink } from "@trpc/client";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
 import Chat from "./pages/Chat";
 import Settings from "./pages/Settings";
 import TermsOfService from "./pages/TermsOfService";
@@ -38,8 +38,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/auth/callback" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/chat" element={
                 <AuthGuard>
                   <Chat />
