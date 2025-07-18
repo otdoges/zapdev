@@ -1,18 +1,72 @@
 // Browser-compatible WorkOS authentication
 // Note: WorkOS Node.js SDK cannot be used in browser environment
 
+// Environment detection
+const isDevelopment = import.meta.env.DEV;
+const isProduction = import.meta.env.PROD;
+
+// Validate redirect URI format
+const validateRedirectUri = (uri: string): boolean => {
+  try {
+    const url = new URL(uri);
+    
+    // In production, ensure HTTPS (except for 127.0.0.1)
+    if (isProduction && url.protocol === 'http:' && url.hostname !== '127.0.0.1') {
+      console.warn('Production redirect URI should use HTTPS');
+      return false;
+    }
+    
+    // Ensure proper path
+    if (!url.pathname.endsWith('/auth/callback')) {
+      console.warn('Redirect URI should end with /auth/callback');
+      return false;
+    }
+    
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// Get default redirect URI based on environment
+const getDefaultRedirectUri = (): string => {
+  if (typeof window === 'undefined') {
+    // Server-side rendering fallback
+    return '';
+  }
+  
+  const origin = window.location.origin;
+  return `${origin}/auth/callback`;
+};
+
 // WorkOS configuration for browser
 export const workosConfig = {
   clientId: import.meta.env.VITE_WORKOS_CLIENT_ID,
   domain: import.meta.env.VITE_WORKOS_DOMAIN,
-  redirectUri: import.meta.env.VITE_WORKOS_REDIRECT_URI || `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+  redirectUri: import.meta.env.VITE_WORKOS_REDIRECT_URI || getDefaultRedirectUri(),
 };
 
+// Validate configuration on load
+if (!workosConfig.clientId) {
+  console.error('VITE_WORKOS_CLIENT_ID is required for WorkOS authentication');
+}
+
+if (!validateRedirectUri(workosConfig.redirectUri)) {
+  console.error('Invalid redirect URI configuration:', workosConfig.redirectUri);
+}
+
 // Generate authorization URL for sign-in (browser-compatible)
-export const getAuthorizationUrl = () => {
+export const getAuthorizationUrl = (customRedirectUri?: string) => {
+  const redirectUri = customRedirectUri || workosConfig.redirectUri;
+  
+  // Validate the redirect URI
+  if (!validateRedirectUri(redirectUri)) {
+    throw new Error(`Invalid redirect URI: ${redirectUri}`);
+  }
+  
   const params = new URLSearchParams({
     client_id: workosConfig.clientId,
-    redirect_uri: workosConfig.redirectUri,
+    redirect_uri: redirectUri,
     response_type: 'code',
     state: crypto.randomUUID(), // Use browser crypto API
   });
@@ -26,9 +80,15 @@ export const getAuthorizationUrl = () => {
 };
 
 // Direct redirect to WorkOS for authentication
-export const redirectToWorkOS = () => {
-  const authUrl = getAuthorizationUrl();
-  window.location.href = authUrl;
+export const redirectToWorkOS = (customRedirectUri?: string) => {
+  try {
+    const authUrl = getAuthorizationUrl(customRedirectUri);
+    window.location.href = authUrl;
+  } catch (error) {
+    console.error('Failed to redirect to WorkOS:', error);
+    // You might want to show a user-friendly error message here
+    throw error;
+  }
 };
 
 // Exchange code for tokens via backend
@@ -44,7 +104,7 @@ export const exchangeCodeForTokens = async (code: string) => {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to exchange code for tokens');
+      throw new Error(`Failed to exchange code for tokens: ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -52,17 +112,22 @@ export const exchangeCodeForTokens = async (code: string) => {
   } catch (error) {
     console.error('Error exchanging code for tokens:', error);
     
-    // Fallback to mock profile for development
-    console.log('Using mock profile for development');
-    const mockProfile = {
-      id: `user_${Date.now()}`,
-      email: 'user@example.com',
-      firstName: 'John',
-      lastName: 'Doe',
-      picture: undefined,
-    };
+    // Only use fallback in development
+    if (isDevelopment) {
+      console.log('Using mock profile for development');
+      const mockProfile = {
+        id: `user_${Date.now()}`,
+        email: 'user@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        picture: undefined,
+      };
+      
+      return mockProfile;
+    }
     
-    return mockProfile;
+    // In production, throw the error
+    throw error;
   }
 };
 

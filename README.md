@@ -1,69 +1,93 @@
-# Welcome to your Lovable project
+# ZapDev
 
-## Project info
+An AI-powered development platform that helps developers build applications faster with intelligent code generation and real-time collaboration.
 
-**URL**: https://lovable.dev/projects/92dc0c12-c831-4ed8-9ab7-0f875920f45d
+## Features
 
-## How can I edit this code?
+- 🤖 AI-powered code generation
+- 🔐 WorkOS SSO authentication
+- 💬 Real-time chat interface
+- 📱 Responsive design
+- ⚡ Fast development workflow
 
-There are several ways of editing your application.
+## WorkOS Authentication Setup
 
-**Use Lovable**
+This application uses WorkOS for Single Sign-On (SSO) authentication. Follow these steps to configure it properly:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/92dc0c12-c831-4ed8-9ab7-0f875920f45d) and start prompting.
+### 1. WorkOS Dashboard Configuration
 
-Changes made via Lovable will be committed automatically to this repo.
+1. **Add Redirect URIs** in your [WorkOS Dashboard](https://dashboard.workos.com/redirects):
+   - Development: `http://localhost:5173/auth/callback`
+   - Production: `https://yourdomain.com/auth/callback`
+   - Staging: `https://staging.yourdomain.com/auth/callback` (if applicable)
 
-**Use your preferred IDE**
+2. **Set a Default Redirect URI** in the dashboard for your environment
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+3. **Note**: Redirect URIs using HTTP are only allowed in Sandbox environments. Production must use HTTPS.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### 2. Environment Variables
 
-Follow these steps:
+Create a `.env` file in your project root with the following variables:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```bash
+# WorkOS Configuration
+VITE_WORKOS_CLIENT_ID=your_workos_client_id_here
+VITE_WORKOS_DOMAIN=your_domain_hint_here
+VITE_WORKOS_REDIRECT_URI=http://localhost:5173/auth/callback
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# For production, use:
+# VITE_WORKOS_REDIRECT_URI=https://yourdomain.com/auth/callback
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Other required variables
+VITE_CONVEX_URL=your_convex_url_here
 ```
 
-**Edit a file directly in GitHub**
+### 3. Wildcard Redirect URIs (Optional)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+WorkOS supports wildcard redirect URIs for multiple subdomains:
 
-**Use GitHub Codespaces**
+- ✅ Valid: `https://*.yourdomain.com/auth/callback`
+- ❌ Invalid: `https://*.*.yourdomain.com/auth/callback` (multiple wildcards)
+- ❌ Invalid: `https://sub.*.yourdomain.com/auth/callback` (wildcard not in leftmost subdomain)
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+**Important**: Wildcard URIs cannot be set as the default redirect URI.
 
-## What technologies are used for this project?
+### 4. Security Considerations
 
-This project is built with .
+- **Production**: Only HTTPS redirect URIs are allowed (except `http://127.0.0.1` for native clients)
+- **Development**: HTTP localhost URIs are permitted
+- **State Parameter**: Consider implementing CSRF protection using the state parameter
+- **Error Handling**: The app includes comprehensive error handling for redirect URI mismatches
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Quick Start
 
-## How can I deploy this project?
+1. Clone the repository
+2. Install dependencies: `bun install`
+3. Set up your environment variables (see WorkOS setup above)
+4. Start the development server: `bun dev`
+5. Open `http://localhost:5173` in your browser
 
-Simply open [Lovable](https://lovable.dev/projects/92dc0c12-c831-4ed8-9ab7-0f875920f45d) and click on Share -> Publish.
+## Development
 
-## I want to use a custom domain - is that possible?
+The application includes validation for redirect URIs that will:
+- Warn about HTTP usage in production
+- Validate redirect URI format
+- Provide helpful error messages for misconfigurations
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+Check the browser console for any configuration warnings during development.
+
+## Deployment
+
+When deploying to production:
+
+1. Update `VITE_WORKOS_REDIRECT_URI` to use your production domain with HTTPS
+2. Add the production redirect URI to your WorkOS Dashboard
+3. Ensure all environment variables are properly configured in your deployment platform
+
+## Support
+
+If you encounter authentication issues:
+- Check that your redirect URIs are properly configured in the WorkOS Dashboard
+- Verify environment variables are set correctly
+- Review browser console for validation warnings
+- Contact support if redirect URI errors persist
