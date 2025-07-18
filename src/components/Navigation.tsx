@@ -48,7 +48,7 @@ const Navigation = () => {
 
   const navItems = [
     { name: "Features", href: "#features", onClick: () => scrollToSection('features') },
-    { name: "Pricing", href: "#pricing", onClick: () => scrollToSection('pricing') },
+    { name: "Pricing", href: "/pricing", isLink: true },
     { name: "Templates", href: "#testimonials", onClick: () => scrollToSection('testimonials') },
     { name: "AI Builder", href: "/chat", isLink: true },
   ];

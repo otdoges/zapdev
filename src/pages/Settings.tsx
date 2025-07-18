@@ -368,7 +368,7 @@ const Settings = () => {
                 <CardContent className="p-6 text-center">
                   <h3 className="text-lg font-medium mb-2">No Active Subscription</h3>
                   <p className="text-gray-400 mb-4">Upgrade to a paid plan to unlock more features</p>
-                  <Button onClick={() => navigate('/#pricing')} className="bg-blue-600 hover:bg-blue-700">
+                  <Button onClick={() => navigate('/pricing')} className="bg-blue-600 hover:bg-blue-700">
                     Choose a Plan
                   </Button>
                 </CardContent>

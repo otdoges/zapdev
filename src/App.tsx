@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import AuthCallback from "./pages/AuthCallback";
 import Chat from "./pages/Chat";
 import Settings from "./pages/Settings";
+import Pricing from "./pages/Pricing";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AuthGuard from "./components/AuthGuard";
@@ -39,6 +40,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/pricing" element={<Pricing />} />
               <Route path="/chat" element={
                 <AuthGuard>
                   <Chat />
