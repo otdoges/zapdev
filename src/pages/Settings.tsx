@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { redirectToWorkOS } from "@/lib/workos";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +80,7 @@ const Settings = () => {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/auth');
+      redirectToWorkOS();
       return;
     }
 

@@ -1,6 +1,7 @@
 
 import { Github, Twitter } from "lucide-react";
 import { Button } from "./ui/button";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -9,9 +10,9 @@ const Footer = () => {
         <div className="glass glass-hover rounded-xl p-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="space-y-4">
-              <h3 className="font-medium text-lg">WebBuilder</h3>
+              <h3 className="font-medium text-lg">ZapDev</h3>
               <p className="text-sm text-muted-foreground">
-                The fastest way for tech founders to get professionally designed websites with AI.
+                The fastest way for developers to build applications with AI-powered development tools.
               </p>
               <div className="flex space-x-4">
                 <Button variant="ghost" size="icon">
@@ -59,14 +60,14 @@ const Footer = () => {
               <h4 className="font-medium">Legal</h4>
               <ul className="space-y-2">
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  <Link to="/privacy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                     Privacy Policy
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  <Link to="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                     Terms of Service
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -74,7 +75,7 @@ const Footer = () => {
 
           <div className="mt-8 pt-8 border-t border-white/10">
             <p className="text-sm text-muted-foreground text-center">
-              © {new Date().getFullYear()} WebBuilder. All rights reserved.
+              © {new Date().getFullYear()} ZapDev. All rights reserved.
             </p>
           </div>
         </div>

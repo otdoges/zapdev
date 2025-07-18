@@ -25,6 +25,12 @@ export const getAuthorizationUrl = () => {
   return `https://api.workos.com/sso/authorize?${params.toString()}`;
 };
 
+// Direct redirect to WorkOS for authentication
+export const redirectToWorkOS = () => {
+  const authUrl = getAuthorizationUrl();
+  window.location.href = authUrl;
+};
+
 // Exchange code for tokens (this should typically be done on your backend)
 // For demo purposes, this is a mock implementation
 export const exchangeCodeForTokens = async (code: string) => {

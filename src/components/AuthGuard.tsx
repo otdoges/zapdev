@@ -1,22 +1,21 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { redirectToWorkOS } from '@/lib/workos';
 
 interface AuthGuardProps {
   children: React.ReactNode;
 }
 
 const AuthGuard = ({ children }: AuthGuardProps) => {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
+    if (!isLoading && !user) {
+      redirectToWorkOS();
     }
-  }, [user, loading, navigate]);
+  }, [user, isLoading]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">

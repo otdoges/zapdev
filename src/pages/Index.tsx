@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { redirectToWorkOS } from "@/lib/workos";
 import Navigation from "@/components/Navigation";
 import { FeaturesSection } from "@/components/features/FeaturesSection";
 import { DynamicPricingSection } from "@/components/pricing/DynamicPricingSection";
@@ -115,7 +116,7 @@ const Index = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button size="lg" className="button-gradient" onClick={() => navigate('/auth')}>
+                <Button size="lg" className="button-gradient" onClick={() => redirectToWorkOS()}>
                   Start Building Now
                 </Button>
               </motion.div>
@@ -245,7 +246,7 @@ const Index = () => {
             <Button 
               size="lg" 
               className="bg-white text-blue-600 hover:bg-white/90" 
-              onClick={() => navigate('/auth')}
+              onClick={() => redirectToWorkOS()}
             >
               Get Started
               <ArrowRight className="ml-2 w-4 h-4" />

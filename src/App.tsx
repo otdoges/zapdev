@@ -9,6 +9,8 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Chat from "./pages/Chat";
 import Settings from "./pages/Settings";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AuthGuard from "./components/AuthGuard";
 
 const queryClient = new QueryClient();
@@ -48,6 +50,8 @@ const App = () => (
                   <Settings />
                 </AuthGuard>
               } />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
             </Routes>
           </BrowserRouter>
         </div>

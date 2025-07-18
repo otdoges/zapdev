@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { redirectToWorkOS } from "@/lib/workos";
 
 const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -116,7 +117,7 @@ const Navigation = () => {
               </div>
             ) : (
               <Button 
-                onClick={() => navigate('/auth')}
+                onClick={() => redirectToWorkOS()}
                 size="sm"
                 className="button-gradient"
               >
@@ -190,7 +191,7 @@ const Navigation = () => {
                     <Button 
                       onClick={() => {
                         setIsMobileMenuOpen(false);
-                        navigate('/auth');
+                        redirectToWorkOS();
                       }}
                       className="button-gradient mt-4"
                     >
