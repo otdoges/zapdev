@@ -1,35 +1,49 @@
-import { WorkOS } from '@workos-inc/node';
+// Browser-compatible WorkOS authentication
+// Note: WorkOS Node.js SDK cannot be used in browser environment
 
-// WorkOS client for server-side operations
-export const workos = new WorkOS(import.meta.env.VITE_WORKOS_API_KEY);
-
-// WorkOS configuration
+// WorkOS configuration for browser
 export const workosConfig = {
   clientId: import.meta.env.VITE_WORKOS_CLIENT_ID,
   domain: import.meta.env.VITE_WORKOS_DOMAIN,
-  redirectUri: `${window.location.origin}/auth/callback`,
+  redirectUri: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
 };
 
-// Generate authorization URL for sign-in
+// Generate authorization URL for sign-in (browser-compatible)
 export const getAuthorizationUrl = () => {
-  const authorizationUrl = workos.sso.getAuthorizationUrl({
-    clientId: workosConfig.clientId,
-    redirectUri: workosConfig.redirectUri,
-    domainHint: workosConfig.domain,
+  const params = new URLSearchParams({
+    client_id: workosConfig.clientId,
+    redirect_uri: workosConfig.redirectUri,
+    response_type: 'code',
+    state: crypto.randomUUID(), // Use browser crypto API
   });
+
+  // For SSO with domain hint
+  if (workosConfig.domain) {
+    params.append('domain_hint', workosConfig.domain);
+  }
   
-  return authorizationUrl;
+  return `https://api.workos.com/sso/authorize?${params.toString()}`;
 };
 
-// Exchange code for tokens (this would typically be done on the server)
+// Exchange code for tokens (this should typically be done on your backend)
+// For demo purposes, this is a mock implementation
 export const exchangeCodeForTokens = async (code: string) => {
   try {
-    const profile = await workos.sso.getProfile({
-      code,
-      clientId: workosConfig.clientId,
-    });
+    // In a real implementation, you would send this code to your backend
+    // which would then exchange it with WorkOS for the actual profile
+    // For now, we'll return a mock profile
     
-    return profile;
+    // Mock profile data (replace with actual backend call)
+    const mockProfile = {
+      id: `user_${Date.now()}`,
+      email: 'user@example.com',
+      firstName: 'John',
+      lastName: 'Doe',
+      picture: undefined,
+    };
+    
+    console.log('Mock profile exchange for code:', code);
+    return mockProfile;
   } catch (error) {
     console.error('Error exchanging code for tokens:', error);
     throw error;
@@ -40,5 +54,7 @@ export const exchangeCodeForTokens = async (code: string) => {
 export const signOut = () => {
   localStorage.removeItem('authToken');
   localStorage.removeItem('userProfile');
-  window.location.href = '/';
+  if (typeof window !== 'undefined') {
+    window.location.href = '/';
+  }
 }; 
