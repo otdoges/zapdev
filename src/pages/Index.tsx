@@ -142,7 +142,7 @@ const Index = () => {
               initial={{ rotateX: 15, rotateY: -10 }}
               animate={{ rotateX: 0, rotateY: 0 }}
               transition={{ delay: 2.5, duration: 1.2, ease: "easeOut" }}
-              className="overflow-hidden w-screen relative left-1/2 -translate-x-1/2"
+              className="overflow-hidden w-full max-w-full"
             >
               <motion.img
                 initial={{ scale: 1.1 }}
