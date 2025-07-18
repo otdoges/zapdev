@@ -1,15 +1,17 @@
 
 import { useState, useEffect } from "react";
-import { Sparkles, Menu } from "lucide-react";
+import { Sparkles, Menu, User } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated, logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -92,13 +94,35 @@ const Navigation = () => {
                 </a>
               )
             ))}
-            <Button 
-              onClick={() => navigate('/auth')}
-              size="sm"
-              className="button-gradient"
-            >
-              Get Started
-            </Button>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2">
+                <Button 
+                  onClick={() => navigate('/settings')}
+                  size="sm"
+                  variant="outline"
+                  className="border-gray-700"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Settings
+                </Button>
+                <Button 
+                  onClick={logout}
+                  size="sm"
+                  variant="outline"
+                  className="border-gray-700"
+                >
+                  Sign Out
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                onClick={() => navigate('/auth')}
+                size="sm"
+                className="button-gradient"
+              >
+                Get Started
+              </Button>
+            )}
           </div>
 
           {/* Mobile Navigation */}
@@ -138,15 +162,41 @@ const Navigation = () => {
                       </a>
                     )
                   ))}
-                  <Button 
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      navigate('/auth');
-                    }}
-                    className="button-gradient mt-4"
-                  >
-                    Get Started
-                  </Button>
+                  {isAuthenticated ? (
+                    <div className="flex flex-col gap-2 mt-4">
+                      <Button 
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          navigate('/settings');
+                        }}
+                        variant="outline"
+                        className="border-gray-700"
+                      >
+                        <User className="w-4 h-4 mr-2" />
+                        Settings
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          logout();
+                        }}
+                        variant="outline"
+                        className="border-gray-700"
+                      >
+                        Sign Out
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        navigate('/auth');
+                      }}
+                      className="button-gradient mt-4"
+                    >
+                      Get Started
+                    </Button>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>

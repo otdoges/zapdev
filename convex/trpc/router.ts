@@ -1,0 +1,294 @@
+import { initTRPC, TRPCError } from '@trpc/server';
+import { z } from 'zod';
+
+// Define the context interface
+interface Context {
+  authToken?: string;
+  user?: {
+    id: string;
+    email: string;
+  };
+}
+
+const t = initTRPC.context<Context>().create();
+
+export const router = t.router;
+export const publicProcedure = t.procedure;
+
+// Create a procedure that requires authentication
+export const protectedProcedure = t.procedure.use(
+  t.middleware(async ({ ctx, next }) => {
+    const authToken = ctx.authToken;
+    if (!authToken) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'No authorization token provided',
+      });
+    }
+
+    // Here you would validate the JWT token with WorkOS
+    // For now, we'll assume the token is valid
+    const user = { id: 'user-id', email: 'user@example.com' }; // Mock user data
+    
+    return next({
+      ctx: {
+        ...ctx,
+        user,
+      },
+    });
+  })
+);
+
+// User procedures
+const userRouter = router({
+  // Get current user profile
+  getProfile: protectedProcedure.query(async ({ ctx }) => {
+    // This would call a Convex query
+    // For now returning mock data
+    return {
+      id: ctx.user!.id,
+      email: ctx.user!.email,
+      fullName: 'John Doe',
+      avatarUrl: null,
+      username: 'johndoe',
+      bio: '',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+  }),
+
+  // Update user profile
+  updateProfile: protectedProcedure
+    .input(z.object({
+      fullName: z.string().optional(),
+      bio: z.string().optional(),
+      avatarUrl: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // This would call a Convex mutation
+      return { success: true };
+    }),
+});
+
+// Chat procedures
+const chatRouter = router({
+  // Get all chats for current user
+  getChats: protectedProcedure.query(async ({ ctx }) => {
+    // This would call a Convex query
+    return [];
+  }),
+
+  // Create a new chat
+  createChat: protectedProcedure
+    .input(z.object({
+      title: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // This would call a Convex mutation
+      return {
+        id: 'new-chat-id',
+        title: input.title,
+        userId: ctx.user!.id,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+    }),
+
+  // Update chat
+  updateChat: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      title: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // This would call a Convex mutation
+      return { success: true };
+    }),
+
+  // Delete chat
+  deleteChat: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // This would call a Convex mutation
+      return { success: true };
+    }),
+});
+
+// Message procedures
+const messageRouter = router({
+  // Get messages for a chat
+  getMessages: protectedProcedure
+    .input(z.object({
+      chatId: z.string(),
+    }))
+    .query(async ({ input, ctx }) => {
+      // This would call a Convex query
+      return [];
+    }),
+
+  // Send a message
+  sendMessage: protectedProcedure
+    .input(z.object({
+      chatId: z.string(),
+      content: z.string(),
+      role: z.enum(['user', 'assistant', 'system']),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // This would call a Convex mutation
+      return {
+        id: 'new-message-id',
+        chatId: input.chatId,
+        userId: ctx.user!.id,
+        content: input.content,
+        role: input.role,
+        createdAt: Date.now(),
+      };
+    }),
+});
+
+// AI Model procedures
+const aiModelRouter = router({
+  // Get all available AI models
+  getModels: publicProcedure.query(async () => {
+    // This would call a Convex query
+    return [
+      {
+        id: 'model-1',
+        name: 'Llama 3.1 70B',
+        provider: 'groq',
+        modelId: 'llama-3.1-70b-versatile',
+        description: 'Fast and versatile large language model',
+        maxTokens: 8192,
+        temperature: 0.7,
+        isActive: true,
+        createdAt: Date.now(),
+      },
+    ];
+  }),
+});
+
+// Polar billing procedures
+const polarRouter = router({
+  // Product management
+  getProducts: publicProcedure.query(async ({ ctx }) => {
+    // This would call the Polar API and sync with Convex
+    return [];
+  }),
+
+  getProduct: publicProcedure
+    .input(z.object({
+      productId: z.string(),
+    }))
+    .query(async ({ input, ctx }) => {
+      // Get product from Polar API or Convex cache
+      return null;
+    }),
+
+  // Customer and subscription management
+  getCustomerSubscriptions: protectedProcedure.query(async ({ ctx }) => {
+    // Get user's subscriptions from Convex
+    return [];
+  }),
+
+  createCheckoutSession: protectedProcedure
+    .input(z.object({
+      priceId: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Create Polar checkout session
+      return {
+        url: 'https://checkout.polar.sh/...',
+      };
+    }),
+
+  cancelSubscription: protectedProcedure
+    .input(z.object({
+      subscriptionId: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Cancel subscription via Polar API
+      return { success: true };
+    }),
+
+  // Usage tracking
+  recordUsage: protectedProcedure
+    .input(z.object({
+      eventName: z.string(),
+      metadata: z.record(z.string(), z.any()),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Record usage event in Convex
+      return { success: true };
+    }),
+
+  getUserUsageStats: protectedProcedure
+    .input(z.object({
+      since: z.number().optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      // Get usage statistics from Convex
+      return {
+        totalEvents: 0,
+        period: { since: Date.now() - 30 * 24 * 60 * 60 * 1000, until: Date.now() },
+        byEventType: {},
+      };
+    }),
+
+  // Meter management
+  getMeters: protectedProcedure.query(async ({ ctx }) => {
+    // Get meters from Convex cache
+    return [];
+  }),
+
+  createMeter: protectedProcedure
+    .input(z.object({
+      name: z.string(),
+      slug: z.string(),
+      eventName: z.string(),
+      valueProperty: z.string(),
+      filters: z.array(z.object({
+        property: z.string(),
+        operator: z.enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte']),
+        value: z.union([z.string(), z.number()]),
+      })).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Create meter via Polar API and sync to Convex
+      return { success: true };
+    }),
+
+  // Sync operations (admin only)
+  syncProducts: protectedProcedure.mutation(async ({ ctx }) => {
+    // Sync products from Polar API to Convex
+    return { success: true };
+  }),
+
+  syncSubscriptions: protectedProcedure.mutation(async ({ ctx }) => {
+    // Sync subscriptions from Polar API to Convex
+    return { success: true };
+  }),
+
+  // Webhook handler for Polar events
+  handleWebhook: publicProcedure
+    .input(z.object({
+      type: z.string(),
+      data: z.record(z.string(), z.any()),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Handle Polar webhook events
+      return { success: true };
+    }),
+});
+
+// Main app router
+export const appRouter = router({
+  user: userRouter,
+  chat: chatRouter,
+  message: messageRouter,
+  aiModel: aiModelRouter,
+  polar: polarRouter,
+});
+
+export type AppRouter = typeof appRouter; 

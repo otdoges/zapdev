@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import WebContainerComponent from "@/components/WebContainer";
 import { useAuth } from "@/hooks/useAuth";
+import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { useNavigate } from "react-router-dom";
 import { type ChatMessage } from "@/lib/ai";
 import { multiModelAI } from "@/lib/multiModelAI";
@@ -39,7 +40,8 @@ const Chat = () => {
   const [generatedCode, setGeneratedCode] = useState('');
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
+  const { trackAIUsage, trackMessageSent, trackChatCreation } = useUsageTracking();
   const navigate = useNavigate();
 
   const isWelcomeScreen = messages.length === 0 && !hasStartedChat;
@@ -63,6 +65,14 @@ const Chat = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    
+    // Track message sent
+    await trackMessageSent({
+      chatId: 'current-chat', // TODO: Replace with actual chat ID
+      messageLength: inputValue.length,
+      role: 'user'
+    });
+
     setInputValue("");
     setIsLoading(true);
     setHasStartedChat(true);
@@ -74,7 +84,7 @@ const Chat = () => {
         role: "assistant",
         content: "",
         timestamp: new Date(),
-        model: "DeepSeek R1 + Kimi K2",
+        model: "llama-3.3-70b-versatile",
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -89,6 +99,8 @@ const Chat = () => {
       );
 
       let accumulatedText = "";
+      let estimatedRequestTokens = 0;
+      let estimatedResponseTokens = 0;
       
       for await (const chunk of stream) {
         accumulatedText += chunk;
@@ -99,6 +111,28 @@ const Chat = () => {
             : msg
         ));
       }
+
+      // Estimate token usage (rough calculation)
+      const allMessagesText = [...messages, userMessage].map(m => m.content).join(' ');
+      estimatedRequestTokens = Math.ceil(allMessagesText.length / 4); // Rough estimate: 4 chars per token
+      estimatedResponseTokens = Math.ceil(accumulatedText.length / 4);
+      const totalTokens = estimatedRequestTokens + estimatedResponseTokens;
+
+      // Track AI usage
+      await trackAIUsage({
+        model: assistantMessage.model || "llama-3.3-70b-versatile",
+        requestTokens: estimatedRequestTokens,
+        responseTokens: estimatedResponseTokens,
+        totalTokens: totalTokens,
+        conversationId: 'current-chat' // TODO: Replace with actual chat ID
+      });
+
+      // Track assistant message
+      await trackMessageSent({
+        chatId: 'current-chat', // TODO: Replace with actual chat ID
+        messageLength: accumulatedText.length,
+        role: 'assistant'
+      });
 
       // Check if response contains code
       if (accumulatedText.includes('```')) {
@@ -119,7 +153,7 @@ const Chat = () => {
   };
 
   const handleSignOut = async () => {
-    await signOut();
+    logout();
     navigate('/');
   };
 

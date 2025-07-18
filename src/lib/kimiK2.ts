@@ -1,6 +1,7 @@
 import { groq } from '@ai-sdk/groq';
 import { generateText } from 'ai';
 import systemPrompt from './systemPrompt';
+import { geminiManager } from './geminiManager';
 
 // Kimi K2 model interface - This model specializes in code generation and has final authority on code decisions
 export interface KimiK2Config {
@@ -17,10 +18,33 @@ export interface KimiK2Response {
   hasOverride: boolean;
 }
 
+export interface CodebaseContext {
+  availableComponents: string[];
+  existingFiles: string[];
+  projectStructure: string;
+  currentFileContent?: string;
+  relatedFiles?: { path: string; content: string }[];
+}
+
 class KimiK2Service {
   private config: KimiK2Config;
   private model = groq('moonshotai/kimi-k2-instruct'); // Using actual Kimi K2 model from Groq
   private isAvailable: boolean = true;
+
+  // Available shadcn components for code generation
+  private shadcnComponents = [
+    'Card', 'CardHeader', 'CardTitle', 'CardDescription', 'CardContent', 'CardFooter',
+    'Button', 'Input', 'Label', 'Form', 'FormItem', 'FormLabel', 'FormControl', 'FormDescription', 'FormMessage', 'FormField',
+    'Alert', 'AlertTitle', 'AlertDescription',
+    'Badge', 'Avatar', 'Checkbox', 'Switch', 'Tabs', 'TabsList', 'TabsTrigger', 'TabsContent',
+    'Dialog', 'DialogContent', 'DialogHeader', 'DialogTitle', 'DialogDescription', 'DialogFooter',
+    'Sheet', 'SheetContent', 'SheetHeader', 'SheetTitle', 'SheetDescription', 'SheetFooter', 'SheetTrigger',
+    'Select', 'SelectContent', 'SelectItem', 'SelectTrigger', 'SelectValue',
+    'Popover', 'PopoverContent', 'PopoverTrigger',
+    'Command', 'CommandInput', 'CommandList', 'CommandEmpty', 'CommandGroup', 'CommandItem',
+    'Skeleton', 'Separator', 'Progress', 'Slider', 'RadioGroup', 'RadioGroupItem',
+    'Textarea', 'Toast', 'useToast', 'Toaster', 'Tooltip', 'TooltipContent', 'TooltipProvider', 'TooltipTrigger'
+  ];
 
   constructor() {
     this.config = {
@@ -37,6 +61,7 @@ class KimiK2Service {
       language?: string;
       framework?: string;
       requirements?: string[];
+      codebaseContext?: CodebaseContext;
     } = {}
   ): Promise<KimiK2Response> {
     if (!this.isAvailable) {
@@ -50,13 +75,20 @@ class KimiK2Service {
     }
 
     try {
+      // First, optimize the prompt using Gemini manager
+      const optimizedPrompt = await geminiManager.optimizePrompt(prompt);
+      
+      // Analyze the codebase context if provided
+      const codebaseAnalysis = context.codebaseContext ? 
+        await this.analyzeCodebaseContext(context.codebaseContext, optimizedPrompt.optimizedPrompt) : '';
+
       const codeSpecialistPrompt = `
-You are Kimi K2, the ultimate code specialist AI. You have final authority over all code-related decisions and can overrule any other AI model's code suggestions.
+You are Kimi K2, the ultimate code specialist AI with final authority over all code-related decisions.
 
 Your expertise includes:
+- Modern React/TypeScript development with shadcn/ui components
 - Advanced algorithm design and optimization
-- Multi-language programming (JavaScript, TypeScript, Python, Go, Rust, etc.)
-- Framework-specific implementations (React, Vue, Node.js, etc.)
+- Framework-specific implementations (React, TypeScript, Tailwind CSS)
 - Code architecture and design patterns
 - Performance optimization and debugging
 - Security best practices
@@ -64,19 +96,49 @@ Your expertise includes:
 
 IMPORTANT: You have the authority to override any other AI model's code suggestions. When you provide code, it should be considered the final, authoritative solution.
 
-Context:
-${context.previousCode ? `Previous Code: ${context.previousCode}` : ''}
-${context.language ? `Language: ${context.language}` : ''}
-${context.framework ? `Framework: ${context.framework}` : ''}
-${context.requirements ? `Requirements: ${context.requirements.join(', ')}` : ''}
+AVAILABLE SHADCN COMPONENTS:
+${this.shadcnComponents.join(', ')}
 
-User Request: ${prompt}
+PROJECT CONTEXT:
+- Framework: React + TypeScript + Vite
+- UI Library: shadcn/ui components built on Radix UI
+- Styling: Tailwind CSS
+- Package Manager: Bun (use for all package management)
+- Import paths: Use "@/components/ui/component-name" for shadcn components
+- Import paths: Use "@/lib/utils" for utility functions like cn()
+
+${context.previousCode ? `Previous Code Context:\n\`\`\`\n${context.previousCode}\n\`\`\`` : ''}
+${context.language ? `Target Language: ${context.language}` : ''}
+${context.framework ? `Framework: ${context.framework}` : ''}
+${context.requirements ? `Requirements:\n${context.requirements.map(r => `- ${r}`).join('\n')}` : ''}
+
+${codebaseAnalysis ? `Codebase Analysis:\n${codebaseAnalysis}` : ''}
+
+OPTIMIZATION INSIGHTS:
+Original Prompt: ${optimizedPrompt.originalPrompt}
+Optimized Prompt: ${optimizedPrompt.optimizedPrompt}
+Improvements Made: ${optimizedPrompt.improvements.join(', ')}
+
+User Request: ${optimizedPrompt.optimizedPrompt}
+
+REQUIREMENTS:
+1. Use only the available shadcn components listed above
+2. Follow proper TypeScript typing
+3. Use proper import statements for all components
+4. Include proper className with Tailwind CSS
+5. Ensure accessibility with proper ARIA attributes
+6. Use semantic HTML elements
+7. Follow React best practices (hooks, component composition)
+8. Provide clean, production-ready code
+9. Include proper error handling where appropriate
+10. Use the cn() utility function for conditional className logic
 
 Please provide:
-1. Clean, optimized code solution
-2. Explanation of your approach
-3. Any improvements over previous suggestions
-4. Reasoning for your implementation choices
+1. Clean, optimized code solution using shadcn components
+2. Proper TypeScript interfaces/types if needed
+3. Explanation of your approach and component choices
+4. Any improvements over previous suggestions
+5. Reasoning for your implementation choices
 
 Format your response with clear code blocks and explanations.
 `;
@@ -85,19 +147,19 @@ Format your response with clear code blocks and explanations.
         model: this.model,
         messages: [
           { role: 'system', content: `${systemPrompt}\n\n${codeSpecialistPrompt}` },
-          { role: 'user', content: prompt }
+          { role: 'user', content: optimizedPrompt.optimizedPrompt }
         ],
         temperature: this.config.temperature,
         maxTokens: this.config.maxTokens,
       });
 
       const codeBlocks = this.extractCodeBlocks(result.text);
-      const isCodeRelated = /code|implement|function|class|component|api|debug|fix|create|build/i.test(prompt);
+      const isCodeRelated = /code|implement|function|class|component|api|debug|fix|create|build|shadcn|ui|react|typescript/i.test(prompt);
 
       return {
         content: result.text,
-        reasoning: 'Kimi K2 code specialist analysis using Groq',
-        confidence: isCodeRelated ? 0.95 : 0.5,
+        reasoning: `Kimi K2 code specialist analysis using real Gemini optimization and codebase context analysis`,
+        confidence: isCodeRelated ? 0.95 : 0.7,
         codeBlocks,
         hasOverride: isCodeRelated,
       };
@@ -113,155 +175,49 @@ Format your response with clear code blocks and explanations.
     }
   }
 
-
-  private generateCodeExample(prompt: string, context: any): string {
-    // Generate contextual code based on the prompt
-    const lowerPrompt = prompt.toLowerCase();
-    
-    if (lowerPrompt.includes('component') || lowerPrompt.includes('react')) {
-      return `
-interface ComponentProps {
-  data: any[];
-  onUpdate: (item: any) => void;
-  className?: string;
-}
-
-export const OptimizedComponent: React.FC<ComponentProps> = ({
-  data,
-  onUpdate,
-  className
-}) => {
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const handleUpdate = useCallback(async (item: any) => {
-    setIsLoading(true);
+  private async analyzeCodebaseContext(
+    codebaseContext: CodebaseContext, 
+    optimizedPrompt: string
+  ): Promise<string> {
     try {
-      await onUpdate(item);
+      const analysisPrompt = `
+Analyze the following codebase context to inform code generation decisions:
+
+AVAILABLE COMPONENTS: ${codebaseContext.availableComponents.join(', ')}
+PROJECT STRUCTURE: ${codebaseContext.projectStructure}
+EXISTING FILES: ${codebaseContext.existingFiles.slice(0, 20).join(', ')}${codebaseContext.existingFiles.length > 20 ? '...' : ''}
+
+${codebaseContext.currentFileContent ? `CURRENT FILE CONTENT:\n\`\`\`\n${codebaseContext.currentFileContent.slice(0, 2000)}${codebaseContext.currentFileContent.length > 2000 ? '...' : ''}\n\`\`\`` : ''}
+
+${codebaseContext.relatedFiles ? `RELATED FILES:\n${codebaseContext.relatedFiles.map(f => `${f.path}:\n\`\`\`\n${f.content.slice(0, 1000)}${f.content.length > 1000 ? '...' : ''}\n\`\`\``).join('\n\n')}` : ''}
+
+USER REQUEST: ${optimizedPrompt}
+
+Please analyze this context and provide insights for:
+1. Which existing components/patterns should be reused
+2. What architectural decisions align with the current codebase
+3. Any potential conflicts or issues to avoid
+4. Recommended approaches based on existing code patterns
+5. Available shadcn components that fit the use case
+
+Keep analysis concise but informative for code generation decisions.
+`;
+
+      const result = await generateText({
+        model: this.model,
+        messages: [
+          { role: 'system', content: 'You are a codebase analysis expert. Provide concise, actionable insights for code generation.' },
+          { role: 'user', content: analysisPrompt }
+        ],
+        temperature: 0.2,
+        maxTokens: 1000,
+      });
+
+      return result.text;
     } catch (error) {
-      console.error('Update failed:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Codebase analysis failed:', error);
+      return 'Codebase analysis temporarily unavailable - proceeding with standard code generation.';
     }
-  }, [onUpdate]);
-
-  return (
-    <div className={clsx('optimized-component', className)}>
-      {data.map((item) => (
-        <div key={item.id} onClick={() => handleUpdate(item)}>
-          {item.name}
-        </div>
-      ))}
-      {isLoading && <LoadingSpinner />}
-    </div>
-  );
-};`;
-    }
-    
-    if (lowerPrompt.includes('function') || lowerPrompt.includes('utility')) {
-      return `
-export async function optimizedFunction<T>(
-  input: T[],
-  processor: (item: T) => Promise<T>
-): Promise<T[]> {
-  if (!Array.isArray(input)) {
-    throw new Error('Input must be an array');
-  }
-
-  const results = await Promise.allSettled(
-    input.map(async (item) => {
-      try {
-        return await processor(item);
-      } catch (error) {
-        console.error('Processing failed for item:', item, error);
-        return item; // Return original item on error
-      }
-    })
-  );
-
-  return results
-    .filter((result): result is PromiseFulfilledResult<T> => 
-      result.status === 'fulfilled'
-    )
-    .map(result => result.value);
-}`;
-    }
-    
-    if (lowerPrompt.includes('api') || lowerPrompt.includes('endpoint')) {
-      return `
-import { Request, Response } from 'express';
-import { z } from 'zod';
-
-const RequestSchema = z.object({
-  id: z.string(),
-  data: z.record(z.any()),
-});
-
-export const optimizedApiHandler = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const validatedData = RequestSchema.parse(req.body);
-    
-    // Process the request
-    const result = await processRequest(validatedData);
-    
-    res.status(200).json({
-      success: true,
-      data: result,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('API Error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
-async function processRequest(data: any): Promise<any> {
-  // Optimized processing logic
-  return data;
-}`;
-    }
-    
-    // Default code example
-    return `
-export class OptimizedSolution {
-  private data: Map<string, any> = new Map();
-  
-  constructor(private config: any = {}) {
-    this.initialize();
-  }
-  
-  private initialize(): void {
-    // Initialize with proper error handling
-    try {
-      this.setupData();
-    } catch (error) {
-      console.error('Initialization failed:', error);
-      throw error;
-    }
-  }
-  
-  private setupData(): void {
-    // Setup implementation
-  }
-  
-  public async process(input: any): Promise<any> {
-    if (!input) {
-      throw new Error('Input is required');
-    }
-    
-    return this.optimizedProcess(input);
-  }
-  
-  private async optimizedProcess(input: any): Promise<any> {
-    // Optimized processing implementation
-    return input;
-  }
-}`;
   }
 
   private extractCodeBlocks(content: string): string[] {
@@ -276,6 +232,84 @@ export class OptimizedSolution {
     return blocks;
   }
 
+  async analyzeExistingCode(filePath: string, fileContent: string): Promise<{
+    insights: string[];
+    suggestions: string[];
+    patterns: string[];
+  }> {
+    try {
+      const analysisPrompt = `
+Analyze the following code file to understand patterns, architecture, and potential improvements:
+
+FILE: ${filePath}
+CONTENT:
+\`\`\`
+${fileContent}
+\`\`\`
+
+Please provide:
+1. Key insights about the code structure and patterns
+2. Suggestions for improvements or optimizations
+3. Patterns that should be followed in related code
+
+Focus on:
+- Component architecture and design patterns
+- TypeScript usage and type safety
+- React best practices
+- shadcn/ui component usage
+- Performance considerations
+- Code organization and modularity
+`;
+
+      const result = await generateText({
+        model: this.model,
+        messages: [
+          { role: 'system', content: 'You are a senior code reviewer and architect. Provide actionable insights.' },
+          { role: 'user', content: analysisPrompt }
+        ],
+        temperature: 0.2,
+        maxTokens: 1500,
+      });
+
+      // Parse the response to extract structured data
+      const insights = this.extractListItems(result.text, 'insights');
+      const suggestions = this.extractListItems(result.text, 'suggestions');
+      const patterns = this.extractListItems(result.text, 'patterns');
+
+      return { insights, suggestions, patterns };
+    } catch (error) {
+      console.error('Code analysis failed:', error);
+      return {
+        insights: ['Code analysis temporarily unavailable'],
+        suggestions: ['Manual review recommended'],
+        patterns: ['Follow existing codebase patterns']
+      };
+    }
+  }
+
+  private extractListItems(content: string, section: string): string[] {
+    const lines = content.split('\n');
+    const items: string[] = [];
+    let inSection = false;
+    
+    for (const line of lines) {
+      if (line.toLowerCase().includes(section)) {
+        inSection = true;
+        continue;
+      }
+      
+      if (inSection && line.trim().startsWith('-')) {
+        items.push(line.trim().substring(1).trim());
+      } else if (inSection && line.trim() === '') {
+        continue;
+      } else if (inSection && !line.trim().startsWith('-')) {
+        break;
+      }
+    }
+    
+    return items;
+  }
+
   isCodeSpecialist(): boolean {
     return true;
   }
@@ -283,9 +317,9 @@ export class OptimizedSolution {
   getModelInfo(): { name: string; specialty: string; authority: string; provider: string } {
     return {
       name: 'Kimi K2',
-      specialty: 'Code Generation & Optimization',
-      authority: 'Final authority on all code-related decisions',
-      provider: 'Groq (moonshotai/kimi-k2-instruct)'
+      specialty: 'Real Code Generation & Analysis with shadcn/ui',
+      authority: 'Final authority on all code-related decisions with Gemini-powered analysis',
+      provider: 'Groq (moonshotai/kimi-k2-instruct) + Gemini Analysis'
     };
   }
 }

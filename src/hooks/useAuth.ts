@@ -1,84 +1,51 @@
-import { useState, useEffect } from 'react'
-import { User } from '@supabase/supabase-js'
-import { supabase, signIn, signUp, signOut, signInWithGitHub, getCurrentUser } from '@/lib/supabase'
+import { useState, useEffect } from 'react';
+
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+}
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial user
-    getCurrentUser().then(setUser).finally(() => setLoading(false))
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null)
-        setLoading(false)
+    // Check for stored auth token and user info
+    const authToken = localStorage.getItem('authToken');
+    const userInfo = localStorage.getItem('userInfo');
+    
+    if (authToken && userInfo) {
+      try {
+        const parsedUser = JSON.parse(userInfo);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing user info:', error);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userInfo');
       }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const handleSignIn = async (email: string, password: string) => {
-    setLoading(true)
-    try {
-      const { data, error } = await signIn(email, password)
-      if (error) throw error
-      return { data, error: null }
-    } catch (error) {
-      return { data: null, error }
-    } finally {
-      setLoading(false)
     }
-  }
+    
+    setIsLoading(false);
+  }, []);
 
-  const handleSignUp = async (email: string, password: string) => {
-    setLoading(true)
-    try {
-      const { data, error } = await signUp(email, password)
-      if (error) throw error
-      return { data, error: null }
-    } catch (error) {
-      return { data: null, error }
-    } finally {
-      setLoading(false)
-    }
-  }
+  const login = (userData: User, token: string) => {
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('userInfo', JSON.stringify(userData));
+    setUser(userData);
+  };
 
-  const handleSignOut = async () => {
-    setLoading(true)
-    try {
-      const { error } = await signOut()
-      if (error) throw error
-      return { error: null }
-    } catch (error) {
-      return { error }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSignInWithGitHub = async () => {
-    setLoading(true)
-    try {
-      const { data, error } = await signInWithGitHub()
-      if (error) throw error
-      return { data, error: null }
-    } catch (error) {
-      return { data: null, error }
-    } finally {
-      setLoading(false)
-    }
-  }
+  const logout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userInfo');
+    setUser(null);
+  };
 
   return {
     user,
-    loading,
-    signIn: handleSignIn,
-    signUp: handleSignUp,
-    signOut: handleSignOut,
-    signInWithGitHub: handleSignInWithGitHub
-  }
-}
+    isLoading,
+    isAuthenticated: !!user,
+    login,
+    logout,
+  };
+};

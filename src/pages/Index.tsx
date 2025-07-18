@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { FeaturesSection } from "@/components/features/FeaturesSection";
-import { PricingSection } from "@/components/pricing/PricingSection";
+import { DynamicPricingSection } from "@/components/pricing/DynamicPricingSection";
 import LogoCarousel from "@/components/LogoCarousel";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import Footer from "@/components/Footer";
@@ -175,7 +175,7 @@ const Index = () => {
 
       {/* Pricing Section */}
       <div id="pricing" className="bg-black">
-        <PricingSection />
+        <DynamicPricingSection />
       </div>
 
       {/* Testimonials Section */}
