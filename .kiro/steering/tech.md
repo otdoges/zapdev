@@ -12,7 +12,6 @@
 - **Radix UI** - Accessible, unstyled UI primitives
 - **Framer Motion** - Animation library
 - **Lucide React** - Icon library
-- **Aceternity UI** - Additional UI components
 
 ## State Management & Data
 - **TanStack Query** - Server state management and caching
