@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useWorkOSAuth } from "@/hooks/useWorkOSAuth";
-import { exchangeCodeForTokens } from "@/lib/workos";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { trpc } from "@/lib/trpc";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +13,8 @@ const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { setUserProfile, setAuthToken } = useWorkOSAuth();
+  const createOrUpdateUser = useMutation(api.users.createOrUpdateUserFromWorkOS);
+  const workosCallback = trpc.auth.workosCallback.useMutation();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -59,25 +63,43 @@ const AuthCallback = () => {
       // You would need to store the original state in localStorage when redirecting to WorkOS
       
       try {
-        const profile = await exchangeCodeForTokens(code);
+        const result = await workosCallback.mutateAsync({ code });
         
         // Validate the profile response
-        if (!profile || !profile.id || !profile.email) {
+        if (!result.profile || !result.profile.id || !result.profile.email) {
           throw new Error('Invalid profile data received from authentication service');
+        }
+        
+        // Store the ID token for Convex authentication
+        if (result.idToken) {
+          localStorage.setItem('workos_id_token', result.idToken);
         }
         
         // Set user profile and token
         setUserProfile({
-          id: profile.id,
-          email: profile.email,
-          firstName: profile.firstName || '',
-          lastName: profile.lastName || '',
-          profilePictureUrl: profile.picture || undefined,
+          id: result.profile.id,
+          email: result.profile.email,
+          firstName: result.profile.firstName || '',
+          lastName: result.profile.lastName || '',
+          profilePictureUrl: result.profile.picture || undefined,
         });
         
-        // In a real implementation, you'd get a JWT token from WorkOS
-        // For now, we'll use a placeholder
-        setAuthToken('placeholder-jwt-token');
+        // Set the auth token (for legacy compatibility)
+        setAuthToken(result.accessToken || 'authenticated');
+        
+        // Sync user with Convex database
+        try {
+          await createOrUpdateUser({
+            email: result.profile.email,
+            fullName: result.profile.firstName && result.profile.lastName 
+              ? `${result.profile.firstName} ${result.profile.lastName}` 
+              : result.profile.firstName || result.profile.lastName || undefined,
+            avatarUrl: result.profile.picture || undefined,
+          });
+        } catch (convexError) {
+          console.error('Failed to sync user with Convex:', convexError);
+          // Continue anyway - user is authenticated, just not synced to DB yet
+        }
         
         // Redirect to chat page on success
         navigate('/chat');

@@ -1,5 +1,25 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
+
+// Get current authenticated user
+export const getCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return null;
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_user_id")
+      .filter((q) => q.eq(q.field("userId"), userId))
+      .first();
+    
+    return user;
+  },
+});
 
 // Get user by ID
 export const getUser = query({
@@ -26,6 +46,68 @@ export const getUserByEmail = query({
       .first();
     
     return user;
+  },
+});
+
+// Create or update user from WorkOS profile
+export const createOrUpdateUserFromWorkOS = mutation({
+  args: {
+    email: v.string(),
+    fullName: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User must be authenticated");
+    }
+
+    const now = Date.now();
+    
+    // Check if user already exists
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_user_id")
+      .filter((q) => q.eq(q.field("userId"), userId))
+      .first();
+
+    if (existingUser) {
+      // Update existing user
+      await ctx.db.patch(existingUser._id, {
+        email: args.email,
+        fullName: args.fullName,
+        avatarUrl: args.avatarUrl,
+        updatedAt: now,
+      });
+      return existingUser._id;
+    } else {
+      // Create new user
+      const userDocId = await ctx.db.insert("users", {
+        userId: userId,
+        email: args.email,
+        fullName: args.fullName,
+        avatarUrl: args.avatarUrl,
+        username: args.email.split("@")[0],
+        bio: "",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      // Create default user preferences
+      await ctx.db.insert("userPreferences", {
+        userId: userId,
+        theme: "system",
+        settings: {
+          notifications: true,
+          autoSave: true,
+          fontSize: "medium",
+        },
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      return userDocId;
+    }
   },
 });
 
