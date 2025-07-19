@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useConvexAuth } from 'convex/react';
 import { redirectToWorkOS } from '@/lib/workos';
 
 interface AuthGuardProps {
@@ -7,13 +7,13 @@ interface AuthGuardProps {
 }
 
 const AuthGuard = ({ children }: AuthGuardProps) => {
-  const { user, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isLoading && !isAuthenticated) {
       redirectToWorkOS();
     }
-  }, [user, isLoading]);
+  }, [isAuthenticated, isLoading]);
 
   if (isLoading) {
     return (
@@ -26,7 +26,7 @@ const AuthGuard = ({ children }: AuthGuardProps) => {
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return null; // Will redirect to auth
   }
 

@@ -135,6 +135,12 @@ export const exchangeCodeForTokens = async (code: string) => {
     }
 
     const data = await response.json();
+    
+    // Store the ID token for Convex authentication
+    if (data.idToken) {
+      localStorage.setItem('workos_id_token', data.idToken);
+    }
+    
     return data.profile;
   } catch (error) {
     console.error('Error exchanging code for tokens:', error);
@@ -142,6 +148,11 @@ export const exchangeCodeForTokens = async (code: string) => {
     // Only use fallback in development
     if (isDevelopment) {
       console.log('Using mock profile for development');
+      
+      // Create a mock JWT token for development
+      const mockJWT = createMockJWT();
+      localStorage.setItem('workos_id_token', mockJWT);
+      
       const mockProfile = {
         id: `user_${Date.now()}`,
         email: 'user@example.com',
@@ -158,10 +169,35 @@ export const exchangeCodeForTokens = async (code: string) => {
   }
 };
 
+// Create a mock JWT for development
+const createMockJWT = (): string => {
+  const header = btoa(JSON.stringify({
+    alg: 'RS256',
+    typ: 'JWT'
+  }));
+  
+  const payload = btoa(JSON.stringify({
+    iss: 'https://api.workos.com',
+    aud: workosConfig.clientId,
+    sub: `user_${Date.now()}`,
+    email: 'user@example.com',
+    given_name: 'John',
+    family_name: 'Doe',
+    exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+    iat: Math.floor(Date.now() / 1000),
+  }));
+  
+  // Mock signature (in real JWT this would be properly signed)
+  const signature = btoa('mock-signature');
+  
+  return `${header}.${payload}.${signature}`;
+};
+
 // Sign out helper
 export const signOut = () => {
   localStorage.removeItem('authToken');
   localStorage.removeItem('userProfile');
+  localStorage.removeItem('workos_id_token');
   if (typeof window !== 'undefined') {
     window.location.href = '/';
   }

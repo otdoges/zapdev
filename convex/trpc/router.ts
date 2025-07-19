@@ -169,6 +169,76 @@ const aiModelRouter = router({
   }),
 });
 
+// Auth procedures
+const authRouter = router({
+  // Exchange WorkOS code for tokens
+  workosCallback: publicProcedure
+    .input(z.object({
+      code: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        // Exchange code for tokens with WorkOS
+        const response = await fetch('https://api.workos.com/sso/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Bearer ${process.env.WORKOS_API_KEY}`,
+          },
+          body: new URLSearchParams({
+            client_id: process.env.WORKOS_CLIENT_ID!,
+            client_secret: process.env.WORKOS_CLIENT_SECRET!,
+            grant_type: 'authorization_code',
+            code: input.code,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `WorkOS token exchange failed: ${response.statusText}`,
+          });
+        }
+
+        const tokenData = await response.json();
+        
+        // Get user profile from WorkOS
+        const profileResponse = await fetch(`https://api.workos.com/sso/profile/${tokenData.profile.id}`, {
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`,
+          },
+        });
+
+        if (!profileResponse.ok) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Failed to fetch user profile from WorkOS',
+          });
+        }
+
+        const profile = await profileResponse.json();
+
+        return {
+          profile: {
+            id: profile.id,
+            email: profile.email,
+            firstName: profile.first_name,
+            lastName: profile.last_name,
+            picture: profile.picture,
+          },
+          idToken: tokenData.id_token,
+          accessToken: tokenData.access_token,
+        };
+      } catch (error) {
+        console.error('WorkOS callback error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to process WorkOS authentication',
+        });
+      }
+    }),
+});
+
 // Polar billing procedures
 const polarRouter = router({
   // Product management
@@ -284,6 +354,7 @@ const polarRouter = router({
 
 // Main app router
 export const appRouter = router({
+  auth: authRouter,
   user: userRouter,
   chat: chatRouter,
   message: messageRouter,
