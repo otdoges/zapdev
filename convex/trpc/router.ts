@@ -178,7 +178,7 @@ const authRouter = router({
     }))
     .mutation(async ({ input }) => {
       try {
-        // Exchange code for tokens with WorkOS
+        // Exchange code for tokens with WorkOS (no client_secret needed for public clients)
         const response = await fetch('https://api.workos.com/sso/token', {
           method: 'POST',
           headers: {
@@ -187,13 +187,14 @@ const authRouter = router({
           },
           body: new URLSearchParams({
             client_id: process.env.WORKOS_CLIENT_ID!,
-            client_secret: process.env.WORKOS_CLIENT_SECRET!,
             grant_type: 'authorization_code',
             code: input.code,
           }),
         });
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('WorkOS token exchange failed:', response.status, errorText);
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: `WorkOS token exchange failed: ${response.statusText}`,
@@ -202,21 +203,15 @@ const authRouter = router({
 
         const tokenData = await response.json();
         
-        // Get user profile from WorkOS
-        const profileResponse = await fetch(`https://api.workos.com/sso/profile/${tokenData.profile.id}`, {
-          headers: {
-            'Authorization': `Bearer ${tokenData.access_token}`,
-          },
-        });
+        // The profile should be included in the token response
+        const profile = tokenData.profile;
 
-        if (!profileResponse.ok) {
+        if (!profile) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
-            message: 'Failed to fetch user profile from WorkOS',
+            message: 'No profile data received from WorkOS',
           });
         }
-
-        const profile = await profileResponse.json();
 
         return {
           profile: {
@@ -231,6 +226,9 @@ const authRouter = router({
         };
       } catch (error) {
         console.error('WorkOS callback error:', error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to process WorkOS authentication',
