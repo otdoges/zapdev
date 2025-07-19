@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useAuth } from './useAuth';
+import { usePostHog } from 'posthog-js/react';
 
 interface UsageEventMetadata {
   model?: string;
@@ -18,7 +19,15 @@ interface UsageEvent {
 }
 
 export const useUsageTracking = () => {
+  const posthog = usePostHog();
   const { user } = useAuth();
+
+  // Identify the user in PostHog when authenticated
+  useEffect(() => {
+    if (user) {
+      posthog?.identify(user.id);
+    }
+  }, [user, posthog]);
 
   const trackEvent = useCallback(async (event: UsageEvent) => {
     if (!user) {
@@ -40,6 +49,13 @@ export const useUsageTracking = () => {
       existingEvents.push(localEvent);
       localStorage.setItem('pendingUsageEvents', JSON.stringify(existingEvents));
 
+      // Send event to PostHog
+      posthog?.capture(event.eventName, {
+        ...event.metadata,
+        userId: user.id,
+        timestamp: localEvent.timestamp,
+      });
+
       // TODO: Send to Convex database via TRPC
       // await trpc.polar.recordUsage.mutate({
       //   eventName: event.eventName,
@@ -50,7 +66,7 @@ export const useUsageTracking = () => {
     } catch (error) {
       console.error('Error tracking usage event:', error);
     }
-  }, [user]);
+  }, [user, posthog]);
 
   const trackAIUsage = useCallback(async (params: {
     model: string;
@@ -187,4 +203,4 @@ export const useUsageTracking = () => {
     clearPendingEvents,
     syncPendingEvents,
   };
-}; 
+};
