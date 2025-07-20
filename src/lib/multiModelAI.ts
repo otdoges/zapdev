@@ -5,6 +5,11 @@ import systemPrompt from './systemPrompt';
 import { geminiManager, type TaskAssignment } from './geminiManager';
 import { kimiK2, type KimiK2Response } from './kimiK2';
 
+interface GenerationOptions {
+  temperature?: number;
+  maxTokens?: number;
+  includeReasoning?: boolean;
+}
 export interface MultiModelResponse {
   content: string;
   model: string;
@@ -338,8 +343,8 @@ class MultiModelAI {
   }
 
   private async generateLegacyMultiModelResponse(
-    messages: any[],
-    options: any
+    messages: { role: string; content: string }[],
+    options: GenerationOptions
   ): Promise<AggregatedResponse> {
     // Legacy implementation for fallback
     const { temperature = 0.7, maxTokens = 4000, includeReasoning = true } = options;
@@ -390,8 +395,8 @@ class MultiModelAI {
   }
 
   private async streamLegacyResponse(
-    messages: any[],
-    options: any
+    messages: { role: string; content: string }[],
+    options: GenerationOptions
   ): Promise<AsyncIterable<string>> {
     const { temperature = 0.7, maxTokens = 4000 } = options;
     const model = groq(MULTI_MODEL_CONFIG.primary); // Use best preview model for streaming
