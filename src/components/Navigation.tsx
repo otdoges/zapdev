@@ -4,15 +4,17 @@ import { Sparkles, Menu, User } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import { SignInButton } from "@clerk/clerk-react";
+import { SignInButton, useUser, useClerk } from "@clerk/clerk-react";
+import { useConvexAuth } from "convex/react";
 
 const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, logout } = useAuth();
+  const { isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
+  const { isAuthenticated } = useConvexAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -95,19 +97,19 @@ const Navigation = () => {
                 </a>
               )
             ))}
-            {isAuthenticated ? (
+            {isSignedIn ? (
               <div className="flex items-center gap-2">
                 <Button 
-                  onClick={() => navigate('/settings')}
+                  onClick={() => navigate('/chat')}
                   size="sm"
                   variant="outline"
                   className="border-gray-700"
                 >
                   <User className="w-4 h-4 mr-2" />
-                  Settings
+                  {user?.firstName || 'Profile'}
                 </Button>
                 <Button 
-                  onClick={logout}
+                  onClick={() => signOut()}
                   size="sm"
                   variant="outline"
                   className="border-gray-700"
@@ -116,7 +118,7 @@ const Navigation = () => {
                 </Button>
               </div>
             ) : (
-              <SignInButton mode="modal">
+              <SignInButton mode="modal" forceRedirectUrl="/chat">
                 <Button 
                   size="sm"
                   className="button-gradient"
@@ -164,23 +166,23 @@ const Navigation = () => {
                       </a>
                     )
                   ))}
-                  {isAuthenticated ? (
+                  {isSignedIn ? (
                     <div className="flex flex-col gap-2 mt-4">
                       <Button 
                         onClick={() => {
                           setIsMobileMenuOpen(false);
-                          navigate('/settings');
+                          navigate('/chat');
                         }}
                         variant="outline"
                         className="border-gray-700"
                       >
                         <User className="w-4 h-4 mr-2" />
-                        Settings
+                        {user?.firstName || 'Profile'}
                       </Button>
                       <Button 
                         onClick={() => {
                           setIsMobileMenuOpen(false);
-                          logout();
+                          signOut();
                         }}
                         variant="outline"
                         className="border-gray-700"
@@ -189,7 +191,7 @@ const Navigation = () => {
                       </Button>
                     </div>
                   ) : (
-                    <SignInButton mode="modal">
+                    <SignInButton mode="modal" forceRedirectUrl="/chat">
                       <Button 
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="button-gradient mt-4"

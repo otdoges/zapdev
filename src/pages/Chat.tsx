@@ -26,9 +26,9 @@ import {
   Rocket
 } from "lucide-react";
 import WebContainerComponent from "@/components/WebContainer";
-import { useAuth } from "@/hooks/useAuth";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { useNavigate } from "react-router-dom";
+import { useUser, useClerk } from "@clerk/clerk-react";
 import { type ChatMessage } from "@/lib/ai";
 import { multiModelAI } from "@/lib/multiModelAI";
 
@@ -40,7 +40,8 @@ const Chat = () => {
   const [generatedCode, setGeneratedCode] = useState('');
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user, logout } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const { trackAIUsage, trackMessageSent, trackChatCreation } = useUsageTracking();
   const navigate = useNavigate();
 
@@ -153,7 +154,7 @@ const Chat = () => {
   };
 
   const handleSignOut = async () => {
-    logout();
+    await signOut();
     navigate('/');
   };
 

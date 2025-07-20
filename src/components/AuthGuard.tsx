@@ -6,8 +6,6 @@ interface AuthGuardProps {
 }
 
 const AuthGuard = ({ children }: AuthGuardProps) => {
-  const { isSignedIn } = useUser();
-
   return (
     <>
       <AuthLoading>
@@ -24,13 +22,11 @@ const AuthGuard = ({ children }: AuthGuardProps) => {
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
             <p className="text-gray-400 mb-6">Please sign in to access this page</p>
-            {!isSignedIn && (
-              <SignInButton mode="modal">
-                <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  Sign In
-                </button>
-              </SignInButton>
-            )}
+            <SignInButton mode="modal" forceRedirectUrl="/chat">
+              <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                Sign In
+              </button>
+            </SignInButton>
           </div>
         </div>
       </Unauthenticated>
