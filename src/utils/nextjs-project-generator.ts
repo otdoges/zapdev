@@ -57,7 +57,7 @@ export default function HomePage() {
         </div>
         <div className="bg-white rounded-lg shadow-lg p-8">
           <pre className="whitespace-pre-wrap text-sm text-gray-800">
-            ${code.replace(/`/g, '\\`')}
+            ${code.replace(/\\/g, '\\\\').replace(/`/g, '\\`')}
           </pre>
         </div>
       </div>
