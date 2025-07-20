@@ -4,12 +4,15 @@ import { getAllModels, type GroqModelId } from './groq';
 import systemPrompt from './systemPrompt';
 import { geminiManager, type TaskAssignment } from './geminiManager';
 import { kimiK2, type KimiK2Response } from './kimiK2';
+import { availableTools, toolCallExecutor, type ToolCall, type ToolCallResult } from './tool-calls';
 
 interface GenerationOptions {
   temperature?: number;
   maxTokens?: number;
   includeReasoning?: boolean;
+  useTools?: boolean;
 }
+
 export interface MultiModelResponse {
   content: string;
   model: string;
@@ -17,6 +20,8 @@ export interface MultiModelResponse {
   reasoning?: string;
   role?: string;
   hasOverride?: boolean;
+  toolCalls?: ToolCall[];
+  toolResults?: ToolCallResult[];
 }
 
 export interface AggregatedResponse {
@@ -28,6 +33,8 @@ export interface AggregatedResponse {
     wasOptimized: boolean;
     improvements: string[];
   };
+  toolCalls?: ToolCall[];
+  toolResults?: ToolCallResult[];
 }
 
 // Primary models to use for multi-model responses - Using best preview models
@@ -41,6 +48,7 @@ const MULTI_MODEL_CONFIG = {
 class MultiModelAI {
   private models: GroqModelId[];
   private useHierarchicalSystem: boolean = true;
+  private useTools: boolean = true;
 
   constructor() {
     // Use the best preview models directly
@@ -59,9 +67,10 @@ class MultiModelAI {
       maxTokens?: number;
       includeReasoning?: boolean;
       useOptimization?: boolean;
+      useTools?: boolean;
     } = {}
   ): Promise<AggregatedResponse> {
-    const { temperature = 0.7, maxTokens = 4000, includeReasoning = true, useOptimization = true } = options;
+    const { temperature = 0.7, maxTokens = 4000, includeReasoning = true, useOptimization = true, useTools = true } = options;
     
     if (!this.useHierarchicalSystem) {
       return this.generateLegacyMultiModelResponse(messages, options);
@@ -99,7 +108,7 @@ class MultiModelAI {
           if (assignment.model === 'kimi-k2') {
             return await this.executeKimiK2Task(optimizedPrompt, assignment);
           } else {
-            return await this.executeGroqTask(optimizedPrompt, messages, assignment, temperature, maxTokens);
+            return await this.executeGroqTask(optimizedPrompt, messages, assignment, temperature, maxTokens, useTools);
           }
         } catch (error) {
           console.error(`Task execution failed for ${assignment.model}:`, error);
@@ -120,8 +129,18 @@ class MultiModelAI {
       throw new Error('All assigned models failed to generate a response');
     }
 
-    // Step 4: Coordinate final response
-    const finalResponse = await this.coordinateResponses(optimizedPrompt, validResponses, taskAssignments);
+    // Step 4: Execute tool calls if any
+    let toolResults: ToolCallResult[] = [];
+    const allToolCalls = validResponses.flatMap(r => r.toolCalls || []);
+    
+    if (useTools && allToolCalls.length > 0) {
+      toolResults = await Promise.all(
+        allToolCalls.map(toolCall => toolCallExecutor.executeToolCall(toolCall))
+      );
+    }
+
+    // Step 5: Coordinate final response
+    const finalResponse = await this.coordinateResponses(optimizedPrompt, validResponses, taskAssignments, toolResults);
 
     return {
       finalResponse,
@@ -129,6 +148,8 @@ class MultiModelAI {
       aggregationMethod: this.determineAggregationMethod(validResponses),
       taskAssignments,
       promptOptimization,
+      toolCalls: allToolCalls,
+      toolResults,
     };
   }
 
@@ -139,9 +160,10 @@ class MultiModelAI {
       maxTokens?: number;
       onChunk?: (chunk: string) => void;
       useOptimization?: boolean;
+      useTools?: boolean;
     } = {}
   ): Promise<AsyncIterable<string>> {
-    const { temperature = 0.7, maxTokens = 4000, onChunk, useOptimization = true } = options;
+    const { temperature = 0.7, maxTokens = 4000, onChunk, useOptimization = true, useTools = true } = options;
 
     if (!this.useHierarchicalSystem) {
       return this.streamLegacyResponse(messages, options);
@@ -173,29 +195,50 @@ class MultiModelAI {
     const modelId = primaryAssignment?.model as GroqModelId || MULTI_MODEL_CONFIG.primary;
     const model = groq(modelId);
     
+    // Prepare messages with tool support
+    const systemMessage = {
+      role: 'system' as const,
+      content: systemPrompt + (useTools ? '\n\nYou have access to tools for building and executing code. Use them when appropriate.' : '')
+    };
+
     const result = await streamText({
       model,
       messages: [
-        { role: 'system', content: systemPrompt },
+        systemMessage,
         ...optimizedMessages
       ],
       temperature,
       maxTokens,
+      tools: useTools ? this.prepareToolsForAI() : undefined,
     });
 
     // Run background tasks for coordination and learning
-    this.runBackgroundTasks(userPrompt, optimizedMessages, { temperature, maxTokens });
+    this.runBackgroundTasks(userPrompt, optimizedMessages, { temperature, maxTokens, useTools });
 
     return result.textStream;
+  }
+
+  private prepareToolsForAI() {
+    // Convert our tool definitions to the format expected by the AI SDK
+    const tools: Record<string, any> = {};
+    
+    availableTools.forEach(tool => {
+      tools[tool.function.name] = {
+        description: tool.function.description,
+        parameters: tool.function.parameters
+      };
+    });
+
+    return tools;
   }
 
   private async runBackgroundTasks(
     userPrompt: string,
     messages: any[],
-    options: { temperature: number; maxTokens: number }
+    options: { temperature: number; maxTokens: number; useTools?: boolean }
   ): Promise<void> {
     // Run Kimi K2 in background for code-related tasks
-    if (/code|programming|debug|implement|function|class|api|bug|fix/i.test(userPrompt)) {
+    if (/code|programming|debug|implement|function|class|api|bug|fix|build|create|website/i.test(userPrompt)) {
       try {
         await kimiK2.generateCodeResponse(userPrompt, {
           language: 'typescript',
@@ -220,6 +263,7 @@ class MultiModelAI {
           ],
           temperature: options.temperature,
           maxTokens: options.maxTokens,
+          tools: options.useTools ? this.prepareToolsForAI() : undefined,
         });
       } catch (error) {
         console.debug(`Background model ${modelId} failed:`, error);
@@ -243,6 +287,10 @@ class MultiModelAI {
     const structuredElements = (text.match(/^#+\s|^\d+\.\s|^-\s/gm) || []).length;
     confidence += Math.min(structuredElements * 0.02, 0.2);
 
+    // Tool usage bonus
+    const toolMentions = (text.match(/create_nextjs_project|execute_code|create_file/g) || []).length;
+    confidence += Math.min(toolMentions * 0.05, 0.15);
+
     // Reasoning model bonus
     if (isReasoningModel) {
       confidence += 0.1;
@@ -254,12 +302,13 @@ class MultiModelAI {
   private async coordinateResponses(
     userPrompt: string,
     responses: MultiModelResponse[],
-    taskAssignments: TaskAssignment[]
+    taskAssignments: TaskAssignment[],
+    toolResults?: ToolCallResult[]
   ): Promise<string> {
     // Check for Kimi K2 override first
     const kimiResponse = responses.find(r => r.model === 'kimi-k2' && r.hasOverride);
-    if (kimiResponse && /code|programming|debug|implement|function|class|api|bug|fix/i.test(userPrompt)) {
-      return kimiResponse.content;
+    if (kimiResponse && /code|programming|debug|implement|function|class|api|bug|fix|build|create|website/i.test(userPrompt)) {
+      return this.appendToolResults(kimiResponse.content, toolResults);
     }
 
     // Use Gemini manager to coordinate responses
@@ -270,11 +319,28 @@ class MultiModelAI {
     }));
 
     try {
-      return await geminiManager.coordinateResponse(userPrompt, modelResponses);
+      const coordinatedResponse = await geminiManager.coordinateResponse(userPrompt, modelResponses);
+      return this.appendToolResults(coordinatedResponse, toolResults);
     } catch (error) {
       console.error('Response coordination failed:', error);
-      return this.fallbackAggregation(responses);
+      return this.appendToolResults(this.fallbackAggregation(responses), toolResults);
     }
+  }
+
+  private appendToolResults(content: string, toolResults?: ToolCallResult[]): string {
+    if (!toolResults || toolResults.length === 0) {
+      return content;
+    }
+
+    let appendedContent = content;
+    
+    toolResults.forEach(result => {
+      if (result.success && result.output) {
+        appendedContent += `\n\n---\n**Tool Execution Result:**\n${result.output}`;
+      }
+    });
+
+    return appendedContent;
   }
 
   private fallbackAggregation(responses: MultiModelResponse[]): string {
@@ -286,6 +352,9 @@ class MultiModelAI {
   private determineAggregationMethod(responses: MultiModelResponse[]): AggregatedResponse['aggregationMethod'] {
     if (responses.some(r => r.model === 'kimi-k2' && r.hasOverride)) {
       return 'kimi_override';
+    }
+    if (responses.some(r => r.toolCalls && r.toolCalls.length > 0)) {
+      return 'manager_coordinated';
     }
     return 'manager_coordinated';
   }
@@ -311,7 +380,8 @@ class MultiModelAI {
     messages: any[],
     assignment: TaskAssignment,
     temperature: number,
-    maxTokens: number
+    maxTokens: number,
+    useTools: boolean = true
   ): Promise<MultiModelResponse> {
     const model = groq(assignment.model as GroqModelId);
     const isReasoningModel = assignment.model === MULTI_MODEL_CONFIG.reasoning;
@@ -321,16 +391,37 @@ class MultiModelAI {
     const adjustedTemperature = isReasoningModel ? 0.1 : isAdvancedModel ? 0.3 : temperature;
     const adjustedMaxTokens = assignment.model === 'qwen/qwen3-32b' ? Math.min(maxTokens, 40960) : maxTokens;
     
+    const systemMessage = {
+      role: 'system' as const,
+      content: systemPrompt + (useTools ? '\n\nYou have access to tools for building and executing code. Use them when appropriate.' : '')
+    };
+
     const result = await generateText({
       model,
       messages: [
-        { role: 'system', content: systemPrompt },
+        systemMessage,
         ...messages.slice(0, -1),
         { role: 'user', content: prompt }
       ],
       temperature: adjustedTemperature,
       maxTokens: adjustedMaxTokens,
+      tools: useTools ? this.prepareToolsForAI() : undefined,
     });
+
+    // Extract tool calls if any
+    const toolCalls: ToolCall[] = [];
+    if (result.toolCalls) {
+      result.toolCalls.forEach(toolCall => {
+        toolCalls.push({
+          id: toolCall.toolCallId,
+          type: 'function',
+          function: {
+            name: toolCall.toolName,
+            arguments: JSON.stringify(toolCall.args)
+          }
+        });
+      });
+    }
 
     return {
       content: result.text,
@@ -339,6 +430,7 @@ class MultiModelAI {
       reasoning: isReasoningModel ? result.text : undefined,
       role: assignment.role,
       hasOverride: false,
+      toolCalls,
     };
   }
 
@@ -357,7 +449,7 @@ class MultiModelAI {
         const result = await generateText({
           model,
           messages: [
-            { role: 'system', content: systemPrompt },
+            { role: 'system' as const, content: systemPrompt },
             ...messages
           ],
           temperature: isReasoningModel ? 0.1 : temperature,
@@ -404,7 +496,7 @@ class MultiModelAI {
     const result = await streamText({
       model,
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system' as const, content: systemPrompt },
         ...messages
       ],
       temperature: 0.3, // Optimized for DeepSeek R1
@@ -424,11 +516,17 @@ class MultiModelAI {
     this.useHierarchicalSystem = enabled;
   }
 
-  getSystemInfo(): { hierarchical: boolean; models: string[]; hasKimiK2: boolean } {
+  // Control tool usage
+  setToolUsage(enabled: boolean): void {
+    this.useTools = enabled;
+  }
+
+  getSystemInfo(): { hierarchical: boolean; models: string[]; hasKimiK2: boolean; toolsEnabled: boolean } {
     return {
       hierarchical: this.useHierarchicalSystem,
       models: this.models,
       hasKimiK2: true,
+      toolsEnabled: this.useTools,
     };
   }
 }

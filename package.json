@@ -19,6 +19,7 @@
     "@clerk/clerk-react": "^5.35.3",
     "@clerk/nextjs": "^6.25.4",
     "@convex-dev/auth": "^0.0.87",
+    "@e2b/code-interpreter": "^1.5.1",
     "@eslint/plugin-kit": "^0.3.3",
     "@geist-ui/core": "^2.3.8",
     "@hookform/resolvers": "^5.1.1",
