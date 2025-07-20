@@ -47,11 +47,7 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/pricing" element={<Pricing />} />
-                  <Route path="/chat" element={
-                    <AuthGuard>
-                      <Chat />
-                    </AuthGuard>
-                  } />
+                  <Route path="/chat" element={<Chat />} />
                   <Route path="/settings" element={
                     <AuthGuard>
                       <Settings />
