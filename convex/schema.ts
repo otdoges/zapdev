@@ -18,6 +18,80 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_username", ["username"]),
 
+  // Stripe Customers - mapping Clerk users to Stripe customers
+  stripeCustomers: defineTable({
+    clerkUserId: v.string(), // Clerk user ID
+    stripeCustomerId: v.string(), // Stripe customer ID
+    email: v.string(),
+    name: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_clerk_user_id", ["clerkUserId"])
+    .index("by_stripe_customer_id", ["stripeCustomerId"])
+    .index("by_email", ["email"]),
+
+  // Stripe Subscriptions - current subscription data from Stripe
+  stripeSubscriptions: defineTable({
+    stripeCustomerId: v.string(), // Stripe customer ID
+    subscriptionId: v.string(), // Stripe subscription ID
+    priceId: v.string(), // Stripe price ID
+    status: v.string(), // active, canceled, past_due, etc.
+    currentPeriodStart: v.number(), // Unix timestamp
+    currentPeriodEnd: v.number(), // Unix timestamp
+    cancelAtPeriodEnd: v.boolean(),
+    paymentMethod: v.optional(v.object({
+      brand: v.string(), // visa, mastercard, etc.
+      last4: v.string(), // last 4 digits
+    })),
+    planName: v.optional(v.string()), // human-readable plan name
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_stripe_customer_id", ["stripeCustomerId"])
+    .index("by_subscription_id", ["subscriptionId"])
+    .index("by_status", ["status"]),
+
+  // Stripe Products - cached from Stripe API for pricing display
+  stripeProducts: defineTable({
+    stripeProductId: v.string(), // Stripe product ID
+    name: v.string(),
+    description: v.optional(v.string()),
+    active: v.boolean(),
+    metadata: v.optional(v.object({
+      tier: v.optional(v.string()), // starter, professional, enterprise
+      features: v.optional(v.string()), // JSON string of features
+      popular: v.optional(v.string()), // "true" if this is the popular plan
+      order: v.optional(v.string()), // display order
+    })),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_stripe_product_id", ["stripeProductId"])
+    .index("by_active", ["active"]),
+
+  // Stripe Prices - cached from Stripe API for pricing display
+  stripePrices: defineTable({
+    stripePriceId: v.string(), // Stripe price ID
+    stripeProductId: v.string(), // Links to stripeProducts
+    active: v.boolean(),
+    currency: v.string(),
+    recurring: v.optional(v.object({
+      interval: v.string(), // month, year
+      intervalCount: v.number(),
+    })),
+    type: v.string(), // one_time, recurring
+    unitAmount: v.optional(v.number()), // Price in cents
+    metadata: v.optional(v.object({
+      tier: v.optional(v.string()),
+    })),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_stripe_price_id", ["stripePriceId"])
+    .index("by_stripe_product_id", ["stripeProductId"])
+    .index("by_active", ["active"]),
+
   // Chat conversations
   chats: defineTable({
     userId: v.string(), // Reference to the user who owns this chat

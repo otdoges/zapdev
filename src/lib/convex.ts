@@ -6,4 +6,5 @@ if (!convexUrl) {
   throw new Error("VITE_CONVEX_URL environment variable is not set");
 }
 
+// Create Convex client with Clerk authentication
 export const convex = new ConvexReactClient(convexUrl);

@@ -17,6 +17,7 @@ import type * as aiModels from "../aiModels.js";
 import type * as chats from "../chats.js";
 import type * as messages from "../messages.js";
 import type * as polar from "../polar.js";
+import type * as stripe from "../stripe.js";
 import type * as trpc_router from "../trpc/router.js";
 import type * as users from "../users.js";
 
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   chats: typeof chats;
   messages: typeof messages;
   polar: typeof polar;
+  stripe: typeof stripe;
   "trpc/router": typeof trpc_router;
   users: typeof users;
 }>;

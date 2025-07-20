@@ -5,4 +5,8 @@ alwaysApply: true
 # Quality Code
 Never ever make something that is 15 lines long when it could be like 5 lines for example 15 if statements doesn't make any sense make it make sense. 
 
-Make sure you try to not make files over 650 lines long unless told too please. 
+
+
+# Comments
+
+Don't have 500 comments in the code make sure the code speaks for itself

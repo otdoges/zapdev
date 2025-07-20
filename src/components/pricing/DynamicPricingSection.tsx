@@ -2,39 +2,47 @@ import { motion } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardSpotlight } from "./CardSpotlight";
-import { useQuery } from "@tanstack/react-query";
-import { trpc } from "@/lib/trpc";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { redirectToWorkOS } from "@/lib/workos";
+import { useAuth } from "@clerk/clerk-react";
 
-interface PolarProduct {
+interface StripeProduct {
   id: string;
   name: string;
   description?: string;
-  prices: PolarPrice[];
-  is_archived: boolean;
-  organization_id: string;
-  created_at: string;
-  updated_at: string;
+  features: string[];
+  tier: string;
+  isPopular: boolean;
+  order: number;
+  prices: Array<{
+    id: string;
+    amount?: number;
+    currency: string;
+    type: string;
+    recurring?: {
+      interval: string;
+      intervalCount: number;
+    };
+  }>;
+  primaryPrice: {
+    id: string;
+    amount?: number;
+    currency: string;
+    type: string;
+    recurring?: {
+      interval: string;
+      intervalCount: number;
+    };
+  } | null;
 }
 
-interface PolarPrice {
-  id: string;
-  amount_type: 'fixed' | 'free' | 'custom';
-  type: 'one_time' | 'recurring';
-  recurring_interval?: 'month' | 'year';
-  price_amount?: number;
-  price_currency?: string;
-}
-
-const formatPrice = (price: PolarPrice): string => {
-  if (price.amount_type === 'free') return 'Free';
-  if (price.amount_type === 'custom') return 'Custom';
-  if (!price.price_amount) return 'Contact Us';
+const formatPrice = (price: StripeProduct['primaryPrice']): string => {
+  if (!price) return 'Custom';
+  if (!price.amount) return 'Free';
   
-  const amount = price.price_amount / 100; // Convert from cents
-  const currency = price.price_currency || 'USD';
+  const amount = price.amount / 100; // Convert from cents
+  const currency = price.currency.toUpperCase();
   
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -43,64 +51,16 @@ const formatPrice = (price: PolarPrice): string => {
   }).format(amount);
 };
 
-const getRecurringText = (price: PolarPrice): string => {
-  if (price.type === 'one_time') return '';
-  if (price.recurring_interval === 'month') return '/month';
-  if (price.recurring_interval === 'year') return '/year';
-  return '';
-};
-
-const getPopularPlan = (products: PolarProduct[]): string | null => {
-  // Logic to determine which plan should be marked as popular
-  // Could be based on product metadata, name matching, or configuration
-  const professionalPlan = products.find(p => 
-    p.name.toLowerCase().includes('professional') || 
-    p.name.toLowerCase().includes('pro')
-  );
-  return professionalPlan?.id || null;
-};
-
-const getProductFeatures = (product: PolarProduct): string[] => {
-  // In a real implementation, features would come from product metadata
-  // For now, we'll provide defaults based on product name
-  const name = product.name.toLowerCase();
+const getRecurringText = (price: StripeProduct['primaryPrice']): string => {
+  if (!price?.recurring) return '';
   
-  if (name.includes('starter') || name.includes('free')) {
-    return [
-      "5 AI-generated websites",
-      "Basic templates library", 
-      "Standard hosting",
-      "Email support"
-    ];
+  const { interval, intervalCount } = price.recurring;
+  
+  if (intervalCount === 1) {
+    return `/${interval}`;
+  } else {
+    return `/${intervalCount} ${interval}s`;
   }
-  
-  if (name.includes('professional') || name.includes('pro')) {
-    return [
-      "Unlimited websites",
-      "Premium templates",
-      "Custom domain support", 
-      "Priority support",
-      "Advanced AI prompts",
-      "Analytics dashboard"
-    ];
-  }
-  
-  if (name.includes('enterprise')) {
-    return [
-      "White-label solution",
-      "Custom integrations",
-      "Dedicated support team",
-      "Advanced security", 
-      "Custom AI training",
-      "SLA guarantee"
-    ];
-  }
-  
-  return [
-    "AI-powered features",
-    "Cloud hosting",
-    "Email support"
-  ];
 };
 
 const PricingTier = ({
@@ -110,14 +70,13 @@ const PricingTier = ({
   onSelectPlan,
   isLoading,
 }: {
-  product: PolarProduct;
+  product: StripeProduct;
   isPopular?: boolean;
   index: number;
   onSelectPlan: (priceId: string) => void;
   isLoading: boolean;
 }) => {
-  const primaryPrice = product.prices[0]; // Use first price as primary
-  const features = getProductFeatures(product);
+  const primaryPrice = product.primaryPrice;
   
   return (
     <motion.div
@@ -133,7 +92,7 @@ const PricingTier = ({
       className="h-full"
     >
       <CardSpotlight className={`h-full ${isPopular ? "border-primary" : "border-white/10"} border-2`}>
-        <div className="relative h-full p-6 flex flex-col">
+        <div className="flex flex-col h-full p-8">
           {isPopular && (
             <motion.span 
               initial={{ opacity: 0, scale: 0.8 }}
@@ -177,8 +136,9 @@ const PricingTier = ({
           >
             {product.description || `Perfect for ${product.name.toLowerCase()} users`}
           </motion.p>
-          <ul className="space-y-3 mb-8 flex-grow">
-            {features.map((feature, featureIndex) => (
+          
+          <ul className="space-y-3 mb-8 flex-1">
+            {product.features.map((feature, featureIndex) => (
               <motion.li 
                 key={featureIndex}
                 initial={{ opacity: 0, x: -10 }}
@@ -202,16 +162,18 @@ const PricingTier = ({
           >
             <Button 
               className="button-gradient w-full"
-              onClick={() => onSelectPlan(primaryPrice.id)}
-              disabled={isLoading}
+              onClick={() => primaryPrice && onSelectPlan(primaryPrice.id)}
+              disabled={isLoading || !primaryPrice}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Loading...
                 </>
-              ) : (
+              ) : primaryPrice ? (
                 'Get Started'
+              ) : (
+                'Contact Sales'
               )}
             </Button>
           </motion.div>
@@ -223,81 +185,42 @@ const PricingTier = ({
 
 export const DynamicPricingSection = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
   
-  // Query products from Polar API via TRPC
-  const { data: products, isLoading: isLoadingProducts, error } = useQuery({
-    queryKey: ['polar-products'],
-    queryFn: async () => {
-      // For now, return mock data until TRPC integration is complete
-      const mockProducts: PolarProduct[] = [
-        {
-          id: 'starter',
-          name: 'Starter',
-          description: 'Perfect for solo founders getting started',
-          prices: [{
-            id: 'price-starter',
-            amount_type: 'free',
-            type: 'recurring',
-            recurring_interval: 'month',
-          }],
-          is_archived: false,
-          organization_id: 'org-1',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: 'professional',
-          name: 'Professional',
-          description: 'Advanced features for growing startups',
-          prices: [{
-            id: 'price-professional',
-            amount_type: 'fixed',
-            type: 'recurring',
-            recurring_interval: 'month',
-            price_amount: 4900, // $49.00 in cents
-            price_currency: 'USD',
-          }],
-          is_archived: false,
-          organization_id: 'org-1',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: 'enterprise',
-          name: 'Enterprise',
-          description: 'Custom solutions for large organizations',
-          prices: [{
-            id: 'price-enterprise',
-            amount_type: 'custom',
-            type: 'recurring',
-            recurring_interval: 'month',
-          }],
-          is_archived: false,
-          organization_id: 'org-1',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
-      return mockProducts;
-    },
-  });
+  // Query pricing data from Convex (sourced from Stripe)
+  const pricingData = useQuery(api.stripe.getPricingData);
 
   const createCheckoutSession = async (priceId: string) => {
-    if (!user) {
-      // Redirect to WorkOS for authentication
-      redirectToWorkOS();
+    if (!isSignedIn) {
+      // Redirect to sign in
+      window.location.href = '/sign-in';
       return;
     }
 
     setIsLoading(true);
     try {
-      // This would use TRPC to create checkout session
-      // const result = await trpc.polar.createCheckoutSession.mutate({ priceId });
-      // window.location.href = result.url;
+      const token = await getToken();
+      if (!token) {
+        throw new Error('Failed to get authentication token');
+      }
+
+      // Call your backend API to create checkout session
+      const response = await fetch('/api/generate-stripe-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ priceId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
+      window.location.href = url;
       
-      // For now, just show an alert
-      alert(`Creating checkout session for price: ${priceId}`);
     } catch (error) {
       console.error('Error creating checkout session:', error);
       alert('Failed to create checkout session. Please try again.');
@@ -306,12 +229,85 @@ export const DynamicPricingSection = () => {
     }
   };
 
-  if (error) {
-    console.error('Error loading products:', error);
+  // Handle loading and error states
+  if (pricingData === undefined) {
+    return (
+      <motion.section 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.8 }}
+        className="container px-4 py-24"
+      >
+        <motion.div 
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="max-w-2xl mx-auto text-center mb-12"
+        >
+          <motion.h2
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="text-5xl md:text-6xl font-normal mb-6"
+          >
+            <motion.span
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+            >
+              Choose Your{" "}
+            </motion.span>
+            <motion.span
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.8 }}
+              className="text-gradient font-medium"
+            >
+              Building Plan
+            </motion.span>
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 1.0 }}
+            className="text-lg text-gray-400"
+          >
+            Select the perfect plan to build your startup's website with AI-powered tools
+          </motion.p>
+        </motion.div>
+
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="ml-2 text-gray-400">Loading pricing plans...</span>
+        </div>
+      </motion.section>
+    );
   }
 
-  const activeProducts = products?.filter(p => !p.is_archived) || [];
-  const popularPlanId = activeProducts.length > 0 ? getPopularPlan(activeProducts) : null;
+  if (!pricingData || pricingData.length === 0) {
+    return (
+      <motion.section 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.8 }}
+        className="container px-4 py-24"
+      >
+        <div className="text-center py-12">
+          <p className="text-gray-400">No pricing plans available at the moment.</p>
+          <p className="text-sm text-gray-500 mt-2">
+            Run <code className="bg-gray-800 px-2 py-1 rounded">bun run sync-pricing</code> to sync Stripe pricing data.
+          </p>
+        </div>
+      </motion.section>
+    );
+  }
 
   return (
     <motion.section 
@@ -364,29 +360,18 @@ export const DynamicPricingSection = () => {
         </motion.p>
       </motion.div>
 
-      {isLoadingProducts ? (
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <span className="ml-2 text-gray-400">Loading pricing plans...</span>
-        </div>
-      ) : activeProducts.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-400">No pricing plans available at the moment.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {activeProducts.map((product, index) => (
-            <PricingTier
-              key={product.id}
-              product={product}
-              isPopular={product.id === popularPlanId}
-              index={index}
-              onSelectPlan={createCheckoutSession}
-              isLoading={isLoading}
-            />
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        {pricingData.map((product, index) => (
+          <PricingTier
+            key={product.id}
+            product={product}
+            isPopular={product.isPopular}
+            index={index}
+            onSelectPlan={createCheckoutSession}
+            isLoading={isLoading}
+          />
+        ))}
+      </div>
     </motion.section>
   );
 }; 
