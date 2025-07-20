@@ -43,12 +43,21 @@ const getFallbackRedirectUri = (): string => {
 export const workosConfig = {
   clientId: import.meta.env.VITE_WORKOS_CLIENT_ID,
   domain: import.meta.env.VITE_WORKOS_DOMAIN,
+  connectionId: import.meta.env.VITE_WORKOS_CONNECTION_ID,
   redirectUri: import.meta.env.VITE_WORKOS_REDIRECT_URI || getFallbackRedirectUri(),
 };
 
 // Validate configuration on load
 if (!workosConfig.clientId) {
   console.error('VITE_WORKOS_CLIENT_ID is required for WorkOS authentication');
+}
+
+if (!workosConfig.domain && !workosConfig.connectionId) {
+  console.error('Either VITE_WORKOS_DOMAIN or VITE_WORKOS_CONNECTION_ID is required for WorkOS authentication');
+}
+
+if (workosConfig.domain && workosConfig.connectionId) {
+  console.warn('Both VITE_WORKOS_DOMAIN and VITE_WORKOS_CONNECTION_ID are set. Connection ID will take precedence.');
 }
 
 if (!workosConfig.redirectUri) {
@@ -66,7 +75,9 @@ if (isDevelopment) {
   console.log('WorkOS Config:', {
     clientId: workosConfig.clientId ? '✓ Set' : '✗ Missing',
     domain: workosConfig.domain || 'Not set',
+    connectionId: workosConfig.connectionId || 'Not set',
     redirectUri: workosConfig.redirectUri,
+    flow: workosConfig.connectionId ? 'Connection-based' : workosConfig.domain ? 'Domain-based' : 'Not configured',
   });
 }
 
@@ -90,9 +101,15 @@ export const getAuthorizationUrl = (customRedirectUri?: string) => {
     state: crypto.randomUUID(), // Use browser crypto API
   });
 
-  // For SSO with domain hint
-  if (workosConfig.domain) {
-    params.append('domain_hint', workosConfig.domain);
+  // WorkOS SSO flow selection
+  if (workosConfig.connectionId) {
+    // Connection-based flow (single IdP)
+    params.append('connection', workosConfig.connectionId);
+  } else if (workosConfig.domain) {
+    // Domain-based flow (auto-select per organization)
+    params.append('domain', workosConfig.domain);
+  } else {
+    throw new Error('Either VITE_WORKOS_CONNECTION_ID or VITE_WORKOS_DOMAIN must be configured');
   }
   
   const authUrl = `https://api.workos.com/sso/authorize?${params.toString()}`;
