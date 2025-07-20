@@ -1,20 +1,19 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
 
 // Get current authenticated user
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       return null;
     }
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_user_id")
-      .filter((q) => q.eq(q.field("userId"), userId))
+      .filter((q) => q.eq(q.field("userId"), identity.subject))
       .first();
     
     return user;
@@ -51,18 +50,18 @@ export const getUserByEmail = query({
 
 // Create or update user from Clerk profile
 export const createOrUpdateUserFromClerk = mutation({
-  args: {
-    email: v.string(),
-    fullName: v.optional(v.string()),
-    avatarUrl: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       throw new Error("User must be authenticated");
     }
 
     const now = Date.now();
+    const userId = identity.subject;
+    const email = identity.email || '';
+    const fullName = identity.name || undefined;
+    const avatarUrl = identity.pictureUrl || undefined;
     
     // Check if user already exists
     const existingUser = await ctx.db
@@ -74,9 +73,9 @@ export const createOrUpdateUserFromClerk = mutation({
     if (existingUser) {
       // Update existing user
       await ctx.db.patch(existingUser._id, {
-        email: args.email,
-        fullName: args.fullName,
-        avatarUrl: args.avatarUrl,
+        email: email,
+        fullName: fullName,
+        avatarUrl: avatarUrl,
         updatedAt: now,
       });
       return existingUser._id;
@@ -84,10 +83,10 @@ export const createOrUpdateUserFromClerk = mutation({
       // Create new user
       const userDocId = await ctx.db.insert("users", {
         userId: userId,
-        email: args.email,
-        fullName: args.fullName,
-        avatarUrl: args.avatarUrl,
-        username: args.email.split("@")[0],
+        email: email,
+        fullName: fullName,
+        avatarUrl: avatarUrl,
+        username: email.split("@")[0],
         bio: "",
         createdAt: now,
         updatedAt: now,

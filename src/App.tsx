@@ -3,8 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ConvexProvider } from "convex/react";
-import { ConvexProviderWithAuth } from "convex/react";
+import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { convex } from "@/lib/convex";
 import { useAuth } from "@clerk/clerk-react";
 import { trpc } from "@/lib/trpc";
@@ -35,7 +34,7 @@ const trpcClient = trpc.createClient({
 });
 
 const App = () => (
-  <ConvexProviderWithAuth client={convex} useAuth={useAuth}>
+  <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
     <UserSync>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
@@ -67,7 +66,7 @@ const App = () => (
         </QueryClientProvider>
       </trpc.Provider>
     </UserSync>
-  </ConvexProviderWithAuth>
+  </ConvexProviderWithClerk>
 );
 
 export default App;
