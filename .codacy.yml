@@ -1,0 +1,42 @@
+---
+# Codacy configuration file
+engines:
+  PMD:
+    enabled: true
+    configuration:
+      rulesets:
+        - pmd-ruleset.xml
+  
+  ESLint:
+    enabled: true
+    configuration:
+      patterns:
+        - "src/**/*.ts"
+        - "src/**/*.tsx"
+        - "src/**/*.js"
+        - "src/**/*.jsx"
+  
+  TSLint:
+    enabled: true
+    configuration:
+      patterns:
+        - "src/**/*.ts"
+        - "src/**/*.tsx"
+  
+  Bandit:
+    enabled: false
+  
+  Pylint:
+    enabled: false
+
+exclude_paths:
+  - "node_modules/**"
+  - "dist/**"
+  - "build/**"
+  - "public/**"
+  - "*.min.js"
+  - "*.min.css"
+  - "convex/_generated/**"
+  - "bun.lock"
+  - "pnpm-lock.yaml"
+  - "package-lock.json" 
