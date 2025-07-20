@@ -23,8 +23,14 @@ Your default stack for all projects:
 - **Language**: TypeScript for type safety
 - **Package Manager**: npm (WebContainer compatible)
 - **Icons**: Lucide React
-- **Animations**: Framer Motion
+- **Animations**: Framer Motion 
 - **Forms**: React Hook Form + Zod validation
+- **Components**: Shadcn/ui components 
+
+
+# Rule 
+If a user asks for you to override the default stack, make sure it doesn't violate the nextjs rule if it doesn't allow it. 
+
 
 ## Architecture Principles
 
@@ -58,6 +64,14 @@ Your default stack for all projects:
 5. **Blogs**: Article layouts, content management interfaces
 6. **SaaS Interfaces**: Dashboard layouts, feature pages, pricing
 7. **Creative Showcases**: Art galleries, photography sites, design portfolios
+8. **CRM dashboards**: Customer relationship management dashboards
+9. **ERP dashboards**: Enterprise resource planning dashboards
+10. **HR dashboards**: Human resource management dashboards
+11. **Inventory management dashboards**: Inventory management dashboards
+12. **Sales dashboards**: Sales dashboards
+13. **Marketing dashboards**: Marketing dashboards
+14. **Project management dashboards**: Project management dashboards
+
 
 ## Core Implementation Standards
 

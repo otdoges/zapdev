@@ -1,6 +1,65 @@
 # ZapDev
 
-An AI-powered development platform that helps developers build applications faster with intelligent code generation and real-time collaboration.
+ZapDev is an advanced AI website builder specialized in creating modern, production-ready Next.js applications. It excels at transforming high-level ideas into fully functional websites with beautiful UI, responsive design, and modern web standards.
+
+## WebContainer Integration
+
+This project uses WebContainer API to run Next.js applications directly in the browser. WebContainer provides a browser-based Node.js runtime for instant preview and development.
+
+### Requirements
+
+1. **Browser Support**:
+   - Chrome/Chromium (recommended)
+   - Safari 16.4+
+   - Firefox with experimental features enabled
+
+2. **Security Headers**:
+   - Cross-Origin-Embedder-Policy: require-corp
+   - Cross-Origin-Opener-Policy: same-origin
+   - These are configured in `vite.config.ts` and `vercel.json`
+
+3. **Dependencies**:
+   - `@webcontainer/api` v1.6.1+ (included in package.json)
+   - Secure context (HTTPS in production)
+   - SharedArrayBuffer support
+
+### Development Setup
+
+1. Install dependencies:
+   ```bash
+   bun install
+   ```
+
+2. Start development server:
+   ```bash
+   bun run dev
+   ```
+
+3. The WebContainer will automatically:
+   - Check browser compatibility
+   - Initialize the runtime
+   - Mount Next.js project files
+   - Install dependencies
+   - Start the development server
+
+### Troubleshooting
+
+If WebContainer fails to initialize:
+
+1. **Check Browser Console** for cross-origin isolation errors
+2. **Verify Headers** are set correctly in development and production
+3. **Use Supported Browser** (Chrome recommended)
+4. **Enable HTTPS** for production deployment
+5. **Check SharedArrayBuffer** availability
+
+### Production Deployment
+
+The project is configured for Vercel deployment with proper headers. For other platforms, ensure the following headers are set:
+
+```
+Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Opener-Policy: same-origin
+```
 
 ## Features
 
