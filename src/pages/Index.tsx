@@ -2,14 +2,13 @@ import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { redirectToWorkOS } from "@/lib/workos";
+import { SignInButton } from "@clerk/clerk-react";
 import Navigation from "@/components/Navigation";
 import { FeaturesSection } from "@/components/features/FeaturesSection";
 import { DynamicPricingSection } from "@/components/pricing/DynamicPricingSection";
 import LogoCarousel from "@/components/LogoCarousel";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import Footer from "@/components/Footer";
-
 const Index = () => {
   const navigate = useNavigate();
 
@@ -116,9 +115,11 @@ const Index = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button size="lg" className="button-gradient" onClick={() => redirectToWorkOS()}>
-                  Start Building Now
-                </Button>
+                <SignInButton mode="modal">
+                  <Button size="lg" className="button-gradient">
+                    Start Building Now
+                  </Button>
+                </SignInButton>
               </motion.div>
               <motion.div
                 initial={{ x: 30, opacity: 0 }}
@@ -243,14 +244,15 @@ const Index = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <Button 
-              size="lg" 
-              className="bg-white text-blue-600 hover:bg-white/90" 
-              onClick={() => redirectToWorkOS()}
-            >
-              Get Started
-              <ArrowRight className="ml-2 w-4 h-4" />
-            </Button>
+            <SignInButton mode="modal">
+              <Button 
+                size="lg" 
+                className="bg-white text-blue-600 hover:bg-white/90"
+              >
+                Get Started
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
+            </SignInButton>
           </motion.div>
         </motion.div>
       </motion.section>

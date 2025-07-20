@@ -49,8 +49,8 @@ export const getUserByEmail = query({
   },
 });
 
-// Create or update user from WorkOS profile
-export const createOrUpdateUserFromWorkOS = mutation({
+// Create or update user from Clerk profile
+export const createOrUpdateUserFromClerk = mutation({
   args: {
     email: v.string(),
     fullName: v.optional(v.string()),

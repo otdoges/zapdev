@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { redirectToWorkOS } from "@/lib/workos";
+import { SignInButton } from "@clerk/clerk-react";
 
 const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -116,13 +116,14 @@ const Navigation = () => {
                 </Button>
               </div>
             ) : (
-              <Button 
-                onClick={() => redirectToWorkOS()}
-                size="sm"
-                className="button-gradient"
-              >
-                Get Started
-              </Button>
+              <SignInButton mode="modal">
+                <Button 
+                  size="sm"
+                  className="button-gradient"
+                >
+                  Get Started
+                </Button>
+              </SignInButton>
             )}
           </div>
 
@@ -188,15 +189,14 @@ const Navigation = () => {
                       </Button>
                     </div>
                   ) : (
-                    <Button 
-                      onClick={() => {
-                        setIsMobileMenuOpen(false);
-                        redirectToWorkOS();
-                      }}
-                      className="button-gradient mt-4"
-                    >
-                      Get Started
-                    </Button>
+                    <SignInButton mode="modal">
+                      <Button 
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="button-gradient mt-4"
+                      >
+                        Get Started
+                      </Button>
+                    </SignInButton>
                   )}
                 </div>
               </SheetContent>

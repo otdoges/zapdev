@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useConvexAuth } from 'convex/react';
-import { redirectToWorkOS } from '@/lib/workos';
+import { SignInButton } from '@clerk/clerk-react';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -8,12 +8,6 @@ interface AuthGuardProps {
 
 const AuthGuard = ({ children }: AuthGuardProps) => {
   const { isAuthenticated, isLoading } = useConvexAuth();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      redirectToWorkOS();
-    }
-  }, [isAuthenticated, isLoading]);
 
   if (isLoading) {
     return (
@@ -27,7 +21,19 @@ const AuthGuard = ({ children }: AuthGuardProps) => {
   }
 
   if (!isAuthenticated) {
-    return null; // Will redirect to auth
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
+          <p className="text-gray-400 mb-6">Please sign in to access this page</p>
+          <SignInButton mode="modal">
+            <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              Sign In
+            </button>
+          </SignInButton>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
