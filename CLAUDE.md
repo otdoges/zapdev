@@ -95,3 +95,11 @@ Compare to pre‑computed expected values, not the function under test.
 Keep lint, types, and formatting rules in tests just like prod code.
 
 Cover edge, happy, and error paths. Do not test type errors (TS already did that).
+
+5 Git
+
+I need you to commit everything you do when you are done. 
+
+6 Behavior 
+
+If I say "Good Job" or something along the lines you need to see that you did it well and nice so keep going on that path. 

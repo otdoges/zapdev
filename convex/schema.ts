@@ -18,79 +18,19 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_username", ["username"]),
 
-  // Stripe Customers - mapping Clerk users to Stripe customers
-  stripeCustomers: defineTable({
+  // Clerk Billing - user subscription plans managed by Clerk
+  clerkSubscriptions: defineTable({
     clerkUserId: v.string(), // Clerk user ID
-    stripeCustomerId: v.string(), // Stripe customer ID
-    email: v.string(),
-    name: v.optional(v.string()),
+    planSlug: v.string(), // Plan identifier (starter, pro, enterprise)
+    planName: v.string(), // Human-readable plan name
+    status: v.union(v.literal("active"), v.literal("inactive"), v.literal("canceled")),
+    features: v.array(v.string()), // Array of feature slugs user has access to
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_clerk_user_id", ["clerkUserId"])
-    .index("by_stripe_customer_id", ["stripeCustomerId"])
-    .index("by_email", ["email"]),
-
-  // Stripe Subscriptions - current subscription data from Stripe
-  stripeSubscriptions: defineTable({
-    stripeCustomerId: v.string(), // Stripe customer ID
-    subscriptionId: v.string(), // Stripe subscription ID
-    priceId: v.string(), // Stripe price ID
-    status: v.string(), // active, canceled, past_due, etc.
-    currentPeriodStart: v.number(), // Unix timestamp
-    currentPeriodEnd: v.number(), // Unix timestamp
-    cancelAtPeriodEnd: v.boolean(),
-    paymentMethod: v.optional(v.object({
-      brand: v.string(), // visa, mastercard, etc.
-      last4: v.string(), // last 4 digits
-    })),
-    planName: v.optional(v.string()), // human-readable plan name
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_stripe_customer_id", ["stripeCustomerId"])
-    .index("by_subscription_id", ["subscriptionId"])
+    .index("by_plan_slug", ["planSlug"])
     .index("by_status", ["status"]),
-
-  // Stripe Products - cached from Stripe API for pricing display
-  stripeProducts: defineTable({
-    stripeProductId: v.string(), // Stripe product ID
-    name: v.string(),
-    description: v.optional(v.string()),
-    active: v.boolean(),
-    metadata: v.optional(v.object({
-      tier: v.optional(v.string()), // starter, professional, enterprise
-      features: v.optional(v.string()), // JSON string of features
-      popular: v.optional(v.string()), // "true" if this is the popular plan
-      order: v.optional(v.string()), // display order
-    })),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_stripe_product_id", ["stripeProductId"])
-    .index("by_active", ["active"]),
-
-  // Stripe Prices - cached from Stripe API for pricing display
-  stripePrices: defineTable({
-    stripePriceId: v.string(), // Stripe price ID
-    stripeProductId: v.string(), // Links to stripeProducts
-    active: v.boolean(),
-    currency: v.string(),
-    recurring: v.optional(v.object({
-      interval: v.string(), // month, year
-      intervalCount: v.number(),
-    })),
-    type: v.string(), // one_time, recurring
-    unitAmount: v.optional(v.number()), // Price in cents
-    metadata: v.optional(v.object({
-      tier: v.optional(v.string()),
-    })),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_stripe_price_id", ["stripePriceId"])
-    .index("by_stripe_product_id", ["stripeProductId"])
-    .index("by_active", ["active"]),
 
   // Chat conversations
   chats: defineTable({
@@ -161,160 +101,4 @@ export default defineSchema({
     .index("by_user_date", ["userId", "createdAt"])
     .index("by_model", ["modelId"]),
 
-  // Polar Products - cached from Polar API
-  products: defineTable({
-    polarId: v.string(), // Polar product ID
-    name: v.string(),
-    description: v.optional(v.string()),
-    type: v.union(v.literal("individual"), v.literal("business")),
-    isRecurring: v.boolean(),
-    isArchived: v.boolean(),
-    organizationId: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_polar_id", ["polarId"])
-    .index("by_organization", ["organizationId"])
-    .index("by_active", ["isArchived"]),
-
-  // Polar Prices - cached from Polar API
-  prices: defineTable({
-    polarId: v.string(), // Polar price ID
-    productId: v.id("products"),
-    polarProductId: v.string(), // Polar product ID
-    amountType: v.union(v.literal("fixed"), v.literal("free"), v.literal("custom")),
-    type: v.union(v.literal("one_time"), v.literal("recurring")),
-    recurringInterval: v.optional(v.union(v.literal("month"), v.literal("year"))),
-    priceAmount: v.optional(v.number()),
-    priceCurrency: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_polar_id", ["polarId"])
-    .index("by_product", ["productId"])
-    .index("by_polar_product", ["polarProductId"]),
-
-  // Polar Customers - cached from Polar API
-  customers: defineTable({
-    polarId: v.string(), // Polar customer ID
-    userId: v.string(), // Internal user ID
-    email: v.string(),
-    name: v.optional(v.string()),
-    externalId: v.optional(v.string()), // Our user ID in Polar
-    organizationId: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_polar_id", ["polarId"])
-    .index("by_user_id", ["userId"])
-    .index("by_external_id", ["externalId"])
-    .index("by_organization", ["organizationId"]),
-
-  // Polar Subscriptions - cached from Polar API
-  subscriptions: defineTable({
-    polarId: v.string(), // Polar subscription ID
-    customerId: v.id("customers"),
-    polarCustomerId: v.string(),
-    productId: v.id("products"),
-    polarProductId: v.string(),
-    priceId: v.id("prices"),
-    polarPriceId: v.string(),
-    status: v.union(
-      v.literal("incomplete"),
-      v.literal("incomplete_expired"),
-      v.literal("trialing"),
-      v.literal("active"),
-      v.literal("past_due"),
-      v.literal("canceled"),
-      v.literal("unpaid")
-    ),
-    currentPeriodStart: v.string(),
-    currentPeriodEnd: v.string(),
-    cancelAtPeriodEnd: v.optional(v.boolean()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_polar_id", ["polarId"])
-    .index("by_customer", ["customerId"])
-    .index("by_polar_customer", ["polarCustomerId"])
-    .index("by_product", ["productId"])
-    .index("by_status", ["status"]),
-
-  // Usage Events for Polar billing
-  usageEvents: defineTable({
-    eventName: v.string(),
-    userId: v.string(),
-    customerId: v.optional(v.id("customers")),
-    polarCustomerId: v.optional(v.string()),
-    externalCustomerId: v.optional(v.string()),
-    metadata: v.object({
-      model: v.optional(v.string()),
-      requests: v.optional(v.number()),
-      totalTokens: v.optional(v.number()),
-      requestTokens: v.optional(v.number()),
-      responseTokens: v.optional(v.number()),
-      duration: v.optional(v.number()),
-      size: v.optional(v.number()),
-      // Allow additional properties
-      additionalProperties: v.optional(v.any()),
-    }),
-    ingested: v.boolean(), // Whether sent to Polar
-    timestamp: v.number(),
-    createdAt: v.number(),
-  })
-    .index("by_user_id", ["userId"])
-    .index("by_customer", ["customerId"])
-    .index("by_event_name", ["eventName"])
-    .index("by_ingested", ["ingested"])
-    .index("by_timestamp", ["timestamp"]),
-
-  // Polar Meters - cached from Polar API
-  meters: defineTable({
-    polarId: v.string(), // Polar meter ID
-    name: v.string(),
-    slug: v.string(),
-    eventName: v.string(),
-    valueProperty: v.string(),
-    filters: v.optional(v.array(v.object({
-      property: v.string(),
-      operator: v.union(v.literal("eq"), v.literal("ne"), v.literal("gt"), v.literal("gte"), v.literal("lt"), v.literal("lte")),
-      value: v.union(v.string(), v.number()),
-    }))),
-    organizationId: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_polar_id", ["polarId"])
-    .index("by_slug", ["slug"])
-    .index("by_event_name", ["eventName"])
-    .index("by_organization", ["organizationId"]),
-
-  // User subscription status cache
-  userSubscriptions: defineTable({
-    userId: v.string(),
-    subscriptionId: v.id("subscriptions"),
-    isActive: v.boolean(),
-    planName: v.string(),
-    planType: v.union(v.literal("free"), v.literal("starter"), v.literal("professional"), v.literal("enterprise")),
-    features: v.array(v.string()),
-    usageLimits: v.object({
-      monthlyAiRequests: v.optional(v.number()),
-      monthlyTokens: v.optional(v.number()),
-      maxChats: v.optional(v.number()),
-      maxProjects: v.optional(v.number()),
-    }),
-    currentUsage: v.object({
-      aiRequests: v.number(),
-      tokensUsed: v.number(),
-      chatsCreated: v.number(),
-      projectsCreated: v.number(),
-    }),
-    resetDate: v.number(), // When usage resets (monthly)
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_user_id", ["userId"])
-    .index("by_subscription", ["subscriptionId"])
-    .index("by_active", ["isActive"])
-    .index("by_plan_type", ["planType"]),
 }); 

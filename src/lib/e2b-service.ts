@@ -40,6 +40,7 @@ class E2BService {
     waitingQueue: []
   };
   private readonly MAX_SESSION_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+  private readonly MAX_IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
   private readonly MAX_CONCURRENT_SESSIONS = 20; // Hobby plan limit
   private readonly SESSION_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
   private cleanupTimer: NodeJS.Timeout | null = null;
@@ -75,7 +76,7 @@ class E2BService {
     const expiredSessions: string[] = [];
 
     for (const [sessionId, session] of this.sessionPool.sessions) {
-      if (now > session.expiresAt || (!session.inUse && (now.getTime() - session.lastUsed.getTime()) > this.MAX_SESSION_DURATION)) {
+      if (now > session.expiresAt || (!session.inUse && (now.getTime() - session.lastUsed.getTime()) > this.MAX_IDLE_TIMEOUT)) {
         expiredSessions.push(sessionId);
       }
     }
@@ -197,11 +198,14 @@ class E2BService {
     const session = this.sessionPool.sessions.get(sessionId);
     if (session) {
       try {
-        // E2B sandboxes auto-cleanup, but we should clean up our references
+        // Explicitly kill the sandbox to free resources immediately
+        await session.sandbox.kill();
         this.sessionPool.sessions.delete(sessionId);
         console.log(`Destroyed E2B session: ${sessionId}`);
       } catch (error) {
         console.error(`Error destroying session ${sessionId}:`, error);
+        // Even if kill fails, remove from pool to prevent memory leaks
+        this.sessionPool.sessions.delete(sessionId);
       }
     }
   }

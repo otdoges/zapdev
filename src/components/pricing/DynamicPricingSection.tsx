@@ -2,81 +2,81 @@ import { motion } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardSpotlight } from "./CardSpotlight";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth, SignInButton } from "@clerk/clerk-react";
+import { ClerkPricingTable } from "../ClerkPricingTable";
 
-interface StripeProduct {
+interface ClerkPlan {
   id: string;
   name: string;
   description?: string;
   features: string[];
-  tier: string;
-  isPopular: boolean;
-  order: number;
-  prices: Array<{
-    id: string;
-    amount?: number;
-    currency: string;
-    type: string;
-    recurring?: {
-      interval: string;
-      intervalCount: number;
-    };
-  }>;
-  primaryPrice: {
-    id: string;
-    amount?: number;
-    currency: string;
-    type: string;
-    recurring?: {
-      interval: string;
-      intervalCount: number;
-    };
-  } | null;
+  price: string;
+  isPopular?: boolean;
+  slug: string;
 }
 
-const formatPrice = (price: StripeProduct['primaryPrice']): string => {
-  if (!price) return 'Custom';
-  if (!price.amount) return 'Free';
-  
-  const amount = price.amount / 100; // Convert from cents
-  const currency = price.currency.toUpperCase();
-  
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 0,
-  }).format(amount);
-};
-
-const getRecurringText = (price: StripeProduct['primaryPrice']): string => {
-  if (!price?.recurring) return '';
-  
-  const { interval, intervalCount } = price.recurring;
-  
-  if (intervalCount === 1) {
-    return `/${interval}`;
-  } else {
-    return `/${intervalCount} ${interval}s`;
+// Hardcoded pricing plans for Clerk billing
+const clerkPlans: ClerkPlan[] = [
+  {
+    id: '1',
+    name: 'Starter',
+    slug: 'starter',
+    description: 'Perfect for individuals getting started',
+    price: 'Free',
+    features: [
+      '3 AI-generated websites',
+      'Basic templates',
+      'Community support',
+      'Standard hosting'
+    ]
+  },
+  {
+    id: '2',
+    name: 'Pro',
+    slug: 'pro',
+    description: 'Best for growing businesses',
+    price: '$29/month',
+    isPopular: true,
+    features: [
+      'Unlimited AI websites',
+      'Premium templates',
+      'Priority support',
+      'Custom domain',
+      'Advanced analytics',
+      'SEO optimization'
+    ]
+  },
+  {
+    id: '3',
+    name: 'Enterprise',
+    slug: 'enterprise',
+    description: 'For large organizations',
+    price: 'Custom',
+    features: [
+      'Everything in Pro',
+      'White-label solution',
+      'Dedicated support',
+      'Custom integrations',
+      'SLA guarantees',
+      'Multi-team management'
+    ]
   }
-};
+];
 
 const PricingTier = ({
-  product,
+  plan,
   isPopular,
   index,
   onSelectPlan,
   isLoading,
 }: {
-  product: StripeProduct;
+  plan: ClerkPlan;
   isPopular?: boolean;
   index: number;
-  onSelectPlan: (priceId: string) => void;
+  onSelectPlan: (planSlug: string) => void;
   isLoading: boolean;
 }) => {
-  const primaryPrice = product.primaryPrice;
   
   return (
     <motion.div
@@ -111,7 +111,7 @@ const PricingTier = ({
             transition={{ duration: 0.5, delay: 0.3 + index * 0.2 }}
             className="text-xl font-medium mb-2"
           >
-            {product.name}
+            {plan.name}
           </motion.h3>
           <motion.div 
             initial={{ opacity: 0, scale: 0.8 }}
@@ -121,10 +121,7 @@ const PricingTier = ({
             className="mb-4"
           >
             <span className="text-4xl font-bold">
-              {formatPrice(primaryPrice)}
-            </span>
-            <span className="text-gray-400">
-              {getRecurringText(primaryPrice)}
+              {plan.price}
             </span>
           </motion.div>
           <motion.p 
@@ -134,11 +131,11 @@ const PricingTier = ({
             transition={{ duration: 0.5, delay: 0.5 + index * 0.2 }}
             className="text-gray-400 mb-6"
           >
-            {product.description || `Perfect for ${product.name.toLowerCase()} users`}
+            {plan.description}
           </motion.p>
           
           <ul className="space-y-3 mb-8 flex-1">
-            {product.features.map((feature, featureIndex) => (
+            {plan.features.map((feature, featureIndex) => (
               <motion.li 
                 key={featureIndex}
                 initial={{ opacity: 0, x: -10 }}
@@ -162,18 +159,18 @@ const PricingTier = ({
           >
             <Button 
               className="button-gradient w-full"
-              onClick={() => primaryPrice && onSelectPlan(primaryPrice.id)}
-              disabled={isLoading || !primaryPrice}
+              onClick={() => onSelectPlan(plan.slug)}
+              disabled={isLoading}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Loading...
                 </>
-              ) : primaryPrice ? (
-                'Get Started'
-              ) : (
+              ) : plan.price === 'Custom' ? (
                 'Contact Sales'
+              ) : (
+                'Get Started'
               )}
             </Button>
           </motion.div>
@@ -185,52 +182,38 @@ const PricingTier = ({
 
 export const DynamicPricingSection = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { isSignedIn, getToken } = useAuth();
-  
-  // Query pricing data from Convex (sourced from Stripe)
-  const pricingData = useQuery(api.stripe.getPricingData);
+  const { isSignedIn } = useAuth();
 
-  const createCheckoutSession = async (priceId: string) => {
+  const handlePlanSelection = async (planSlug: string) => {
     if (!isSignedIn) {
-      // Redirect to sign in
       window.location.href = '/sign-in';
       return;
     }
 
     setIsLoading(true);
     try {
-      const token = await getToken();
-      if (!token) {
-        throw new Error('Failed to get authentication token');
-      }
-
-      // Call your backend API to create checkout session
-      const response = await fetch('/api/generate-stripe-checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ priceId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create checkout session');
-      }
-
-      const { url } = await response.json();
-      window.location.href = url;
+      // In a real Clerk billing implementation, this would trigger the billing flow
+      console.log(`Selected plan: ${planSlug}`);
       
+      if (planSlug === 'enterprise') {
+        // Handle contact sales
+        alert('Contact sales for Enterprise plan');
+      } else {
+        // This would normally trigger Clerk's billing flow
+        alert(`Subscribing to ${planSlug} plan (Clerk billing flow would start here)`);
+      }
     } catch (error) {
-      console.error('Error creating checkout session:', error);
-      alert('Failed to create checkout session. Please try again.');
+      console.error('Error selecting plan:', error);
+      alert('Failed to select plan. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle loading and error states
-  if (pricingData === undefined) {
+  // Use Clerk PricingTable for modern billing
+  const useClerkPricingTable = true;
+
+  if (useClerkPricingTable) {
     return (
       <motion.section 
         initial={{ opacity: 0 }}
@@ -282,29 +265,7 @@ export const DynamicPricingSection = () => {
           </motion.p>
         </motion.div>
 
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <span className="ml-2 text-gray-400">Loading pricing plans...</span>
-        </div>
-      </motion.section>
-    );
-  }
-
-  if (!pricingData || pricingData.length === 0) {
-    return (
-      <motion.section 
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true, amount: 0.2 }}
-        transition={{ duration: 0.8 }}
-        className="container px-4 py-24"
-      >
-        <div className="text-center py-12">
-          <p className="text-gray-400">No pricing plans available at the moment.</p>
-          <p className="text-sm text-gray-500 mt-2">
-            Run <code className="bg-gray-800 px-2 py-1 rounded">bun run sync-pricing</code> to sync Stripe pricing data.
-          </p>
-        </div>
+        <ClerkPricingTable className="max-w-4xl mx-auto" />
       </motion.section>
     );
   }
@@ -361,13 +322,13 @@ export const DynamicPricingSection = () => {
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-        {pricingData.map((product, index) => (
+        {clerkPlans.map((plan, index) => (
           <PricingTier
-            key={product.id}
-            product={product}
-            isPopular={product.isPopular}
+            key={plan.id}
+            plan={plan}
+            isPopular={plan.isPopular}
             index={index}
-            onSelectPlan={createCheckoutSession}
+            onSelectPlan={handlePlanSelection}
             isLoading={isLoading}
           />
         ))}
