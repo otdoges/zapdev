@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -7,11 +6,9 @@ import {
   Play, 
   Square, 
   RotateCcw, 
-  ExternalLink, 
   Loader2,
   AlertCircle,
   Terminal,
-  Folder,
   Code,
   Cloud,
   Server
@@ -100,19 +97,25 @@ export default function CodeExecutionDisplay({
 
   const executeWithE2B = async () => {
     try {
-      const startTime = Date.now();
-      const execution = await e2bService.executeCode(code, { 
-        language: language as any,
-        timeout: 30000 
+      // Guard against unsupported language
+      if (language === 'nextjs') {
+        // This should never be called for Next.js projects – fallback to WebContainer instead
+        throw new Error('Next.js projects should run in a WebContainer, not via E2B');
+      }
+
+      // Execute the code using the E2B service
+      const execution = await e2bService.executeCode(code, {
+        language, // narrowed to supported languages by the check above
+        timeout: 30000,
       });
-      
+
       setResult({
         success: execution.success,
         output: execution.output,
         error: execution.error,
         logs: execution.logs,
         executionTime: execution.executionTime,
-        provider: 'e2b'
+        provider: 'e2b',
       });
       setProvider('e2b');
     } catch (error) {
@@ -121,7 +124,7 @@ export default function CodeExecutionDisplay({
     }
   };
 
-  const executeWithWebContainer = () => {
+  function executeWithWebContainer() {
     // For WebContainer, we'll show the existing WebContainer component
     setUseWebContainer(true);
     setProvider('webcontainer');
@@ -132,7 +135,7 @@ export default function CodeExecutionDisplay({
       executionTime: 0,
       provider: 'webcontainer'
     });
-  };
+  }
 
   const stopExecution = () => {
     setIsExecuting(false);

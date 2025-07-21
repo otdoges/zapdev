@@ -1,4 +1,5 @@
 import e2bService, { type ExecutionResult } from './e2b-service';
+import { systemPrompt } from './systemPrompt';
 
 export interface ToolCall {
   id: string;
@@ -320,6 +321,26 @@ export const availableTools = [
 ];
 
 class ToolCallExecutor {
+  private userId?: string;
+
+  constructor(userId?: string) {
+    this.userId = userId;
+  }
+
+  /**
+   * Sets the user ID for session management
+   */
+  setUserId(userId: string): void {
+    this.userId = userId;
+  }
+
+  /**
+   * Gets the system prompt for AI tool execution guidance
+   */
+  getSystemPrompt(): string {
+    return systemPrompt;
+  }
+
   async executeToolCall(toolCall: ToolCall): Promise<ToolCallResult> {
     const { function: func } = toolCall;
     
@@ -413,7 +434,7 @@ class ToolCallExecutor {
         }
       };
 
-      await e2bService.createFile('package.json', JSON.stringify(packageJson, null, 2));
+      await e2bService.createFile('package.json', JSON.stringify(packageJson, null, 2), this.userId);
       output += `✅ Created package.json\n`;
 
       // Create Next.js config
@@ -429,7 +450,7 @@ const nextConfig = {
 
 module.exports = nextConfig`;
 
-      await e2bService.createFile('next.config.js', nextConfig);
+      await e2bService.createFile('next.config.js', nextConfig, this.userId);
       output += `✅ Created next.config.js\n`;
 
       // Create TypeScript config
@@ -461,24 +482,24 @@ module.exports = nextConfig`;
         exclude: ["node_modules"]
       };
 
-      await e2bService.createFile('tsconfig.json', JSON.stringify(tsConfig, null, 2));
+      await e2bService.createFile('tsconfig.json', JSON.stringify(tsConfig, null, 2), this.userId);
       output += `✅ Created tsconfig.json\n`;
 
       // Create app directory structure
-      await e2bService.createFile('app/layout.tsx', this.generateRootLayout(args));
-      await e2bService.createFile('app/page.tsx', this.generateHomePage(args));
-      await e2bService.createFile('app/globals.css', this.generateGlobalCSS(args));
+      await e2bService.createFile('app/layout.tsx', this.generateRootLayout(args), this.userId);
+      await e2bService.createFile('app/page.tsx', this.generateHomePage(args), this.userId);
+      await e2bService.createFile('app/globals.css', this.generateGlobalCSS(args), this.userId);
       output += `✅ Created app directory structure\n`;
 
       // Create Tailwind config
-      await e2bService.createFile('tailwind.config.ts', this.generateTailwindConfig(args));
-      await e2bService.createFile('postcss.config.js', this.generatePostCSSConfig());
+      await e2bService.createFile('tailwind.config.ts', this.generateTailwindConfig(args), this.userId);
+      await e2bService.createFile('postcss.config.js', this.generatePostCSSConfig(), this.userId);
       output += `✅ Created Tailwind CSS configuration\n`;
 
       // Create components directory
       if (args.includeShadcnUI) {
-        await e2bService.createFile('components/ui/button.tsx', this.generateButtonComponent());
-        await e2bService.createFile('lib/utils.ts', this.generateUtilsFile());
+        await e2bService.createFile('components/ui/button.tsx', this.generateButtonComponent(), this.userId);
+        await e2bService.createFile('lib/utils.ts', this.generateUtilsFile(), this.userId);
         output += `✅ Created Shadcn/ui components\n`;
       }
 
@@ -504,7 +525,7 @@ module.exports = nextConfig`;
       const componentCode = this.generateComponentCode(args);
       const filePath = this.getComponentPath(args);
       
-      await e2bService.createFile(filePath, componentCode);
+      await e2bService.createFile(filePath, componentCode, this.userId);
       
       return {
         tool_call_id: toolCallId,
@@ -523,7 +544,7 @@ module.exports = nextConfig`;
   private async installDependencies(toolCallId: string, args: { packages: string[]; dev?: boolean }): Promise<ToolCallResult> {
     try {
       const command = `npm install ${args.dev ? '--save-dev ' : ''}${args.packages.join(' ')}`;
-      const result = await e2bService.executeCode(command, { language: 'bash' });
+      const result = await e2bService.executeCode(command, { language: 'bash' }, this.userId);
       
       let output = `📦 Installing packages: ${args.packages.join(', ')}\n\n`;
       if (result.success) {
@@ -549,7 +570,7 @@ module.exports = nextConfig`;
   private async setupTailwindConfig(toolCallId: string, args: any): Promise<ToolCallResult> {
     try {
       const tailwindConfig = this.generateAdvancedTailwindConfig(args);
-      await e2bService.createFile('tailwind.config.ts', tailwindConfig);
+      await e2bService.createFile('tailwind.config.ts', tailwindConfig, this.userId);
       
       return {
         tool_call_id: toolCallId,
@@ -572,14 +593,14 @@ module.exports = nextConfig`;
       // Create pages
       for (const page of args.pages) {
         const pageCode = this.generatePageCode(page, args.features);
-        await e2bService.createFile(`app/${page}/page.tsx`, pageCode);
+        await e2bService.createFile(`app/${page}/page.tsx`, pageCode, this.userId);
         output += `✅ Created page: ${page}\n`;
       }
       
       // Create components
       for (const component of args.components) {
         const componentCode = this.generateStructureComponent(component, args.features);
-        await e2bService.createFile(`components/${component}.tsx`, componentCode);
+        await e2bService.createFile(`components/${component}.tsx`, componentCode, this.userId);
         output += `✅ Created component: ${component}\n`;
       }
       
@@ -633,7 +654,7 @@ module.exports = nextConfig`;
       const result = await e2bService.executeCode(args.code, {
         language: args.language,
         installPackages: args.installPackages
-      });
+      }, this.userId);
 
       let output = '';
       if (result.success) {
@@ -679,7 +700,7 @@ module.exports = nextConfig`;
     }
 
     try {
-      const success = await e2bService.createFile(args.path, args.content);
+      const success = await e2bService.createFile(args.path, args.content, this.userId);
       
       return {
         tool_call_id: toolCallId,
@@ -699,7 +720,7 @@ module.exports = nextConfig`;
 
   private async readFile(toolCallId: string, args: FileOperationArgs): Promise<ToolCallResult> {
     try {
-      const content = await e2bService.readFile(args.path);
+      const content = await e2bService.readFile(args.path, this.userId);
       
       if (content === null) {
         return {
@@ -725,7 +746,7 @@ module.exports = nextConfig`;
 
   private async listFiles(toolCallId: string, args: { directory?: string } = {}): Promise<ToolCallResult> {
     try {
-      const files = await e2bService.listFiles(args.directory || '.');
+      const files = await e2bService.listFiles(args.directory || '.', this.userId);
       
       return {
         tool_call_id: toolCallId,

@@ -150,7 +150,7 @@ export async function getOrCreateStripeCustomer(
   userName?: string
 ): Promise<string> {
   // Check if we already have a customer ID for this user in Convex
-  let customerId = await getStripeCustomerId(clerkUserId);
+  const customerId = await getStripeCustomerId(clerkUserId);
   
   if (customerId) {
     // Verify the customer still exists in Stripe

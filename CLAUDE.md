@@ -1,65 +1,97 @@
-# CLAUDE.md
+0 – Purpose
+These rules drive consistency, safety, and fast iteration in ZapDev.
+MUST rules are enforced by CI (pnpm run lint, pnpm run build:dev).
+SHOULD rules you owe us a strong justification for skipping.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+1 – Before Coding
+BP‑1 (MUST) Ask whoever filed the ticket what “done” looks like. If you skip this you’ll land in endless review comments.
 
-## Development Commands
+BP‑2 (SHOULD) For any new page or major feature, sketch a component/route tree in a Design Doc (e.g. in plan.md) and get it reviewed.
 
-- `pnpm run dev` - Start development server with hot reloading on port 8080
-- `pnpm run build` - Build for production 
-- `pnpm run build:dev` - Build in development mode
-- `pnpm run lint` - Run ESLint to check code quality
-- `pnpm run preview` - Preview production build locally
+BP‑3 (SHOULD) If there are two ways to fetch or cache data (tanstack‑query vs raw fetch), list pros and cons in that Design Doc.
 
-## Project Architecture
+Question: do we actually review “plan.md” or does it live only in PR description?
 
-This is a React + TypeScript + Vite project built with shadcn/ui components and Tailwind CSS. The project appears to be a website builder/landing page platform.
+2 – While Coding
+C‑1 (MUST) Follow TDD with Vitest: create *.test.tsx or *.test.ts next to the new component or function, write the failing test first, then write the code.
 
-### Key Technologies
-- **Frontend**: React 18, TypeScript, Vite
-- **Styling**: Tailwind CSS with custom design system
-- **UI Components**: shadcn/ui (Radix UI primitives)
-- **Routing**: React Router DOM
-- **State Management**: TanStack Query for server state
-- **Animations**: Framer Motion
-- **Form Handling**: React Hook Form with Zod validation
+C‑2 (MUST) Name React components and hooks using domain terms. E.g. LandingPage, useZapGeneration.
 
-### Project Structure
-- `src/pages/` - Page components (Index.tsx, IpadReseller.tsx)
-- `src/components/` - Reusable components organized by feature
-  - `ui/` - shadcn/ui components
-  - `features/` - Feature-specific components
-  - `pricing/` - Pricing section components
-- `src/lib/` - Utility functions
-- `src/hooks/` - Custom React hooks
-- `src/config/` - Configuration files
-- `public/lovable-uploads/` - Static image assets
+C‑3 (SHOULD NOT) Spin up a full <Page> component if you just need a small utility—use plain functions in src/lib/.
 
-### Routing
-Simple React Router setup with two main routes:
-- `/` - Main landing page (Index component)
-- `/ipad-reseller` - Secondary page
+C‑4 (SHOULD) Prefer simple, composable helpers over one huge component. If bits can be broken out to src/components/featureX/, do it.
 
-### Styling System
-- Uses Tailwind CSS with custom configuration
-- CSS variables for theme colors defined in `src/index.css`
-- Custom fonts: Geist and Inter
-- Primary brand color: `#3E6FF3`
-- Dark theme with black backgrounds
+C‑5 (MUST) For any IDs (user, project, job), use branded types via Zod or utility Brand<string, “UserId”>. Don’t pass raw strings everywhere.
 
-### Component Architecture
-- Components follow shadcn/ui patterns
-- Consistent use of Tailwind classes
-- Motion animations using Framer Motion
-- Path alias `@/` points to `src/`
+C‑6 (MUST) Import only types with import type { … } from “…”.
 
-### Configuration Notes
-- Vite runs on port 8080
-- TypeScript configuration is lenient (allows JS, no strict null checks)
-- ESLint configured for React + TypeScript
-- Tailwind configured with dark mode support
-- Uses lovable-tagger in development mode
+C‑7 (SHOULD NOT) Write comments except when you’re warning about a known framework bug (e.g. React Router v6 edge case). Let class and function names speak.
 
-### Development Notes
-- This appears to be a Lovable.dev project (web-based AI development platform)
-- Images are stored in `public/lovable-uploads/`
-- Component tagging is enabled in development for the Lovable platform
+C‑8 (SHOULD) Default to type for TS definitions; use interface only when extending external types or doing declaration merging.
+
+C‑9 (SHOULD NOT) Pull out a helper into src/lib/ unless it’s used at least twice or it simplifies testing significantly.
+
+Flag: our “public/lovable‑uploads” folder has no code—so rules about colocating tests don’t apply there.
+
+3 – Testing
+T‑1 (MUST) Put unit tests in .test.tsx/.test.ts beside their source file in src/.
+
+T‑2 (MUST) Any change to the Convex data model or API in convex/ needs an end‑to‑end integration example (see INTEGRATION_EXAMPLE.md).
+
+T‑3 (MUST) Keep pure‑logic tests (in src/lib/ or src/hooks/) separate from tests that hit Convex or browser APIs.
+
+T‑4 (SHOULD) Favor integration over heavy mocking when verifying data‑fetch flows via TanStack Query.
+
+T‑5 (SHOULD) Thoroughly unit‑test any non‑trivial algorithm or transform in src/lib/.
+
+T‑6 (SHOULD) When comparing arrays or objects, use one assertion on the whole value, not multiple partial checks.
+
+4 – Database / Convex
+D‑1 (MUST) Type Convex helpers as ConvexFetch | ConvexTransaction so they accept either the client or a transaction.
+
+D‑2 (SHOULD) If Convex auto‑generated types are off (e.g. JSON vs Date), override them in convex/schema.ts.
+
+Question: are we still using PLpgSQL in database/ or has Convex replaced it? We should remove unused raw‐SQL if not.
+
+5 – Code Organization
+O‑1 (MUST) Anything shared by more than one feature lives in src/components/shared/ or src/lib/.
+
+O‑2 (SHOULD) UI primitives (Radix wrappers) go in ui/ only. Don’t scatter generic buttons and dialogs elsewhere.
+
+6 – Tooling Gates
+G‑1 (MUST) pnpm run lint passes (eslint.config.js rules).
+
+G‑2 (MUST) pnpm run build:dev and pnpm run build succeed without type errors (tsconfig.json settings).
+
+7 – Git
+GH‑1 (MUST) Use Conventional Commits: feat(src/components): add X or fix(convex): correct mutation logic.
+
+GH‑2 (SHOULD NOT) Ever mention Claude, Anthropic, or Lovable in commit messages. Make it all about ZapDev code.
+
+Writing or Refactoring Functions
+Use this checklist before you split or rewrite any function:
+
+Read it. Can you actually trace every line in 10 seconds? If yes, leave it.
+
+Is cyclomatic complexity > 5? If yes, seriously consider refactor.
+
+Would a standard data structure (stack, map, tree) simplify it?
+
+Any dead parameters or casts? Remove them.
+
+Can you test it without mocking Convex or DOM? If not, maybe pull it into a helper.
+
+Brainstorm 3 better names. If the current one loses, rename.
+
+Writing Tests
+Parameterize inputs with fixtures or fast‑check.
+
+No “expect(2).toBe(2)” traps—tests must catch real defects.
+
+Descriptions must match exactly what the assertion checks.
+
+Compare to pre‑computed expected values, not the function under test.
+
+Keep lint, types, and formatting rules in tests just like prod code.
+
+Cover edge, happy, and error paths. Do not test type errors (TS already did that).
