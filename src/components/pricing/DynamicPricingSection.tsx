@@ -36,7 +36,7 @@ const clerkPlans: ClerkPlan[] = [
     name: 'Pro',
     slug: 'pro',
     description: 'Best for growing businesses',
-    price: '$29/month',
+    price: '$20/month',
     isPopular: true,
     features: [
       'Unlimited AI websites',
@@ -52,7 +52,7 @@ const clerkPlans: ClerkPlan[] = [
     name: 'Enterprise',
     slug: 'enterprise',
     description: 'For large organizations',
-    price: 'Custom',
+    price: 'Contact Us',
     features: [
       'Everything in Pro',
       'White-label solution',
