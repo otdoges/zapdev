@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { Sandbox } from '@e2b/code-interpreter';
 
 export interface ExecutionResult {
@@ -151,7 +152,7 @@ class E2BService {
 
       const now = new Date();
       const session: SandboxSession = {
-        id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `session_${Date.now()}_${crypto.randomBytes(9).toString('hex')}`,
         sandbox,
         createdAt: now,
         lastUsed: now,
