@@ -2,14 +2,26 @@ import { createGroq } from '@ai-sdk/groq'
 
 const groqApiKey = import.meta.env.VITE_GROQ_API_KEY
 
-if (!groqApiKey || groqApiKey === 'your_groq_api_key_here') {
-  console.error('Missing or invalid Groq API key')
-  throw new Error('Missing Groq API key. Please set VITE_GROQ_API_KEY in your .env.local file.')
+// For local development, we'll create a fallback
+const isDevelopment = !groqApiKey || groqApiKey === 'your_groq_api_key_here'
+
+if (isDevelopment) {
+  console.warn('🔧 GROQ: Running in development mode without API key')
+  console.warn('🔧 GROQ: Chat functionality will be limited until API key is configured')
 }
 
-export const groq = createGroq({
+// Create a mock groq instance for development
+const mockGroq = (modelId: any) => ({
+  modelId,
+  provider: 'groq',
+  mock: true,
+});
+
+export const groq = isDevelopment ? mockGroq : createGroq({
   apiKey: groqApiKey,
 })
+
+export const isGroqConfigured = !isDevelopment
 
 // Available Groq models with context windows
 export const GROQ_MODELS = {

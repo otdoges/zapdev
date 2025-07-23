@@ -7,7 +7,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: Date
-  model?: GroqModelId
+  model?: string // Changed to string to support all model types
 }
 
 export interface ChatOptions {

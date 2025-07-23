@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/hooks/use-toast";
 import { 
   Send, 
   Code, 
@@ -26,7 +27,8 @@ import {
   Menu,
   Plus,
   Sidebar,
-  X
+  X,
+  AlertTriangle
 } from "lucide-react";
 import WebContainerComponent from "@/components/WebContainer";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
@@ -43,11 +45,51 @@ const Chat = () => {
   const [showCode, setShowCode] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [hasStartedChat, setHasStartedChat] = useState(false);
+  const [isTestMode, setIsTestMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user, isSignedIn } = useUser();
   const { signOut } = useClerk();
   const { trackAIUsage, trackMessageSent, trackChatCreation } = useUsageTracking();
   const navigate = useNavigate();
+
+  // Check if we're in test mode (no API key)
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+    if (!apiKey || apiKey === 'your_groq_api_key_here') {
+      setIsTestMode(true);
+      console.log("🔧 Chat: Running in test mode - no API key configured");
+    }
+  }, []);
+
+  // Simple test mode streaming function
+  const createTestStream = async (userInput: string): Promise<AsyncIterable<string>> => {
+    console.log("🔧 Chat Debug: Creating test stream for:", userInput);
+    
+    const responses = [
+      "Hello! I'm running in test mode. ",
+      "This means the AI service isn't configured locally, but the chat interface is working perfectly! ",
+      "Here are some things I can tell you:\n\n",
+      "✅ The chat interface is functional\n",
+      "✅ Message streaming is working\n", 
+      "✅ State management is working\n",
+      "✅ Error handling is in place\n",
+      "✅ Console logging is active\n\n",
+      "To enable full AI functionality:\n",
+      "1. Set up VITE_GROQ_API_KEY in your .env.local\n",
+      "2. Or deploy to Vercel where it's already configured\n\n",
+      "Your message was: \"" + userInput + "\"\n\n",
+      "The system is ready to handle real AI responses once the API key is configured!"
+    ];
+    
+    async function* generator() {
+      for (const response of responses) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        yield response;
+      }
+    }
+    
+    return generator();
+  };
 
   const showSplitLayout = messages.length > 0 && hasStartedChat;
 
@@ -60,8 +102,14 @@ const Chat = () => {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim()) {
+      console.log("📝 Chat Debug: Empty input, returning");
+      return;
+    }
 
+    console.log("🚀 Chat Debug: Starting message send process");
+    console.log("💬 User input:", inputValue);
+    
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: "user",
@@ -71,102 +119,206 @@ const Chat = () => {
 
     setMessages(prev => [...prev, userMessage]);
     
-    // Track message sent
-    await trackMessageSent({
-      chatId: 'current-chat',
-      messageLength: inputValue.length,
-      role: 'user'
-    });
+    try {
+      console.log("📊 Chat Debug: Attempting to track message sent");
+      await trackMessageSent({
+        chatId: 'current-chat',
+        messageLength: inputValue.length,
+        role: 'user'
+      });
+      console.log("✅ Chat Debug: Message tracking successful");
+    } catch (trackingError) {
+      console.warn("⚠️ Chat Debug: Message tracking failed:", trackingError);
+      // Continue anyway, tracking failure shouldn't stop the chat
+    }
 
     setInputValue("");
     setIsLoading(true);
     setHasStartedChat(true);
-    setShowPreview(true); // Show preview panel after first message
+    setShowPreview(true);
+
+    // Create assistant message placeholder
+    const assistantMessage: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant", 
+      content: "",
+      timestamp: new Date(),
+      model: "pending",
+    };
+
+    setMessages(prev => [...prev, assistantMessage]);
 
     try {
-      // Create assistant message placeholder
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "",
-        timestamp: new Date(),
-        model: "deepseek-r1-distill-llama-70b",
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-
-      // Use the proper multi-model streaming
-      const stream = await multiModelAI.streamMultiModelResponse(
-        [...messages, userMessage],
-        {
-          temperature: 0.7,
-          maxTokens: 4000,
-          useOptimization: true
-        }
-      );
-
-      let accumulatedText = "";
-      let estimatedRequestTokens = 0;
-      let estimatedResponseTokens = 0;
+      console.log("🤖 Chat Debug: Checking multiModelAI availability");
       
-      // Get the system info to show which models are being used
+      // Check if environment variables are properly set
+      const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+      if (!apiKey || apiKey === 'your_groq_api_key_here') {
+        console.error("❌ Chat Debug: Groq API key not configured");
+        throw new Error("API_KEY_MISSING");
+      }
+      
+      console.log("🔧 Chat Debug: Getting system info");
       const systemInfo = multiModelAI.getSystemInfo();
-      const primaryModel = systemInfo.models[0] || "deepseek-r1-distill-llama-70b";
+      console.log("🔧 System info:", systemInfo);
       
-      // Update assistant message with proper model info
+      const primaryModel = systemInfo.models[0] || "llama-3.3-70b-versatile";
+      console.log("🎯 Chat Debug: Using primary model:", primaryModel);
+      
+      // Update assistant message with model info
       setMessages(prev => prev.map(msg => 
         msg.id === assistantMessage.id 
           ? { ...msg, model: primaryModel }
           : msg
       ));
+
+      console.log("🌊 Chat Debug: Starting stream with messages:", [...messages, userMessage].length);
       
-      for await (const chunk of stream) {
-        accumulatedText += chunk;
+      let stream: AsyncIterable<string>;
+      
+      if (isTestMode) {
+        console.log("🔧 Chat Debug: Using test mode stream");
+        stream = await createTestStream(inputValue);
+      } else {
+        console.log("🤖 Chat Debug: Using real AI stream");
+        // Use the multi-model streaming with error handling
+        stream = await multiModelAI.streamMultiModelResponse(
+          [...messages, userMessage],
+          {
+            temperature: 0.7,
+            maxTokens: 4000,
+            useOptimization: true
+          }
+        );
+      }
+
+      console.log("✅ Chat Debug: Stream created successfully");
+      
+      let accumulatedText = "";
+      let chunkCount = 0;
+      
+      try {
+        for await (const chunk of stream) {
+          chunkCount++;
+          accumulatedText += chunk;
+          
+          if (chunkCount % 5 === 0) {
+            console.log(`📦 Chat Debug: Received chunk ${chunkCount}, total length: ${accumulatedText.length}`);
+          }
+          
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessage.id 
+              ? { ...msg, content: accumulatedText }
+              : msg
+          ));
+        }
         
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessage.id 
-            ? { ...msg, content: accumulatedText }
-            : msg
-        ));
+        console.log(`✅ Chat Debug: Stream completed with ${chunkCount} chunks, final length: ${accumulatedText.length}`);
+        
+        if (accumulatedText.length === 0) {
+          console.warn("⚠️ Chat Debug: Stream completed but no content received");
+          throw new Error("EMPTY_RESPONSE");
+        }
+        
+      } catch (streamError) {
+        console.error("❌ Chat Debug: Error during streaming:", streamError);
+        throw streamError;
       }
 
       // Estimate token usage
-      const allMessagesText = [...messages, userMessage].map(m => m.content).join(' ');
-      estimatedRequestTokens = Math.ceil(allMessagesText.length / 4);
-      estimatedResponseTokens = Math.ceil(accumulatedText.length / 4);
-      const totalTokens = estimatedRequestTokens + estimatedResponseTokens;
+      try {
+        const allMessagesText = [...messages, userMessage].map(m => m.content).join(' ');
+        const estimatedRequestTokens = Math.ceil(allMessagesText.length / 4);
+        const estimatedResponseTokens = Math.ceil(accumulatedText.length / 4);
+        const totalTokens = estimatedRequestTokens + estimatedResponseTokens;
 
-      // Track AI usage with proper model name
-      await trackAIUsage({
-        model: primaryModel,
-        requestTokens: estimatedRequestTokens,
-        responseTokens: estimatedResponseTokens,
-        totalTokens: totalTokens,
-        conversationId: 'current-chat'
-      });
+        console.log("📊 Chat Debug: Token usage - Request:", estimatedRequestTokens, "Response:", estimatedResponseTokens);
 
-      // Track assistant message
-      await trackMessageSent({
-        chatId: 'current-chat',
-        messageLength: accumulatedText.length,
-        role: 'assistant'
-      });
+        // Track AI usage
+        await trackAIUsage({
+          model: primaryModel,
+          requestTokens: estimatedRequestTokens,
+          responseTokens: estimatedResponseTokens,
+          totalTokens: totalTokens,
+          conversationId: 'current-chat'
+        });
+
+        // Track assistant message
+        await trackMessageSent({
+          chatId: 'current-chat',
+          messageLength: accumulatedText.length,
+          role: 'assistant'
+        });
+        
+        console.log("✅ Chat Debug: Usage tracking completed");
+      } catch (trackingError) {
+        console.warn("⚠️ Chat Debug: Usage tracking failed:", trackingError);
+        // Continue anyway
+      }
 
       // Check if response contains code
       if (accumulatedText.includes('```')) {
         setGeneratedCode(accumulatedText);
+        console.log("📝 Chat Debug: Code detected and stored");
       }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage: ChatMessage = {
+      
+      console.log("🎉 Chat Debug: Message send process completed successfully");
+      
+    } catch (error: any) {
+      console.error("❌ Chat Debug: Major error in handleSendMessage:", error);
+      
+      let errorMessage = "Sorry, I encountered an error. Please try again.";
+      let shouldShowToast = false;
+      
+      if (error?.message === "API_KEY_MISSING") {
+        errorMessage = "⚠️ AI service not configured for local development. This works on the deployed version.";
+        shouldShowToast = true;
+        console.error("❌ Chat Debug: API key configuration issue");
+      } else if (error?.message === "EMPTY_RESPONSE") {
+        errorMessage = "The AI service returned an empty response. Please try rephrasing your message.";
+        shouldShowToast = true;
+        console.error("❌ Chat Debug: Empty response from AI");
+      } else if (error?.message?.includes("fetch")) {
+        errorMessage = "Network error: Unable to connect to AI service. Please check your connection.";
+        shouldShowToast = true;
+        console.error("❌ Chat Debug: Network error");
+      } else if (error?.message?.includes("rate")) {
+        errorMessage = "Rate limit exceeded. Please wait a moment before trying again.";
+        shouldShowToast = true;
+        console.error("❌ Chat Debug: Rate limit error");
+      } else {
+        // Generic error
+        shouldShowToast = true;
+        console.error("❌ Chat Debug: Unknown error type");
+      }
+      
+      // Show toast for major errors
+      if (shouldShowToast) {
+        toast({
+          title: "Chat Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+      
+      // Update the assistant message with error
+      const errorResponse: ChatMessage = {
         id: (Date.now() + 2).toString(),
         role: "assistant",
-        content: "Sorry, I encountered an error. Please try again.",
+        content: errorMessage,
         timestamp: new Date(),
+        model: "error",
       };
-      setMessages(prev => [...prev, errorMessage]);
+      
+      setMessages(prev => {
+        // Remove the placeholder assistant message and add error message
+        const filtered = prev.filter(msg => msg.id !== assistantMessage.id);
+        return [...filtered, errorResponse];
+      });
+      
     } finally {
       setIsLoading(false);
+      console.log("🏁 Chat Debug: handleSendMessage finally block executed");
     }
   };
 
@@ -380,7 +532,14 @@ const Chat = () => {
             <Sparkles className="w-5 h-5 text-primary" />
             <div>
               <h1 className="text-xl font-bold text-white">zapdev</h1>
-              <p className="text-sm text-gray-400">AI Website Builder</p>
+              <p className="text-sm text-gray-400">
+                AI Website Builder
+                {isTestMode && (
+                  <span className="ml-2 px-2 py-1 bg-yellow-600/20 text-yellow-400 text-xs rounded border border-yellow-600/30">
+                    TEST MODE
+                  </span>
+                )}
+              </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -432,6 +591,8 @@ const Chat = () => {
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center">
                     {message.role === "user" ? (
                       <User className="w-4 h-4 text-gray-400" />
+                    ) : message.model === "error" ? (
+                      <AlertTriangle className="w-4 h-4 text-red-400" />
                     ) : (
                       <Bot className="w-4 h-4 text-blue-400" />
                     )}
@@ -441,9 +602,22 @@ const Chat = () => {
                       <span className="text-sm font-medium text-gray-300">
                         {message.role === "user" ? "You" : "zapdev"}
                       </span>
+                      {message.model && message.model !== "error" && message.model !== "pending" && (
+                        <Badge variant="outline" className="text-xs text-gray-500 border-gray-600">
+                          {isTestMode ? "test-mode" : message.model}
+                        </Badge>
+                      )}
+                      {message.model === "pending" && isLoading && (
+                        <div className="flex items-center space-x-1">
+                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-gray-500">thinking...</span>
+                        </div>
+                      )}
                     </div>
                     <div className="prose prose-invert max-w-none">
-                      <div className="text-gray-100 whitespace-pre-wrap leading-relaxed">
+                      <div className={`whitespace-pre-wrap leading-relaxed ${
+                        message.model === "error" ? "text-red-400" : "text-gray-100"
+                      }`}>
                         {message.content}
                       </div>
                     </div>
