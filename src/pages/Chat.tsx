@@ -36,29 +36,52 @@ import { useNavigate } from "react-router-dom";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { type ChatMessage } from "@/lib/ai";
 import { multiModelAI } from "@/lib/multiModelAI";
+import { useChat } from 'ai/react';
 
 const Chat = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputValue, setInputValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false);
+  const [useAISDK, setUseAISDK] = useState(true); // Toggle between AI SDK and custom implementation
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user, isSignedIn } = useUser();
   const { signOut } = useClerk();
   const { trackAIUsage, trackMessageSent, trackChatCreation } = useUsageTracking();
   const navigate = useNavigate();
 
-  // Check if we're in test mode (no API key)
-  useEffect(() => {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-    if (!apiKey || apiKey === 'your_groq_api_key_here') {
-      setIsTestMode(true);
-      console.log("🔧 Chat: Running in test mode - no API key configured");
+  // AI SDK's useChat hook for streamlined integration (following official patterns)
+  const { messages: aiMessages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    api: '/api/groq/stream',
+    onFinish: (message) => {
+      // Track completion and check for code
+      if (message.content.includes('```')) {
+        setGeneratedCode(message.content);
+        console.log("📝 Chat Debug: Code detected and stored");
+      }
+    },
+    onError: (error) => {
+      console.error("❌ AI SDK Error:", error);
+      toast({
+        title: "Chat Error", 
+        description: error.message,
+        variant: "destructive",
+      });
     }
+  });
+
+  // Legacy state for custom implementation
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [customLoading, setCustomLoading] = useState(false);
+
+  // Check if we're in test mode (server-side API key validation)
+  useEffect(() => {
+    // Test mode is determined by server response, not client-side env vars
+    // This provides better security as API keys are never exposed to client
+    setIsTestMode(false);
+    console.log("🔧 Chat: Using secure server-side API proxy");
   }, []);
 
   // Simple test mode streaming function
@@ -91,7 +114,11 @@ const Chat = () => {
     return generator();
   };
 
-  const showSplitLayout = messages.length > 0 && hasStartedChat;
+     // Use appropriate message state based on implementation choice
+   const currentMessages = useAISDK ? aiMessages : messages;
+   const currentInput = useAISDK ? input : inputValue;
+   const currentIsLoading = useAISDK ? isLoading : customLoading;
+   const showSplitLayout = currentMessages.length > 0 && hasStartedChat;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -101,11 +128,19 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) {
-      console.log("📝 Chat Debug: Empty input, returning");
-      return;
-    }
+     const handleSendMessage = async () => {
+     // Use AI SDK if enabled
+     if (useAISDK) {
+       setHasStartedChat(true);
+       setShowPreview(true);
+       return;
+     }
+
+     // Custom implementation
+     if (!inputValue.trim()) {
+       console.log("📝 Chat Debug: Empty input, returning");
+       return;
+     }
 
     console.log("🚀 Chat Debug: Starting message send process");
     console.log("💬 User input:", inputValue);
@@ -132,8 +167,8 @@ const Chat = () => {
       // Continue anyway, tracking failure shouldn't stop the chat
     }
 
-    setInputValue("");
-    setIsLoading(true);
+         setInputValue("");
+     setCustomLoading(true);
     setHasStartedChat(true);
     setShowPreview(true);
 
@@ -151,12 +186,8 @@ const Chat = () => {
     try {
       console.log("🤖 Chat Debug: Checking multiModelAI availability");
       
-      // Check if environment variables are properly set
-      const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-      if (!apiKey || apiKey === 'your_groq_api_key_here') {
-        console.error("❌ Chat Debug: Groq API key not configured");
-        throw new Error("API_KEY_MISSING");
-      }
+      // API key validation is now handled by the secure server-side proxy
+      console.log("🔐 Chat Debug: Using secure server-side API proxy");
       
       console.log("🔧 Chat Debug: Getting system info");
       const systemInfo = multiModelAI.getSystemInfo();
@@ -316,10 +347,10 @@ const Chat = () => {
         return [...filtered, errorResponse];
       });
       
-    } finally {
-      setIsLoading(false);
-      console.log("🏁 Chat Debug: handleSendMessage finally block executed");
-    }
+         } finally {
+       setCustomLoading(false);
+       console.log("🏁 Chat Debug: handleSendMessage finally block executed");
+     }
   };
 
   const handleSignOut = async () => {
@@ -336,8 +367,8 @@ const Chat = () => {
     }
   };
 
-  // Welcome screen (no messages yet)
-  if (!hasStartedChat && messages.length === 0) {
+     // Welcome screen (no messages yet)
+   if (!hasStartedChat && currentMessages.length === 0) {
     return (
       <div className="min-h-screen bg-black text-foreground">
         {/* Navigation matching home page */}
@@ -468,21 +499,21 @@ const Chat = () => {
                 transition={{ duration: 0.6, delay: 1.5 }}
                 className="relative mb-8"
               >
-                <Textarea
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Describe your project..."
-                  className="w-full bg-gray-900/50 border-gray-700 text-white placeholder-gray-400 resize-none min-h-[120px] pr-16 text-lg p-6 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  rows={4}
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading}
-                  className="absolute right-3 bottom-3 bg-white hover:bg-gray-100 text-black p-3 h-12 w-12 rounded-lg"
-                >
-                  <Send className="w-5 h-5" />
-                </Button>
+                                 <Textarea
+                   value={currentInput}
+                   onChange={useAISDK ? handleInputChange : (e) => setInputValue(e.target.value)}
+                   onKeyPress={useAISDK ? undefined : handleKeyPress}
+                   placeholder="Describe your project..."
+                   className="w-full bg-gray-900/50 border-gray-700 text-white placeholder-gray-400 resize-none min-h-[120px] pr-16 text-lg p-6 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                   rows={4}
+                 />
+                 <Button
+                   onClick={useAISDK ? (e) => { handleSubmit(e); setHasStartedChat(true); setShowPreview(true); } : handleSendMessage}
+                   disabled={!currentInput.trim() || currentIsLoading}
+                   className="absolute right-3 bottom-3 bg-white hover:bg-gray-100 text-black p-3 h-12 w-12 rounded-lg"
+                 >
+                   <Send className="w-5 h-5" />
+                 </Button>
               </motion.div>
 
               {/* Quick Examples */}
@@ -503,7 +534,7 @@ const Chat = () => {
                     variant="outline"
                     size="sm"
                     className="border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white hover:border-gray-600 rounded-full px-4 py-2"
-                    onClick={() => setInputValue(example)}
+                                         onClick={() => useAISDK ? handleInputChange({ target: { value: example } } as any) : setInputValue(example)}
                   >
                     {example}
                   </Button>
@@ -542,44 +573,54 @@ const Chat = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            {showSplitLayout && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`border-gray-700 ${showCode ? 'bg-blue-600/20 text-blue-400 border-blue-500/50' : 'text-gray-300'}`}
-                  onClick={() => setShowCode(!showCode)}
-                >
-                  <Code className="w-4 h-4 mr-2" />
-                  Code
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-700 text-gray-300"
-                >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share
-                </Button>
-              </>
-            )}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-gray-400 hover:text-white"
-              onClick={handleSignOut}
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
+                     <div className="flex items-center space-x-2">
+             <Button
+               variant="outline"
+               size="sm"
+               className={`border-gray-700 ${useAISDK ? 'bg-green-600/20 text-green-400 border-green-500/50' : 'text-gray-300'}`}
+               onClick={() => setUseAISDK(!useAISDK)}
+               title={useAISDK ? 'Using AI SDK (Official)' : 'Using Custom Implementation'}
+             >
+               <Sparkles className="w-4 h-4 mr-2" />
+               {useAISDK ? 'AI SDK' : 'Custom'}
+             </Button>
+             {showSplitLayout && (
+               <>
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   className={`border-gray-700 ${showCode ? 'bg-blue-600/20 text-blue-400 border-blue-500/50' : 'text-gray-300'}`}
+                   onClick={() => setShowCode(!showCode)}
+                 >
+                   <Code className="w-4 h-4 mr-2" />
+                   Code
+                 </Button>
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   className="border-gray-700 text-gray-300"
+                 >
+                   <Share2 className="w-4 h-4 mr-2" />
+                   Share
+                 </Button>
+               </>
+             )}
+             <Button 
+               variant="ghost" 
+               size="sm" 
+               className="text-gray-400 hover:text-white"
+               onClick={handleSignOut}
+             >
+               <LogOut className="w-4 h-4" />
+             </Button>
+           </div>
         </div>
 
         {/* Messages */}
         <ScrollArea className="flex-1 p-6">
           <div className="max-w-3xl mx-auto space-y-6">
-            <AnimatePresence>
-              {messages.map((message) => (
+                         <AnimatePresence>
+               {currentMessages.map((message) => (
                 <motion.div
                   key={message.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -626,7 +667,7 @@ const Chat = () => {
               ))}
             </AnimatePresence>
             
-            {isLoading && (
+                         {currentIsLoading && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -656,21 +697,21 @@ const Chat = () => {
         <div className="p-6 border-t border-gray-800/50">
           <div className="max-w-3xl mx-auto">
             <div className="relative">
-              <Textarea
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Message zapdev..."
-                className="w-full bg-gray-900/50 border-gray-700/50 text-white placeholder-gray-400 resize-none min-h-[60px] pr-12 rounded-xl"
-                rows={1}
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading}
-                className="absolute right-2 top-2 bg-white hover:bg-gray-100 text-black p-2 h-8 w-8 rounded-lg"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+                             <Textarea
+                 value={currentInput}
+                 onChange={useAISDK ? handleInputChange : (e) => setInputValue(e.target.value)}
+                 onKeyPress={useAISDK ? undefined : handleKeyPress}
+                 placeholder="Message zapdev..."
+                 className="w-full bg-gray-900/50 border-gray-700/50 text-white placeholder-gray-400 resize-none min-h-[60px] pr-12 rounded-xl"
+                 rows={1}
+               />
+               <Button
+                 onClick={useAISDK ? (e) => { handleSubmit(e); setShowPreview(true); } : handleSendMessage}
+                 disabled={!currentInput.trim() || currentIsLoading}
+                 className="absolute right-2 top-2 bg-white hover:bg-gray-100 text-black p-2 h-8 w-8 rounded-lg"
+               >
+                 <Send className="w-4 h-4" />
+               </Button>
             </div>
             <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
               <span>Press Enter to send, Shift+Enter for new line</span>

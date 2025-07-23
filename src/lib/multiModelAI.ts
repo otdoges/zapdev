@@ -45,6 +45,11 @@ const MULTI_MODEL_CONFIG = {
   specialist: 'moonshotai/kimi-k2-instruct' as GroqModelId, // Kimi K2 for code specialization
 };
 
+// Debug flag controlling verbose logging (set VITE_DEBUG_MULTIMODEL="true" to enable)
+const DEBUG =
+  typeof import.meta !== 'undefined' &&
+  (import.meta.env.DEV || import.meta.env.VITE_DEBUG_MULTIMODEL === 'true');
+
 // Simple fallback for development
 async function* createFallbackStream(userPrompt: string): AsyncIterable<string> {
   console.log("🔧 MultiModelAI Debug: Using fallback development response");
@@ -173,6 +178,71 @@ class MultiModelAI {
     };
   }
 
+  private async callSecureGroqProxy(
+    messages: any[],
+    options: {
+      model?: string;
+      temperature?: number;
+      maxTokens?: number;
+    } = {}
+  ): Promise<AsyncIterable<string>> {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
+    const response = await fetch(`${baseUrl}/api/groq/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages,
+        options
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    // Handle AI SDK's data stream format (following official patterns)
+    async function* streamGenerator() {
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body reader available');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('0:')) {
+              // AI SDK data stream format: parse the JSON after the prefix
+              const data = line.slice(2);
+              try {
+                const parsed = JSON.parse(data);
+                if (typeof parsed === 'string') {
+                  yield parsed;
+                }
+              } catch (parseError) {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    }
+
+    return streamGenerator();
+  }
+
   async streamMultiModelResponse(
     messages: any[],
     options: {
@@ -183,133 +253,136 @@ class MultiModelAI {
       useTools?: boolean;
     } = {}
   ): Promise<AsyncIterable<string>> {
-    console.log("🤖 MultiModelAI Debug: Starting streamMultiModelResponse");
-    console.log("📝 Messages count:", messages.length);
-    console.log("⚙️ Options:", options);
-    
-    const { temperature = 0.7, maxTokens = 4000, onChunk, useOptimization = true, useTools = true } = options;
+    if (DEBUG) {
+      console.log('🤖 MultiModelAI Debug: Starting streamMultiModelResponse');
+      console.log('📝 Messages count:', messages.length);
+      console.log('⚙️ Options:', options);
+    }
 
-    // Check if Groq is configured
+    const {
+      temperature = 0.7,
+      maxTokens = 4000,
+      onChunk,
+      useOptimization = true,
+      useTools = true,
+    } = options;
+
+    // If Groq is not configured fall back to a local stream implementation
     if (!isGroqConfigured) {
-      console.log("🔧 MultiModelAI Debug: Groq not configured, using fallback");
+      if (DEBUG) console.log('🔧 Groq not configured, using fallback stream');
       const userPrompt = messages[messages.length - 1]?.content || '';
       return createFallbackStream(userPrompt);
     }
 
-    // Check API key first
-    const apiKey = typeof window !== 'undefined' ? 
-      (window as any).__VITE_GROQ_API_KEY__ || import.meta.env.VITE_GROQ_API_KEY :
-      import.meta.env.VITE_GROQ_API_KEY;
-      
-    if (!apiKey || apiKey === 'your_groq_api_key_here') {
-      console.error("❌ MultiModelAI Debug: No valid API key found");
-      throw new Error("API_KEY_MISSING");
-    }
-    console.log("✅ MultiModelAI Debug: API key available");
+    // Use secure server-side proxy instead of exposing API key to client
+    if (DEBUG) console.log('✅ Using secure server-side API proxy');
 
+    // Allow opting-out of hierarchical coordination
     if (!this.useHierarchicalSystem) {
-      console.log("🔄 MultiModelAI Debug: Using legacy response system");
-      return this.streamLegacyResponse(messages, options);
+      if (DEBUG) console.log('🔄 Using legacy streaming system via secure proxy');
+      return this.callSecureGroqProxy(messages, {
+        model: MULTI_MODEL_CONFIG.primary,
+        temperature,
+        maxTokens
+      });
     }
 
     const userPrompt = messages[messages.length - 1]?.content || '';
-    console.log("💬 MultiModelAI Debug: User prompt length:", userPrompt.length);
-    
-    // Quick optimization for streaming (lighter version)
-    let optimizedMessages = messages;
+    if (DEBUG) console.log('💬 User prompt length:', userPrompt.length);
+
+    // Lightweight, in-place prompt optimisation for streaming
+    let optimisedMessages = messages;
     if (useOptimization) {
+      if (DEBUG) console.log('🔧 Attempting quick prompt optimisation');
       try {
-        console.log("🔧 MultiModelAI Debug: Attempting prompt optimization");
-        const optimization = await geminiManager.optimizePrompt(userPrompt);
-        if (optimization.optimizedPrompt !== userPrompt) {
-          optimizedMessages = [
+        const optimisation = await geminiManager.optimizePrompt(userPrompt);
+        if (optimisation.optimizedPrompt !== userPrompt) {
+          optimisedMessages = [
             ...messages.slice(0, -1),
-            { ...messages[messages.length - 1], content: optimization.optimizedPrompt }
+            { ...messages[messages.length - 1], content: optimisation.optimizedPrompt },
           ];
-          console.log("✅ MultiModelAI Debug: Prompt optimized");
-        } else {
-          console.log("ℹ️ MultiModelAI Debug: No optimization needed");
+          if (DEBUG) console.log('✅ Prompt optimised');
+        } else if (DEBUG) {
+          console.log('ℹ️ No optimisation necessary');
         }
-      } catch (error) {
-        console.warn('⚠️ MultiModelAI Debug: Quick optimization failed, using original prompt:', error);
+      } catch (err) {
+        if (DEBUG) console.warn('⚠️ Prompt optimisation failed, continuing with original:', err);
       }
-    } else {
-      console.log("⏭️ MultiModelAI Debug: Skipping optimization");
+    } else if (DEBUG) {
+      console.log('⏭️ Prompt optimisation disabled');
     }
 
     try {
-      console.log("🎯 MultiModelAI Debug: Getting task assignments");
-      // Get task assignments for streaming
+      if (DEBUG) console.log('🎯 Fetching task assignments');
       const taskAssignments = await geminiManager.assignTasks(userPrompt, this.models);
-      console.log("📋 MultiModelAI Debug: Task assignments:", taskAssignments);
-      
-      const primaryAssignment = taskAssignments.find(a => a.role.includes('primary')) || taskAssignments[0];
-      console.log("🎯 MultiModelAI Debug: Primary assignment:", primaryAssignment);
-      
-      // Use assigned primary model for streaming, default to best preview model
-      const modelId = primaryAssignment?.model as GroqModelId || MULTI_MODEL_CONFIG.primary;
-      console.log("🤖 MultiModelAI Debug: Selected model:", modelId);
-      
-      const model = groq(modelId);
-      
-      // Prepare messages with tool support
+      if (DEBUG) console.log('📋 Task assignments:', taskAssignments);
+
+      // Pick the primary (or first) assignment for streaming
+      const primaryAssignment =
+        taskAssignments.find((a) => a.role.includes('primary')) || taskAssignments[0];
+      const modelId = (primaryAssignment?.model as GroqModelId) || MULTI_MODEL_CONFIG.primary;
+      if (DEBUG) console.log('🤖 Streaming model selected:', modelId);
+
       const systemMessage = {
         role: 'system' as const,
-        content: systemPrompt + (useTools ? '\n\nYou have access to tools for building and executing code. Use them when appropriate.' : '')
+        content:
+          systemPrompt +
+          (useTools
+            ? '\n\nYou have access to tools for building and executing code. Use them when appropriate.'
+            : ''),
       };
 
-      console.log("📤 MultiModelAI Debug: Calling streamText with model:", modelId);
-      console.log("📊 MultiModelAI Debug: Temperature:", temperature, "MaxTokens:", maxTokens);
-      
-      const result = await streamText({
-        model,
-        messages: [
-          systemMessage,
-          ...optimizedMessages
-        ],
-        temperature,
-        maxTokens,
-        tools: useTools ? this.prepareToolsForAI() : undefined,
-      });
-
-      console.log("✅ MultiModelAI Debug: streamText call successful");
-
-      // Run background tasks for coordination and learning
-      console.log("🔄 MultiModelAI Debug: Starting background tasks");
-      this.runBackgroundTasks(userPrompt, optimizedMessages, { temperature, maxTokens, useTools });
-
-      console.log("🌊 MultiModelAI Debug: Returning text stream");
-      return result.textStream;
-      
-    } catch (taskError) {
-      console.error("❌ MultiModelAI Debug: Task assignment failed, falling back to simple streaming:", taskError);
-      
-      // Fallback to simple streaming
-      try {
-        const fallbackModel = groq(MULTI_MODEL_CONFIG.primary);
-        console.log("🔄 MultiModelAI Debug: Using fallback model:", MULTI_MODEL_CONFIG.primary);
-        
-        const systemMessage = {
-          role: 'system' as const,
-          content: systemPrompt
-        };
-
-        const result = await streamText({
-          model: fallbackModel,
-          messages: [
-            systemMessage,
-            ...optimizedMessages
-          ],
-          temperature: 0.3, // Use conservative temperature for fallback
+      if (DEBUG)
+        console.log('📤 Invoking secure proxy stream', {
+          temperature,
           maxTokens,
+          model: modelId,
+          toolsEnabled: useTools,
         });
 
-        console.log("✅ MultiModelAI Debug: Fallback streaming successful");
-        return result.textStream;
-        
-      } catch (fallbackError) {
-        console.error("❌ MultiModelAI Debug: Fallback streaming also failed:", fallbackError);
-        throw fallbackError;
+      // Use secure proxy instead of direct AI SDK
+      const result = await this.callSecureGroqProxy([systemMessage, ...optimisedMessages], {
+        model: modelId,
+        temperature,
+        maxTokens
+      });
+
+      // Kick off background learning/coordination but don't await it
+      this.runBackgroundTasks(userPrompt, optimisedMessages, {
+        temperature,
+        maxTokens,
+        useTools,
+      }).catch((err) => DEBUG && console.debug('Background task failed', err));
+
+      // Optionally expose chunks during streaming
+      if (onChunk) {
+        (async () => {
+          for await (const chunk of result) {
+            try {
+              onChunk(chunk);
+            } catch (err) {
+              if (DEBUG) console.warn('onChunk handler threw', err);
+            }
+          }
+        })();
+      }
+
+      return result;
+    } catch (taskErr) {
+      console.error('❌ Streaming via primary model failed, attempting fallback:', taskErr);
+      try {
+        const result = await this.callSecureGroqProxy([
+          { role: 'system' as const, content: systemPrompt },
+          ...messages,
+        ], {
+          model: MULTI_MODEL_CONFIG.primary,
+          temperature: 0.3,
+          maxTokens,
+        });
+        return result;
+      } catch (fallbackErr) {
+        console.error('❌ Fallback streaming also failed:', fallbackErr);
+        throw fallbackErr;
       }
     }
   }
@@ -531,7 +604,7 @@ class MultiModelAI {
   }
 
   private async generateLegacyMultiModelResponse(
-    messages: { role: string; content: string }[],
+    messages: any[],
     options: GenerationOptions
   ): Promise<AggregatedResponse> {
     // Legacy implementation for fallback
@@ -583,7 +656,7 @@ class MultiModelAI {
   }
 
   private async streamLegacyResponse(
-    messages: { role: string; content: string }[],
+    messages: any[],
     options: GenerationOptions
   ): Promise<AsyncIterable<string>> {
     const { temperature = 0.7, maxTokens = 4000 } = options;

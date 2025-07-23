@@ -1,27 +1,21 @@
 import { createGroq } from '@ai-sdk/groq'
 
-const groqApiKey = import.meta.env.VITE_GROQ_API_KEY
-
-// For local development, we'll create a fallback
-const isDevelopment = !groqApiKey || groqApiKey === 'your_groq_api_key_here'
-
-if (isDevelopment) {
-  console.warn('🔧 GROQ: Running in development mode without API key')
-  console.warn('🔧 GROQ: Chat functionality will be limited until API key is configured')
-}
-
-// Create a mock groq instance for development
-const mockGroq = (modelId: any) => ({
-  modelId,
-  provider: 'groq',
-  mock: true,
+// Note: API key is now handled securely on the server-side via proxy endpoint
+// Client-side groq instance is only used for model definitions and not for actual API calls
+const mockGroq = (config?: { apiKey?: string }) => ({
+  completion: async (_params: any) => ({
+    choices: [{ message: { content: 'This should not be called - use secure proxy instead' } }]
+  }),
+  stream: async function* (_params: any) {
+    yield { choices: [{ delta: { content: 'This should not be called - use secure proxy instead' } }] };
+  }
 });
 
-export const groq = isDevelopment ? mockGroq : createGroq({
-  apiKey: groqApiKey,
-})
+// Always use mock since actual API calls go through secure proxy
+export const groq = mockGroq();
 
-export const isGroqConfigured = !isDevelopment
+// Configuration is handled on server-side, so this is always true for client
+export const isGroqConfigured = true
 
 // Available Groq models with context windows
 export const GROQ_MODELS = {
@@ -80,11 +74,9 @@ export const getModelInfo = (modelId: GroqModelId) => {
 // Helper function to get all reasoning models
 export const getReasoningModels = () => {
   return Object.entries(GROQ_MODELS)
-    .filter(([_, model]) => model.reasoning)
+    .filter(([_, model]) => 'reasoning' in model && (model as any).reasoning)
     .map(([id, model]) => ({ id: id as GroqModelId, ...model }))
 }
-
-// Helper function to get all models
 export const getAllModels = () => {
   return Object.entries(GROQ_MODELS)
     .map(([id, model]) => ({ id: id as GroqModelId, ...model }))

@@ -11,7 +11,7 @@ export interface ChatMessage {
 }
 
 export interface ChatOptions {
-  model?: GroqModelId
+  model?: string
   temperature?: number
   maxTokens?: number
   systemPrompt?: string
