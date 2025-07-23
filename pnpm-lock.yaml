@@ -7,6 +7,7 @@ settings:
 overrides:
   undici: '>=5.29.0'
   esbuild: '>=0.25.0'
+  path-to-regexp: '>=6.3.0'
 
 importers:
 
@@ -3406,9 +3407,6 @@ packages:
     resolution: {integrity: sha512-Xa4Nw17FS9ApQFJ9umLiJS4orGjm7ZzwUrwamcGQuHSzDyth9boKDaycYdDcZDuqYATXw4HFXgaqWTctW/v1HA==}
     engines: {node: '>=16 || 14 >=14.18'}
 
-  path-to-regexp@6.2.1:
-    resolution: {integrity: sha512-JLyh7xT1kizaEvcaXOQwOc2/Yhw6KZOvPf1S8401UyLk86CU79LN3vl7ztXGm/pZ+YjoyAJ4rxmHwbkBXJX+yw==}
-
   path-to-regexp@6.3.0:
     resolution: {integrity: sha512-Yhpw4T9C6hPpgPeA28us07OJeqZ5EzQTkbfwuhsUg0c237RomFoETJgmp2sa3F/41gfLE6G5cqcYwznmeEeOlQ==}
 
@@ -5850,7 +5848,7 @@ snapshots:
       esbuild: 0.25.8
       exit-hook: 2.2.1
       node-fetch: 2.6.9
-      path-to-regexp: 6.2.1
+      path-to-regexp: 6.3.0
       ts-morph: 12.0.0
       ts-node: 10.9.1(@swc/core@1.13.1)(@types/node@14.18.33)(typescript@4.9.5)
       typescript: 4.9.5
@@ -6883,8 +6881,6 @@ snapshots:
     dependencies:
       lru-cache: 10.4.3
       minipass: 7.1.2
-
-  path-to-regexp@6.2.1: {}
 
   path-to-regexp@6.3.0: {}
 
