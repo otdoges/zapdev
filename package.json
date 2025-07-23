@@ -57,7 +57,7 @@
     "@vercel/kv": "^3.0.0",
     "@webcontainer/api": "^1.6.1",
     "ai": "^4.3.19",
-    "axios": "^1.10.0",
+    "axios": "^1.11.0",
     "brace-expansion": "^4.0.1",
     "bun": "^1.2.18",
     "class-variance-authority": "^0.7.1",
@@ -90,13 +90,19 @@
     "vaul": "^1.1.2",
     "zod": "^3.25.6"
   },
+  "pnpm": {
+    "overrides": {
+      "undici": ">=5.29.0",
+      "esbuild": ">=0.25.0"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.31.0",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^24.0.15",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "@vercel/node": "3.2.19",
+    "@vercel/node": "^5.3.6",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
     "dotenv": "^17.2.0",
