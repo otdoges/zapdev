@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import systemPrompt from './systemPrompt';
+import type { LanguageModel } from 'ai';
 
 export interface TaskAssignment {
   model: string;
@@ -17,9 +18,36 @@ export interface PromptOptimization {
 }
 
 class GeminiManager {
-  private managerModel = google('gemini-2.0-flash-exp');
-  private promptOptimizerModel = google('gemini-2.0-flash-exp');
-  private quickManagerModel = google('gemini-2.0-flash-exp');
+  private managerModel: LanguageModel | null = null;
+  private promptOptimizerModel: LanguageModel | null = null;
+  private quickManagerModel: LanguageModel | null = null;
+  private isEnabled: boolean = false;
+
+  constructor() {
+    this.initializeGemini();
+  }
+
+  private initializeGemini() {
+    try {
+      const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+      
+      if (!apiKey) {
+        console.error('[GeminiManager] GOOGLE_GENERATIVE_AI_API_KEY not found - Gemini features disabled');
+        this.isEnabled = false;
+        return;
+      }
+
+      this.managerModel = google('gemini-2.0-flash-exp');
+      this.promptOptimizerModel = google('gemini-2.0-flash-exp');
+      this.quickManagerModel = google('gemini-2.0-flash-exp');
+      this.isEnabled = true;
+      
+      console.log('[GeminiManager] Gemini API initialized successfully');
+    } catch (error) {
+      console.error('[GeminiManager] Failed to initialize Gemini API:', error);
+      this.isEnabled = false;
+    }
+  }
 
   // AI Design Playbook principles for prompt optimization
   private promptOptimizationPrinciples = `
@@ -97,6 +125,15 @@ class GeminiManager {
 `;
 
   async optimizePrompt(userPrompt: string): Promise<PromptOptimization> {
+    if (!this.isEnabled) {
+      return {
+        originalPrompt: userPrompt,
+        optimizedPrompt: userPrompt,
+        improvements: ['Gemini optimization service unavailable'],
+        reasoning: 'Gemini API key not configured - using original prompt'
+      };
+    }
+
     try {
       const result = await generateText({
         model: this.promptOptimizerModel,
@@ -157,6 +194,31 @@ Return your response in JSON format with:
   }
 
   async assignTasks(userPrompt: string, availableModels: string[]): Promise<TaskAssignment[]> {
+    if (!this.isEnabled) {
+      // Fallback assignment logic when Gemini is disabled
+      const isCodeRelated = /code|programming|debug|implement|function|class|api|bug|fix/i.test(userPrompt);
+      
+      if (isCodeRelated) {
+        return [
+          {
+            model: 'moonshotai/kimi-k2-instruct',
+            role: 'primary_code_specialist',
+            priority: 10,
+            reasoning: 'Code-related request requires Kimi K2 specialist (Gemini unavailable)'
+          }
+        ];
+      } else {
+        return [
+          {
+            model: 'deepseek-r1-distill-llama-70b',
+            role: 'primary_general',
+            priority: 9,
+            reasoning: 'Most capable model for comprehensive responses (Gemini unavailable)'
+          }
+        ];
+      }
+    }
+
     try {
       const result = await generateText({
         model: this.managerModel,
@@ -241,16 +303,28 @@ ${systemPrompt}`
     userPrompt: string,
     modelResponses: { model: string; response: string; role: string }[]
   ): Promise<string> {
-    try {
-      // Check if Kimi K2 provided a response for code-related tasks
-      const kimiResponse = modelResponses.find(r => r.model === 'moonshotai/kimi-k2-instruct');
-      const isCodeRelated = /code|programming|debug|implement|function|class|api|bug|fix/i.test(userPrompt);
-      
-      if (isCodeRelated && kimiResponse) {
-        // Kimi K2 has final authority on code - use its response
-        return kimiResponse.response;
-      }
+    // Check if Kimi K2 provided a response for code-related tasks
+    const kimiResponse = modelResponses.find(r => r.model === 'moonshotai/kimi-k2-instruct');
+    const isCodeRelated = /code|programming|debug|implement|function|class|api|bug|fix/i.test(userPrompt);
+    
+    if (isCodeRelated && kimiResponse) {
+      // Kimi K2 has final authority on code - use its response
+      return kimiResponse.response;
+    }
 
+    if (!this.isEnabled) {
+      // Simple fallback coordination when Gemini is disabled
+      const sortedResponses = modelResponses.sort((a, b) => {
+        if (a.model === 'moonshotai/kimi-k2-instruct') return -1;
+        if (b.model === 'moonshotai/kimi-k2-instruct') return 1;
+        if (a.model === 'deepseek-r1-distill-llama-70b') return -1;
+        if (b.model === 'deepseek-r1-distill-llama-70b') return 1;
+        return 0;
+      });
+      return sortedResponses[0]?.response || 'I apologize, but I encountered an error processing your request.';
+    }
+
+    try {
       // For non-code tasks or when kimi-k2 didn't respond, coordinate responses
       const result = await generateText({
         model: this.quickManagerModel,
