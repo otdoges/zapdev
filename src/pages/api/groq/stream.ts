@@ -1,34 +1,29 @@
-import { groq } from '@ai-sdk/groq';
+import { createGroq } from '@ai-sdk/groq';
 import { streamText } from 'ai';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-interface GroqMessage {
+// Standard AI SDK message format
+interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
-interface GroqOptions {
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
+interface ChatRequest {
+  messages: Message[];
 }
 
-interface GroqStreamRequest {
-  messages: GroqMessage[];
-  options?: GroqOptions;
-}
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 // Allow streaming responses up to 30 seconds (following official docs)
 export const maxDuration = 30;
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { messages, options = {} } = req.body as GroqStreamRequest;
+    const { messages } = req.body as ChatRequest;
     
     // Validate request
     if (!messages || !Array.isArray(messages)) {
@@ -41,17 +36,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'API_KEY_MISSING' });
     }
 
-    // Create Groq client with secure server-side API key
-    const groqClient = groq({
+    // Create Groq client with secure server-side API key  
+    const groqClient = createGroq({
       apiKey: apiKey
     });
 
     // Use AI SDK's streamText with Groq provider (following official patterns)
     const result = await streamText({
-      model: groqClient(options.model || 'llama-3.3-70b-versatile'),
+      model: groqClient('llama-3.3-70b-versatile'),
       messages: messages,
-      temperature: options.temperature || 0.7,
-      maxTokens: options.maxTokens || 4000,
+      temperature: 0.7,
+      maxTokens: 4000,
     });
 
     // Return the AI SDK's data stream response (optimized for Vercel)
