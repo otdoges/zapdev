@@ -148,6 +148,99 @@ WorkOS supports wildcard redirect URIs for multiple subdomains:
 - **State Parameter**: Consider implementing CSRF protection using the state parameter
 - **Error Handling**: The app includes comprehensive error handling for redirect URI mismatches
 
+## E2B Code Execution Integration
+
+This project integrates with E2B (End-to-End Builder) for secure TypeScript/JavaScript code execution in isolated cloud sandboxes. This enables AI-powered code generation and execution capabilities.
+
+### E2B Setup
+
+1. **Get E2B API Key**:
+   - Sign up at [E2B.dev](https://e2b.dev)
+   - Get your API key from the [E2B Dashboard](https://e2b.dev/docs)
+
+2. **Environment Configuration**:
+   Add your E2B API key to your environment variables:
+   ```bash
+   E2B_API_KEY=your_e2b_api_key_here
+   ```
+
+### Features
+
+- **TypeScript/JavaScript Execution**: Execute AI-generated TypeScript and JavaScript code in secure sandboxes
+- **File Operations**: Create, read, and manage files within sandboxes
+- **Package Installation**: Install Node.js packages dynamically
+- **Real-time Tracking**: PostHog analytics integration for usage monitoring
+- **Error Handling**: Comprehensive error handling and logging
+
+### Usage
+
+The E2B integration provides tRPC endpoints for code execution:
+
+```typescript
+// Execute TypeScript/JavaScript code
+const result = await trpc.e2b.executeCode.mutate({
+  code: 'console.log("Hello, World!");',
+  language: 'javascript', // or 'typescript'
+  timeout: 30000,
+  installPackages: ['lodash'] // optional
+});
+
+// File operations
+await trpc.e2b.createFile.mutate({
+  path: 'app.js',
+  content: 'const express = require("express");'
+});
+
+const fileContent = await trpc.e2b.readFile.query({
+  path: 'app.js'
+});
+
+const files = await trpc.e2b.listFiles.query({
+  directory: '.'
+});
+
+// Package installation
+const installResult = await trpc.e2b.installPackage.mutate({
+  packageName: 'express',
+  language: 'node'
+});
+
+// Service status
+const status = await trpc.e2b.getStatus.query();
+```
+
+### Security & Limits
+
+- Code execution runs in isolated cloud sandboxes
+- Each execution creates a fresh sandbox instance
+- Sandboxes are automatically cleaned up after execution
+- All operations require authentication
+- Usage is tracked for monitoring and analytics
+
+### Troubleshooting
+
+If E2B functionality is not working:
+
+1. **Check API Key**: Ensure `E2B_API_KEY` is properly set in your environment
+2. **Check Service Status**: Use the status endpoint to verify E2B service availability
+3. **Review Logs**: Check browser console and server logs for E2B-related errors
+4. **Timeout Issues**: Increase timeout for complex operations
+5. **Package Installation**: Ensure package names are valid for Node.js/npm
+
+### Development
+
+For development, you can check E2B service status:
+
+```typescript
+import { e2bService } from './src/lib/e2b-service';
+
+// Check if E2B is available
+console.log('E2B Available:', e2bService.isAvailable());
+
+// Get service metrics
+console.log('E2B Status:', e2bService.getStatus());
+```
+
 ## Quick Start
 
 1. Clone the repository

@@ -1,5 +1,6 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { e2bService } from '../../src/lib/e2b-service';
 
 // Define the context interface
 interface Context {
@@ -350,6 +351,133 @@ const polarRouter = router({
     }),
 });
 
+// E2B Code Execution procedures
+const e2bRouter = router({
+  // Execute TypeScript/JavaScript code
+  executeCode: protectedProcedure
+    .input(z.object({
+      code: z.string(),
+      language: z.enum(['javascript', 'typescript', 'bash']).optional().default('javascript'),
+      timeout: z.number().optional().default(30000),
+      installPackages: z.array(z.string()).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const result = await e2bService.executeCode(input.code, {
+          language: input.language,
+          timeout: input.timeout,
+          installPackages: input.installPackages,
+        });
+        
+        return result;
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Code execution failed',
+        });
+      }
+    }),
+
+  // Create a file in sandbox
+  createFile: protectedProcedure
+    .input(z.object({
+      path: z.string(),
+      content: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const success = await e2bService.createFile(input.path, input.content);
+        
+        if (!success) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to create file',
+          });
+        }
+        
+        return { success };
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'File creation failed',
+        });
+      }
+    }),
+
+  // Read a file from sandbox
+  readFile: protectedProcedure
+    .input(z.object({
+      path: z.string(),
+    }))
+    .query(async ({ input, ctx }) => {
+      try {
+        const content = await e2bService.readFile(input.path);
+        
+        if (content === null) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'File not found or could not be read',
+          });
+        }
+        
+        return { content };
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'File read failed',
+        });
+      }
+    }),
+
+  // List files in sandbox directory
+  listFiles: protectedProcedure
+    .input(z.object({
+      directory: z.string().optional().default('.'),
+    }))
+    .query(async ({ input, ctx }) => {
+      try {
+        const files = await e2bService.listFiles(input.directory);
+        return { files };
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'File listing failed',
+        });
+      }
+    }),
+
+  // Install package in sandbox (Node.js packages for TypeScript/JavaScript)
+  installPackage: protectedProcedure
+    .input(z.object({
+      packageName: z.string(),
+      language: z.enum(['node']).optional().default('node'),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const result = await e2bService.installPackage(input.packageName, input.language);
+        return result;
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Package installation failed',
+        });
+      }
+    }),
+
+  // Get E2B service status and metrics
+  getStatus: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const status = e2bService.getStatus();
+      return status;
+    } catch (error) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to get E2B service status',
+      });
+    }
+  }),
+});
+
 // Main app router
 export const appRouter = router({
   auth: authRouter,
@@ -358,6 +486,7 @@ export const appRouter = router({
   message: messageRouter,
   aiModel: aiModelRouter,
   polar: polarRouter,
+  e2b: e2bRouter,
 });
 
 export type AppRouter = typeof appRouter; 

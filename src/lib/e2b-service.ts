@@ -1,5 +1,12 @@
-import * as crypto from 'crypto';
 import { Sandbox } from '@e2b/code-interpreter';
+
+// PostHog event names for E2B tracking
+const E2B_EVENTS = {
+  CODE_EXECUTION: 'e2b_code_execution',
+  FILE_OPERATION: 'e2b_file_operation', 
+  PACKAGE_INSTALLATION: 'e2b_package_installation',
+  SERVICE_ERROR: 'e2b_service_error',
+} as const;
 
 export interface ExecutionResult {
   success: boolean;
@@ -16,253 +23,163 @@ export interface E2BExecutionOptions {
   installPackages?: string[];
 }
 
-interface SandboxSession {
-  id: string;
-  sandbox: Sandbox;
-  createdAt: Date;
-  lastUsed: Date;
-  userId?: string;
-  inUse: boolean;
-  expiresAt: Date;
-}
-
-interface SessionPool {
-  sessions: Map<string, SandboxSession>;
-  waitingQueue: Array<{
-    resolve: (session: SandboxSession) => void;
-    reject: (error: Error) => void;
-    userId?: string;
-  }>;
+interface E2BMetrics {
+  executionsCount: number;
+  totalExecutionTime: number;
+  errorCount: number;
+  lastExecution?: Date;
 }
 
 class E2BService {
-  private sessionPool: SessionPool = {
-    sessions: new Map(),
-    waitingQueue: []
+  private metrics: E2BMetrics = {
+    executionsCount: 0,
+    totalExecutionTime: 0,
+    errorCount: 0
   };
-  private readonly MAX_SESSION_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
-  private readonly MAX_IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
-  private readonly MAX_CONCURRENT_SESSIONS = 20; // Hobby plan limit
-  private readonly SESSION_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
-  private cleanupTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     // Check if E2B API key is available
-    if (!process.env.E2B_API_KEY && !import.meta.env.VITE_E2B_API_KEY) {
+    if (!this.isAvailable()) {
       console.warn('E2B API key not found. E2B functionality will be disabled.');
-    } else {
-      // Start the cleanup timer for expired sessions only if API key is available
-      this.startCleanupTimer();
     }
   }
 
   /**
-   * Starts a timer to periodically clean up expired sessions
+   * Track E2B usage events for analytics
    */
-  private startCleanupTimer(): void {
-    if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer);
-    }
-
-    this.cleanupTimer = setInterval(() => {
-      this.cleanupExpiredSessions();
-    }, this.SESSION_CLEANUP_INTERVAL);
-  }
-
-  /**
-   * Removes expired sessions from the pool
-   */
-  private async cleanupExpiredSessions(): Promise<void> {
-    const now = new Date();
-    const expiredSessions: string[] = [];
-
-    for (const [sessionId, session] of this.sessionPool.sessions) {
-      if (now > session.expiresAt || (!session.inUse && (now.getTime() - session.lastUsed.getTime()) > this.MAX_IDLE_TIMEOUT)) {
-        expiredSessions.push(sessionId);
-      }
-    }
-
-    for (const sessionId of expiredSessions) {
-      await this.destroySession(sessionId);
-    }
-
-    console.log(`Cleaned up ${expiredSessions.length} expired E2B sessions`);
-  }
-
-  /**
-   * Gets or creates an available session for the user
-   */
-  private async getAvailableSession(userId?: string): Promise<SandboxSession> {
-    // First, try to find an available session for this user
-    if (userId) {
-      for (const session of this.sessionPool.sessions.values()) {
-        if (session.userId === userId && !session.inUse && new Date() < session.expiresAt) {
-          session.inUse = true;
-          session.lastUsed = new Date();
-          return session;
-        }
-      }
-    }
-
-    // Then, try to find any available session
-    for (const session of this.sessionPool.sessions.values()) {
-      if (!session.inUse && new Date() < session.expiresAt && !session.userId) {
-        session.inUse = true;
-        session.lastUsed = new Date();
-        session.userId = userId;
-        return session;
-      }
-    }
-
-    // If no available session and under limit, create a new one
-    if (this.sessionPool.sessions.size < this.MAX_CONCURRENT_SESSIONS) {
-      return await this.createNewSession(userId);
-    }
-
-    // If at limit, wait for a session to become available
-    return new Promise<SandboxSession>((resolve, reject) => {
-      this.sessionPool.waitingQueue.push({ resolve, reject, userId });
-      
-      // Set a timeout to prevent waiting indefinitely
-      setTimeout(() => {
-        const index = this.sessionPool.waitingQueue.findIndex(item => item.resolve === resolve);
-        if (index > -1) {
-          this.sessionPool.waitingQueue.splice(index, 1);
-          reject(new Error('Timeout waiting for available E2B session. Please try again later.'));
-        }
-      }, 30000); // 30 second timeout
-    });
-  }
-
-  /**
-   * Creates a new sandbox session
-   */
-  private async createNewSession(userId?: string): Promise<SandboxSession> {
+  private trackEvent(eventName: string, metadata: Record<string, any>): void {
     try {
-      const apiKey = process.env.E2B_API_KEY || import.meta.env.VITE_E2B_API_KEY;
-      if (!apiKey) {
-        throw new Error('E2B API key not configured');
-      }
-
-      console.log('Creating new E2B sandbox session...');
-      const sandbox = await Sandbox.create({
-        apiKey,
-        timeoutMs: this.MAX_SESSION_DURATION,
-      });
-
-      const now = new Date();
-      const session: SandboxSession = {
-        id: `session_${Date.now()}_${crypto.randomBytes(9).toString('hex')}`,
-        sandbox,
-        createdAt: now,
-        lastUsed: now,
-        userId,
-        inUse: true,
-        expiresAt: new Date(now.getTime() + this.MAX_SESSION_DURATION)
+      // Store event locally for PostHog tracking
+      const event = {
+        eventName,
+        metadata: {
+          ...metadata,
+          timestamp: Date.now(),
+          service: 'e2b',
+        },
+        timestamp: Date.now(),
       };
 
-      this.sessionPool.sessions.set(session.id, session);
-      console.log(`E2B sandbox session created: ${session.id} (${this.sessionPool.sessions.size}/${this.MAX_CONCURRENT_SESSIONS})`);
-      
-      return session;
+      // Store in localStorage for backup/offline support
+      const existingEvents = JSON.parse(localStorage.getItem('pendingUsageEvents') || '[]');
+      existingEvents.push(event);
+      localStorage.setItem('pendingUsageEvents', JSON.stringify(existingEvents));
+
+      console.log('E2B event tracked:', event);
     } catch (error) {
-      console.error('Failed to create E2B sandbox session:', error);
-      throw error;
+      console.error('Error tracking E2B event:', error);
     }
   }
 
   /**
-   * Releases a session back to the pool
+   * Get E2B API key from environment
    */
-  private releaseSession(sessionId: string): void {
-    const session = this.sessionPool.sessions.get(sessionId);
-    if (session) {
-      session.inUse = false;
-      session.lastUsed = new Date();
-      
-      // Check if anyone is waiting for a session
-      if (this.sessionPool.waitingQueue.length > 0) {
-        const waiter = this.sessionPool.waitingQueue.shift();
-        if (waiter) {
-          session.inUse = true;
-          session.userId = waiter.userId;
-          waiter.resolve(session);
-        }
-      }
-    }
+  private getApiKey(): string | null {
+    return process.env.E2B_API_KEY || import.meta.env?.VITE_E2B_API_KEY || null;
   }
 
   /**
-   * Destroys a session and removes it from the pool
+   * Execute code in a new E2B sandbox
    */
-  private async destroySession(sessionId: string): Promise<void> {
-    const session = this.sessionPool.sessions.get(sessionId);
-    if (session) {
-      try {
-        // Explicitly kill the sandbox to free resources immediately
-        await session.sandbox.kill();
-        this.sessionPool.sessions.delete(sessionId);
-        console.log(`Destroyed E2B session: ${sessionId}`);
-      } catch (error) {
-        console.error(`Error destroying session ${sessionId}:`, error);
-        // Even if kill fails, remove from pool to prevent memory leaks
-        this.sessionPool.sessions.delete(sessionId);
-      }
-    }
-  }
-
-  async executeCode(code: string, options: E2BExecutionOptions = {}, userId?: string): Promise<ExecutionResult> {
+  async executeCode(code: string, options: E2BExecutionOptions = {}): Promise<ExecutionResult> {
     const startTime = Date.now();
     const logs: string[] = [];
-    let session: SandboxSession | null = null;
     
     try {
       if (!this.isAvailable()) {
         throw new Error('E2B API key not configured');
       }
 
-      logs.push('Acquiring E2B sandbox session...');
-      session = await this.getAvailableSession(userId);
-      logs.push(`Using session: ${session.id}`);
-
-      logs.push('Starting code execution in E2B sandbox...');
-
-      // Install packages if specified
-      if (options.installPackages && options.installPackages.length > 0) {
-        logs.push(`Installing packages: ${options.installPackages.join(', ')}`);
-        for (const pkg of options.installPackages) {
-          await session.sandbox.runCode(`!pip install ${pkg}`, { timeoutMs: options.timeout });
-        }
-      }
-
-      // Execute the code
-      logs.push('Executing code...');
-      const execution = await session.sandbox.runCode(code, {
-        timeoutMs: options.timeout || 30000,
+      const apiKey = this.getApiKey()!;
+      logs.push('Creating E2B sandbox...');
+      
+      // Create a new sandbox for each execution (recommended by E2B)
+      const sandbox = await Sandbox.create({ 
+        apiKey,
+        timeoutMs: options.timeout || 30000
       });
 
-      const executionTime = Date.now() - startTime;
-      logs.push(`Execution completed in ${executionTime}ms`);
+      try {
+        logs.push('Installing packages if specified...');
+        // Install packages if specified
+        if (options.installPackages && options.installPackages.length > 0) {
+          for (const pkg of options.installPackages) {
+            logs.push(`Installing package: ${pkg}`);
+            await sandbox.runCode(`!pip install ${pkg}`, { timeoutMs: 30000 });
+          }
+        }
 
-      // Get any output files
-      const files: Array<{ name: string; content: string }> = [];
-      
-      const logOutput = execution.logs?.stdout 
-        ? (Array.isArray(execution.logs.stdout) ? execution.logs.stdout.join('\n') : execution.logs.stdout)
-        : execution.logs?.stderr 
-        ? (Array.isArray(execution.logs.stderr) ? execution.logs.stderr.join('\n') : execution.logs.stderr)
-        : '';
-      
-      return {
-        success: true,
-        output: execution.text || logOutput || 'Code executed successfully',
-        logs,
-        files,
-        executionTime,
-      };
+        logs.push('Executing code...');
+        // Execute the main code
+        const execution = await sandbox.runCode(code, {
+          timeoutMs: options.timeout || 30000,
+        });
+
+        const executionTime = Date.now() - startTime;
+        logs.push(`Execution completed in ${executionTime}ms`);
+
+        // Update metrics
+        this.updateMetrics(executionTime, false);
+
+        // Track successful execution
+        this.trackEvent(E2B_EVENTS.CODE_EXECUTION, {
+          success: true,
+          language: options.language || 'javascript',
+          executionTime,
+          hasOutput: !!execution.text,
+          hasPackageInstallation: !!(options.installPackages && options.installPackages.length > 0),
+          packageCount: options.installPackages?.length || 0,
+        });
+
+        // Extract output
+        let output = '';
+        if (execution.text) {
+          output = execution.text;
+        } else if (execution.logs?.stdout) {
+          output = Array.isArray(execution.logs.stdout) 
+            ? execution.logs.stdout.join('\n') 
+            : execution.logs.stdout;
+        } else if (execution.logs?.stderr) {
+          output = Array.isArray(execution.logs.stderr) 
+            ? execution.logs.stderr.join('\n') 
+            : execution.logs.stderr;
+        } else {
+          output = 'Code executed successfully';
+        }
+
+        // Get any output files (this is a simplified version, could be expanded)
+        const files: Array<{ name: string; content: string }> = [];
+
+        return {
+          success: true,
+          output,
+          logs,
+          files,
+          executionTime,
+        };
+
+      } finally {
+        // Always close the sandbox to free resources
+        await sandbox.kill();
+        logs.push('Sandbox closed');
+      }
+
     } catch (error) {
       const executionTime = Date.now() - startTime;
       logs.push(`Execution failed after ${executionTime}ms`);
+      
+      // Update metrics
+      this.updateMetrics(executionTime, true);
+      
+      // Track failed execution
+      this.trackEvent(E2B_EVENTS.CODE_EXECUTION, {
+        success: false,
+        language: options.language || 'javascript',
+        executionTime,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        hasPackageInstallation: !!(options.installPackages && options.installPackages.length > 0),
+        packageCount: options.installPackages?.length || 0,
+      });
       
       return {
         success: false,
@@ -271,157 +188,207 @@ class E2BService {
         logs,
         executionTime,
       };
-    } finally {
-      // Always release the session back to the pool
-      if (session) {
-        this.releaseSession(session.id);
-        logs.push(`Released session: ${session.id}`);
-      }
     }
   }
 
-  async createFile(path: string, content: string, userId?: string): Promise<boolean> {
-    let session: SandboxSession | null = null;
-    
+  /**
+   * Create a file in a sandbox
+   */
+  async createFile(path: string, content: string): Promise<boolean> {
     try {
       if (!this.isAvailable()) {
         throw new Error('E2B API key not configured');
       }
 
-      session = await this.getAvailableSession(userId);
-      await session.sandbox.files.write(path, content);
-      return true;
+      const apiKey = this.getApiKey()!;
+      const sandbox = await Sandbox.create({ apiKey });
+      
+                   try {
+        await sandbox.files.write(path, content);
+        
+        // Track successful file creation
+        this.trackEvent(E2B_EVENTS.FILE_OPERATION, {
+          operation: 'create',
+          success: true,
+          filePath: path,
+          contentLength: content.length,
+        });
+        
+        return true;
+      } finally {
+        await sandbox.kill();
+      }
     } catch (error) {
       console.error('Failed to create file:', error);
+      
+      // Track failed file creation
+      this.trackEvent(E2B_EVENTS.FILE_OPERATION, {
+        operation: 'create',
+        success: false,
+        filePath: path,
+        contentLength: content.length,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+      
       return false;
-    } finally {
-      if (session) {
-        this.releaseSession(session.id);
-      }
     }
   }
 
-  async readFile(path: string, userId?: string): Promise<string | null> {
-    let session: SandboxSession | null = null;
-    
+  /**
+   * Read a file from a sandbox
+   */
+  async readFile(path: string): Promise<string | null> {
     try {
       if (!this.isAvailable()) {
         throw new Error('E2B API key not configured');
       }
 
-      session = await this.getAvailableSession(userId);
-      const content = await session.sandbox.files.read(path);
-      return content;
+      const apiKey = this.getApiKey()!;
+      const sandbox = await Sandbox.create({ apiKey });
+      
+                   try {
+        const content = await sandbox.files.read(path);
+        
+        // Track successful file read
+        this.trackEvent(E2B_EVENTS.FILE_OPERATION, {
+          operation: 'read',
+          success: true,
+          filePath: path,
+          contentLength: content?.length || 0,
+        });
+        
+        return content;
+      } finally {
+        await sandbox.kill();
+      }
     } catch (error) {
       console.error('Failed to read file:', error);
+      
+      // Track failed file read
+      this.trackEvent(E2B_EVENTS.FILE_OPERATION, {
+        operation: 'read',
+        success: false,
+        filePath: path,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+      
       return null;
-    } finally {
-      if (session) {
-        this.releaseSession(session.id);
-      }
     }
   }
 
-  async listFiles(directory = '.', userId?: string): Promise<string[]> {
-    let session: SandboxSession | null = null;
-    
+  /**
+   * List files in a directory within a sandbox
+   */
+  async listFiles(directory = '.'): Promise<string[]> {
     try {
       if (!this.isAvailable()) {
         throw new Error('E2B API key not configured');
       }
 
-      session = await this.getAvailableSession(userId);
-      const files = await session.sandbox.files.list(directory);
-      return files.map(file => file.name);
+      const apiKey = this.getApiKey()!;
+      const sandbox = await Sandbox.create({ apiKey });
+      
+                   try {
+        const files = await sandbox.files.list(directory);
+        const fileNames = files.map(file => file.name);
+        
+        // Track successful file listing
+        this.trackEvent(E2B_EVENTS.FILE_OPERATION, {
+          operation: 'list',
+          success: true,
+          directory,
+          fileCount: fileNames.length,
+        });
+        
+        return fileNames;
+      } finally {
+        await sandbox.kill();
+      }
     } catch (error) {
       console.error('Failed to list files:', error);
+      
+      // Track failed file listing
+      this.trackEvent(E2B_EVENTS.FILE_OPERATION, {
+        operation: 'list',
+        success: false,
+        directory,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+      
       return [];
-    } finally {
-      if (session) {
-        this.releaseSession(session.id);
-      }
     }
   }
 
-  async installPackage(packageName: string, language: 'python' | 'node' = 'python', userId?: string): Promise<ExecutionResult> {
+  /**
+   * Install a package in a sandbox
+   */
+  async installPackage(packageName: string, language: 'python' | 'node' = 'python'): Promise<ExecutionResult> {
     const command = language === 'python' ? `!pip install ${packageName}` : `!npm install ${packageName}`;
-    return this.executeCode(command, { language: 'bash' }, userId);
+    
+    // Track package installation attempt
+    this.trackEvent(E2B_EVENTS.PACKAGE_INSTALLATION, {
+      packageName,
+      language,
+      command,
+    });
+    
+    return this.executeCode(command, { language: 'bash' });
   }
 
-  async cleanup(): Promise<void> {
-    try {
-      // Stop cleanup timer
-      if (this.cleanupTimer) {
-        clearInterval(this.cleanupTimer);
-        this.cleanupTimer = null;
-      }
-
-      // Clean up all sessions
-      const sessionIds = Array.from(this.sessionPool.sessions.keys());
-      for (const sessionId of sessionIds) {
-        await this.destroySession(sessionId);
-      }
-
-      // Clear waiting queue
-      while (this.sessionPool.waitingQueue.length > 0) {
-        const waiter = this.sessionPool.waitingQueue.shift();
-        if (waiter) {
-          waiter.reject(new Error('Service is shutting down'));
-        }
-      }
-
-      console.log('E2B service cleanup completed');
-    } catch (error) {
-      console.error('Failed to cleanup E2B service:', error);
+  /**
+   * Update execution metrics
+   */
+  private updateMetrics(executionTime: number, isError: boolean): void {
+    this.metrics.executionsCount++;
+    this.metrics.totalExecutionTime += executionTime;
+    this.metrics.lastExecution = new Date();
+    
+    if (isError) {
+      this.metrics.errorCount++;
     }
   }
 
+  /**
+   * Check if E2B is available
+   */
   isAvailable(): boolean {
-    const apiKey = process.env.E2B_API_KEY || import.meta.env.VITE_E2B_API_KEY;
-    return !!apiKey;
+    return !!this.getApiKey();
   }
 
+  /**
+   * Get service status and metrics
+   */
   getStatus(): { 
     available: boolean; 
-    totalSessions: number; 
-    activeSessions: number; 
-    waitingQueue: number;
-    maxSessions: number;
+    metrics: E2BMetrics;
+    averageExecutionTime: number;
+    errorRate: number;
   } {
-    const activeSessions = Array.from(this.sessionPool.sessions.values()).filter(s => s.inUse).length;
+    const averageExecutionTime = this.metrics.executionsCount > 0 
+      ? this.metrics.totalExecutionTime / this.metrics.executionsCount 
+      : 0;
+    
+    const errorRate = this.metrics.executionsCount > 0 
+      ? (this.metrics.errorCount / this.metrics.executionsCount) * 100 
+      : 0;
     
     return {
       available: this.isAvailable(),
-      totalSessions: this.sessionPool.sessions.size,
-      activeSessions,
-      waitingQueue: this.sessionPool.waitingQueue.length,
-      maxSessions: this.MAX_CONCURRENT_SESSIONS,
+      metrics: { ...this.metrics },
+      averageExecutionTime,
+      errorRate,
     };
   }
 
   /**
-   * Gets detailed session information (for debugging)
+   * Reset metrics (useful for testing)
    */
-  getSessionInfo(): Array<{
-    id: string;
-    userId?: string;
-    inUse: boolean;
-    createdAt: string;
-    lastUsed: string;
-    expiresAt: string;
-    timeRemaining: number;
-  }> {
-    const now = new Date();
-    
-    return Array.from(this.sessionPool.sessions.values()).map(session => ({
-      id: session.id,
-      userId: session.userId,
-      inUse: session.inUse,
-      createdAt: session.createdAt.toISOString(),
-      lastUsed: session.lastUsed.toISOString(),
-      expiresAt: session.expiresAt.toISOString(),
-      timeRemaining: Math.max(0, session.expiresAt.getTime() - now.getTime())
-    }));
+  resetMetrics(): void {
+    this.metrics = {
+      executionsCount: 0,
+      totalExecutionTime: 0,
+      errorCount: 0
+    };
   }
 }
 

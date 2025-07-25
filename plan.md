@@ -1,3 +1,66 @@
+# E2B Integration Plan
+
+## Objective
+Integrate the E2B sandbox platform correctly into the project, aligning with the official documentation and ensuring reliable, scalable, and secure code execution.
+
+## Deliverables
+- Refactored `src/lib/e2b-service.ts` compliant with latest E2B SDK guidelines
+- `.env.example` with `E2B_API_KEY` placeholder and updated README setup instructions
+- Server-side API (tRPC route) exposing sandbox actions: execute, files.read/write/list
+- React hook `useE2BExecution` powering the existing `CodeExecutionDisplay`
+- Unit + integration tests covering happy path, timeouts, and error states
+- Observability dashboards (PostHog + logs) tracking sandbox usage & errors
+
+## Milestones & Tasks
+1. **Research & Audit**
+   - Read E2B quick-start, sandbox API, limits, and pricing docs
+   - Compare docs vs current `e2b-service.ts`; list deviations
+
+2. **Environment Setup**
+   - Add `.env.example` & update dev/prod secrets with `E2B_API_KEY`
+   - Fail-fast check in CI if key missing
+
+3. **Service Refactor**
+   - Replace deprecated SDK calls, adopt streaming if available
+   - Simplify/replace manual session pool if SDK now handles pooling
+   - Expose typed helper methods: `execute`, `files.{read,write,list}`
+
+4. **API Layer**
+   - Add protected tRPC router `e2b` with endpoints mirroring service helpers
+   - Rate-limit & auth-guard each endpoint
+
+5. **Front-End Integration**
+   - Create `useE2BExecution` hook (query/mutation wrappers)
+   - Wire into `CodeExecutionDisplay` and any other consumers
+
+6. **Testing**
+   - Mock E2B SDK for unit tests (Vitest)
+   - Integration test executing `print('hello')` and checking output
+
+7. **Observability & Limits**
+   - Emit structured logs for each sandbox call
+   - Track usage in PostHog (`e2b_execution` event) with duration & success flag
+   - Alert on error-rate > 5% or execution time > 5s median
+
+8. **Docs & DX**
+   - Update README with setup, usage examples, and troubleshooting
+   - Add Storybook entry showcasing live code execution (optional)
+
+## Risks & Mitigations
+| Risk | Mitigation |
+|------|------------|
+| API quota exhaustion | Concurrency checks, exponential back-off, show user-friendly error |
+| Security (arbitrary code) | Enforce sandbox limits, scrub output, disallow network access if possible |
+| Latency spikes | Stream stdout, cache results for repeated runs |
+| Cost overrun | Monitor monthly spend, set hard budget alerts |
+
+## Success Metrics
+- 95th percentile execution latency < 2s for simple scripts
+- Zero unhandled sandbox errors in production for 7 consecutive days
+- All new tests pass in CI, coverage ≥ 90%
+
+---
+
 # Chat Interface Redesign Plan
 
 ## Overview
