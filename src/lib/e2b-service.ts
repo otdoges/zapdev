@@ -49,6 +49,8 @@ class E2BService {
    */
   private trackEvent(eventName: string, metadata: Record<string, any>): void {
     try {
+      const MAX_EVENTS = 1000; // Prevent unbounded growth
+
       // Store event locally for PostHog tracking
       const event = {
         eventName,
@@ -57,25 +59,31 @@ class E2BService {
           timestamp: Date.now(),
           service: 'e2b',
         },
-        timestamp: Date.now(),
       };
 
       // Store in localStorage for backup/offline support
       const existingEvents = JSON.parse(localStorage.getItem('pendingUsageEvents') || '[]');
       existingEvents.push(event);
+
+      // Keep only the most recent events
+      if (existingEvents.length > MAX_EVENTS) {
+        existingEvents.splice(0, existingEvents.length - MAX_EVENTS);
+      }
+
       localStorage.setItem('pendingUsageEvents', JSON.stringify(existingEvents));
 
-      console.log('E2B event tracked:', event);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('E2B event tracked:', event);
+      }
     } catch (error) {
       console.error('Error tracking E2B event:', error);
     }
   }
-
   /**
    * Get E2B API key from environment
    */
   private getApiKey(): string | null {
-    return process.env.E2B_API_KEY || import.meta.env?.VITE_E2B_API_KEY || null;
+    return process.env.E2B_API_KEY || (import.meta as any).env?.VITE_E2B_API_KEY || null;
   }
 
   /**

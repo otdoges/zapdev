@@ -353,128 +353,93 @@ const polarRouter = router({
 
 // E2B Code Execution procedures
 const e2bRouter = router({
-  // Execute TypeScript/JavaScript code
+  // Execute TypeScript/JavaScript/Bash code
   executeCode: protectedProcedure
-    .input(z.object({
-      code: z.string(),
-      language: z.enum(['javascript', 'typescript', 'bash']).optional().default('javascript'),
-      timeout: z.number().optional().default(30000),
-      installPackages: z.array(z.string()).optional(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      try {
-        const result = await e2bService.executeCode(input.code, {
-          language: input.language,
-          timeout: input.timeout,
-          installPackages: input.installPackages,
-        });
-        
-        return result;
-      } catch (error) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Code execution failed',
-        });
-      }
+    .input(
+      z.object({
+        code: z.string(),
+        language: z.enum(['javascript', 'typescript', 'bash']).optional().default('javascript'),
+        timeout: z.number().min(1000).max(60000).optional().default(30000),
+        installPackages: z
+          .array(z.string().regex(/^[a-zA-Z0-9_@\/\-]+$/))
+          .optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const result = await e2bService.executeCode(input.code, {
+        language: input.language,
+        timeout: input.timeout,
+        installPackages: input.installPackages,
+      });
+      return result;
     }),
 
-  // Create a file in sandbox
+  // Create a file in the sandbox
   createFile: protectedProcedure
-    .input(z.object({
-      path: z.string(),
-      content: z.string(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      try {
-        const success = await e2bService.createFile(input.path, input.content);
-        
-        if (!success) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to create file',
-          });
-        }
-        
-        return { success };
-      } catch (error) {
+    .input(
+      z.object({
+        path: z.string().regex(/^[^/]*[a-zA-Z0-9._-]+$/, 'Invalid file path'),
+        content: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const success = await e2bService.createFile(input.path, input.content);
+      if (!success) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'File creation failed',
+          message: 'Failed to create file',
         });
       }
+      return { success };
     }),
 
-  // Read a file from sandbox
+  // Read a file from the sandbox
   readFile: protectedProcedure
-    .input(z.object({
-      path: z.string(),
-    }))
-    .query(async ({ input, ctx }) => {
-      try {
-        const content = await e2bService.readFile(input.path);
-        
-        if (content === null) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'File not found or could not be read',
-          });
-        }
-        
-        return { content };
-      } catch (error) {
+    .input(z.object({ path: z.string().regex(/^[^/]*[a-zA-Z0-9._-]+$/, 'Invalid file path') }))
+    .query(async ({ input }) => {
+      const content = await e2bService.readFile(input.path);
+      if (content === null) {
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'File read failed',
+          code: 'NOT_FOUND',
+          message: 'File not found or could not be read',
         });
       }
+      return { content };
     }),
 
-  // List files in sandbox directory
+  // List files in a directory
   listFiles: protectedProcedure
-    .input(z.object({
-      directory: z.string().optional().default('.'),
-    }))
-    .query(async ({ input, ctx }) => {
-      try {
-        const files = await e2bService.listFiles(input.directory);
-        return { files };
-      } catch (error) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'File listing failed',
-        });
-      }
+    .input(
+      z.object({
+        directory: z
+          .string()
+          .regex(/^\.?[a-zA-Z0-9._\/\-]*$/, 'Invalid directory path')
+          .optional()
+          .default('.'),
+      }),
+    )
+    .query(async ({ input }) => {
+      const files = await e2bService.listFiles(input.directory);
+      return { files };
     }),
 
-  // Install package in sandbox (Node.js packages for TypeScript/JavaScript)
+  // Install a package in the sandbox
   installPackage: protectedProcedure
-    .input(z.object({
-      packageName: z.string(),
-      language: z.enum(['node']).optional().default('node'),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      try {
-        const result = await e2bService.installPackage(input.packageName, input.language);
-        return result;
-      } catch (error) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Package installation failed',
-        });
-      }
+    .input(
+      z.object({
+        packageName: z.string(),
+        language: z.enum(['node']).optional().default('node'),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const result = await e2bService.installPackage(input.packageName, input.language);
+      return result;
     }),
 
   // Get E2B service status and metrics
-  getStatus: protectedProcedure.query(async ({ ctx }) => {
-    try {
-      const status = e2bService.getStatus();
-      return status;
-    } catch (error) {
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to get E2B service status',
-      });
-    }
+  getStatus: protectedProcedure.query(async () => {
+    const status = e2bService.getStatus();
+    return status;
   }),
 });
 

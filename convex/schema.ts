@@ -101,4 +101,118 @@ export default defineSchema({
     .index("by_user_date", ["userId", "createdAt"])
     .index("by_model", ["modelId"]),
 
+  // Polar Products - products from Polar billing
+  products: defineTable({
+    polarId: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    type: v.union(v.literal("individual"), v.literal("business")),
+    isRecurring: v.boolean(),
+    isArchived: v.boolean(),
+    organizationId: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_polar_id", ["polarId"])
+    .index("by_active", ["isArchived"]),
+
+  // Polar Prices - pricing information for products
+  prices: defineTable({
+    polarId: v.string(),
+    productId: v.id("products"),
+    polarProductId: v.string(),
+    amountType: v.union(v.literal("fixed"), v.literal("free"), v.literal("custom")),
+    type: v.union(v.literal("one_time"), v.literal("recurring")),
+    recurringInterval: v.optional(v.union(v.literal("month"), v.literal("year"))),
+    priceAmount: v.optional(v.number()),
+    priceCurrency: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_polar_id", ["polarId"])
+    .index("by_product", ["productId"]),
+
+  // Polar Customers - customer information from Polar
+  customers: defineTable({
+    polarId: v.string(),
+    userId: v.string(),
+    email: v.string(),
+    name: v.optional(v.string()),
+    externalId: v.optional(v.string()),
+    organizationId: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_polar_id", ["polarId"])
+    .index("by_user_id", ["userId"]),
+
+  // Polar Subscriptions - subscription information from Polar
+  subscriptions: defineTable({
+    polarId: v.string(),
+    customerId: v.id("customers"),
+    polarCustomerId: v.string(),
+    productId: v.id("products"),
+    polarProductId: v.string(),
+    priceId: v.id("prices"),
+    polarPriceId: v.string(),
+    status: v.union(
+      v.literal("incomplete"),
+      v.literal("incomplete_expired"),
+      v.literal("trialing"),
+      v.literal("active"),
+      v.literal("past_due"),
+      v.literal("canceled"),
+      v.literal("unpaid")
+    ),
+    currentPeriodStart: v.string(),
+    currentPeriodEnd: v.string(),
+    cancelAtPeriodEnd: v.optional(v.boolean()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_polar_id", ["polarId"])
+    .index("by_customer", ["customerId"]),
+
+  // Usage Events - track API/service usage for billing
+  usageEvents: defineTable({
+    eventName: v.string(),
+    userId: v.string(),
+    customerId: v.optional(v.id("customers")),
+    polarCustomerId: v.optional(v.string()),
+    externalCustomerId: v.optional(v.string()),
+    metadata: v.object({
+      model: v.optional(v.string()),
+      requests: v.optional(v.number()),
+      totalTokens: v.optional(v.number()),
+      requestTokens: v.optional(v.number()),
+      responseTokens: v.optional(v.number()),
+      duration: v.optional(v.number()),
+      size: v.optional(v.number()),
+      additionalProperties: v.optional(v.any()),
+    }),
+    ingested: v.boolean(),
+    timestamp: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_ingested", ["ingested"]),
+
+  // Meters - billing meters configuration from Polar
+  meters: defineTable({
+    polarId: v.string(),
+    name: v.string(),
+    slug: v.string(),
+    eventName: v.string(),
+    valueProperty: v.string(),
+    filters: v.optional(v.array(v.object({
+      property: v.string(),
+      operator: v.union(v.literal("eq"), v.literal("ne"), v.literal("gt"), v.literal("gte"), v.literal("lt"), v.literal("lte")),
+      value: v.union(v.string(), v.number()),
+    }))),
+    organizationId: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_polar_id", ["polarId"]),
+
 }); 
