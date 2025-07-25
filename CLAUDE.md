@@ -1,6 +1,6 @@
 0 – Purpose
 These rules drive consistency, safety, and fast iteration in ZapDev.
-MUST rules are enforced by CI (pnpm run lint, pnpm run build:dev).
+MUST rules are enforced by CI (bun run lint, bun run build:dev).
 SHOULD rules you owe us a strong justification for skipping.
 
 1 – Before Coding
@@ -59,9 +59,9 @@ O‑1 (MUST) Anything shared by more than one feature lives in src/components/sh
 O‑2 (SHOULD) UI primitives (Radix wrappers) go in ui/ only. Don’t scatter generic buttons and dialogs elsewhere.
 
 6 – Tooling Gates
-G‑1 (MUST) pnpm run lint passes (eslint.config.js rules).
+G‑1 (MUST) bun run lint passes (eslint.config.js rules).
 
-G‑2 (MUST) pnpm run build:dev and pnpm run build succeed without type errors (tsconfig.json settings).
+G‑2 (MUST) bun run build:dev and bun run build succeed without type errors (tsconfig.json settings).
 
 7 – Git
 GH‑1 (MUST) Use Conventional Commits: feat(src/components): add X or fix(convex): correct mutation logic.

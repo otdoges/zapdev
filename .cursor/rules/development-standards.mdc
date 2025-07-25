@@ -1,0 +1,81 @@
+---
+title: ZapDev Development Standards
+---
+
+# ZapDev Development Rules
+
+## 0 – Purpose
+These rules drive consistency, safety, and fast iteration in ZapDev.
+- **MUST** rules are enforced by CI (`bun run lint`, `bun run build:dev`).
+- **SHOULD** rules require strong justification to skip.
+
+## 1 – Before Coding
+- **BP-1 (MUST)** Ask whoever filed the ticket what “done” looks like.
+- **BP-2 (SHOULD)** For any new page or major feature, sketch a component/route tree in a Design Doc (e.g. in `plan.md`) and get it reviewed.
+- **BP-3 (SHOULD)** If there are two ways to fetch or cache data (TanStack Query vs raw fetch), list pros and cons in that Design Doc.
+
+## 2 – While Coding
+- **C-1 (MUST)** Follow TDD with Vitest: write failing test first, then code.
+- **C-2 (MUST)** Name React components and hooks using domain terms.
+- **C-3 (SHOULD NOT)** Build a full `<Page>` when a small utility suffices.
+- **C-4 (SHOULD)** Prefer simple, composable helpers; break big components out.
+- **C-5 (MUST)** Use branded types for IDs; avoid raw strings.
+- **C-6 (MUST)** Import only types with `import type`.
+- **C-7 (SHOULD NOT)** Over-comment; let code speak unless documenting framework bugs.
+- **C-8 (SHOULD)** Default to `type`; use `interface` only for extension/merging.
+- **C-9 (SHOULD NOT)** Extract helpers to `src/lib/` unless reused or test-critical.
+
+## 3 – Testing
+- **T-1 (MUST)** Place unit tests beside source in `src/`.
+- **T-2 (MUST)** Any Convex data-model change needs an integration example.
+- **T-3 (MUST)** Separate pure-logic tests from ones hitting Convex/browser APIs.
+- **T-4 (SHOULD)** Favor integration over heavy mocks for data flows.
+- **T-5 (SHOULD)** Thoroughly unit-test non-trivial algorithms.
+- **T-6 (SHOULD)** Use single assertions for arrays/objects.
+
+## 4 – Database / Convex
+- **D-1 (MUST)** Type helpers as `ConvexFetch | ConvexTransaction`.
+- **D-2 (SHOULD)** Override incorrect Convex auto-generated types.
+
+## 5 – Code Organization
+- **O-1 (MUST)** Share code via `src/components/shared/` or `src/lib/`.
+- **O-2 (SHOULD)** Keep UI primitives only in `ui/`.
+
+## 6 – Tooling Gates
+- **G-1 (MUST)** `bun run lint` passes.
+- **G-2 (MUST)** `bun run build:dev` & `bun run build` compile without type errors.
+
+## 7 – Git
+- **GH-1 (MUST)** Use Conventional Commits.
+- **GH-2 (SHOULD NOT)** Mention Claude, Anthropic, or Lovable in messages.
+
+---
+
+### Writing or Refactoring Functions Checklist
+1. Can you trace every line in 10 s? If yes, leave it.
+2. If cyclomatic complexity > 5, refactor.
+3. Could a standard data structure simplify?
+4. Remove dead params/casts.
+5. Ensure testability without Convex/DOM mocks.
+6. Brainstorm better names; rename if better.
+
+### Writing Tests Guidelines
+- Parameterize with fixtures or `fast-check`.
+- Avoid trivial assertions.
+- Match descriptions to assertions.
+- Compare to pre-computed expected values.
+- Follow lint, type, and formatting rules.
+- Cover edge, happy, and error paths; skip type-error tests.
+
+---
+
+## 5 Git
+Commit everything when you’re done.
+
+## 6 Behavior
+If someone says **“Good Job”** or similar, acknowledge success and keep going.
+
+
+
+
+
