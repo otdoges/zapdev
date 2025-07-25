@@ -83,7 +83,7 @@ class E2BService {
    * Get E2B API key from environment
    */
   private getApiKey(): string | null {
-    return process.env.E2B_API_KEY || (import.meta as any).env?.VITE_E2B_API_KEY || null;
+    return process.env.E2B_API_KEY || (import.meta as { env?: { VITE_E2B_API_KEY?: string } }).env?.VITE_E2B_API_KEY || null;
   }
 
   /**
