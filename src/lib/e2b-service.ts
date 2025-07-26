@@ -47,7 +47,7 @@ class E2BService {
   /**
    * Track E2B usage events for analytics
    */
-  private trackEvent(eventName: string, metadata: Record<string, any>): void {
+  private trackEvent(eventName: string, metadata: Record<string, unknown>): void {
     try {
       const MAX_EVENTS = 1000; // Prevent unbounded growth
 
