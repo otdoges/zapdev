@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { redirectToWorkOS } from "@/lib/workos";
+import { useClerk } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,10 @@ import {
   Activity,
   Trash2,
   Download,
-  Upload
+  Upload,
+  Key,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
@@ -53,8 +57,14 @@ interface UserPreferences {
   betaFeatures: boolean;
 }
 
+interface ApiConfiguration {
+  groqApiKey: string;
+  useUserApiKey: boolean;
+}
+
 const Settings = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const { signOut } = useClerk();
   const { getPendingEvents, syncPendingEvents } = useUsageTracking();
   const navigate = useNavigate();
   
@@ -69,10 +79,16 @@ const Settings = () => {
     autoSave: true,
     betaFeatures: false,
   });
+  const [apiConfig, setApiConfig] = useState<ApiConfiguration>({
+    groqApiKey: '',
+    useUserApiKey: false,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiKeyStatus, setApiKeyStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
   const [profileData, setProfileData] = useState({
-    name: user?.name || '',
+    name: user?.fullName || '',
     email: user?.email || '',
     bio: '',
     website: '',
@@ -103,11 +119,25 @@ const Settings = () => {
 
         setSubscription(mockSubscription);
         setProfileData({
-          name: user?.name || '',
+          name: user?.fullName || '',
           email: user?.email || '',
           bio: '',
           website: '',
         });
+
+        // Load saved API configuration from localStorage
+        const savedApiConfig = localStorage.getItem('zapdev-api-config');
+        if (savedApiConfig) {
+          try {
+            const parsed = JSON.parse(savedApiConfig);
+            setApiConfig(parsed);
+            if (parsed.groqApiKey) {
+              setApiKeyStatus('valid'); // Assume valid if saved
+            }
+          } catch (error) {
+            console.error('Error parsing saved API config:', error);
+          }
+        }
       } catch (error) {
         console.error('Error loading settings data:', error);
       } finally {
@@ -202,11 +232,65 @@ const Settings = () => {
     }
   };
 
+  const testGroqApiKey = async (apiKey: string) => {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.2-1b-preview',
+          messages: [{ role: 'user', content: 'Hello' }],
+          max_tokens: 5,
+        }),
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.error('Error testing Groq API key:', error);
+      return false;
+    }
+  };
+
+  const validateAndSaveApiKey = async () => {
+    if (!apiConfig.groqApiKey.trim()) {
+      setApiKeyStatus('invalid');
+      return;
+    }
+
+    setApiKeyStatus('testing');
+    
+    try {
+      const isValid = await testGroqApiKey(apiConfig.groqApiKey);
+      
+      if (isValid) {
+        setApiKeyStatus('valid');
+        localStorage.setItem('zapdev-api-config', JSON.stringify(apiConfig));
+        console.log('✅ Groq API key validated and saved');
+      } else {
+        setApiKeyStatus('invalid');
+        console.error('❌ Invalid Groq API key');
+      }
+    } catch (error) {
+      setApiKeyStatus('invalid');
+      console.error('Error validating API key:', error);
+    }
+  };
+
+  const clearApiKey = () => {
+    setApiConfig({ groqApiKey: '', useUserApiKey: false });
+    setApiKeyStatus('idle');
+    localStorage.removeItem('zapdev-api-config');
+    console.log('🗑️ API configuration cleared');
+  };
+
   const deleteAccount = async () => {
     if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
       try {
         // TODO: Delete account via TRPC
-        logout();
+        await signOut();
         navigate('/');
       } catch (error) {
         console.error('Error deleting account:', error);
@@ -259,6 +343,10 @@ const Settings = () => {
             <TabsTrigger value="privacy" className="data-[state=active]:bg-gray-800">
               <Shield className="w-4 h-4 mr-2" />
               Privacy & Security
+            </TabsTrigger>
+            <TabsTrigger value="api" className="data-[state=active]:bg-gray-800">
+              <Key className="w-4 h-4 mr-2" />
+              API Configuration
             </TabsTrigger>
           </TabsList>
 
@@ -317,9 +405,42 @@ const Settings = () => {
                 <Button onClick={saveProfile} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700">
                   {isSaving ? 'Saving...' : 'Save Profile'}
                 </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                             </CardContent>
+             </Card>
+
+             <Card className="bg-blue-900/10 border-blue-500/20">
+               <CardHeader>
+                 <CardTitle className="text-blue-400 flex items-center gap-2">
+                   <Shield className="w-5 h-5" />
+                   Why Use Your Own API Key?
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="space-y-3 text-sm">
+                 <div className="flex items-start gap-2">
+                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                   <p><strong>Higher Rate Limits:</strong> Personal API keys typically have higher usage limits than shared keys.</p>
+                 </div>
+                 <div className="flex items-start gap-2">
+                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                   <p><strong>Better Performance:</strong> Direct access to Groq's API without sharing bandwidth.</p>
+                 </div>
+                 <div className="flex items-start gap-2">
+                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                   <p><strong>Privacy:</strong> Your requests don't go through our servers when using your own key.</p>
+                 </div>
+                 <div className="flex items-start gap-2">
+                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                   <p><strong>Free Tier Available:</strong> Groq offers generous free tier limits for personal use.</p>
+                 </div>
+                 <div className="mt-4 p-3 bg-gray-900/50 rounded-lg">
+                   <p className="text-gray-300 text-xs">
+                     <strong>Security Note:</strong> Your API key is stored locally in your browser and never sent to our servers. 
+                     Only you have access to it.
+                   </p>
+                 </div>
+               </CardContent>
+             </Card>
+           </TabsContent>
 
           <TabsContent value="subscription" className="space-y-6">
             {subscription ? (
@@ -518,6 +639,105 @@ const Settings = () => {
                     Delete Account
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+                     <TabsContent value="api" className="space-y-6">
+             <Card className="bg-gray-900 border-gray-800">
+               <CardHeader>
+                 <CardTitle>Groq API Configuration</CardTitle>
+                 <CardDescription>
+                   Configure your personal Groq API key for AI model integration. 
+                   <a 
+                     href="https://console.groq.com/keys" 
+                     target="_blank" 
+                     rel="noopener noreferrer"
+                     className="text-blue-400 hover:text-blue-300 ml-1"
+                   >
+                     Get your API key here →
+                   </a>
+                 </CardDescription>
+               </CardHeader>
+               <CardContent className="space-y-6">
+                 <div className="space-y-2">
+                   <div className="flex items-center justify-between">
+                     <Label htmlFor="groq-key">Groq API Key</Label>
+                     <button
+                       type="button"
+                       onClick={() => setShowApiKey(!showApiKey)}
+                       className="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1"
+                     >
+                       {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                       {showApiKey ? 'Hide' : 'Show'}
+                     </button>
+                   </div>
+                   <Input
+                     id="groq-key"
+                     type={showApiKey ? 'text' : 'password'}
+                     value={apiConfig.groqApiKey}
+                     onChange={(e) => setApiConfig({ ...apiConfig, groqApiKey: e.target.value })}
+                     placeholder="gsk_..."
+                     className="bg-gray-800 border-gray-700 focus:border-blue-500"
+                   />
+                   <p className="text-sm text-gray-400">
+                     Your API key starts with "gsk_" and is stored locally on your device only.
+                   </p>
+                 </div>
+
+                 <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+                   <div>
+                     <Label>Enable Personal API Key</Label>
+                     <p className="text-sm text-gray-400">
+                       Use your own API key instead of the default one for all requests.
+                     </p>
+                   </div>
+                   <Switch
+                     checked={apiConfig.useUserApiKey}
+                     onCheckedChange={(checked) => setApiConfig({ ...apiConfig, useUserApiKey: checked })}
+                   />
+                 </div>
+
+                                 <div className="flex items-center gap-2">
+                   {apiKeyStatus === 'valid' && (
+                     <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
+                       <CheckCircle className="w-3 h-3 mr-1" />
+                       Valid
+                     </Badge>
+                   )}
+                   {apiKeyStatus === 'invalid' && (
+                     <Badge className="bg-red-500/10 text-red-500 border-red-500/20">
+                       <XCircle className="w-3 h-3 mr-1" />
+                       Invalid
+                     </Badge>
+                   )}
+                   {apiKeyStatus === 'testing' && (
+                     <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
+                       <Activity className="w-3 h-3 mr-1" />
+                       Testing...
+                     </Badge>
+                   )}
+                 </div>
+
+                 <div className="flex gap-2">
+                   <Button 
+                     onClick={validateAndSaveApiKey} 
+                     disabled={apiKeyStatus === 'testing' || !apiConfig.groqApiKey.trim()} 
+                     className="bg-blue-600 hover:bg-blue-700"
+                   >
+                     {apiKeyStatus === 'testing' ? 'Testing...' : 'Test & Save API Key'}
+                   </Button>
+                   
+                   {apiConfig.groqApiKey && (
+                     <Button 
+                       onClick={clearApiKey} 
+                       variant="outline" 
+                       className="border-red-700 text-red-400 hover:bg-red-900/20"
+                     >
+                       Clear
+                     </Button>
+                   )}
+                 </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -133,15 +133,7 @@ export function generateValidationReport(): boolean {
   
   return allPassed;
 }
-      console.log('- Set up required environment variables');
-    }
-    if (!results.codeExecution) {
-      console.log('- Configure E2B API key for code execution');
-    }
-  }
-  
-  return allPassed;
-}
+
 
 // Auto-run validation if executed directly
 if (typeof window === 'undefined') {
