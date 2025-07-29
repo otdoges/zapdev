@@ -12,54 +12,79 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Architecture
 
-This is a React + TypeScript + Vite project built with shadcn/ui components and Tailwind CSS. The project appears to be a website builder/landing page platform.
+ZapDev is an AI-powered development platform with real-time chat, code execution, and subscription management. Built with React 19 + TypeScript + Vite.
 
 ### Key Technologies
-- **Frontend**: React 18, TypeScript, Vite
+- **Frontend**: React 19, TypeScript, Vite
+- **UI Components**: shadcn/ui (Radix UI primitives) + Lucide React icons
+- **Authentication**: Clerk with Convex integration
+- **Database**: Convex (real-time, serverless)
+- **Payments**: Polar for subscription management
+- **AI Integration**: Groq SDK + AI SDK
+- **Code Execution**: WebContainer API + E2B Code Interpreter
 - **Styling**: Tailwind CSS with custom design system
-- **UI Components**: shadcn/ui (Radix UI primitives)
-- **Routing**: React Router DOM
-- **State Management**: TanStack Query for server state
 - **Animations**: Framer Motion
-- **Form Handling**: React Hook Form with Zod validation
+- **Forms**: React Hook Form with Zod validation
+- **State Management**: TanStack Query + tRPC
+- **Analytics**: PostHog
 
-### Project Structure
-- `src/pages/` - Page components (Index.tsx, IpadReseller.tsx)
-- `src/components/` - Reusable components organized by feature
-  - `ui/` - shadcn/ui components
-  - `features/` - Feature-specific components
-  - `pricing/` - Pricing section components
-- `src/lib/` - Utility functions
-- `src/hooks/` - Custom React hooks
-- `src/config/` - Configuration files
-- `public/lovable-uploads/` - Static image assets
+### Core Application Structure
+- `src/main.tsx` - App entry point with Clerk + Convex + PostHog providers
+- `src/App.tsx` - Main routing setup with tRPC and protected routes
+- `src/pages/` - Page components (Index, Chat, Settings, Pricing, etc.)
+- `src/components/` - Feature components and UI library
+- `convex/` - Backend functions, schema, and authentication
 
-### Routing
-Simple React Router setup with two main routes:
-- `/` - Main landing page (Index component)
-- `/ipad-reseller` - Secondary page
+### Routing Architecture
+Protected routes use `AuthGuard` component:
+- `/` - Landing page (public)
+- `/chat` - Main AI chat interface (protected)
+- `/settings` - User settings (protected)
+- `/pricing` - Subscription plans (public)
+- `/auth/callback` - Authentication callback
+- `/terms` - Terms of service (public)
+- `/privacy` - Privacy policy (public)
 
-### Styling System
-- Uses Tailwind CSS with custom configuration
-- CSS variables for theme colors defined in `src/index.css`
-- Custom fonts: Geist and Inter
-- Primary brand color: `#3E6FF3`
-- Dark theme with black backgrounds
+### Authentication Flow
+Uses Clerk + Convex pattern with user sync:
+1. Clerk handles authentication UI and session management
+2. `UserSync` component syncs Clerk user with Convex database
+3. `AuthGuard` protects routes requiring authentication
+4. User data stored in Convex `users` table with proper indexing
 
-### Component Architecture
-- Components follow shadcn/ui patterns
-- Consistent use of Tailwind classes
-- Motion animations using Framer Motion
-- Path alias `@/` points to `src/`
+### Database Schema (Convex)
+Key tables with security considerations:
+- `users` - User profiles with email/username uniqueness
+- `chats` - Chat conversations owned by users
+- `messages` - Chat messages with role-based content
+- `products`, `prices`, `customers`, `subscriptions` - Polar integration
+- `usageEvents`, `meters` - Usage tracking for billing
+- `userSubscriptions` - Cached subscription status and limits
+
+### Security Implementation
+- All Convex functions use authentication verification
+- User data access controlled by ownership (userId checks)
+- XSS protection with input sanitization
+- Type safety enforced (no `any` types allowed)
+- Proper error handling throughout
 
 ### Configuration Notes
 - Vite runs on port 8080
-- TypeScript configuration is lenient (allows JS, no strict null checks)
-- ESLint configured for React + TypeScript
-- Tailwind configured with dark mode support
-- Uses lovable-tagger in development mode
+- TypeScript configured with lenient settings (allows JS, no strict null checks)
+- ESLint with React hooks and TypeScript support
+- Tailwind with dark mode and custom color system
+- Primary brand color: `#3E6FF3`
+- Custom fonts: Geist and Inter
 
-### Development Notes
-- This appears to be a Lovable.dev project (web-based AI development platform)
-- Images are stored in `public/lovable-uploads/`
-- Component tagging is enabled in development for the Lovable platform
+### Development Environment
+- Uses lovable-tagger in development mode
+- Images stored in `public/lovable-uploads/`
+- Path alias `@/` points to `src/`
+- Package manager: Bun preferred, fallback to pnpm/npm
+
+### Key Features
+- Real-time AI chat with code execution capabilities
+- WebContainer-based safe code running environment
+- Subscription management with Polar integration
+- User authentication and profile management
+- Responsive design with modern UX patterns

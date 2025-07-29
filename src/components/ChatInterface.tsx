@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { SafeText } from '@/components/ui/SafeText';
 import { 
   Send, 
   User, 
@@ -292,11 +293,6 @@ const ChatInterface: React.FC = () => {
       hour: '2-digit', 
       minute: '2-digit' 
     });
-  };
-
-  // Safe text display component
-  const SafeText: React.FC<{ children: string }> = ({ children }) => {
-    return <span>{children}</span>; // React automatically escapes text content
   };
 
   if (authLoading) {

@@ -8,10 +8,15 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup-env": "bun scripts/setup-env.js",
+    "create-env": "bun scripts/create-env-local.js",
+    "test-ai": "bun src/test-ai-implementation.ts",
+    "test-ai-only": "bun scripts/test-ai-only.js"
   },
   "dependencies": {
     "@ai-sdk/groq": "^1.2.9",
+    "@ai-sdk/openai": "^1.3.23",
     "@babel/runtime": "^7.27.6",
     "@clerk/clerk-react": "^5.35.3",
     "@convex-dev/auth": "^0.0.87",
@@ -20,6 +25,7 @@
     "@geist-ui/core": "^2.3.8",
     "@hookform/resolvers": "^5.1.1",
     "@lottiefiles/dotlottie-react": "^0.14.3",
+    "@openrouter/ai-sdk-provider": "^0.7.3",
     "@polar-sh/sdk": "^0.34.5",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",

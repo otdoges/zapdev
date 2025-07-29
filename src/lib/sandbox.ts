@@ -2,44 +2,240 @@ import { Sandbox } from '@e2b/code-interpreter'
 
 let sandboxInstance: Sandbox | null = null
 
-export async function initializeSandbox() {
+/**
+ * Initialize E2B Sandbox for code execution
+ * E2B provides secure isolated VMs that start in ~150ms
+ * Documentation: https://e2b.dev/docs
+ */
+export async function initializeSandbox(): Promise<Sandbox> {
   try {
+    // Return existing instance if available
     if (sandboxInstance) {
+      console.log('🔄 Using existing E2B sandbox instance')
       return sandboxInstance
     }
     
+    // Validate API key
+    const apiKey = process.env.VITE_E2B_API_KEY
+    if (!apiKey) {
+      throw new Error(
+        '🔑 VITE_E2B_API_KEY is not configured.\n' +
+        '📝 Get your API key from: https://e2b.dev/dashboard\n' +
+        '🔧 Add it to your .env.local file: VITE_E2B_API_KEY=e2b_your_key_here'
+      )
+    }
+    
+    if (!apiKey.startsWith('e2b_')) {
+      throw new Error(
+        '🔑 Invalid E2B API key format.\n' +
+        '📝 E2B API keys should start with "e2b_"\n' +
+        '🔧 Check your API key at: https://e2b.dev/dashboard'
+      )
+    }
+    
+    console.log('🚀 Creating E2B sandbox...')
+    
+    // Create sandbox with proper configuration
     sandboxInstance = await Sandbox.create({
-      apiKey: process.env.VITE_E2B_API_KEY || '',
+      apiKey,
+      // Optional: specify template (defaults to 'base')
+      // template: 'python', // or 'node', 'base', etc.
+      // Optional: set timeout (defaults to 5 minutes)
+      timeoutMs: 5 * 60 * 1000, // 5 minutes
     })
     
+    console.log('✅ E2B sandbox created successfully')
+    console.log(`📦 Sandbox ID: ${sandboxInstance.sandboxId}`)
+    
     return sandboxInstance
-  } catch (error) {
-    console.error('Sandbox initialization error:', error)
+  } catch (error: any) {
+    console.error('❌ E2B sandbox initialization failed:', error.message)
+    
+    // Provide specific error guidance based on E2B documentation
+    if (error.message.includes('Invalid API key') || error.message.includes('401')) {
+      console.error('🔑 Your E2B API key is invalid or expired')
+      console.error('📝 Get a new key: https://e2b.dev/dashboard')
+    } else if (error.message.includes('authorization header is missing')) {
+      console.error('🔧 E2B API key is missing from environment variables')
+      console.error('📝 Add to .env.local: VITE_E2B_API_KEY=e2b_your_key_here')
+    } else if (error.message.includes('insufficient funds') || error.message.includes('402')) {
+      console.error('💳 Your E2B account has insufficient credits')
+      console.error('📝 Add credits: https://e2b.dev/dashboard')
+    } else if (error.message.includes('rate limit') || error.message.includes('429')) {
+      console.error('⏰ E2B rate limit exceeded')
+      console.error('📝 Wait a moment and try again')
+    } else if (error.message.includes('timeout')) {
+      console.error('⏰ E2B sandbox creation timed out')
+      console.error('📝 This might be a temporary service issue')
+    } else {
+      console.error('🌐 E2B service might be experiencing issues')
+      console.error('📝 Check service status: https://status.e2b.dev')
+    }
+    
     throw error
   }
 }
 
-export async function executeCode(code: string, language: 'python' | 'javascript' = 'python') {
+/**
+ * Execute code in the E2B sandbox
+ * Supports both Python and JavaScript execution
+ */
+export async function executeCode(
+  code: string, 
+  language: 'python' | 'javascript' = 'python'
+): Promise<{
+  stdout: string;
+  stderr: string;
+  results: any[];
+  error?: any;
+  success: boolean;
+}> {
   try {
+    console.log(`🔄 Executing ${language} code in E2B sandbox...`)
+    console.log(`📝 Code length: ${code.length} characters`)
+    
     const sandbox = await initializeSandbox()
     
-    // For both Python and JavaScript, use runCode method
+    // Execute code using E2B's runCode method
+    // This method handles both Python and JavaScript
     const execution = await sandbox.runCode(code)
-    return {
+    
+    const result = {
       stdout: execution.logs.stdout.join('\n'),
       stderr: execution.logs.stderr.join('\n'),
       results: execution.results || [],
       error: execution.error,
+      success: !execution.error,
     }
-  } catch (error) {
-    console.error('Code execution error:', error)
-    throw error
+    
+    if (result.success) {
+      console.log('✅ Code execution completed successfully')
+      if (result.stdout) {
+        console.log('📄 Output:', result.stdout.substring(0, 200))
+      }
+    } else {
+      console.warn('⚠️ Code execution completed with errors')
+      if (result.stderr) {
+        console.warn('❌ Errors:', result.stderr.substring(0, 200))
+      }
+    }
+    
+    return result
+  } catch (error: any) {
+    console.error('❌ Code execution failed:', error.message)
+    
+    // Provide helpful error context
+    if (error.message.includes('sandbox')) {
+      console.error('🔧 Sandbox communication issue - try reinitializing')
+    } else if (error.message.includes('timeout')) {
+      console.error('⏰ Code execution timed out - try simpler code or increase timeout')
+    } else if (error.message.includes('memory')) {
+      console.error('💾 Sandbox ran out of memory - try optimizing your code')
+    } else if (error.message.includes('killed') || error.message.includes('terminated')) {
+      console.error('🛑 Sandbox was terminated - reinitializing...')
+      // Reset sandbox instance to force recreation
+      sandboxInstance = null
+    }
+    
+    return {
+      stdout: '',
+      stderr: error.message,
+      results: [],
+      error: error.message,
+      success: false,
+    }
   }
 }
 
-export async function closeSandbox() {
-  if (sandboxInstance) {
-    await sandboxInstance.kill()
-    sandboxInstance = null
+/**
+ * Execute Python code specifically
+ */
+export async function executePython(code: string) {
+  return executeCode(code, 'python')
+}
+
+/**
+ * Execute JavaScript code specifically  
+ */
+export async function executeJavaScript(code: string) {
+  return executeCode(code, 'javascript')
+}
+
+/**
+ * Get sandbox information
+ */
+export async function getSandboxInfo(): Promise<{
+  sandboxId?: string;
+  isAlive: boolean;
+  template?: string;
+}> {
+  if (!sandboxInstance) {
+    return { isAlive: false }
   }
+  
+  try {
+    // Check if sandbox is still alive
+    return {
+      sandboxId: sandboxInstance.sandboxId,
+      isAlive: true,
+      template: 'base', // E2B default template
+    }
+  } catch (error) {
+    return { isAlive: false }
+  }
+}
+
+/**
+ * Start sandbox proactively (useful for warming up)
+ */
+export async function startSandbox(): Promise<Sandbox> {
+  console.log('🎬 Starting E2B sandbox proactively...')
+  return initializeSandbox()
+}
+
+/**
+ * Check if sandbox is running
+ */
+export function isSandboxRunning(): boolean {
+  return sandboxInstance !== null
+}
+
+/**
+ * Get current sandbox instance (if any)
+ */
+export function getCurrentSandbox(): Sandbox | null {
+  return sandboxInstance
+}
+
+/**
+ * Cleanup sandbox resources
+ * Important: Always call this when done to avoid unnecessary costs
+ */
+export async function closeSandbox(): Promise<void> {
+  if (sandboxInstance) {
+    try {
+      console.log('🧹 Cleaning up E2B sandbox...')
+      
+      // Kill the sandbox to stop billing
+      await sandboxInstance.kill()
+      sandboxInstance = null
+      
+      console.log('✅ E2B sandbox cleanup completed')
+    } catch (error: any) {
+      console.warn('⚠️ E2B sandbox cleanup error (not critical):', error.message)
+      // Reset instance anyway to avoid stale references
+      sandboxInstance = null
+    }
+  } else {
+    console.log('ℹ️ No active E2B sandbox to cleanup')
+  }
+}
+
+/**
+ * Restart sandbox (useful if it becomes unresponsive)
+ */
+export async function restartSandbox(): Promise<Sandbox> {
+  console.log('🔄 Restarting E2B sandbox...')
+  await closeSandbox()
+  return initializeSandbox()
 }
