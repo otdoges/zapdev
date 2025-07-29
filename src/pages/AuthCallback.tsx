@@ -101,8 +101,8 @@ const AuthCallback = () => {
           // Continue anyway - user is authenticated, just not synced to DB yet
         }
         
-        // Redirect to chat page on success
-        navigate('/chat');
+        // Redirect to settings page on success
+        navigate('/settings');
       } catch (error) {
         console.error('OAuth callback error:', error);
         

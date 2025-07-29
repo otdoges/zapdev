@@ -3,11 +3,7 @@ import { useAuth } from './useAuth';
 import { usePostHog } from 'posthog-js/react';
 
 interface UsageEventMetadata {
-  model?: string;
   requests?: number;
-  totalTokens?: number;
-  requestTokens?: number;
-  responseTokens?: number;
   duration?: number;
   size?: number;
   [key: string]: string | number | boolean | undefined;
@@ -68,55 +64,6 @@ export const useUsageTracking = () => {
     }
   }, [user, posthog]);
 
-  const trackAIUsage = useCallback(async (params: {
-    model: string;
-    requestTokens: number;
-    responseTokens: number;
-    totalTokens: number;
-    conversationId?: string;
-  }) => {
-    await trackEvent({
-      eventName: 'ai_usage',
-      metadata: {
-        model: params.model,
-        requests: 1,
-        requestTokens: params.requestTokens,
-        responseTokens: params.responseTokens,
-        totalTokens: params.totalTokens,
-        conversationId: params.conversationId,
-      },
-    });
-  }, [trackEvent]);
-
-  const trackChatCreation = useCallback(async (params: {
-    chatId: string;
-    title?: string;
-  }) => {
-    await trackEvent({
-      eventName: 'chat_created',
-      metadata: {
-        chatId: params.chatId,
-        title: params.title,
-        requests: 1,
-      },
-    });
-  }, [trackEvent]);
-
-  const trackMessageSent = useCallback(async (params: {
-    chatId: string;
-    messageLength: number;
-    role: 'user' | 'assistant' | 'system';
-  }) => {
-    await trackEvent({
-      eventName: 'message_sent',
-      metadata: {
-        chatId: params.chatId,
-        messageLength: params.messageLength,
-        role: params.role,
-        requests: 1,
-      },
-    });
-  }, [trackEvent]);
 
   const trackWebsiteGeneration = useCallback(async (params: {
     templateId?: string;
@@ -193,9 +140,6 @@ export const useUsageTracking = () => {
 
   return {
     trackEvent,
-    trackAIUsage,
-    trackChatCreation,
-    trackMessageSent,
     trackWebsiteGeneration,
     trackFileUpload,
     trackFeatureUsage,

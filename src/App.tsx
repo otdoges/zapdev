@@ -10,11 +10,11 @@ import { trpc } from "@/lib/trpc";
 import { httpBatchLink } from "@trpc/client";
 import Index from "./pages/Index";
 import AuthCallback from "./pages/AuthCallback";
-import Chat from "./pages/Chat";
 import Settings from "./pages/Settings";
 import Pricing from "./pages/Pricing";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Chat from "./pages/Chat";
 import AuthGuard from "./components/AuthGuard";
 import UserSync from "./components/UserSync";
 
@@ -47,7 +47,11 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/pricing" element={<Pricing />} />
-                  <Route path="/chat" element={<Chat />} />
+                  <Route path="/chat" element={
+                    <AuthGuard>
+                      <Chat />
+                    </AuthGuard>
+                  } />
                   <Route path="/settings" element={
                     <AuthGuard>
                       <Settings />

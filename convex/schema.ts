@@ -45,25 +45,10 @@ export default defineSchema({
     .index("by_chat_created", ["chatId", "createdAt"])
     .index("by_user_id", ["userId"]),
 
-  // AI model configurations
-  aiModels: defineTable({
-    name: v.string(),
-    provider: v.string(), // 'groq', 'openai', etc.
-    modelId: v.string(), // actual model identifier
-    description: v.optional(v.string()),
-    maxTokens: v.optional(v.number()),
-    temperature: v.optional(v.number()),
-    isActive: v.boolean(),
-    createdAt: v.number(),
-  })
-    .index("by_provider", ["provider"])
-    .index("by_active", ["isActive"]),
-
   // User preferences
   userPreferences: defineTable({
     userId: v.string(),
     theme: v.union(v.literal("light"), v.literal("dark"), v.literal("system")),
-    defaultModelId: v.optional(v.id("aiModels")),
     settings: v.optional(v.object({
       notifications: v.optional(v.boolean()),
       autoSave: v.optional(v.boolean()),
@@ -73,19 +58,6 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user_id", ["userId"]),
-
-  // API usage tracking
-  apiUsage: defineTable({
-    userId: v.string(),
-    modelId: v.id("aiModels"),
-    tokensUsed: v.number(),
-    costCents: v.optional(v.number()),
-    requestType: v.string(), // 'chat', 'completion', etc.
-    createdAt: v.number(),
-  })
-    .index("by_user_id", ["userId"])
-    .index("by_user_date", ["userId", "createdAt"])
-    .index("by_model", ["modelId"]),
 
   // Polar Products - cached from Polar API
   products: defineTable({
@@ -174,11 +146,7 @@ export default defineSchema({
     polarCustomerId: v.optional(v.string()),
     externalCustomerId: v.optional(v.string()),
     metadata: v.object({
-      model: v.optional(v.string()),
       requests: v.optional(v.number()),
-      totalTokens: v.optional(v.number()),
-      requestTokens: v.optional(v.number()),
-      responseTokens: v.optional(v.number()),
       duration: v.optional(v.number()),
       size: v.optional(v.number()),
       // Allow additional properties
@@ -224,16 +192,12 @@ export default defineSchema({
     planType: v.union(v.literal("free"), v.literal("starter"), v.literal("professional"), v.literal("enterprise")),
     features: v.array(v.string()),
     usageLimits: v.object({
-      monthlyAiRequests: v.optional(v.number()),
-      monthlyTokens: v.optional(v.number()),
-      maxChats: v.optional(v.number()),
       maxProjects: v.optional(v.number()),
+      storageLimit: v.optional(v.number()),
     }),
     currentUsage: v.object({
-      aiRequests: v.number(),
-      tokensUsed: v.number(),
-      chatsCreated: v.number(),
       projectsCreated: v.number(),
+      storageUsed: v.number(),
     }),
     resetDate: v.number(), // When usage resets (monthly)
     createdAt: v.number(),

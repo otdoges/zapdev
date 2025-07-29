@@ -13,9 +13,6 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as aiModels from "../aiModels.js";
-import type * as chats from "../chats.js";
-import type * as messages from "../messages.js";
 import type * as polar from "../polar.js";
 import type * as trpc_router from "../trpc/router.js";
 import type * as users from "../users.js";
@@ -29,9 +26,6 @@ import type * as users from "../users.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  aiModels: typeof aiModels;
-  chats: typeof chats;
-  messages: typeof messages;
   polar: typeof polar;
   "trpc/router": typeof trpc_router;
   users: typeof users;

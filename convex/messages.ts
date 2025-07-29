@@ -1,16 +1,19 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-// Get messages for a chat
+// Get all messages for a specific chat
 export const getChatMessages = query({
-  args: { chatId: v.id("chats"), userId: v.string() },
+  args: { 
+    chatId: v.id("chats"),
+    userId: v.string(),
+  },
   handler: async (ctx, args) => {
-    // First verify the user owns this chat
+    // First verify the user has access to this chat
     const chat = await ctx.db.get(args.chatId);
     if (!chat || chat.userId !== args.userId) {
       throw new Error("Chat not found or access denied");
     }
-
+    
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_chat_created")
@@ -22,17 +25,20 @@ export const getChatMessages = query({
   },
 });
 
-// Get a specific message
+// Get a specific message by ID
 export const getMessage = query({
-  args: { messageId: v.id("messages"), userId: v.string() },
+  args: { 
+    messageId: v.id("messages"),
+    userId: v.string(),
+  },
   handler: async (ctx, args) => {
     const message = await ctx.db.get(args.messageId);
     
     if (!message) {
       throw new Error("Message not found");
     }
-
-    // Verify the user owns the chat this message belongs to
+    
+    // Verify user has access to the chat this message belongs to
     const chat = await ctx.db.get(message.chatId);
     if (!chat || chat.userId !== args.userId) {
       throw new Error("Access denied");
@@ -56,36 +62,43 @@ export const createMessage = mutation({
     })),
   },
   handler: async (ctx, args) => {
-    // Verify the user owns this chat
+    // Verify user has access to this chat
     const chat = await ctx.db.get(args.chatId);
     if (!chat || chat.userId !== args.userId) {
       throw new Error("Chat not found or access denied");
     }
-
+    
+    const now = Date.now();
+    
     const messageId = await ctx.db.insert("messages", {
       chatId: args.chatId,
       userId: args.userId,
       content: args.content,
       role: args.role,
       metadata: args.metadata,
-      createdAt: Date.now(),
+      createdAt: now,
     });
-
+    
     // Update the chat's updatedAt timestamp
     await ctx.db.patch(args.chatId, {
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
     
     return messageId;
   },
 });
 
-// Update a message (typically for editing user messages)
+// Update a message
 export const updateMessage = mutation({
   args: {
     messageId: v.id("messages"),
     userId: v.string(),
     content: v.string(),
+    metadata: v.optional(v.object({
+      model: v.optional(v.string()),
+      tokens: v.optional(v.number()),
+      cost: v.optional(v.number()),
+    })),
   },
   handler: async (ctx, args) => {
     const message = await ctx.db.get(args.messageId);
@@ -93,20 +106,21 @@ export const updateMessage = mutation({
     if (!message) {
       throw new Error("Message not found");
     }
-
-    // Verify the user owns the chat this message belongs to
+    
+    // Verify user has access to the chat this message belongs to
     const chat = await ctx.db.get(message.chatId);
     if (!chat || chat.userId !== args.userId) {
       throw new Error("Access denied");
     }
-
-    // Only allow editing user messages
-    if (message.role !== "user") {
-      throw new Error("Can only edit user messages");
-    }
     
     await ctx.db.patch(args.messageId, {
       content: args.content,
+      metadata: args.metadata,
+    });
+    
+    // Update the chat's updatedAt timestamp
+    await ctx.db.patch(message.chatId, {
+      updatedAt: Date.now(),
     });
     
     return args.messageId;
@@ -125,8 +139,8 @@ export const deleteMessage = mutation({
     if (!message) {
       throw new Error("Message not found");
     }
-
-    // Verify the user owns the chat this message belongs to
+    
+    // Verify user has access to the chat this message belongs to
     const chat = await ctx.db.get(message.chatId);
     if (!chat || chat.userId !== args.userId) {
       throw new Error("Access denied");
@@ -134,13 +148,21 @@ export const deleteMessage = mutation({
     
     await ctx.db.delete(args.messageId);
     
+    // Update the chat's updatedAt timestamp
+    await ctx.db.patch(message.chatId, {
+      updatedAt: Date.now(),
+    });
+    
     return args.messageId;
   },
 });
 
-// Get recent messages for a user across all chats (for search/history)
-export const getRecentMessages = query({
-  args: { userId: v.string(), limit: v.optional(v.number()) },
+// Get latest messages across all user's chats (for overview)
+export const getLatestMessages = query({
+  args: { 
+    userId: v.string(),
+    limit: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     const limit = args.limit || 50;
     

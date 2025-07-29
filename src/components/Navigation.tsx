@@ -52,7 +52,7 @@ const Navigation = () => {
     { name: "Features", href: "#features", onClick: () => scrollToSection('features') },
     { name: "Pricing", href: "/pricing", isLink: true },
     { name: "Templates", href: "#testimonials", onClick: () => scrollToSection('testimonials') },
-    { name: "AI Builder", href: "/chat", isLink: true },
+    ...(isSignedIn ? [{ name: "AI Chat", href: "/chat", isLink: true }] : []),
   ];
 
   return (
@@ -100,7 +100,7 @@ const Navigation = () => {
             {isSignedIn ? (
               <div className="flex items-center gap-2">
                 <Button 
-                  onClick={() => navigate('/chat')}
+                  onClick={() => navigate('/settings')}
                   size="sm"
                   variant="outline"
                   className="border-gray-700"
@@ -118,7 +118,7 @@ const Navigation = () => {
                 </Button>
               </div>
             ) : (
-              <SignInButton mode="modal" forceRedirectUrl="/chat">
+              <SignInButton mode="modal" forceRedirectUrl="/settings">
                 <Button 
                   size="sm"
                   className="button-gradient"
@@ -171,7 +171,7 @@ const Navigation = () => {
                       <Button 
                         onClick={() => {
                           setIsMobileMenuOpen(false);
-                          navigate('/chat');
+                          navigate('/settings');
                         }}
                         variant="outline"
                         className="border-gray-700"
@@ -191,7 +191,7 @@ const Navigation = () => {
                       </Button>
                     </div>
                   ) : (
-                    <SignInButton mode="modal" forceRedirectUrl="/chat">
+                    <SignInButton mode="modal" forceRedirectUrl="/settings">
                       <Button 
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="button-gradient mt-4"
