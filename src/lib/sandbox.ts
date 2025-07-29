@@ -167,18 +167,18 @@ export async function executeJavaScript(code: string) {
 export async function getSandboxInfo(): Promise<{
   sandboxId?: string;
   isAlive: boolean;
-  template?: string;
 }> {
   if (!sandboxInstance) {
     return { isAlive: false }
   }
   
   try {
-    // Check if sandbox is still alive
+    // Use the new health check function for better accuracy
+    const isAlive = await isSandboxRunning()
+
     return {
       sandboxId: sandboxInstance.sandboxId,
-      isAlive: true,
-      template: 'base', // E2B default template
+      isAlive,
     }
   } catch (error) {
     return { isAlive: false }
@@ -195,15 +195,60 @@ export async function startSandbox(): Promise<Sandbox> {
 
 /**
  * Check if sandbox is running
+ * Performs actual health check instead of just null checking
  */
-export function isSandboxRunning(): boolean {
-  return sandboxInstance !== null
+export async function isSandboxRunning(): Promise<boolean> {
+  if (!sandboxInstance) {
+    return false
+  }
+  
+  try {
+    // Perform a lightweight health check by executing a simple, fast command
+    // This verifies the sandbox is actually responsive and not just a stale reference
+    const healthCheck = await sandboxInstance.runCode('1+1')
+    return healthCheck && !healthCheck.error
+  } catch (error) {
+    // If the health check fails, the sandbox is not running properly
+    console.warn('🔍 Sandbox health check failed:', error)
+    // Reset the instance since it's not responsive
+    sandboxInstance = null
+    return false
+  }
 }
 
 /**
+ * Get sandbox status and information without exposing mutable instance
+ * Returns a read-only snapshot of sandbox state
+ */
+export async function getSandboxStatus(): Promise<{
+  isRunning: boolean;
+  sandboxId?: string;
+  lastHealthCheck?: Date;
+} | null> {
+  const isRunning = await isSandboxRunning()
+  
+  if (!isRunning || !sandboxInstance) {
+    return {
+      isRunning: false,
+      lastHealthCheck: new Date()
+    }
+  }
+  
+  // Return read-only snapshot of sandbox information
+  return {
+    isRunning: true,
+    sandboxId: sandboxInstance.sandboxId,
+    lastHealthCheck: new Date()
+  }
+}
+
+/**
+ * @deprecated Use getSandboxStatus() instead for safer access to sandbox information
  * Get current sandbox instance (if any)
+ * Note: This exposes the mutable instance - prefer using controlled access methods
  */
 export function getCurrentSandbox(): Sandbox | null {
+  console.warn('⚠️ getCurrentSandbox() exposes mutable sandbox instance. Consider using getSandboxStatus() for read-only access.')
   return sandboxInstance
 }
 

@@ -44,5 +44,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log('='.repeat(50));
   
   checkEnvironment();
-  runTests();
+  await runTests();
 }

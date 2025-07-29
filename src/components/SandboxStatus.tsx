@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   startSandbox, 
   isSandboxRunning, 
-  getSandboxInfo, 
+  getSandboxStatus, 
   closeSandbox 
 } from '@/lib/sandbox';
 import { Play, Square, RefreshCw, Activity } from 'lucide-react';
@@ -29,17 +29,26 @@ export const SandboxStatus: React.FC<SandboxStatusProps> = ({ className = '' }) 
   }, []);
 
   const checkStatus = async () => {
-    const running = isSandboxRunning();
-    setIsRunning(running);
-    
-    if (running) {
-      try {
-        const info = await getSandboxInfo();
-        setSandboxInfo(info);
-      } catch (error) {
-        console.error('Error getting sandbox info:', error);
+    try {
+      const running = await isSandboxRunning();
+      setIsRunning(running);
+      
+      if (running) {
+        // Use getSandboxStatus for safer access to sandbox information
+        const status = await getSandboxStatus();
+        if (status) {
+          setSandboxInfo({
+            isAlive: status.isRunning,
+            sandboxId: status.sandboxId
+          });
+        }
+      } else {
         setSandboxInfo({ isAlive: false });
       }
+    } catch (error) {
+      console.error('Error checking sandbox status:', error);
+      setSandboxInfo({ isAlive: false });
+      setIsRunning(false);
     }
   };
 

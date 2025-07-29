@@ -23,8 +23,11 @@ export default defineConfig(({ mode }) => {
       },
     },
     // Ensure environment variables are properly exposed
+    // Ensure environment variables are properly exposed (client-safe only)
     define: {
-      'process.env': env,
+      'process.env': Object.fromEntries(
+        Object.entries(env).filter(([key]) => key.startsWith('VITE_'))
+      ),
     },
   };
 });

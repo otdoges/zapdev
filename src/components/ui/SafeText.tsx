@@ -1,4 +1,5 @@
 import React from 'react';
+import DOMPurify from 'dompurify';
 
 interface SafeTextProps {
   children: string;
@@ -7,35 +8,26 @@ interface SafeTextProps {
 
 /**
  * SafeText component for XSS protection
- * Sanitizes text input and prevents script injection
+ * Uses DOMPurify for comprehensive sanitization
  */
 export const SafeText: React.FC<SafeTextProps> = ({ children, className = '' }) => {
-  // Sanitize the text content to prevent XSS
-  const sanitizeText = (text: string): string => {
-    return text
-      .replace(/[<>'"&]/g, (char) => {
-        const chars: { [key: string]: string } = {
-          '<': '&lt;',
-          '>': '&gt;',
-          "'": '&#x27;',
-          '"': '&quot;',
-          '&': '&amp;'
-        };
-        return chars[char] || char;
-      })
-      .trim();
+  // Sanitize content using DOMPurify for comprehensive XSS protection
+  const sanitizeContent = (text: string): string => {
+    if (!text) return '';
+    
+    // Configure DOMPurify for text-only output
+    const cleanText = DOMPurify.sanitize(text, {
+      ALLOWED_TAGS: [], // No HTML tags allowed - text only
+      ALLOWED_ATTR: [], // No attributes allowed
+      KEEP_CONTENT: true, // Keep text content even when removing tags
+      RETURN_DOM: false, // Return string, not DOM
+      RETURN_DOM_FRAGMENT: false
+    });
+    
+    return cleanText.trim();
   };
 
-  // Additional security: Remove any remaining script-like patterns
-  const removeScriptPatterns = (text: string): string => {
-    return text
-      .replace(/javascript:/gi, '')
-      .replace(/vbscript:/gi, '')
-      .replace(/data:/gi, '')
-      .replace(/on\w+=/gi, ''); // Remove event handlers like onclick=, onload=, etc.
-  };
-
-  const safeContent = removeScriptPatterns(sanitizeText(children || ''));
+  const safeContent = sanitizeContent(children);
 
   return (
     <span className={className}>

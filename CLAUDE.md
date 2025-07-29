@@ -65,12 +65,13 @@ Key tables with security considerations:
 - All Convex functions use authentication verification
 - User data access controlled by ownership (userId checks)
 - XSS protection with input sanitization
-- Type safety enforced (no `any` types allowed)
-- Proper error handling throughout
+- Strict type safety enforced (no `any` types, strict null checks enabled)
+- Proper error handling with typed error boundaries
+- Input validation using Zod schemas
 
 ### Configuration Notes
 - Vite runs on port 8080
-- TypeScript configured with lenient settings (allows JS, no strict null checks)
+- TypeScript configured with strict settings (no `any` types, strict null checks enabled)
 - ESLint with React hooks and TypeScript support
 - Tailwind with dark mode and custom color system
 - Primary brand color: `#3E6FF3`

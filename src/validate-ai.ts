@@ -4,7 +4,7 @@
  */
 
 // Basic validation functions
-export function validateAIConfiguration() {
+export function validateAIConfiguration(): boolean {
   console.log('=== AI Configuration Validation ===');
   
   // Check environment variables
@@ -17,7 +17,7 @@ export function validateAIConfiguration() {
   
   Object.entries(requiredEnvVars).forEach(([key, value]) => {
     if (value) {
-      console.log(`✓ ${key}: configured (${value.substring(0, 10)}...)`);
+      console.log(`✓ ${key}: configured`);
     } else {
       console.log(`✗ ${key}: missing`);
       allConfigured = false;
@@ -32,7 +32,16 @@ export function validateAILibraries() {
   
   try {
     // Check if required modules can be imported
-    console.log('✓ AI SDK modules structure appears valid');
+    const requiredModules = ['@ai-sdk/openai', 'ai']; // Add actual module names
+    for (const moduleName of requiredModules) {
+      try {
+        require.resolve(moduleName);
+        console.log(`✓ ${moduleName}: available`);
+      } catch {
+        console.log(`✗ ${moduleName}: not found`);
+        return false;
+      }
+    }
     return true;
   } catch (error) {
     console.log(`✗ AI SDK validation failed: ${error}`);
@@ -40,7 +49,7 @@ export function validateAILibraries() {
   }
 }
 
-export function validateCodeExecutionSetup() {
+export function validateCodeExecutionSetup(): boolean {
   console.log('\n=== Code Execution Setup Validation ===');
   
   try {
@@ -48,23 +57,21 @@ export function validateCodeExecutionSetup() {
     const e2bKey = process.env.VITE_E2B_API_KEY;
     if (e2bKey) {
       console.log('✓ E2B API key configured');
+      return true;
     } else {
       console.log('✗ E2B API key missing');
       return false;
     }
-    
-    console.log('✓ Sandbox setup appears valid');
-    return true;
   } catch (error) {
     console.log(`✗ Code execution validation failed: ${error}`);
     return false;
   }
 }
 
-export function validateSecurityImplementation() {
+export function validateSecurityImplementation(): boolean {
   console.log('\n=== Security Implementation Validation ===');
   
-  // Check if security functions exist and are properly implemented
+  // TODO: Implement actual security validation
   const securityChecks = [
     'Input sanitization functions should be implemented',
     'Input length validation should be in place',
@@ -73,24 +80,17 @@ export function validateSecurityImplementation() {
   ];
   
   securityChecks.forEach((check, index) => {
-    console.log(`✓ Check ${index + 1}: ${check}`);
+    console.log(`! TODO ${index + 1}: ${check}`);
   });
   
-  return true;
+  console.log('⚠️  Security validation not implemented - manual review required');
+  return false;
 }
 
-export function validateDatabaseIntegration() {
+export function validateDatabaseIntegration(): boolean {
   console.log('\n=== Database Integration Validation ===');
   
-  // Check Convex integration
-  console.log('✓ Convex schema appears properly structured');
-  console.log('✓ Authentication integration looks correct');
-  console.log('✓ Message and chat operations are secured');
-  
-  return true;
-}
-
-export function generateValidationReport() {
+export function generateValidationReport(): boolean {
   console.log('\n' + '='.repeat(50));
   console.log('AI IMPLEMENTATION VALIDATION REPORT');
   console.log('='.repeat(50));
@@ -115,6 +115,24 @@ export function generateValidationReport() {
   if (!allPassed) {
     console.log('\nRecommendations:');
     if (!results.configuration) {
+      console.log('- Set up required environment variables');
+    }
+    if (!results.libraries) {
+      console.log('- Install and configure required AI SDK modules');
+    }
+    if (!results.codeExecution) {
+      console.log('- Configure E2B API key for code execution');
+    }
+    if (!results.security) {
+      console.log('- Implement proper security measures and validation');
+    }
+    if (!results.database) {
+      console.log('- Verify database integration and schema setup');
+    }
+  }
+  
+  return allPassed;
+}
       console.log('- Set up required environment variables');
     }
     if (!results.codeExecution) {
