@@ -127,7 +127,7 @@ const Index = () => {
                     View Pricing
                   </Button>
                 ) : (
-                  <SignInButton mode="modal" forceRedirectUrl="/pricing">
+                  <SignInButton mode="modal" forceRedirectUrl="/chat">
                     <Button size="lg" className="button-gradient">
                       Get Started
                     </Button>
@@ -267,7 +267,7 @@ const Index = () => {
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             ) : (
-              <SignInButton mode="modal" forceRedirectUrl="/pricing">
+              <SignInButton mode="modal" forceRedirectUrl="/chat">
                 <Button 
                   size="lg" 
                   className="bg-white text-blue-600 hover:bg-white/90"

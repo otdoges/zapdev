@@ -1,0 +1,50 @@
+# Convex Security Rules
+
+## Authentication Requirements
+All Convex queries and mutations MUST use proper authentication. Never accept user IDs from client parameters.
+
+### ✅ Secure Pattern:
+```typescript
+import type { QueryCtx, MutationCtx } from "./_generated/server";
+
+const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("User must be authenticated");
+  }
+  return identity;
+};
+
+export const getUserChats = query({
+  args: {}, // ❌ NEVER accept userId from client
+  handler: async (ctx) => {
+    const identity = await getAuthenticatedUser(ctx);
+    // Use identity.subject for user ID
+  }
+});
+```
+
+### ❌ Insecure Pattern (NEVER DO THIS):
+```typescript
+export const getUserChats = query({
+  args: { userId: v.string() }, // ❌ Client can pass ANY userId
+  handler: async (ctx, args) => {
+    // No authentication check - VULNERABLE!
+  }
+});
+```
+
+## Data Access Control
+- Always verify user owns the data before allowing access
+- Use the authenticated user's identity.subject for user references
+- Implement proper error messages that don't leak information
+
+## Required Security Checks
+1. Authentication verification in every function
+2. Authorization checks for data ownership
+3. Input validation and sanitization
+4. Error handling without information leakage
+description:
+globs:
+alwaysApply: false
+---

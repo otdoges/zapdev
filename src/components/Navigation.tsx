@@ -118,7 +118,7 @@ const Navigation = () => {
                 </Button>
               </div>
             ) : (
-              <SignInButton mode="modal" forceRedirectUrl="/settings">
+              <SignInButton mode="modal" forceRedirectUrl="/chat">
                 <Button 
                   size="sm"
                   className="button-gradient"
@@ -191,7 +191,7 @@ const Navigation = () => {
                       </Button>
                     </div>
                   ) : (
-                    <SignInButton mode="modal" forceRedirectUrl="/settings">
+                    <SignInButton mode="modal" forceRedirectUrl="/chat">
                       <Button 
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="button-gradient mt-4"

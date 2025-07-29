@@ -434,7 +434,7 @@ export default function HomePage() {
       setIsLoading(false);
       addLog(`Error: ${error}`);
     }
-  }, [webcontainerInstance, code]);
+  }, [webcontainerInstance, code, parseCodeToNextJSProject]);
 
   const stopCode = async () => {
     if (webcontainerInstance) {

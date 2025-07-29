@@ -1,7 +1,9 @@
 import { createRoot } from 'react-dom/client'
 import { StrictMode } from 'react'
 import { PostHogProvider } from 'posthog-js/react'
-import { ClerkProvider } from '@clerk/clerk-react'
+import { ClerkProvider, useAuth } from '@clerk/clerk-react'
+import { ConvexProviderWithClerk } from 'convex/react-clerk'
+import { convex } from './lib/convex'
 import App from './App.tsx'
 import './index.css'
 
@@ -14,17 +16,19 @@ const root = createRoot(document.getElementById('root')!);
 root.render(
   <StrictMode>
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
-      <PostHogProvider
-        apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
-        options={{
-          api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-          defaults: '2025-05-24',
-          capture_exceptions: true,
-          debug: import.meta.env.MODE === 'development',
-        }}
-      >
-        <App />
-      </PostHogProvider>
+      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+        <PostHogProvider
+          apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
+          options={{
+            api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+            // Removed invalid 'defaults' property to fix type error
+            capture_exceptions: true,
+            debug: import.meta.env.MODE === 'development',
+          }}
+        >
+          <App />
+        </PostHogProvider>
+      </ConvexProviderWithClerk>
     </ClerkProvider>
   </StrictMode>
 );

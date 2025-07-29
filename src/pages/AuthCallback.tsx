@@ -13,7 +13,7 @@ const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { setUserProfile, setAuthToken } = useWorkOSAuth();
-  const createOrUpdateUser = useMutation(api.users.createOrUpdateUserFromWorkOS);
+  const upsertUser = useMutation(api.users.upsertUser);
   const workosCallback = trpc.auth.workosCallback.useMutation();
 
   useEffect(() => {
@@ -89,7 +89,7 @@ const AuthCallback = () => {
         
         // Sync user with Convex database
         try {
-          await createOrUpdateUser({
+          await upsertUser({
             email: result.profile.email,
             fullName: result.profile.firstName && result.profile.lastName 
               ? `${result.profile.firstName} ${result.profile.lastName}` 

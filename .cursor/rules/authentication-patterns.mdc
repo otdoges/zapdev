@@ -1,0 +1,79 @@
+# Authentication Patterns
+
+## Clerk + Convex Integration
+Proper authentication hook pattern:
+
+```typescript
+export const useAuth = () => {
+  const { user: clerkUser, isLoaded, isSignedIn } = useUser();
+  const convexUser = useQuery(api.users.getCurrentUser);
+  const upsertUser = useMutation(api.users.upsertUser);
+
+  // Sync Clerk user with Convex user
+  React.useEffect(() => {
+    if (isLoaded && isSignedIn && clerkUser && !convexUser) {
+      upsertUser({
+        email: clerkUser.primaryEmailAddress?.emailAddress || '',
+        fullName: clerkUser.fullName || undefined,
+        avatarUrl: clerkUser.imageUrl || undefined,
+        username: clerkUser.username || clerkUser.primaryEmailAddress?.emailAddress?.split('@')[0],
+        bio: '',
+      }).catch(console.error);
+    }
+  }, [isLoaded, isSignedIn, clerkUser, convexUser, upsertUser]);
+
+  return {
+    user: convexUser,
+    clerkUser,
+    isLoading: !isLoaded,
+    isAuthenticated: isLoaded && isSignedIn && !!convexUser,
+    isSignedIn,
+  };
+};
+```
+
+## Protected Routes
+Use AuthGuard for protected pages:
+
+```typescript
+<Route path="/chat" element={
+  <AuthGuard>
+    <Chat />
+  </AuthGuard>
+} />
+```
+
+## Authentication States
+Handle all authentication states:
+
+```typescript
+if (authLoading) {
+  return <LoadingSpinner />;
+}
+
+if (!user) {
+  return <SignInPrompt />;
+}
+
+// Authenticated content
+return <ProtectedContent />;
+```
+
+## Clerk Configuration
+Redirect authenticated users to `/chat`:
+
+```typescript
+<SignInButton mode="modal" forceRedirectUrl="/chat">
+  <Button>Sign In</Button>
+</SignInButton>
+```
+
+## Security Best Practices
+- Always verify authentication on both client and server
+- Use proper loading states
+- Handle authentication errors gracefully
+- Never expose sensitive user data in client state
+description:
+globs:
+alwaysApply: false
+---

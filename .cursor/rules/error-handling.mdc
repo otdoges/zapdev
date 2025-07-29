@@ -1,0 +1,109 @@
+# Error Handling Standards
+
+## Toast Notifications
+Use Sonner for consistent user feedback:
+
+```typescript
+import { toast } from 'sonner';
+
+// Success
+toast.success('Chat created successfully!');
+
+// Error
+toast.error('Failed to create chat');
+
+// Loading (for longer operations)
+const promise = createChat(data);
+toast.promise(promise, {
+  loading: 'Creating chat...',
+  success: 'Chat created!',
+  error: 'Failed to create chat'
+});
+```
+
+## Try-Catch Patterns
+Always handle errors gracefully:
+
+```typescript
+const handleAction = async () => {
+  try {
+    setIsLoading(true);
+    const result = await apiCall();
+    toast.success('Action completed!');
+    return result;
+  } catch (error) {
+    console.error('Action failed:', error);
+    toast.error('Action failed. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
+```
+
+## Form Validation Errors
+Provide specific, actionable error messages:
+
+```typescript
+const validation = validateInput(input, MAX_LENGTH);
+if (!validation.isValid) {
+  toast.error(validation.error); // Specific error message
+  return;
+}
+```
+
+## Loading States
+Always provide loading feedback:
+
+```typescript
+if (isLoading) {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="flex items-center space-x-2">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+        <span className="text-muted-foreground">Loading...</span>
+      </div>
+    </div>
+  );
+}
+```
+
+## Error Boundaries
+Use proper error boundaries for component crashes:
+
+```typescript
+if (error) {
+  return (
+    <div className="text-center py-8">
+      <AlertCircle className="w-12 h-12 mx-auto mb-4 text-destructive" />
+      <h3 className="text-lg font-medium mb-2">Something went wrong</h3>
+      <p className="text-muted-foreground mb-4">{error.message}</p>
+      <Button onClick={retry}>Try Again</Button>
+    </div>
+  );
+}
+```
+
+## Network Error Handling
+Handle common network scenarios:
+
+```typescript
+catch (error) {
+  if (error.name === 'NetworkError') {
+    toast.error('Network error. Please check your connection.');
+  } else if (error.status === 401) {
+    toast.error('Authentication required. Please sign in.');
+  } else {
+    toast.error('An unexpected error occurred.');
+  }
+}
+```
+
+## User-Friendly Messages
+- Never expose technical error details to users
+- Provide actionable next steps
+- Use consistent error messaging
+- Include retry mechanisms where appropriate
+description:
+globs:
+alwaysApply: false
+---

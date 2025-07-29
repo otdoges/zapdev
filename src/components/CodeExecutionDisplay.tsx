@@ -19,8 +19,8 @@ import {
 interface ExecutionOutput {
   stdout: string;
   stderr: string;
-  results: any[];
-  error?: any;
+  results: unknown[];
+  error?: Error | string | unknown;
 }
 
 interface CodeExecutionDisplayProps {
@@ -62,7 +62,7 @@ const CodeExecutionDisplay: React.FC<CodeExecutionDisplayProps> = ({ output }) =
     return 'default';
   };
 
-  const formatResults = (results: any[]) => {
+  const formatResults = (results: unknown[]) => {
     return results.map((result, index) => {
       if (typeof result === 'object') {
         return JSON.stringify(result, null, 2);
@@ -79,7 +79,7 @@ const CodeExecutionDisplay: React.FC<CodeExecutionDisplayProps> = ({ output }) =
             <Activity className="w-4 h-4" />
             <CardTitle className="text-sm">Execution Output</CardTitle>
             {getStatusIcon()}
-            <Badge variant={getStatusColor() as any} className="text-xs">
+            <Badge variant={getStatusColor() as "default" | "secondary" | "destructive" | "outline"} className="text-xs">
               {getStatusText()}
             </Badge>
           </div>

@@ -1,14 +1,26 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
 
-// Get all chats for a user
+// Helper function to get authenticated user
+const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("User must be authenticated");
+  }
+  return identity;
+};
+
+// Get all chats for the authenticated user
 export const getUserChats = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const identity = await getAuthenticatedUser(ctx);
+    
     const chats = await ctx.db
       .query("chats")
       .withIndex("by_user_updated")
-      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("userId"), identity.subject))
       .order("desc")
       .collect();
     
@@ -16,13 +28,14 @@ export const getUserChats = query({
   },
 });
 
-// Get a specific chat by ID
+// Get a specific chat by ID (only if owned by authenticated user)
 export const getChat = query({
-  args: { chatId: v.id("chats"), userId: v.string() },
+  args: { chatId: v.id("chats") },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
     const chat = await ctx.db.get(args.chatId);
     
-    if (!chat || chat.userId !== args.userId) {
+    if (!chat || chat.userId !== identity.subject) {
       throw new Error("Chat not found or access denied");
     }
     
@@ -30,17 +43,17 @@ export const getChat = query({
   },
 });
 
-// Create a new chat
+// Create a new chat for the authenticated user
 export const createChat = mutation({
   args: {
-    userId: v.string(),
     title: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
     const now = Date.now();
     
     const chatId = await ctx.db.insert("chats", {
-      userId: args.userId,
+      userId: identity.subject,
       title: args.title,
       createdAt: now,
       updatedAt: now,
@@ -50,17 +63,17 @@ export const createChat = mutation({
   },
 });
 
-// Update chat title
+// Update chat title (only if owned by authenticated user)
 export const updateChat = mutation({
   args: {
     chatId: v.id("chats"),
-    userId: v.string(),
     title: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
     const chat = await ctx.db.get(args.chatId);
     
-    if (!chat || chat.userId !== args.userId) {
+    if (!chat || chat.userId !== identity.subject) {
       throw new Error("Chat not found or access denied");
     }
     
@@ -73,16 +86,16 @@ export const updateChat = mutation({
   },
 });
 
-// Delete a chat and all its messages
+// Delete a chat and all its messages (only if owned by authenticated user)
 export const deleteChat = mutation({
   args: {
     chatId: v.id("chats"),
-    userId: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
     const chat = await ctx.db.get(args.chatId);
     
-    if (!chat || chat.userId !== args.userId) {
+    if (!chat || chat.userId !== identity.subject) {
       throw new Error("Chat not found or access denied");
     }
     
@@ -108,12 +121,12 @@ export const deleteChat = mutation({
 export const touchChat = mutation({
   args: {
     chatId: v.id("chats"),
-    userId: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
     const chat = await ctx.db.get(args.chatId);
     
-    if (!chat || chat.userId !== args.userId) {
+    if (!chat || chat.userId !== identity.subject) {
       throw new Error("Chat not found or access denied");
     }
     

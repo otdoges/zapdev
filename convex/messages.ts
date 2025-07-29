@@ -1,16 +1,27 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
 
-// Get all messages for a specific chat
+// Helper function to get authenticated user
+const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("User must be authenticated");
+  }
+  return identity;
+};
+
+// Get all messages for a specific chat (only if owned by authenticated user)
 export const getChatMessages = query({
   args: { 
     chatId: v.id("chats"),
-    userId: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
+    
     // First verify the user has access to this chat
     const chat = await ctx.db.get(args.chatId);
-    if (!chat || chat.userId !== args.userId) {
+    if (!chat || chat.userId !== identity.subject) {
       throw new Error("Chat not found or access denied");
     }
     
@@ -25,13 +36,13 @@ export const getChatMessages = query({
   },
 });
 
-// Get a specific message by ID
+// Get a specific message by ID (only if user owns the chat)
 export const getMessage = query({
   args: { 
     messageId: v.id("messages"),
-    userId: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
     const message = await ctx.db.get(args.messageId);
     
     if (!message) {
@@ -40,7 +51,7 @@ export const getMessage = query({
     
     // Verify user has access to the chat this message belongs to
     const chat = await ctx.db.get(message.chatId);
-    if (!chat || chat.userId !== args.userId) {
+    if (!chat || chat.userId !== identity.subject) {
       throw new Error("Access denied");
     }
     
@@ -48,11 +59,10 @@ export const getMessage = query({
   },
 });
 
-// Create a new message
+// Create a new message (only if user owns the chat)
 export const createMessage = mutation({
   args: {
     chatId: v.id("chats"),
-    userId: v.string(),
     content: v.string(),
     role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
     metadata: v.optional(v.object({
@@ -62,9 +72,11 @@ export const createMessage = mutation({
     })),
   },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
+    
     // Verify user has access to this chat
     const chat = await ctx.db.get(args.chatId);
-    if (!chat || chat.userId !== args.userId) {
+    if (!chat || chat.userId !== identity.subject) {
       throw new Error("Chat not found or access denied");
     }
     
@@ -72,7 +84,7 @@ export const createMessage = mutation({
     
     const messageId = await ctx.db.insert("messages", {
       chatId: args.chatId,
-      userId: args.userId,
+      userId: identity.subject,
       content: args.content,
       role: args.role,
       metadata: args.metadata,
@@ -88,11 +100,10 @@ export const createMessage = mutation({
   },
 });
 
-// Update a message
+// Update a message (only if user owns the chat)
 export const updateMessage = mutation({
   args: {
     messageId: v.id("messages"),
-    userId: v.string(),
     content: v.string(),
     metadata: v.optional(v.object({
       model: v.optional(v.string()),
@@ -101,6 +112,7 @@ export const updateMessage = mutation({
     })),
   },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
     const message = await ctx.db.get(args.messageId);
     
     if (!message) {
@@ -109,7 +121,7 @@ export const updateMessage = mutation({
     
     // Verify user has access to the chat this message belongs to
     const chat = await ctx.db.get(message.chatId);
-    if (!chat || chat.userId !== args.userId) {
+    if (!chat || chat.userId !== identity.subject) {
       throw new Error("Access denied");
     }
     
@@ -127,13 +139,13 @@ export const updateMessage = mutation({
   },
 });
 
-// Delete a message
+// Delete a message (only if user owns the chat)
 export const deleteMessage = mutation({
   args: {
     messageId: v.id("messages"),
-    userId: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
     const message = await ctx.db.get(args.messageId);
     
     if (!message) {
@@ -142,7 +154,7 @@ export const deleteMessage = mutation({
     
     // Verify user has access to the chat this message belongs to
     const chat = await ctx.db.get(message.chatId);
-    if (!chat || chat.userId !== args.userId) {
+    if (!chat || chat.userId !== identity.subject) {
       throw new Error("Access denied");
     }
     
@@ -160,16 +172,16 @@ export const deleteMessage = mutation({
 // Get latest messages across all user's chats (for overview)
 export const getLatestMessages = query({
   args: { 
-    userId: v.string(),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
     const limit = args.limit || 50;
     
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_user_id")
-      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("userId"), identity.subject))
       .order("desc")
       .take(limit);
     

@@ -1,0 +1,77 @@
+# XSS Protection Standards
+
+## Input Sanitization
+Always sanitize user input before storing or displaying:
+
+```typescript
+// Required sanitization function
+const sanitizeText = (text: string): string => {
+  return text
+    .replace(/[<>'"&]/g, (char) => {
+      const chars: { [key: string]: string } = {
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#x27;',
+        '"': '&quot;',
+        '&': '&amp;'
+      };
+      return chars[char] || char;
+    })
+    .trim();
+};
+```
+
+## Input Validation
+Implement comprehensive input validation:
+
+```typescript
+const validateInput = (text: string, maxLength: number) => {
+  // Length validation
+  if (text.length > maxLength) {
+    return { isValid: false, error: `Input too long. Maximum ${maxLength} characters allowed` };
+  }
+  
+  // Malicious pattern detection
+  const suspiciousPatterns = [
+    /<script/i, /javascript:/i, /vbscript:/i,
+    /onload=/i, /onerror=/i, /onclick=/i
+  ];
+  
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(text)) {
+      return { isValid: false, error: 'Invalid content detected' };
+    }
+  }
+  
+  return { isValid: true };
+};
+```
+
+## Safe Text Display
+Use the SafeText component for all user-generated content:
+
+```typescript
+const SafeText: React.FC<{ children: string }> = ({ children }) => {
+  return <span>{children}</span>; // React automatically escapes
+};
+
+// Usage
+<SafeText>{userContent}</SafeText>
+```
+
+## Security Constants
+Define security limits:
+```typescript
+const MAX_MESSAGE_LENGTH = 10000;
+const MAX_TITLE_LENGTH = 100;
+const MAX_CODE_BLOCK_LENGTH = 5000;
+```
+
+## NEVER use:
+- `dangerouslySetInnerHTML` with user content
+- Direct string interpolation in HTML
+- Unvalidated user input in dynamic content
+description:
+globs:
+alwaysApply: false
+---

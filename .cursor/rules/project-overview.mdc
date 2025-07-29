@@ -1,0 +1,41 @@
+# ZapDev Project Overview
+
+## Technology Stack
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
+- **UI Components**: Shadcn/ui + Lucide React icons
+- **Authentication**: Clerk with Convex integration
+- **Database**: Convex (real-time, serverless)
+- **Payment**: Polar integration for subscriptions
+- **Animations**: Framer Motion
+- **Package Manager**: Bun (preferred), fallback to pnpm/npm
+- **Code Execution**: WebContainer for safe code execution
+
+## Key Files Structure
+- [src/main.tsx](mdc:src/main.tsx) - App entry point with Clerk + Convex providers
+- [src/App.tsx](mdc:src/App.tsx) - Main routing and provider setup
+- [src/components/ChatInterface.tsx](mdc:src/components/ChatInterface.tsx) - Main chat component with XSS protection
+- [convex/schema.ts](mdc:convex/schema.ts) - Database schema with security considerations
+- [convex/auth.config.js](mdc:convex/auth.config.js) - Clerk authentication configuration
+
+## Security Implementations
+✅ **Authentication**: All Convex functions use proper auth verification
+✅ **XSS Protection**: Input sanitization and validation throughout
+✅ **Authorization**: User data access control with ownership verification
+✅ **Type Safety**: Strict TypeScript with no `any` types allowed
+
+## Key Features
+- **Real-time Chat**: Secure messaging with AI integration
+- **Code Execution**: Safe code running with WebContainer
+- **User Management**: Clerk + Convex user sync
+- **Subscription Management**: Polar integration for billing
+- **Responsive Design**: Mobile-first UI with modern UX
+
+## Development Guidelines
+- Use security patterns from [convex-security.mdc](mdc:.cursor/rules/convex-security.mdc)
+- Follow XSS protection from [xss-protection.mdc](mdc:.cursor/rules/xss-protection.mdc)
+- Maintain TypeScript standards from [typescript-standards.mdc](mdc:.cursor/rules/typescript-standards.mdc)
+- Handle errors per [error-handling.mdc](mdc:.cursor/rules/error-handling.mdc)
+description:
+globs:
+alwaysApply: false
+---

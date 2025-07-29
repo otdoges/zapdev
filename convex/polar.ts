@@ -350,7 +350,7 @@ export const getUserUsageStats = query({
       }
       
       acc[eventType].count++;
-      acc[eventType].totalTokens += event.metadata.totalTokens || 0;
+      acc[eventType].totalTokens += (event.metadata as Record<string, unknown>).totalTokens as number || 0;
       acc[eventType].totalRequests += event.metadata.requests || 0;
       acc[eventType].totalDuration += event.metadata.duration || 0;
       acc[eventType].totalSize += event.metadata.size || 0;

@@ -1,0 +1,101 @@
+# Chat Interface UI Patterns
+
+## Component Structure
+Chat interfaces should follow this structure:
+
+```typescript
+const ChatInterface: React.FC = () => {
+  // State management
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  
+  // Convex integration
+  const chats = useQuery(api.chats.getUserChats);
+  const messages = useQuery(api.messages.getChatMessages, 
+    selectedChatId ? { chatId: selectedChatId } : 'skip'
+  );
+  
+  return (
+    <div className="flex h-full bg-background">
+      {/* Sidebar */}
+      <ChatSidebar />
+      
+      {/* Main Chat Area */}
+      <ChatArea />
+    </div>
+  );
+};
+```
+
+## Animation Standards
+Use Framer Motion for smooth UX:
+
+```typescript
+<AnimatePresence>
+  {messages?.map((message) => (
+    <motion.div
+      key={message._id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+    >
+      <MessageCard message={message} />
+    </motion.div>
+  ))}
+</AnimatePresence>
+```
+
+## Message Display Patterns
+```typescript
+// Safe message rendering
+<div className="whitespace-pre-wrap">
+  <SafeText>{message.content}</SafeText>
+</div>
+
+// Code block handling
+{message.role === 'assistant' && extractCodeBlocks(message.content).map((block) => (
+  <CodeBlock key={block.id} block={block} />
+))}
+```
+
+## Form Handling
+```typescript
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // Validation
+  const validation = validateInput(input, MAX_MESSAGE_LENGTH);
+  if (!validation.isValid) {
+    toast.error(validation.error);
+    return;
+  }
+  
+  // Sanitization
+  const userContent = sanitizeText(input.trim());
+  
+  // API call with proper error handling
+  try {
+    await createMessage({ /* ... */ });
+    toast.success('Message sent!');
+  } catch (error) {
+    toast.error('Failed to send message');
+  }
+};
+```
+
+## Real-time Features
+- Auto-scroll to bottom on new messages
+- Typing indicators during AI responses
+- Copy-to-clipboard functionality
+- Character counters for input validation
+
+## Responsive Design
+- Sidebar collapses on mobile
+- Message width adapts to screen size
+- Touch-friendly button sizes
+- Proper keyboard navigation
+description:
+globs:
+alwaysApply: false
+---

@@ -1,51 +1,46 @@
-import { useState, useEffect } from 'react';
+import { useUser } from "@clerk/clerk-react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import React from "react";
 
 interface User {
-  id: string;
+  _id: string;
+  userId: string;
   email: string;
-  name?: string;
+  fullName?: string;
+  avatarUrl?: string;
+  username?: string;
+  bio?: string;
 }
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user: clerkUser, isLoaded, isSignedIn } = useUser();
+  
+  // Get or create user in Convex database
+  const convexUser = useQuery(api.users.getCurrentUser);
+  const upsertUser = useMutation(api.users.upsertUser);
 
-  useEffect(() => {
-    // Check for stored auth token and user info
-    const authToken = localStorage.getItem('authToken');
-    const userInfo = localStorage.getItem('userInfo');
-    
-    if (authToken && userInfo) {
-      try {
-        const parsedUser = JSON.parse(userInfo);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error('Error parsing user info:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userInfo');
-      }
+  // Sync Clerk user with Convex user
+  React.useEffect(() => {
+    if (isLoaded && isSignedIn && clerkUser && convexUser === null) {
+      upsertUser({
+        email: clerkUser.primaryEmailAddress?.emailAddress || '',
+        fullName: clerkUser.fullName || undefined,
+        avatarUrl: clerkUser.imageUrl || undefined,
+        username: clerkUser.username || `${clerkUser.primaryEmailAddress?.emailAddress?.split('@')[0]}_${Date.now()}`,
+        bio: '',
+      }).catch((error) => {
+        console.error('Failed to sync user:', error);
+        // Consider adding user-facing error handling here
+      });
     }
-    
-    setIsLoading(false);
-  }, []);
-
-  const login = (userData: User, token: string) => {
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('userInfo', JSON.stringify(userData));
-    setUser(userData);
-  };
-
-  const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userInfo');
-    setUser(null);
-  };
+  }, [isLoaded, isSignedIn, clerkUser?.id, convexUser]);
 
   return {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
-    login,
-    logout,
+    user: convexUser,
+    clerkUser,
+    isLoading: !isLoaded,
+    isAuthenticated: isLoaded && isSignedIn && !!convexUser,
+    isSignedIn,
   };
 };

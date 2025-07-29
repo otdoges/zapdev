@@ -3,7 +3,7 @@
 export interface NextJSTemplate {
   name: string;
   description: string;
-  files: Record<string, any>;
+  files: Record<string, { file: { contents: string } } | { directory: Record<string, unknown> }>;
 }
 
 export const createBasicNextJSTemplate = (): NextJSTemplate => ({

@@ -1,0 +1,67 @@
+# TypeScript Standards
+
+## Type Safety Requirements
+- NEVER use `any` type - use proper TypeScript types
+- Use `unknown` for truly unknown data types
+- Implement proper interface definitions
+
+## ✅ Preferred Patterns:
+
+### Instead of `any`:
+```typescript
+// ❌ Don't use any
+const formatResults = (results: any[]) => { ... }
+
+// ✅ Use proper types
+const formatResults = (results: unknown[]) => { ... }
+
+// ✅ Or specific interfaces
+interface ExecutionResult {
+  stdout: string;
+  stderr: string;
+  error?: Error | string;
+}
+```
+
+### Empty Interfaces:
+```typescript
+// ❌ Empty interface
+interface InputProps {}
+
+// ✅ Use type alias
+type InputProps = React.InputHTMLAttributes<HTMLInputElement>
+```
+
+### Function Parameter Types:
+```typescript
+// ✅ Properly typed context
+const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
+  // Implementation
+};
+```
+
+## Required Type Definitions
+- All function parameters must be typed
+- All return types should be explicit for public APIs
+- Use proper generic constraints
+- Implement discriminated unions for state management
+
+## Error Handling Types
+```typescript
+interface ValidationResult {
+  isValid: boolean;
+  error?: string;
+}
+```
+
+## React Component Typing
+```typescript
+// Proper component typing
+const MyComponent: React.FC<Props> = ({ prop1, prop2 }) => {
+  return <div>...</div>;
+};
+```
+description:
+globs:
+alwaysApply: false
+---
