@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Send, User, Bot, Play, Copy, Check } from 'lucide-react';
 import { streamAIResponse } from '@/lib/ai';
 import { executeCode } from '@/lib/sandbox';
+// @ts-expect-error: If type declarations are missing, ignore for now
 import CodeExecutionDisplay from './CodeExecutionDisplay';
 
 interface Message {
