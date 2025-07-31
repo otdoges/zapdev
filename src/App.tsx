@@ -6,8 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { convex } from "@/lib/convex";
 import { useAuth } from "@clerk/clerk-react";
-import { trpc } from "@/lib/trpc";
-import { httpBatchLink } from "@trpc/client";
+import { trpc, trpcClient } from "@/lib/trpc";
 import Index from "./pages/Index";
 import AuthCallback from "./pages/AuthCallback";
 import Settings from "./pages/Settings";
@@ -19,19 +18,6 @@ import AuthGuard from "./components/AuthGuard";
 import UserSync from "./components/UserSync";
 
 const queryClient = new QueryClient();
-
-// Create TRPC client - we'll handle auth headers in a provider component
-const trpcClient = trpc.createClient({
-  links: [
-    httpBatchLink({
-      url: `${import.meta.env.VITE_CONVEX_URL}/trpc`,
-      headers: () => {
-        // Auth headers will be handled by Convex auth
-        return {};
-      },
-    }),
-  ],
-});
 
 const App = () => (
   <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
