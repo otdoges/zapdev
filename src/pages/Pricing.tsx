@@ -9,7 +9,7 @@ import { DynamicPricingSection } from "@/components/pricing/DynamicPricingSectio
 import { PricingTestimonials } from "@/components/pricing/PricingTestimonials";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
-import { redirectToWorkOS } from "@/lib/workos";
+
 import { useAuth } from "@/hooks/useAuth";
 import React from "react"; // Added missing import for React
 
@@ -74,7 +74,7 @@ const HeroSection = () => {
               <Button 
                 size="lg" 
                 className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3"
-                onClick={() => redirectToWorkOS()}
+                onClick={() => window.location.href = '/chat'}
               >
                 Start Free Trial
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -323,7 +323,7 @@ const CTASection = () => {
             <Button 
               size="lg" 
               className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3"
-              onClick={() => isAuthenticated ? window.location.href = '/chat' : redirectToWorkOS()}
+              onClick={() => window.location.href = '/chat'}
             >
               {isAuthenticated ? 'Go to Dashboard' : 'Start Free Trial'}
               <ArrowRight className="w-4 h-4 ml-2" />

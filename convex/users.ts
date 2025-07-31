@@ -31,7 +31,7 @@ export const getCurrentUser = query({
 // Create or update user profile
 export const upsertUser = mutation({
   args: {
-    email: v.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email format"),
+    email: v.string(),
     fullName: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
     username: v.optional(v.string()),

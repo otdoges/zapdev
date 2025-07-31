@@ -17,17 +17,20 @@ root.render(
   <StrictMode>
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <PostHogProvider
-          apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
-          options={{
-            api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-            // Removed invalid 'defaults' property to fix type error
-            capture_exceptions: true,
-            debug: import.meta.env.MODE === 'development',
-          }}
-        >
+{import.meta.env.VITE_PUBLIC_POSTHOG_KEY ? (
+          <PostHogProvider
+            apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
+            options={{
+              api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+              capture_exceptions: true,
+              debug: import.meta.env.MODE === 'development',
+            }}
+          >
+            <App />
+          </PostHogProvider>
+        ) : (
           <App />
-        </PostHogProvider>
+        )}
       </ConvexProviderWithClerk>
     </ClerkProvider>
   </StrictMode>

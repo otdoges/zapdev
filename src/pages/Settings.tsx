@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { redirectToWorkOS } from "@/lib/workos";
+
 import { useClerk } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -234,7 +234,7 @@ const Settings = () => {
 
   // Load initial data
   useEffect(() => {
-    if (!isAuthenticated) return redirectToWorkOS();
+    if (!isAuthenticated) return null;
 
     const loadData = async () => {
       setIsLoading(true);

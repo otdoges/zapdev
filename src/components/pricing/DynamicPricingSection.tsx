@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { redirectToWorkOS } from "@/lib/workos";
+
 
 interface PolarProduct {
   id: string;
@@ -285,8 +285,8 @@ export const DynamicPricingSection = () => {
 
   const createCheckoutSession = async (priceId: string) => {
     if (!user) {
-      // Redirect to WorkOS for authentication
-      redirectToWorkOS();
+      // Redirect to chat page
+                window.location.href = '/chat';
       return;
     }
 
