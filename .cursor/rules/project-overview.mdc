@@ -5,7 +5,7 @@
 - **UI Components**: Shadcn/ui + Lucide React icons
 - **Authentication**: Clerk with Convex integration
 - **Database**: Convex (real-time, serverless)
-- **Payment**: Polar integration for subscriptions
+- **Payment**: Stripe integration for subscriptions
 - **Animations**: Framer Motion
 - **Package Manager**: Bun (preferred), fallback to pnpm/npm
 - **Code Execution**: WebContainer for safe code execution

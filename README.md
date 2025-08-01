@@ -5,8 +5,9 @@ An AI-powered development platform that helps developers build applications fast
 ## Features
 
 - 🤖 AI-powered code generation
-- 🔐 WorkOS SSO authentication
+- 🔐 Clerk authentication with Convex integration
 - 💬 Real-time chat interface
+- 💳 Stripe subscription management
 - 📱 Responsive design
 - ⚡ Fast development workflow
 
@@ -70,6 +71,11 @@ VITE_WORKOS_REDIRECT_URI=http://localhost:5173/auth/callback
 
 # Other required variables
 VITE_CONVEX_URL=your_convex_url_here
+
+# Stripe Configuration (for subscription management)
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_key_here
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
 ```
 
 ### 4. Wildcard Redirect URIs (Optional)

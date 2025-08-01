@@ -24,12 +24,13 @@ import Navigation from "@/components/Navigation";
 interface SubscriptionData {
   id: string;
   planName: string;
-  status: 'active' | 'canceled' | 'past_due' | 'trialing';
+  status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
   currentPeriodStart: string;
   currentPeriodEnd: string;
   priceAmount: number;
   currency: string;
   interval: 'month' | 'year';
+  cancelAtPeriodEnd?: boolean;
 }
 
 interface UserPreferences {
@@ -128,6 +129,7 @@ const Settings = () => {
   const [apiConfig, setApiConfig] = useState<ApiConfiguration>({ groqApiKey: '', useUserApiKey: false });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingBilling, setIsLoadingBilling] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKeyStatus, setApiKeyStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
   const [profileData, setProfileData] = useState({
@@ -150,8 +152,28 @@ const Settings = () => {
   const updateApiConfig = (key: keyof ApiConfiguration, value: any) => 
     setApiConfig(prev => ({ ...prev, [key]: value }));
 
-  const updateProfile = (key: string, value: string) => 
+  const updateProfile = (key: string, value: string) =>
     setProfileData(prev => ({ ...prev, [key]: value }));
+
+  // Billing Functions
+  const handleManageBilling = async () => {
+    if (!user) return;
+
+    setIsLoadingBilling(true);
+    try {
+      // This would use TRPC to create customer portal session
+      // const result = await trpc.stripe.createCustomerPortalSession.mutate();
+      // window.location.href = result.url;
+
+      // For now, just show an alert
+      alert('Opening Stripe customer portal...');
+    } catch (error) {
+      console.error('Error opening customer portal:', error);
+      alert('Failed to open billing portal. Please try again.');
+    } finally {
+      setIsLoadingBilling(false);
+    }
+  };
 
   // API Functions
   const testGroqApiKey = async (apiKey: string) => {
@@ -363,9 +385,14 @@ const Settings = () => {
                   {formatCurrency(subscription.priceAmount, subscription.currency)}/{subscription.interval}
                 </CardDescription>
               </div>
-              <Button variant="outline" className="border-gray-700">
+              <Button
+                variant="outline"
+                className="border-gray-700"
+                onClick={handleManageBilling}
+                disabled={isLoadingBilling}
+              >
                 <ArrowUpRight className="w-4 h-4 mr-2" />
-                Manage Billing
+                {isLoadingBilling ? 'Loading...' : 'Manage Billing'}
               </Button>
             </div>
           </CardHeader>

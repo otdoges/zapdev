@@ -1,6 +1,6 @@
-# Migration from Supabase to Convex + WorkOS + TRPC
+# Migration from Supabase to Convex + Clerk + Stripe + TRPC
 
-This document outlines the migration from Supabase to a modern stack using Convex for the database, WorkOS for authentication, and TRPC for the API layer.
+This document outlines the migration from Supabase to a modern stack using Convex for the database, Clerk for authentication, Stripe for payments, and TRPC for the API layer.
 
 ## Required Environment Variables
 
@@ -10,10 +10,14 @@ Create a `.env.local` file with the following variables:
 # Convex
 VITE_CONVEX_URL=https://your-deployment.convex.cloud
 
-# WorkOS Authentication
-VITE_WORKOS_API_KEY=sk_xxx
-VITE_WORKOS_CLIENT_ID=client_xxx
-VITE_WORKOS_DOMAIN=your-domain.workos.com
+# Clerk Authentication
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_clerk_key_here
+CLERK_SECRET_KEY=sk_test_your_clerk_secret_here
+
+# Stripe Payments
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_key_here
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
 
 # Groq API (keep for AI functionality)
 VITE_GROQ_API_KEY=your_groq_api_key_here
@@ -30,26 +34,41 @@ npx convex dev
 npx convex deploy
 ```
 
-### 2. WorkOS Setup
-1. Sign up at [WorkOS](https://workos.com)
-2. Create a new organization and application
-3. Configure your redirect URI: `http://localhost:5173/auth/callback` (for development)
-4. Copy your API key, Client ID, and domain to your `.env.local` file
+### 2. Clerk Setup
+1. Sign up at [Clerk](https://clerk.com)
+2. Create a new application
+3. Configure your redirect URIs and allowed origins
+4. Copy your publishable key and secret key to your `.env.local` file
 
-### 3. Database Migration
+### 3. Stripe Setup
+1. Sign up at [Stripe](https://stripe.com)
+2. Get your API keys from the dashboard
+3. Set up webhook endpoints for subscription events
+4. Copy your publishable key, secret key, and webhook secret to your `.env.local` file
+
+### 4. Database Migration
 The Convex schema has been created to mirror the PostgreSQL tables:
 - `users` - User profiles
-- `chats` - Chat conversations  
+- `chats` - Chat conversations
 - `messages` - Chat messages
 - `aiModels` - AI model configurations
 - `userPreferences` - User settings
-- `apiUsage` - Usage tracking
+- `stripeProducts` - Stripe product cache
+- `stripePrices` - Stripe price cache
+- `stripeCustomers` - Stripe customer cache
+- `stripeSubscriptions` - Stripe subscription cache
+- `usageEvents` - Usage tracking for billing
+- `userSubscriptions` - User subscription status cache
 
-### 4. Initialize Default Data
-Run the following mutation to set up default AI models:
+### 5. Initialize Default Data
+Run the following mutations to set up default data:
 ```typescript
 // In Convex dashboard or using a script
 await convex.mutation(api.aiModels.initializeDefaultModels)();
+
+// Sync Stripe products and prices (run after setting up Stripe)
+await convex.mutation(api.stripe.syncProducts)({ products: [] });
+await convex.mutation(api.stripe.syncPrices)({ prices: [] });
 ```
 
 ## Architecture Changes

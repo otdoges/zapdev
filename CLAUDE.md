@@ -19,7 +19,7 @@ ZapDev is an AI-powered development platform with real-time chat, code execution
 - **UI Components**: shadcn/ui (Radix UI primitives) + Lucide React icons
 - **Authentication**: Clerk with Convex integration
 - **Database**: Convex (real-time, serverless)
-- **Payments**: Polar for subscription management
+- **Payments**: Stripe for subscription management
 - **AI Integration**: Groq SDK + AI SDK
 - **Code Execution**: WebContainer API + E2B Code Interpreter
 - **Styling**: Tailwind CSS with custom design system

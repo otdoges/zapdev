@@ -237,11 +237,11 @@ const authRouter = router({
     }),
 });
 
-// Polar billing procedures
-const polarRouter = router({
+// Stripe billing procedures
+const stripeRouter = router({
   // Product management
   getProducts: publicProcedure.query(async ({ ctx }) => {
-    // This would call the Polar API and sync with Convex
+    // Get products from Convex cache
     return [];
   }),
 
@@ -250,7 +250,7 @@ const polarRouter = router({
       productId: z.string(),
     }))
     .query(async ({ input, ctx }) => {
-      // Get product from Polar API or Convex cache
+      // Get product from Convex cache
       return null;
     }),
 
@@ -265,29 +265,27 @@ const polarRouter = router({
       priceId: z.string(),
     }))
     .mutation(async ({ input, ctx }) => {
-      // Create Polar checkout session
+      // Create Stripe checkout session
       return {
-        url: 'https://checkout.polar.sh/...',
+        url: 'https://checkout.stripe.com/...',
       };
     }),
 
-  cancelSubscription: protectedProcedure
-    .input(z.object({
-      subscriptionId: z.string(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // Cancel subscription via Polar API
-      return { success: true };
-    }),
+  createCustomerPortalSession: protectedProcedure.mutation(async ({ ctx }) => {
+    // Create Stripe customer portal session
+    return {
+      url: 'https://billing.stripe.com/...',
+    };
+  }),
 
   // Usage tracking
   recordUsage: protectedProcedure
     .input(z.object({
       eventName: z.string(),
-      metadata: z.record(z.string(), z.any()),
+      metadata: z.record(z.union([z.string(), z.number(), z.boolean()])),
     }))
     .mutation(async ({ input, ctx }) => {
-      // Record usage event in Convex
+      // Record usage event for billing
       return { success: true };
     }),
 
@@ -304,48 +302,14 @@ const polarRouter = router({
       };
     }),
 
-  // Meter management
-  getMeters: protectedProcedure.query(async ({ ctx }) => {
-    // Get meters from Convex cache
-    return [];
-  }),
-
-  createMeter: protectedProcedure
-    .input(z.object({
-      name: z.string(),
-      slug: z.string(),
-      eventName: z.string(),
-      valueProperty: z.string(),
-      filters: z.array(z.object({
-        property: z.string(),
-        operator: z.enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte']),
-        value: z.union([z.string(), z.number()]),
-      })).optional(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // Create meter via Polar API and sync to Convex
-      return { success: true };
-    }),
-
-  // Sync operations (admin only)
-  syncProducts: protectedProcedure.mutation(async ({ ctx }) => {
-    // Sync products from Polar API to Convex
-    return { success: true };
-  }),
-
-  syncSubscriptions: protectedProcedure.mutation(async ({ ctx }) => {
-    // Sync subscriptions from Polar API to Convex
-    return { success: true };
-  }),
-
-  // Webhook handler for Polar events
+  // Webhook handler for Stripe events
   handleWebhook: publicProcedure
     .input(z.object({
-      type: z.string(),
-      data: z.record(z.string(), z.any()),
+      body: z.string(),
+      signature: z.string(),
     }))
     .mutation(async ({ input, ctx }) => {
-      // Handle Polar webhook events
+      // Handle Stripe webhook events
       return { success: true };
     }),
 });
@@ -357,7 +321,7 @@ export const appRouter = router({
   chat: chatRouter,
   message: messageRouter,
   aiModel: aiModelRouter,
-  polar: polarRouter,
+  stripe: stripeRouter,
 });
 
 export type AppRouter = typeof appRouter; 

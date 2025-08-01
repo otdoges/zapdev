@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Check, Star, ArrowRight, ChevronDown, ChevronUp, Zap, Shield, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,7 @@ import React from "react"; // Added missing import for React
 
 const HeroSection = () => {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -74,7 +76,7 @@ const HeroSection = () => {
               <Button 
                 size="lg" 
                 className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3"
-                onClick={() => window.location.href = '/chat'}
+                onClick={() => navigate('/chat')}
               >
                 Start Free Trial
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -300,6 +302,7 @@ const FAQSection = () => {
 
 const CTASection = () => {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <motion.section 
@@ -323,7 +326,7 @@ const CTASection = () => {
             <Button 
               size="lg" 
               className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3"
-              onClick={() => window.location.href = '/chat'}
+              onClick={() => navigate('/chat')}
             >
               {isAuthenticated ? 'Go to Dashboard' : 'Start Free Trial'}
               <ArrowRight className="w-4 h-4 ml-2" />

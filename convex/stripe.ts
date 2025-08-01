@@ -1,38 +1,33 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
 
 // Product management functions
 export const syncProducts = mutation({
   args: {
     products: v.array(v.object({
-      polarId: v.string(),
+      stripeId: v.string(),
       name: v.string(),
       description: v.optional(v.string()),
-      type: v.union(v.literal("individual"), v.literal("business")),
-      isRecurring: v.boolean(),
-      isArchived: v.boolean(),
-      organizationId: v.string(),
+      active: v.boolean(),
+      metadata: v.optional(v.object({})),
     }))
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     
     for (const product of args.products) {
-      // Check if product already exists
       const existing = await ctx.db
-        .query("products")
-        .withIndex("by_polar_id", q => q.eq("polarId", product.polarId))
+        .query("stripeProducts")
+        .withIndex("by_stripe_id", q => q.eq("stripeId", product.stripeId))
         .unique();
 
       if (existing) {
-        // Update existing product
         await ctx.db.patch(existing._id, {
           ...product,
           updatedAt: now,
         });
       } else {
-        // Create new product
-        await ctx.db.insert("products", {
+        await ctx.db.insert("stripeProducts", {
           ...product,
           createdAt: now,
           updatedAt: now,
@@ -43,21 +38,21 @@ export const syncProducts = mutation({
 });
 
 export const getProducts = query({
-  args: { includeArchived: v.optional(v.boolean()) },
+  args: { includeInactive: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
-    if (!args.includeArchived) {
+    if (!args.includeInactive) {
       return await ctx.db
-        .query("products")
-        .withIndex("by_active", q => q.eq("isArchived", false))
+        .query("stripeProducts")
+        .withIndex("by_active", q => q.eq("active", true))
         .collect();
     }
     
-    return await ctx.db.query("products").collect();
+    return await ctx.db.query("stripeProducts").collect();
   },
 });
 
 export const getProductById = query({
-  args: { productId: v.id("products") },
+  args: { productId: v.id("stripeProducts") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.productId);
   },
@@ -67,14 +62,15 @@ export const getProductById = query({
 export const syncPrices = mutation({
   args: {
     prices: v.array(v.object({
-      polarId: v.string(),
-      productId: v.id("products"),
-      polarProductId: v.string(),
-      amountType: v.union(v.literal("fixed"), v.literal("free"), v.literal("custom")),
+      stripeId: v.string(),
+      productId: v.id("stripeProducts"),
+      stripeProductId: v.string(),
       type: v.union(v.literal("one_time"), v.literal("recurring")),
       recurringInterval: v.optional(v.union(v.literal("month"), v.literal("year"))),
-      priceAmount: v.optional(v.number()),
-      priceCurrency: v.optional(v.string()),
+      unitAmount: v.optional(v.number()),
+      currency: v.string(),
+      active: v.boolean(),
+      metadata: v.optional(v.object({})),
     }))
   },
   handler: async (ctx, args) => {
@@ -82,8 +78,8 @@ export const syncPrices = mutation({
     
     for (const price of args.prices) {
       const existing = await ctx.db
-        .query("prices")
-        .withIndex("by_polar_id", q => q.eq("polarId", price.polarId))
+        .query("stripePrices")
+        .withIndex("by_stripe_id", q => q.eq("stripeId", price.stripeId))
         .unique();
 
       if (existing) {
@@ -92,7 +88,7 @@ export const syncPrices = mutation({
           updatedAt: now,
         });
       } else {
-        await ctx.db.insert("prices", {
+        await ctx.db.insert("stripePrices", {
           ...price,
           createdAt: now,
           updatedAt: now,
@@ -103,51 +99,58 @@ export const syncPrices = mutation({
 });
 
 export const getPricesForProduct = query({
-  args: { productId: v.id("products") },
+  args: { productId: v.id("stripeProducts") },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("prices")
+      .query("stripePrices")
       .withIndex("by_product", q => q.eq("productId", args.productId))
       .collect();
   },
 });
 
+export const getActivePrices = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("stripePrices")
+      .withIndex("by_active", q => q.eq("active", true))
+      .collect();
+  },
+});
+
 // Customer management functions
-export const syncCustomer = mutation({
+export const upsertCustomer = mutation({
   args: {
-    polarId: v.string(),
+    stripeId: v.string(),
     userId: v.string(),
     email: v.string(),
     name: v.optional(v.string()),
-    externalId: v.optional(v.string()),
-    organizationId: v.string(),
+    metadata: v.optional(v.object({})),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     
     const existing = await ctx.db
-      .query("customers")
+      .query("stripeCustomers")
       .withIndex("by_user_id", q => q.eq("userId", args.userId))
       .unique();
 
     if (existing) {
       await ctx.db.patch(existing._id, {
-        polarId: args.polarId,
+        stripeId: args.stripeId,
         email: args.email,
         name: args.name,
-        externalId: args.externalId,
-        organizationId: args.organizationId,
+        metadata: args.metadata,
         updatedAt: now,
       });
       return existing._id;
     } else {
-      return await ctx.db.insert("customers", {
-        polarId: args.polarId,
+      return await ctx.db.insert("stripeCustomers", {
+        stripeId: args.stripeId,
         userId: args.userId,
         email: args.email,
         name: args.name,
-        externalId: args.externalId,
-        organizationId: args.organizationId,
+        metadata: args.metadata,
         createdAt: now,
         updatedAt: now,
       });
@@ -159,22 +162,32 @@ export const getCustomerByUserId = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("customers")
+      .query("stripeCustomers")
       .withIndex("by_user_id", q => q.eq("userId", args.userId))
       .unique();
   },
 });
 
+export const getCustomerByStripeId = query({
+  args: { stripeId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("stripeCustomers")
+      .withIndex("by_stripe_id", q => q.eq("stripeId", args.stripeId))
+      .unique();
+  },
+});
+
 // Subscription management functions
-export const syncSubscription = mutation({
+export const upsertSubscription = mutation({
   args: {
-    polarId: v.string(),
-    customerId: v.id("customers"),
-    polarCustomerId: v.string(),
-    productId: v.id("products"),
-    polarProductId: v.string(),
-    priceId: v.id("prices"),
-    polarPriceId: v.string(),
+    stripeId: v.string(),
+    customerId: v.id("stripeCustomers"),
+    stripeCustomerId: v.string(),
+    productId: v.id("stripeProducts"),
+    stripeProductId: v.string(),
+    priceId: v.id("stripePrices"),
+    stripePriceId: v.string(),
     status: v.union(
       v.literal("incomplete"),
       v.literal("incomplete_expired"),
@@ -182,18 +195,21 @@ export const syncSubscription = mutation({
       v.literal("active"),
       v.literal("past_due"),
       v.literal("canceled"),
-      v.literal("unpaid")
+      v.literal("unpaid"),
+      v.literal("paused")
     ),
-    currentPeriodStart: v.string(),
-    currentPeriodEnd: v.string(),
-    cancelAtPeriodEnd: v.optional(v.boolean()),
+    currentPeriodStart: v.number(),
+    currentPeriodEnd: v.number(),
+    cancelAtPeriodEnd: v.boolean(),
+    canceledAt: v.optional(v.number()),
+    metadata: v.optional(v.object({})),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     
     const existing = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_polar_id", q => q.eq("polarId", args.polarId))
+      .query("stripeSubscriptions")
+      .withIndex("by_stripe_id", q => q.eq("stripeId", args.stripeId))
       .unique();
 
     if (existing) {
@@ -203,7 +219,7 @@ export const syncSubscription = mutation({
       });
       return existing._id;
     } else {
-      return await ctx.db.insert("subscriptions", {
+      return await ctx.db.insert("stripeSubscriptions", {
         ...args,
         createdAt: now,
         updatedAt: now,
@@ -216,14 +232,14 @@ export const getUserSubscriptions = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
     const customer = await ctx.db
-      .query("customers")
+      .query("stripeCustomers")
       .withIndex("by_user_id", q => q.eq("userId", args.userId))
       .unique();
 
     if (!customer) return [];
 
     const subscriptions = await ctx.db
-      .query("subscriptions")
+      .query("stripeSubscriptions")
       .withIndex("by_customer", q => q.eq("customerId", customer._id))
       .collect();
 
@@ -240,18 +256,18 @@ export const getUserSubscriptions = query({
   },
 });
 
-export const getActiveSubscription = query({
+export const getActiveSubscriptionByUserId = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
     const customer = await ctx.db
-      .query("customers")
+      .query("stripeCustomers")
       .withIndex("by_user_id", q => q.eq("userId", args.userId))
       .unique();
 
     if (!customer) return null;
 
     const activeSubscription = await ctx.db
-      .query("subscriptions")
+      .query("stripeSubscriptions")
       .withIndex("by_customer", q => q.eq("customerId", customer._id))
       .filter(q => q.eq(q.field("status"), "active"))
       .first();
@@ -271,11 +287,7 @@ export const recordUsageEvent = mutation({
     eventName: v.string(),
     userId: v.string(),
     metadata: v.object({
-      model: v.optional(v.string()),
       requests: v.optional(v.number()),
-      totalTokens: v.optional(v.number()),
-      requestTokens: v.optional(v.number()),
-      responseTokens: v.optional(v.number()),
       duration: v.optional(v.number()),
       size: v.optional(v.number()),
       additionalProperties: v.optional(v.any()),
@@ -286,39 +298,19 @@ export const recordUsageEvent = mutation({
     
     // Get customer info if available
     const customer = await ctx.db
-      .query("customers")
+      .query("stripeCustomers")
       .withIndex("by_user_id", q => q.eq("userId", args.userId))
       .unique();
 
     return await ctx.db.insert("usageEvents", {
       eventName: args.eventName,
       userId: args.userId,
-      customerId: customer?._id,
-      polarCustomerId: customer?.polarId,
-      externalCustomerId: customer?.externalId,
+      customerId: customer?.stripeId,
       metadata: args.metadata,
-      ingested: false, // Will be set to true when sent to Polar
+      ingested: false, // Will be set to true when sent to billing provider
       timestamp: now,
       createdAt: now,
     });
-  },
-});
-
-export const getUnIngestedEvents = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("usageEvents")
-      .withIndex("by_ingested", q => q.eq("ingested", false))
-      .order("desc")
-      .take(args.limit || 100);
-  },
-});
-
-export const markEventAsIngested = mutation({
-  args: { eventId: v.id("usageEvents") },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.eventId, { ingested: true });
   },
 });
 
@@ -328,7 +320,7 @@ export const getUserUsageStats = query({
     since: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const sinceTimestamp = args.since || (Date.now() - 30 * 24 * 60 * 60 * 1000); // Default to 30 days
+    const sinceTimestamp = args.since || (Date.now() - 30 * 24 * 60 * 60 * 1000); // Default to 30 days ago
     
     const events = await ctx.db
       .query("usageEvents")
@@ -336,33 +328,19 @@ export const getUserUsageStats = query({
       .filter(q => q.gte(q.field("timestamp"), sinceTimestamp))
       .collect();
 
-    // Aggregate usage by event type
-    const stats = events.reduce((acc, event) => {
-      const eventType = event.eventName;
-      if (!acc[eventType]) {
-        acc[eventType] = {
-          count: 0,
-          totalTokens: 0,
-          totalRequests: 0,
-          totalDuration: 0,
-          totalSize: 0,
-        };
+    // Aggregate stats by event type
+    const stats: Record<string, { count: number; totalRequests: number; totalDuration: number; totalSize: number }> = {};
+    
+    for (const event of events) {
+      if (!stats[event.eventName]) {
+        stats[event.eventName] = { count: 0, totalRequests: 0, totalDuration: 0, totalSize: 0 };
       }
       
-      acc[eventType].count++;
-      acc[eventType].totalTokens += (event.metadata as Record<string, unknown>).totalTokens as number || 0;
-      acc[eventType].totalRequests += event.metadata.requests || 0;
-      acc[eventType].totalDuration += event.metadata.duration || 0;
-      acc[eventType].totalSize += event.metadata.size || 0;
-      
-      return acc;
-    }, {} as Record<string, {
-      count: number;
-      totalTokens: number;
-      totalRequests: number;
-      totalDuration: number;
-      totalSize: number;
-    }>);
+      stats[event.eventName].count++;
+      stats[event.eventName].totalRequests += event.metadata.requests || 0;
+      stats[event.eventName].totalDuration += event.metadata.duration || 0;
+      stats[event.eventName].totalSize += event.metadata.size || 0;
+    }
 
     return {
       totalEvents: events.length,
@@ -372,50 +350,56 @@ export const getUserUsageStats = query({
   },
 });
 
-// Meter management functions
-export const syncMeters = mutation({
+// User subscription cache management
+export const updateUserSubscriptionCache = mutation({
   args: {
-    meters: v.array(v.object({
-      polarId: v.string(),
-      name: v.string(),
-      slug: v.string(),
-      eventName: v.string(),
-      valueProperty: v.string(),
-      filters: v.optional(v.array(v.object({
-        property: v.string(),
-        operator: v.union(v.literal("eq"), v.literal("ne"), v.literal("gt"), v.literal("gte"), v.literal("lt"), v.literal("lte")),
-        value: v.union(v.string(), v.number()),
-      }))),
-      organizationId: v.string(),
-    }))
+    userId: v.string(),
+    stripeCustomerId: v.string(),
+    stripeSubscriptionId: v.optional(v.string()),
+    isActive: v.boolean(),
+    planName: v.string(),
+    planType: v.union(v.literal("free"), v.literal("starter"), v.literal("professional"), v.literal("enterprise")),
+    features: v.array(v.string()),
+    usageLimits: v.object({
+      maxProjects: v.optional(v.number()),
+      storageLimit: v.optional(v.number()),
+    }),
+    currentUsage: v.object({
+      projectsCreated: v.number(),
+      storageUsed: v.number(),
+    }),
+    resetDate: v.number(),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     
-    for (const meter of args.meters) {
-      const existing = await ctx.db
-        .query("meters")
-        .withIndex("by_polar_id", q => q.eq("polarId", meter.polarId))
-        .unique();
+    const existing = await ctx.db
+      .query("userSubscriptions")
+      .withIndex("by_user_id", q => q.eq("userId", args.userId))
+      .unique();
 
-      if (existing) {
-        await ctx.db.patch(existing._id, {
-          ...meter,
-          updatedAt: now,
-        });
-      } else {
-        await ctx.db.insert("meters", {
-          ...meter,
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        ...args,
+        updatedAt: now,
+      });
+      return existing._id;
+    } else {
+      return await ctx.db.insert("userSubscriptions", {
+        ...args,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
   },
 });
 
-export const getMeters = query({
-  handler: async (ctx) => {
-    return await ctx.db.query("meters").collect();
+export const getUserSubscriptionCache = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("userSubscriptions")
+      .withIndex("by_user_id", q => q.eq("userId", args.userId))
+      .unique();
   },
-}); 
+});

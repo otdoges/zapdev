@@ -8,59 +8,57 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 
-interface PolarProduct {
+interface StripeProduct {
   id: string;
   name: string;
   description?: string;
-  prices: PolarPrice[];
-  is_archived: boolean;
-  organization_id: string;
+  prices: StripePrice[];
+  active: boolean;
+  metadata?: Record<string, string>;
   created_at: string;
   updated_at: string;
 }
 
-interface PolarPrice {
+interface StripePrice {
   id: string;
-  amount_type: 'fixed' | 'free' | 'custom';
   type: 'one_time' | 'recurring';
   recurring_interval?: 'month' | 'year';
-  price_amount?: number;
-  price_currency?: string;
+  unit_amount?: number; // Amount in cents
+  currency: string;
+  active: boolean;
 }
 
-const formatPrice = (price: PolarPrice): string => {
-  if (price.amount_type === 'free') return 'Free';
-  if (price.amount_type === 'custom') return 'Custom';
-  if (!price.price_amount) return 'Contact Us';
-  
-  const amount = price.price_amount / 100; // Convert from cents
-  const currency = price.price_currency || 'USD';
-  
+const formatPrice = (price: StripePrice): string => {
+  if (!price.unit_amount || price.unit_amount === 0) return 'Free';
+
+  const amount = price.unit_amount / 100; // Convert from cents
+  const currency = price.currency || 'USD';
+
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency,
+    currency: currency.toUpperCase(),
     minimumFractionDigits: 0,
   }).format(amount);
 };
 
-const getRecurringText = (price: PolarPrice): string => {
+const getRecurringText = (price: StripePrice): string => {
   if (price.type === 'one_time') return '';
   if (price.recurring_interval === 'month') return '/month';
   if (price.recurring_interval === 'year') return '/year';
   return '';
 };
 
-const getPopularPlan = (products: PolarProduct[]): string | null => {
+const getPopularPlan = (products: StripeProduct[]): string | null => {
   // Logic to determine which plan should be marked as popular
   // Could be based on product metadata, name matching, or configuration
-  const professionalPlan = products.find(p => 
-    p.name.toLowerCase().includes('professional') || 
+  const professionalPlan = products.find(p =>
+    p.name.toLowerCase().includes('professional') ||
     p.name.toLowerCase().includes('pro')
   );
   return professionalPlan?.id || null;
 };
 
-const getProductFeatures = (product: PolarProduct): string[] => {
+const getProductFeatures = (product: StripeProduct): string[] => {
   // In a real implementation, features would come from product metadata
   // For now, we'll provide defaults based on product name
   const name = product.name.toLowerCase();
@@ -110,7 +108,7 @@ const PricingTier = ({
   onSelectPlan,
   isLoading,
 }: {
-  product: PolarProduct;
+  product: StripeProduct;
   isPopular?: boolean;
   index: number;
   onSelectPlan: (priceId: string) => void;
@@ -225,24 +223,26 @@ export const DynamicPricingSection = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   
-  // Query products from Polar API via TRPC
+  // Query products from Stripe API via TRPC
   const { data: products, isLoading: isLoadingProducts, error } = useQuery({
-    queryKey: ['polar-products'],
+    queryKey: ['stripe-products'],
     queryFn: async () => {
       // For now, return mock data until TRPC integration is complete
-      const mockProducts: PolarProduct[] = [
+      const mockProducts: StripeProduct[] = [
         {
           id: 'starter',
           name: 'Starter',
           description: 'Perfect for solo founders getting started',
           prices: [{
             id: 'price-starter',
-            amount_type: 'free',
             type: 'recurring',
             recurring_interval: 'month',
+            unit_amount: 0, // Free
+            currency: 'usd',
+            active: true,
           }],
-          is_archived: false,
-          organization_id: 'org-1',
+          active: true,
+          metadata: { plan_type: 'starter' },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -252,14 +252,14 @@ export const DynamicPricingSection = () => {
           description: 'Advanced features for growing startups',
           prices: [{
             id: 'price-professional',
-            amount_type: 'fixed',
             type: 'recurring',
             recurring_interval: 'month',
-            price_amount: 4900, // $49.00 in cents
-            price_currency: 'USD',
+            unit_amount: 4900, // $49.00 in cents
+            currency: 'usd',
+            active: true,
           }],
-          is_archived: false,
-          organization_id: 'org-1',
+          active: true,
+          metadata: { plan_type: 'professional' },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -269,12 +269,14 @@ export const DynamicPricingSection = () => {
           description: 'Custom solutions for large organizations',
           prices: [{
             id: 'price-enterprise',
-            amount_type: 'custom',
             type: 'recurring',
             recurring_interval: 'month',
+            unit_amount: 19900, // $199.00 in cents
+            currency: 'usd',
+            active: true,
           }],
-          is_archived: false,
-          organization_id: 'org-1',
+          active: true,
+          metadata: { plan_type: 'enterprise' },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -285,19 +287,20 @@ export const DynamicPricingSection = () => {
 
   const createCheckoutSession = async (priceId: string) => {
     if (!user) {
-      // Redirect to chat page
-                window.location.href = '/chat';
+      // Redirect to login with return URL to continue checkout
+      const returnUrl = encodeURIComponent(`/pricing?priceId=${priceId}`);
+      window.location.href = `/login?returnUrl=${returnUrl}`;
       return;
     }
 
     setIsLoading(true);
     try {
       // This would use TRPC to create checkout session
-      // const result = await trpc.polar.createCheckoutSession.mutate({ priceId });
+      // const result = await trpc.stripe.createCheckoutSession.mutate({ priceId });
       // window.location.href = result.url;
-      
+
       // For now, just show an alert
-      alert(`Creating checkout session for price: ${priceId}`);
+      alert(`Creating Stripe checkout session for price: ${priceId}`);
     } catch (error) {
       console.error('Error creating checkout session:', error);
       alert('Failed to create checkout session. Please try again.');
@@ -310,7 +313,7 @@ export const DynamicPricingSection = () => {
     console.error('Error loading products:', error);
   }
 
-  const activeProducts = products?.filter(p => !p.is_archived) || [];
+  const activeProducts = products?.filter(p => p.active) || [];
   const popularPlanId = activeProducts.length > 0 ? getPopularPlan(activeProducts) : null;
 
   return (
@@ -389,4 +392,6 @@ export const DynamicPricingSection = () => {
       )}
     </motion.section>
   );
-}; 
+};
+
+export default DynamicPricingSection; 
