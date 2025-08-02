@@ -48,23 +48,24 @@ export async function initializeSandbox(): Promise<Sandbox> {
     console.log(`📦 Sandbox ID: ${sandboxInstance.sandboxId}`)
     
     return sandboxInstance
-  } catch (error: any) {
-    console.error('❌ E2B sandbox initialization failed:', error.message)
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('❌ E2B sandbox initialization failed:', err.message)
     
     // Provide specific error guidance based on E2B documentation
-    if (error.message.includes('Invalid API key') || error.message.includes('401')) {
+    if (err.message.includes('Invalid API key') || err.message.includes('401')) {
       console.error('🔑 Your E2B API key is invalid or expired')
       console.error('📝 Get a new key: https://e2b.dev/dashboard')
-    } else if (error.message.includes('authorization header is missing')) {
+    } else if (err.message.includes('authorization header is missing')) {
       console.error('🔧 E2B API key is missing from environment variables')
       console.error('📝 Add to .env.local: VITE_E2B_API_KEY=e2b_your_key_here')
-    } else if (error.message.includes('insufficient funds') || error.message.includes('402')) {
+    } else if (err.message.includes('insufficient funds') || err.message.includes('402')) {
       console.error('💳 Your E2B account has insufficient credits')
       console.error('📝 Add credits: https://e2b.dev/dashboard')
-    } else if (error.message.includes('rate limit') || error.message.includes('429')) {
+    } else if (err.message.includes('rate limit') || err.message.includes('429')) {
       console.error('⏰ E2B rate limit exceeded')
       console.error('📝 Wait a moment and try again')
-    } else if (error.message.includes('timeout')) {
+    } else if (err.message.includes('timeout')) {
       console.error('⏰ E2B sandbox creation timed out')
       console.error('📝 This might be a temporary service issue')
     } else {
@@ -72,7 +73,7 @@ export async function initializeSandbox(): Promise<Sandbox> {
       console.error('📝 Check service status: https://status.e2b.dev')
     }
     
-    throw error
+    throw err
   }
 }
 
@@ -86,8 +87,8 @@ export async function executeCode(
 ): Promise<{
   stdout: string;
   stderr: string;
-  results: any[];
-  error?: any;
+  results: unknown[];
+  error?: unknown;
   success: boolean;
 }> {
   try {
@@ -121,17 +122,18 @@ export async function executeCode(
     }
     
     return result
-  } catch (error: any) {
-    console.error('❌ Code execution failed:', error.message)
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('❌ Code execution failed:', err.message)
     
     // Provide helpful error context
-    if (error.message.includes('sandbox')) {
+    if (err.message.includes('sandbox')) {
       console.error('🔧 Sandbox communication issue - try reinitializing')
-    } else if (error.message.includes('timeout')) {
+    } else if (err.message.includes('timeout')) {
       console.error('⏰ Code execution timed out - try simpler code or increase timeout')
-    } else if (error.message.includes('memory')) {
+    } else if (err.message.includes('memory')) {
       console.error('💾 Sandbox ran out of memory - try optimizing your code')
-    } else if (error.message.includes('killed') || error.message.includes('terminated')) {
+    } else if (err.message.includes('killed') || err.message.includes('terminated')) {
       console.error('🛑 Sandbox was terminated - reinitializing...')
       // Reset sandbox instance to force recreation
       sandboxInstance = null
@@ -139,9 +141,9 @@ export async function executeCode(
     
     return {
       stdout: '',
-      stderr: error.message,
+      stderr: err.message,
       results: [],
-      error: error.message,
+      error: err.message,
       success: false,
     }
   }
@@ -266,8 +268,9 @@ export async function closeSandbox(): Promise<void> {
       sandboxInstance = null
       
       console.log('✅ E2B sandbox cleanup completed')
-    } catch (error: any) {
-      console.warn('⚠️ E2B sandbox cleanup error (not critical):', error.message)
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.warn('⚠️ E2B sandbox cleanup error (not critical):', err.message)
       // Reset instance anyway to avoid stale references
       sandboxInstance = null
     }

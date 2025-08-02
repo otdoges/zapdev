@@ -54,7 +54,7 @@ interface TestResult {
   status: 'PASS' | 'FAIL' | 'SKIP';
   duration: number;
   error?: string;
-  details?: any;
+  details?: unknown;
 }
 
 class AITester {

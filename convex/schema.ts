@@ -26,7 +26,11 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user_id", ["userId"])
-    .index("by_user_updated", ["userId", "updatedAt"]),
+    .index("by_user_updated", ["userId", "updatedAt"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["userId"],
+    }),
 
   // Chat messages
   messages: defineTable({

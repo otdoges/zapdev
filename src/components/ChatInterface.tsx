@@ -538,12 +538,13 @@ const ChatInterface: React.FC = () => {
                                         </Button>
                                         <Button
                                           size="sm"
-                                          onClick={async () => {
-                                            const result = await executeCodeBlock(block);
-                                            if (result.result) {
-                                              toast.success('Code executed successfully!');
-                                            }
-                                          }}
+                                           onClick={async () => {
+                                             const updatedBlock = await executeCodeBlock(block);
+                                             if (updatedBlock.result) {
+                                               toast.success('Code executed successfully!');
+                                             }
+
+                                           }}
                                           disabled={block.executed}
                                         >
                                           {block.executed ? (

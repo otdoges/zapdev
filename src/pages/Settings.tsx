@@ -146,10 +146,10 @@ const Settings = () => {
   const formatDate = (dateString: string) => 
     new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const updatePreference = (key: keyof UserPreferences, value: any) => 
+  const updatePreference = (key: keyof UserPreferences, value: unknown) => 
     setPreferences(prev => ({ ...prev, [key]: value }));
 
-  const updateApiConfig = (key: keyof ApiConfiguration, value: any) => 
+  const updateApiConfig = (key: keyof ApiConfiguration, value: unknown) => 
     setApiConfig(prev => ({ ...prev, [key]: value }));
 
   const updateProfile = (key: string, value: string) =>
@@ -242,7 +242,7 @@ const Settings = () => {
     }
   };
 
-  const saveWithDelay = async (action: string, data: any) => {
+  const saveWithDelay = async (action: string, data: unknown) => {
     setIsSaving(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));

@@ -374,7 +374,7 @@ class E2BService {
   }
 
   // Advanced features
-  async runDataAnalysis(envId: string, data: any[], analysisType: 'summary' | 'visualization' | 'correlation'): Promise<E2BExecutionResult> {
+  async runDataAnalysis(envId: string, data: Record<string, unknown>[], analysisType: 'summary' | 'visualization' | 'correlation'): Promise<E2BExecutionResult> {
     const code = this.generateDataAnalysisCode(data, analysisType);
     return this.executeCode(envId, code, {
       installPackages: ['pandas', 'matplotlib', 'seaborn', 'numpy'],
@@ -382,7 +382,7 @@ class E2BService {
     });
   }
 
-  private generateDataAnalysisCode(data: any[], analysisType: 'summary' | 'visualization' | 'correlation'): string {
+  private generateDataAnalysisCode(data: Record<string, unknown>[], analysisType: 'summary' | 'visualization' | 'correlation'): string {
     const dataJson = JSON.stringify(data);
     
     switch (analysisType) {
@@ -523,7 +523,7 @@ except Exception as e:
     });
   }
 
-  async runMLModel(envId: string, modelType: 'linear_regression' | 'classification' | 'clustering', data: any[]): Promise<E2BExecutionResult> {
+  async runMLModel(envId: string, modelType: 'linear_regression' | 'classification' | 'clustering', data: Record<string, unknown>[]): Promise<E2BExecutionResult> {
     const dataJson = JSON.stringify(data);
     
     const code = `

@@ -63,7 +63,7 @@ export const processStripeWebhookEvent = async (event: Stripe.Event): Promise<vo
  * Extract customer ID from various Stripe event types
  */
 const extractCustomerIdFromEvent = (event: Stripe.Event): string | null => {
-  const eventData = event.data.object as any;
+  const eventData = event.data.object as { customer?: string | { id: string } } & Record<string, unknown>;
 
   // Direct customer field
   if (eventData.customer) {
