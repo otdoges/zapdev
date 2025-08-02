@@ -16,8 +16,8 @@ interface User {
 export const useAuth = () => {
   const { user: clerkUser, isLoaded, isSignedIn } = useUser();
   
-  // Get or create user in Convex database
-  const convexUser = useQuery(api.users.getCurrentUser);
+  // Get or create user in Convex database - only query when authenticated
+  const convexUser = useQuery(api.users.getCurrentUser, isLoaded && isSignedIn ? {} : "skip");
   const upsertUser = useMutation(api.users.upsertUser);
 
   // Sync Clerk user with Convex user
