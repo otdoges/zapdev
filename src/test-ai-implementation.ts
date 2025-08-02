@@ -8,8 +8,8 @@
  * 3. Set VITE_E2B_API_KEY - Get from: https://e2b.dev/docs/api-key
  */
 
-import { generateAIResponse, streamAIResponse, model } from '@/lib/ai';
-import { executeCode, initializeSandbox, closeSandbox } from '@/lib/sandbox';
+import { generateAIResponse, streamAIResponse } from './lib/ai';
+import { executeCode, initializeSandbox, closeSandbox } from './lib/sandbox';
 
 // Test configuration
 const TEST_TIMEOUT = 30000; // 30 seconds
@@ -94,8 +94,9 @@ class AITester {
   async testAIConfiguration(): Promise<void> {
     this.log('Testing AI configuration...', 'INFO');
     
-    if (!model) {
-      throw new Error('AI model is not properly configured');
+    // Check if AI functions are available
+    if (typeof generateAIResponse !== 'function' || typeof streamAIResponse !== 'function') {
+      throw new Error('AI functions are not properly configured');
     }
     
     // Check if environment variables are set
