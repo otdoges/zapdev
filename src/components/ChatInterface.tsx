@@ -26,6 +26,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
 import { streamAIResponse } from '@/lib/ai';
 import { executeCode } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
@@ -120,11 +121,17 @@ const ChatInterface: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Convex queries and mutations
-  const chats = useQuery(api.chats.getUserChats);
-  const messages = useQuery(
-    api.messages.getChatMessages, 
-    selectedChatId ? { chatId: selectedChatId as Parameters<typeof api.messages.getChatMessages>[0]['chatId'] } : 'skip'
+  const chatsData = useQuery(api.chats.getUserChats, {});
+  const messagesData = useQuery<typeof api.messages.getChatMessages>(
+    api.messages.getChatMessages,
+    selectedChatId
+      ? { chatId: selectedChatId as Id<"chats"> }
+      : ("skip" as const)
   );
+
+  // Normalize paginated results into plain arrays for easier consumption in the UI
+  const chats = chatsData?.chats ?? [];
+  const messages = messagesData?.messages ?? [];
   const createChat = useMutation(api.chats.createChat);
   const createMessage = useMutation(api.messages.createMessage);
   const deleteChat = useMutation(api.chats.deleteChat);
