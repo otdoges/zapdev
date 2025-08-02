@@ -27,9 +27,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { streamAIResponse } from '@/lib/ai';
-import { executeCode } from '@/lib/sandbox';
+import { executeCode } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import * as Sentry from '@sentry/react';
+
+const { logger } = Sentry;
 
 // Security constants for input validation
 const MAX_MESSAGE_LENGTH = 10000;
@@ -183,28 +186,49 @@ const ChatInterface: React.FC = () => {
   };
 
   const handleCreateChat = async () => {
-    const validation = validateInput(newChatTitle, MAX_TITLE_LENGTH);
-    if (!validation.isValid) {
-      toast.error(validation.error);
-      return;
-    }
-    
-    if (newChatTitle.trim().length < MIN_TITLE_LENGTH) {
-      toast.error('Chat title must be at least 1 character');
-      return;
-    }
-    
-    try {
-      const sanitizedTitle = sanitizeText(newChatTitle.trim());
-      const chatId = await createChat({ title: sanitizedTitle });
-      setSelectedChatId(chatId);
-      setNewChatTitle('');
-      setIsNewChatOpen(false);
-      toast.success('New chat created!');
-    } catch (error) {
-      console.error('Error creating chat:', error);
-      toast.error('Failed to create chat');
-    }
+    Sentry.startSpan(
+      {
+        op: "ui.click",
+        name: "Create New Chat",
+      },
+      async (span) => {
+        const validation = validateInput(newChatTitle, MAX_TITLE_LENGTH);
+        if (!validation.isValid) {
+          toast.error(validation.error);
+          span.setAttribute("validation_error", validation.error);
+          return;
+        }
+        
+        if (newChatTitle.trim().length < MIN_TITLE_LENGTH) {
+          toast.error('Chat title must be at least 1 character');
+          span.setAttribute("validation_error", "title_too_short");
+          return;
+        }
+        
+        try {
+          span.setAttribute("chat_title", newChatTitle.trim());
+          logger.info("Creating new chat", { title: newChatTitle.trim() });
+          
+          const sanitizedTitle = sanitizeText(newChatTitle.trim());
+          const chatId = await createChat({ title: sanitizedTitle });
+          
+          setSelectedChatId(chatId);
+          setNewChatTitle('');
+          setIsNewChatOpen(false);
+          
+          span.setAttribute("chat_id", chatId);
+          logger.info("Chat created successfully", { chatId, title: sanitizedTitle });
+          toast.success('New chat created!');
+        } catch (error) {
+          logger.error("Error creating chat", { 
+            error: error instanceof Error ? error.message : String(error),
+            title: newChatTitle.trim()
+          });
+          Sentry.captureException(error);
+          toast.error('Failed to create chat');
+        }
+      }
+    );
   };
 
   const handleDeleteChat = async (chatId: string) => {
@@ -224,56 +248,83 @@ const ChatInterface: React.FC = () => {
     e.preventDefault();
     if (!input.trim() || isTyping || !selectedChatId) return;
 
-    const validation = validateInput(input, MAX_MESSAGE_LENGTH);
-    if (!validation.isValid) {
-      toast.error(validation.error);
-      return;
-    }
+    Sentry.startSpan(
+      {
+        op: "ui.submit",
+        name: "Send Chat Message",
+      },
+      async (span) => {
+        const validation = validateInput(input, MAX_MESSAGE_LENGTH);
+        if (!validation.isValid) {
+          toast.error(validation.error);
+          span.setAttribute("validation_error", validation.error);
+          return;
+        }
 
-    const userContent = sanitizeText(input.trim());
-    setInput('');
-    setIsTyping(true);
+        const userContent = sanitizeText(input.trim());
+        span.setAttribute("message_length", userContent.length);
+        span.setAttribute("chat_id", selectedChatId);
+        
+        setInput('');
+        setIsTyping(true);
 
-    try {
-      // Create user message
-      await createMessage({
-        chatId: selectedChatId as Parameters<typeof createMessage>[0]['chatId'],
-        content: userContent,
-        role: 'user',
-      });
+        try {
+          logger.info("Sending chat message", { 
+            messageLength: userContent.length,
+            chatId: selectedChatId
+          });
+          
+          // Create user message
+          await createMessage({
+            chatId: selectedChatId as Parameters<typeof createMessage>[0]['chatId'],
+            content: userContent,
+            role: 'user',
+          });
 
-      // Stream AI response
-      const streamResult = await streamAIResponse(userContent);
-      let assistantContent = '';
+          // Stream AI response
+          const streamResult = await streamAIResponse(userContent);
+          let assistantContent = '';
 
-      for await (const delta of streamResult.textStream) {
-        assistantContent += delta;
-        // Prevent extremely long responses
-        if (assistantContent.length > 50000) {
-          break;
+          for await (const delta of streamResult.textStream) {
+            assistantContent += delta;
+            // Prevent extremely long responses
+            if (assistantContent.length > 50000) {
+              break;
+            }
+          }
+
+          // Sanitize AI response (though it should be safe from reputable AI providers)
+          const sanitizedResponse = assistantContent.substring(0, 50000); // Hard limit
+          span.setAttribute("response_length", sanitizedResponse.length);
+
+          // Create assistant message
+          await createMessage({
+            chatId: selectedChatId as Parameters<typeof createMessage>[0]['chatId'],
+            content: sanitizedResponse,
+            role: 'assistant',
+            metadata: {
+              model: 'moonshotai/kimi-k2-instruct',
+              tokens: Math.floor(sanitizedResponse.length / 4), // Rough estimate
+            },
+          });
+
+          logger.info("Chat message processed successfully", { 
+            responseLength: sanitizedResponse.length,
+            tokens: Math.floor(sanitizedResponse.length / 4)
+          });
+
+        } catch (error) {
+          logger.error("AI response error", { 
+            error: error instanceof Error ? error.message : String(error),
+            chatId: selectedChatId
+          });
+          Sentry.captureException(error);
+          toast.error('Failed to get AI response');
+        } finally {
+          setIsTyping(false);
         }
       }
-
-      // Sanitize AI response (though it should be safe from reputable AI providers)
-      const sanitizedResponse = assistantContent.substring(0, 50000); // Hard limit
-
-      // Create assistant message
-      await createMessage({
-        chatId: selectedChatId as Parameters<typeof createMessage>[0]['chatId'],
-        content: sanitizedResponse,
-        role: 'assistant',
-        metadata: {
-          model: 'claude-3-sonnet',
-          tokens: Math.floor(sanitizedResponse.length / 4), // Rough estimate
-        },
-      });
-
-    } catch (error) {
-      console.error('AI response error:', error);
-      toast.error('Failed to get AI response');
-    } finally {
-      setIsTyping(false);
-    }
+    );
   };
 
   const copyToClipboard = async (text: string, messageId: string) => {

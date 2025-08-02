@@ -41,9 +41,7 @@ function getCurrentModel() {
     return groq('moonshotai/kimi-k2-instruct');
 }
 // OpenRouter failsafe model
-const fallbackModel = openrouter.chat('moonshotai/kimi-k2:free');
-// Alternative model for high-volume testing (uncomment if needed)
-// export const model = groq('llama3-8b-8192') // Higher rate limits: 30K TPM
+const fallbackModel = openrouter.chat('qwen/qwen3-coder:free');
 async function generateAIResponse(prompt) {
     try {
         const userApiKey = getUserApiKey();

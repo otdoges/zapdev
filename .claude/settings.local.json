@@ -38,7 +38,9 @@
       "Bash(pkill:*)",
       "Bash(true)",
       "WebFetch(domain:webcontainer-tutorial.pages.dev)",
-      "WebFetch(domain:webcontainers.io)"
+      "WebFetch(domain:webcontainers.io)",
+      "Bash(npx tsc:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }

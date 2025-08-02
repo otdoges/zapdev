@@ -182,7 +182,7 @@ const Settings = () => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama-3.2-1b-preview',
+          model: 'moonshotai/kimi-k2-instruct',
           messages: [{ role: 'user', content: 'Hello' }],
           max_tokens: 5,
         }),
