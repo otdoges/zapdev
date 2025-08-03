@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# Block access to authentication callback
+Disallow: /auth/callback
+
+# Block access to settings for non-authenticated users  
+Disallow: /settings
+
+# Allow access to important pages
+Allow: /
+Allow: /pricing
+Allow: /terms
+Allow: /privacy
+
+# Sitemap location
+Sitemap: https://zapdev.com/sitemap.xml
