@@ -54,7 +54,10 @@ const sanitizeUrl = (url: string | undefined): string | undefined => {
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await getAuthenticatedUser(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
 
     // Use proper index query instead of filter for better performance
     const user = await ctx.db
