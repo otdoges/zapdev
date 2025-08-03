@@ -4,17 +4,16 @@ import { Sparkles, Menu, User } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { SignInButton, useUser, useClerk } from "@clerk/clerk-react";
-import { useConvexAuth } from "convex/react";
+import { SignInButton, useClerk } from "@clerk/clerk-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { isSignedIn, user } = useUser();
+  const { isAuthenticated, user } = useAuth();
   const { signOut } = useClerk();
-  const { isAuthenticated } = useConvexAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -52,7 +51,7 @@ const Navigation = () => {
     { name: "Features", href: "#features", onClick: () => scrollToSection('features') },
     { name: "Pricing", href: "/pricing", isLink: true },
     { name: "Templates", href: "#testimonials", onClick: () => scrollToSection('testimonials') },
-    ...(isSignedIn ? [{ name: "AI Chat", href: "/chat", isLink: true }] : []),
+    ...(isAuthenticated ? [{ name: "AI Chat", href: "/chat", isLink: true }] : []),
   ];
 
   return (
@@ -97,7 +96,7 @@ const Navigation = () => {
                 </a>
               )
             ))}
-            {isSignedIn ? (
+            {isAuthenticated ? (
               <div className="flex items-center gap-2">
                 <Button 
                   onClick={() => navigate('/settings')}
@@ -106,7 +105,7 @@ const Navigation = () => {
                   className="border-gray-700"
                 >
                   <User className="w-4 h-4 mr-2" />
-                  {user?.firstName || 'Profile'}
+                  {user?.fullName?.split(' ')[0] || 'Profile'}
                 </Button>
                 <Button 
                   onClick={() => signOut()}
@@ -166,7 +165,7 @@ const Navigation = () => {
                       </a>
                     )
                   ))}
-                  {isSignedIn ? (
+                  {isAuthenticated ? (
                     <div className="flex flex-col gap-2 mt-4">
                       <Button 
                         onClick={() => {
@@ -177,7 +176,7 @@ const Navigation = () => {
                         className="border-gray-700"
                       >
                         <User className="w-4 h-4 mr-2" />
-                        {user?.firstName || 'Profile'}
+                        {user?.fullName?.split(' ')[0] || 'Profile'}
                       </Button>
                       <Button 
                         onClick={() => {

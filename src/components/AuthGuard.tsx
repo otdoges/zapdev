@@ -1,5 +1,5 @@
 import { Authenticated, Unauthenticated, AuthLoading } from 'convex/react';
-import { SignInButton, useUser } from '@clerk/clerk-react';
+import { SignInButton } from '@clerk/clerk-react';
 
 interface AuthGuardProps {
   children: React.ReactNode;

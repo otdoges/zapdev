@@ -2,8 +2,8 @@ import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { SignInButton, useUser } from "@clerk/clerk-react";
-import { useConvexAuth } from "convex/react";
+import { SignInButton } from "@clerk/clerk-react";
+import { useAuth } from "@/hooks/useAuth";
 import Navigation from "@/components/Navigation";
 import { FeaturesSection } from "@/components/features/FeaturesSection";
 import { DynamicPricingSection } from "@/components/pricing/DynamicPricingSection";
@@ -12,8 +12,7 @@ import TestimonialsSection from "@/components/TestimonialsSection";
 import Footer from "@/components/Footer";
 const Index = () => {
   const navigate = useNavigate();
-  const { isSignedIn, user } = useUser();
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, user } = useAuth();
 
   return (
     <div className="min-h-screen bg-black text-foreground">
@@ -118,7 +117,7 @@ const Index = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                {isSignedIn ? (
+                {isAuthenticated ? (
                   <Button 
                     size="lg" 
                     className="button-gradient"
@@ -257,7 +256,7 @@ const Index = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            {isSignedIn ? (
+            {isAuthenticated ? (
               <Button 
                 size="lg" 
                 className="bg-white text-blue-600 hover:bg-white/90"
