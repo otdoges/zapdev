@@ -1,0 +1,14 @@
+# humanstxt.org
+
+/* TEAM */
+ZapDev Team: The ultimate zap dev platform creators
+Site: https://zapdev.com
+
+/* SITE */
+Last update: 2025-08-03
+Standards: HTML5, CSS3, JavaScript
+Components: React 19, TypeScript, Vite
+Software: ZapDev - AI-powered zap development platform
+
+/* KEYWORDS */
+zap dev, AI development, code generation, web app builder, developer tools, fast development, React, TypeScript

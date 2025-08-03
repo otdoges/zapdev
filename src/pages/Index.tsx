@@ -57,7 +57,7 @@ const Index = () => {
               >
                 <Sparkles className="w-4 h-4 inline-block mr-2" />
               </motion.div>
-              AI-powered website builder for developers
+              ZapDev - The ultimate zap dev platform
             </span>
           </motion.div>
           
@@ -93,14 +93,14 @@ const Index = () => {
               transition={{ delay: 1.0, duration: 0.7, type: "spring", stiffness: 90 }}
               className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl mx-auto"
             >
-              Generate full-stack web applications with AI.{" "}
+              The fastest zap dev platform for building full-stack web applications with AI.{" "}
               <motion.span 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1.3, duration: 0.5 }}
                 className="text-white"
               >
-                From idea to deployment in minutes, not hours.
+                Zap development from idea to deployment in minutes, not hours.
               </motion.span>
             </motion.p>
             
@@ -163,7 +163,7 @@ const Index = () => {
                 animate={{ scale: 1 }}
                 transition={{ delay: 2.8, duration: 0.8 }}
                 whileHover={{ scale: 1.02, transition: { duration: 0.3 } }}
-                alt="WebBuilder Dashboard"
+                alt="ZapDev - Zap Dev AI Platform Dashboard for Fast Development"
                 className="w-full h-auto"
                 src="/lovable-uploads/e5028882-3e9c-4315-b720-bae1fe817df8.png"
               />
@@ -246,7 +246,7 @@ const Index = () => {
             transition={{ duration: 0.6, delay: 0.8 }}
             className="text-lg text-white/80 mb-8 max-w-2xl mx-auto"
           >
-            Join thousands of founders who have already discovered the power of AI-driven web design.
+            Join thousands of developers who have already discovered the power of zap dev AI-driven development.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}

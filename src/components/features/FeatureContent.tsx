@@ -25,7 +25,7 @@ export const FeatureContent = ({
         background: 'rgba(255, 255, 255, 0.04)',
         borderRight: '1.30px rgba(255, 255, 255, 0.08) solid'
       }} className="relative z-10 bg-transparent">
-          <img src="/lovable-uploads/6d294202-dfa7-4f01-8220-87b42fca6d42.png" alt={title} className="w-full h-full object-contain" />
+          <img src="/lovable-uploads/6d294202-dfa7-4f01-8220-87b42fca6d42.png" alt={`ZapDev ${title} - Zap Dev Platform Feature`} className="w-full h-full object-contain" />
         </div>
       </div>
     </motion.div>;

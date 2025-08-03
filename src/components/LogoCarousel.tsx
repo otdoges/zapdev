@@ -25,7 +25,7 @@ const LogoCarousel = () => {
       display: "flex",
       gap: "4rem"
     }}>
-        {extendedLogos.map((logo, index) => <motion.img key={`logo-${index}`} src={logo} alt={`Partner logo ${index + 1}`} className="h-8 object-contain" initial={{
+        {extendedLogos.map((logo, index) => <motion.img key={`logo-${index}`} src={logo} alt={`ZapDev Partner Logo ${index + 1} - Zap Dev Platform Integration`} className="h-8 object-contain" initial={{
         opacity: 0.5
       }} whileHover={{
         opacity: 1,
