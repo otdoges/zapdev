@@ -10,7 +10,6 @@ export function validateAIConfiguration(): boolean {
   // Check environment variables
   const requiredEnvVars = {
     'VITE_GROQ_API_KEY': process.env.VITE_GROQ_API_KEY,
-    'VITE_E2B_API_KEY': process.env.VITE_E2B_API_KEY,
   };
   
   let allConfigured = true;
@@ -52,20 +51,8 @@ export function validateAILibraries() {
 export function validateCodeExecutionSetup(): boolean {
   console.log('\n=== Code Execution Setup Validation ===');
   
-  try {
-    // Check E2B configuration
-    const e2bKey = process.env.VITE_E2B_API_KEY;
-    if (e2bKey) {
-      console.log('✓ E2B API key configured');
-      return true;
-    } else {
-      console.log('✗ E2B API key missing');
-      return false;
-    }
-  } catch (error) {
-    console.log(`✗ Code execution validation failed: ${error}`);
-    return false;
-  }
+  console.log('✓ Code execution disabled - using HTML generation instead');
+  return true;
 }
 
 export function validateSecurityImplementation(): boolean {
@@ -125,7 +112,7 @@ export function generateValidationReport(): boolean {
       console.log('- Install and configure required AI SDK modules');
     }
     if (!results.codeExecution) {
-      console.log('- Configure E2B API key for code execution');
+      console.log('- Code execution validation not configured');
     }
     if (!results.security) {
       console.log('- Implement proper security measures and validation');

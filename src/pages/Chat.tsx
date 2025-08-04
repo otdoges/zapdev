@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import Navigation from '@/components/Navigation';
-import ChatInterface from '@/components/ChatInterface';
+import { HTMLGeneratorComponent } from '@/components/HTMLGenerator';
 
 const Chat: React.FC = () => {
   return (
@@ -21,7 +21,7 @@ const Chat: React.FC = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="h-[calc(100vh-8rem)] bg-card border rounded-lg shadow-sm"
           >
-            <ChatInterface />
+            <HTMLGeneratorComponent />
           </motion.div>
         </div>
       </motion.main>
