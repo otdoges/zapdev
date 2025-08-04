@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import Navigation from '@/components/Navigation';
-import { HTMLGeneratorComponent } from '@/components/HTMLGenerator';
+import ChatInterface from '@/components/ChatInterface';
 
 const Chat: React.FC = () => {
   return (
@@ -19,9 +19,9 @@ const Chat: React.FC = () => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="h-[calc(100vh-8rem)] bg-card border rounded-lg shadow-sm"
+            className="h-[calc(100vh-8rem)] bg-card border rounded-lg shadow-sm overflow-hidden"
           >
-            <HTMLGeneratorComponent />
+            <ChatInterface />
           </motion.div>
         </div>
       </motion.main>

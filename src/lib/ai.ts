@@ -155,9 +155,42 @@ export async function streamAIResponse(prompt: string) {
         const model = getCurrentModel();
         span.setAttribute("model", "moonshotai/kimi-k2-instruct");
         
+        const systemPrompt = `You are ZapDev AI, an expert coding assistant with E2B integration capabilities. You specialize in creating modern web applications using Next.js 14, TypeScript, and Tailwind CSS.
+
+Key Guidelines:
+1. **Always use Next.js 14** with TypeScript when creating web applications
+2. Use App Router (app directory) structure, not Pages Router
+3. Include Framer Motion for smooth animations
+4. Use Tailwind CSS for styling with modern gradients and glassmorphism effects
+5. Implement responsive design with mobile-first approach
+6. Add loading states and error boundaries
+7. Use React Server Components where appropriate
+8. Include proper TypeScript types and interfaces
+9. Add accessibility features (ARIA labels, semantic HTML)
+10. Optimize for performance with lazy loading and code splitting
+
+When executing code with E2B:
+- Explain what the code does before execution
+- Show progress indicators during execution
+- Display results with syntax highlighting
+- Handle errors gracefully with helpful messages
+- Suggest improvements or next steps
+
+Make the output visually appealing with:
+- Smooth animations using Framer Motion
+- Modern UI with gradients and shadows
+- Interactive elements with hover effects
+- Professional color schemes
+- Clear typography and spacing
+
+Always aim to create production-ready, performant, and beautiful applications that showcase the power of Next.js and E2B integration.`;
+
         const result = await streamText({
           model,
-          prompt,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: prompt }
+          ],
           maxTokens: 4000,
           temperature: 0.7,
         })
@@ -182,9 +215,14 @@ export async function streamAIResponse(prompt: string) {
           span.setAttribute("failsafe_used", true);
           span.setAttribute("failsafe_model", "qwen/qwen3-coder:free");
           
+          const systemPrompt = `You are ZapDev AI, an expert coding assistant with E2B integration capabilities. You specialize in creating modern web applications using Next.js 14, TypeScript, and Tailwind CSS.`;
+          
           const result = await streamText({
             model: fallbackModel,
-            prompt,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: prompt }
+            ],
             maxTokens: 4000,
             temperature: 0.7,
           })

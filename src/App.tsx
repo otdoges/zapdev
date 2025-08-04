@@ -16,6 +16,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Chat from "./pages/Chat";
 import AuthGuard from "./components/AuthGuard";
 import UserSync from "./components/UserSync";
+import E2BDemo from "./pages/E2BDemo";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,11 @@ const App = () => (
                   } />
                   <Route path="/terms" element={<TermsOfService />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/e2b-demo" element={
+                    <AuthGuard>
+                      <E2BDemo />
+                    </AuthGuard>
+                  } />
                 </Routes>
               </BrowserRouter>
             </div>

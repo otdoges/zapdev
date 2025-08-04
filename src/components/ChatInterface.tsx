@@ -21,7 +21,9 @@ import {
   Trash2,
   Edit3,
   Sparkles,
-  Clock
+  Clock,
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
@@ -30,6 +32,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 import { streamAIResponse } from '@/lib/ai';
 import { executeCode } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
+import { E2BCodeExecution } from './E2BCodeExecution';
 import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
 
@@ -470,27 +473,59 @@ const ChatInterface: React.FC = () => {
         </ScrollArea>
       </div>
 
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Chat Area with animated background */}
+      <div className="flex-1 flex flex-col relative overflow-hidden">
+        {/* Animated background gradient */}
+        <motion.div
+          animate={{
+            background: [
+              "radial-gradient(circle at 20% 50%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)",
+              "radial-gradient(circle at 80% 50%, rgba(236, 72, 153, 0.1) 0%, transparent 50%)",
+              "radial-gradient(circle at 20% 50%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)",
+            ],
+          }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute inset-0 pointer-events-none"
+        />
         {selectedChatId ? (
           <>
-            {/* Chat Header */}
-            <div className="p-4 border-b bg-card/30 backdrop-blur-sm">
+            {/* Chat Header with animation */}
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-4 border-b bg-card/30 backdrop-blur-sm"
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold flex items-center">
-                    <Sparkles className="w-5 h-5 mr-2 text-primary" />
-                    AI Assistant
+                    <motion.div
+                      animate={{ rotate: [0, 360] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                    >
+                      <Sparkles className="w-5 h-5 mr-2 text-primary" />
+                    </motion.div>
+                    AI Assistant with E2B
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     <SafeText>{chats?.find(c => c._id === selectedChatId)?.title || 'Chat'}</SafeText>
                   </p>
                 </div>
-                <Badge variant="secondary" className="text-xs">
-                  {messages?.length || 0} messages
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                  >
+                    <Badge variant="secondary" className="text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0">
+                      Next.js + E2B Ready
+                    </Badge>
+                  </motion.div>
+                  <Badge variant="secondary" className="text-xs">
+                    {messages?.length || 0} messages
+                  </Badge>
+                </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Messages */}
             <ScrollArea className="flex-1 p-4">
@@ -525,62 +560,31 @@ const ChatInterface: React.FC = () => {
                               </div>
                             </div>
                             
-                            {/* Code blocks */}
+                            {/* Code blocks with E2B execution */}
                             {message.role === 'assistant' && extractCodeBlocks(message.content).map((block) => (
-                              <div key={block.id} className="mt-4">
-                                <Card className="bg-card border">
-                                  <CardContent className="p-0">
-                                    <div className="flex items-center justify-between p-3 border-b">
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant="secondary">{block.language}</Badge>
-                                        <span className="text-sm text-muted-foreground">Code Block</span>
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => copyToClipboard(block.code, `code-${block.id}`)}
-                                        >
-                                          <Copy className="w-3 h-3" />
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                           onClick={async () => {
-                                             const updatedBlock = await executeCodeBlock(block);
-                                             if (updatedBlock.result) {
-                                               toast.success('Code executed successfully!');
-                                             }
-
-                                           }}
-                                          disabled={block.executed}
-                                        >
-                                          {block.executed ? (
-                                            <Check className="w-3 h-3" />
-                                          ) : (
-                                            <Play className="w-3 h-3" />
-                                          )}
-                                          {block.executed ? 'Executed' : 'Run'}
-                                        </Button>
-                                      </div>
-                                    </div>
-                                    <div className="p-3">
-                                      <pre className="text-sm overflow-x-auto bg-muted/50 p-2 rounded">
-                                        <code><SafeText>{block.code}</SafeText></code>
-                                      </pre>
-                                    </div>
-                                    {block.executed && block.result && (
-                                      <div className="p-3 border-t bg-muted/30">
-                                        <div className="text-sm">
-                                          <Badge variant="outline" className="mb-2">Output</Badge>
-                                          <pre className="text-xs bg-background p-2 rounded border overflow-x-auto">
-                                            <SafeText>{block.result}</SafeText>
-                                          </pre>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </CardContent>
-                                </Card>
-                              </div>
+                              <motion.div
+                                key={block.id}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ duration: 0.3 }}
+                                className="mt-4"
+                              >
+                                <E2BCodeExecution
+                                  code={block.code}
+                                  language={block.language}
+                                  onExecute={async (code, language) => {
+                                    const result = await executeCode(code, language as 'python' | 'javascript');
+                                    return {
+                                      success: result.success,
+                                      output: result.stdout,
+                                      error: result.error as string | undefined,
+                                      logs: result.stderr ? [result.stderr] : [],
+                                      executionTime: Date.now() % 1000, // Mock execution time
+                                    };
+                                  }}
+                                  showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
+                                />
+                              </motion.div>
                             ))}
                             
                             <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50">
@@ -627,15 +631,22 @@ const ChatInterface: React.FC = () => {
                         <Bot className="w-4 h-4 text-primary" />
                       </AvatarFallback>
                     </Avatar>
-                    <Card className="bg-card border-muted">
+                    <Card className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800">
                       <CardContent className="p-4">
-                        <div className="flex items-center space-x-2">
-                          <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                            <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
-                          </div>
-                          <span className="text-sm text-muted-foreground">AI is thinking...</span>
+                        <div className="flex items-center space-x-3">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          >
+                            <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </motion.div>
+                          <motion.span
+                            className="text-sm text-purple-700 dark:text-purple-300 font-medium"
+                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                          >
+                            Generating Next.js code with E2B...
+                          </motion.span>
                         </div>
                       </CardContent>
                     </Card>
@@ -646,8 +657,12 @@ const ChatInterface: React.FC = () => {
               </div>
             </ScrollArea>
 
-            {/* Input Form */}
-            <div className="p-4 border-t bg-card/30 backdrop-blur-sm">
+            {/* Input Form with enhanced styling */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-4 border-t bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20 backdrop-blur-sm"
+            >
               <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
                 <div className="flex gap-3 items-end">
                   <div className="flex-1">
@@ -682,14 +697,19 @@ const ChatInterface: React.FC = () => {
                   </span>
                 </div>
               </form>
-            </div>
+            </motion.div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <MessageSquare className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">Welcome to AI Chat</h3>
-              <p className="text-muted-foreground mb-4">Select a chat from the sidebar or create a new one to get started</p>
+              <motion.div
+                animate={{ rotate: [0, 360] }}
+                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+              >
+                <Zap className="w-16 h-16 mx-auto mb-4 text-purple-600 dark:text-purple-400" />
+              </motion.div>
+              <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Welcome to ZapDev AI</h3>
+              <p className="text-muted-foreground mb-4">Create Next.js applications with E2B integration</p>
               <Button onClick={() => setIsNewChatOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Create New Chat

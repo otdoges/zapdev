@@ -51,7 +51,10 @@ const Navigation = () => {
     { name: "Features", href: "#features", onClick: () => scrollToSection('features') },
     { name: "Pricing", href: "/pricing", isLink: true },
     { name: "Templates", href: "#testimonials", onClick: () => scrollToSection('testimonials') },
-    ...(isAuthenticated ? [{ name: "AI Chat", href: "/chat", isLink: true }] : []),
+    ...(isAuthenticated ? [
+      { name: "AI Chat", href: "/chat", isLink: true },
+      { name: "E2B Demo", href: "/e2b-demo", isLink: true, isNew: true }
+    ] : []),
   ];
 
   return (
@@ -76,9 +79,12 @@ const Navigation = () => {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-all duration-300"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-all duration-300 relative"
                 >
                   {item.name}
+                  {item.isNew && (
+                    <span className="absolute -top-1 -right-4 text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white px-1 rounded-full">New</span>
+                  )}
                 </Link>
               ) : (
                 <a
@@ -146,7 +152,12 @@ const Navigation = () => {
                         className="text-lg text-muted-foreground hover:text-foreground transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
-                        {item.name}
+                        <span className="flex items-center gap-2">
+                          {item.name}
+                          {item.isNew && (
+                            <span className="text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white px-2 py-0.5 rounded-full">New</span>
+                          )}
+                        </span>
                       </Link>
                     ) : (
                       <a

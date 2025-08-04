@@ -506,6 +506,380 @@ app.listen(PORT, () => {
   }
 });
 
+export const createNextJsTemplate = (): WebContainerTemplate => ({
+  name: "Next.js App (TypeScript + Tailwind)",
+  description: "A modern Next.js application with TypeScript, Tailwind CSS, and animations",
+  files: {
+    'package.json': {
+      file: {
+        contents: JSON.stringify({
+          name: "zapdev-nextjs-app",
+          version: "0.1.0",
+          private: true,
+          scripts: {
+            dev: "next dev",
+            build: "next build",
+            start: "next start",
+            lint: "next lint"
+          },
+          dependencies: {
+            "next": "14.0.4",
+            "react": "^18.2.0",
+            "react-dom": "^18.2.0",
+            "framer-motion": "^10.16.16",
+            "lucide-react": "^0.294.0",
+            "clsx": "^2.0.0",
+            "tailwind-merge": "^2.2.0"
+          },
+          devDependencies: {
+            "@types/node": "^20.10.5",
+            "@types/react": "^18.2.45",
+            "@types/react-dom": "^18.2.18",
+            "autoprefixer": "^10.4.16",
+            "eslint": "^8.56.0",
+            "eslint-config-next": "14.0.4",
+            "postcss": "^8.4.32",
+            "tailwindcss": "^3.4.0",
+            "typescript": "^5.3.3"
+          }
+        }, null, 2)
+      }
+    },
+    'tsconfig.json': {
+      file: {
+        contents: JSON.stringify({
+          compilerOptions: {
+            target: "es5",
+            lib: ["dom", "dom.iterable", "esnext"],
+            allowJs: true,
+            skipLibCheck: true,
+            strict: true,
+            noEmit: true,
+            esModuleInterop: true,
+            module: "esnext",
+            moduleResolution: "bundler",
+            resolveJsonModule: true,
+            isolatedModules: true,
+            jsx: "preserve",
+            incremental: true,
+            plugins: [
+              {
+                name: "next"
+              }
+            ],
+            paths: {
+              "@/*": ["./*"]
+            }
+          },
+          include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+          exclude: ["node_modules"]
+        }, null, 2)
+      }
+    },
+    'next.config.js': {
+      file: {
+        contents: `/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  swcMinify: true,
+}
+
+module.exports = nextConfig`
+      }
+    },
+    'tailwind.config.js': {
+      file: {
+        contents: `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.5s ease-in-out',
+        'slide-up': 'slideUp 0.5s ease-out',
+        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(20px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        pulseGlow: {
+          '0%, 100%': { boxShadow: '0 0 20px rgba(99, 102, 241, 0.5)' },
+          '50%': { boxShadow: '0 0 40px rgba(99, 102, 241, 0.8)' },
+        },
+      },
+    },
+  },
+  plugins: [],
+}`
+      }
+    },
+    'postcss.config.js': {
+      file: {
+        contents: `module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}`
+      }
+    },
+    '.eslintrc.json': {
+      file: {
+        contents: JSON.stringify({
+          extends: "next/core-web-vitals"
+        }, null, 2)
+      }
+    },
+    'app': {
+      directory: {
+        'layout.tsx': {
+          file: {
+            contents: `import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'ZapDev Next.js App',
+  description: 'Built with Next.js, TypeScript, and Tailwind CSS',
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>{children}</body>
+    </html>
+  )
+}`
+          }
+        },
+        'page.tsx': {
+          file: {
+            contents: `'use client'
+
+import { motion } from 'framer-motion'
+import { Code2, Sparkles, Zap, Rocket } from 'lucide-react'
+import { useState } from 'react'
+
+export default function Home() {
+  const [isHovered, setIsHovered] = useState(false)
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900">
+      <div className="container mx-auto px-4 py-16">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-16"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="inline-block mb-8"
+          >
+            <Code2 className="w-20 h-20 text-purple-400" />
+          </motion.div>
+          
+          <h1 className="text-6xl font-bold text-white mb-4">
+            Welcome to{' '}
+            <span className="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+              ZapDev
+            </span>
+          </h1>
+          
+          <p className="text-xl text-gray-300 mb-8">
+            Build amazing Next.js applications with E2B integration
+          </p>
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onHoverStart={() => setIsHovered(true)}
+            onHoverEnd={() => setIsHovered(false)}
+            className="relative px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            <span className="relative z-10 flex items-center gap-2">
+              Get Started
+              <motion.div
+                animate={{ x: isHovered ? 5 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Rocket className="w-5 h-5" />
+              </motion.div>
+            </span>
+            {isHovered && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="absolute inset-0 bg-gradient-to-r from-purple-700 to-pink-700 rounded-lg"
+              />
+            )}
+          </motion.button>
+        </motion.div>
+
+        <div className="grid md:grid-cols-3 gap-8 mt-16">
+          {[
+            {
+              icon: <Zap className="w-8 h-8" />,
+              title: "Lightning Fast",
+              description: "Built on Next.js 14 with React Server Components for optimal performance"
+            },
+            {
+              icon: <Sparkles className="w-8 h-8" />,
+              title: "Beautiful Animations",
+              description: "Smooth animations powered by Framer Motion for delightful user experiences"
+            },
+            {
+              icon: <Code2 className="w-8 h-8" />,
+              title: "E2B Integration",
+              description: "Execute code in secure sandboxes with real-time feedback and results"
+            }
+          ].map((feature, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              whileHover={{ y: -5 }}
+              className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20"
+            >
+              <motion.div
+                whileHover={{ rotate: 360 }}
+                transition={{ duration: 0.5 }}
+                className="text-purple-400 mb-4"
+              >
+                {feature.icon}
+              </motion.div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                {feature.title}
+              </h3>
+              <p className="text-gray-300">
+                {feature.description}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </main>
+  )
+}`
+          }
+        },
+        'globals.css': {
+          file: {
+            contents: `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 3.9%;
+  --foreground: 0 0% 98%;
+  --primary: 262.1 83.3% 57.8%;
+  --primary-foreground: 0 0% 98%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+}`
+          }
+        }
+      }
+    },
+    'components': {
+      directory: {
+        'Button.tsx': {
+          file: {
+            contents: `'use client'
+
+import { motion } from 'framer-motion'
+import { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
+
+interface ButtonProps {
+  children: ReactNode
+  onClick?: () => void
+  variant?: 'primary' | 'secondary' | 'outline'
+  className?: string
+}
+
+export function Button({ children, onClick, variant = 'primary', className }: ButtonProps) {
+  const variants = {
+    primary: 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700',
+    secondary: 'bg-gray-700 text-white hover:bg-gray-600',
+    outline: 'border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white'
+  }
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className={cn(
+        'px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl',
+        variants[variant],
+        className
+      )}
+    >
+      {children}
+    </motion.button>
+  )
+}`
+          }
+        }
+      }
+    },
+    'lib': {
+      directory: {
+        'utils.ts': {
+          file: {
+            contents: `import { type ClassValue, clsx } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}`
+          }
+        }
+      }
+    }
+  }
+});
+
 export const createPortfolioTemplate = (): WebContainerTemplate => ({
   name: "Portfolio Template (TypeScript)",
   description: "A professional portfolio website with TypeScript and ESLint",
@@ -1020,6 +1394,7 @@ app.listen(PORT, () => {
 });
 
 export const templates = {
+  nextjs: createNextJsTemplate,
   basic: createBasicExpressTemplate,
   landing: createLandingPageTemplate,
   portfolio: createPortfolioTemplate,
