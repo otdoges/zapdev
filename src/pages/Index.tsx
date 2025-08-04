@@ -121,12 +121,12 @@ const Index = () => {
                   <Button 
                     size="lg" 
                     className="button-gradient"
-                    onClick={() => navigate('/pricing')}
+                    onClick={() => navigate('/chat')}
                   >
-                    View Pricing
+                    Open Chat
                   </Button>
                 ) : (
-                  <SignInButton mode="modal" forceRedirectUrl="/chat">
+                  <SignInButton mode="redirect" forceRedirectUrl="/chat">
                     <Button size="lg" className="button-gradient">
                       Get Started
                     </Button>
@@ -260,13 +260,13 @@ const Index = () => {
               <Button 
                 size="lg" 
                 className="bg-white text-blue-600 hover:bg-white/90"
-                onClick={() => navigate('/pricing')}
+                onClick={() => navigate('/chat')}
               >
-                View Pricing
+                Open Chat
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             ) : (
-              <SignInButton mode="modal" forceRedirectUrl="/chat">
+              <SignInButton mode="redirect" forceRedirectUrl="/chat">
                 <Button 
                   size="lg" 
                   className="bg-white text-blue-600 hover:bg-white/90"
