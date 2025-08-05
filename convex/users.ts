@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { QueryCtx, MutationCtx } from "./_generated/server";
+import { enforceRateLimit } from "./rateLimit";
 
 // Helper function to get authenticated user
 const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
@@ -80,6 +81,10 @@ export const upsertUser = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await getAuthenticatedUser(ctx);
+    
+    // Enforce rate limiting
+    await enforceRateLimit(ctx, "upsertUser");
+    
     const now = Date.now();
 
     // Sanitize and validate inputs
@@ -151,6 +156,10 @@ export const updateUserPreferences = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await getAuthenticatedUser(ctx);
+    
+    // Enforce rate limiting
+    await enforceRateLimit(ctx, "updateUserPreferences");
+    
     const now = Date.now();
 
     // Validate fontSize if provided
@@ -219,6 +228,9 @@ export const deleteUserAccount = mutation({
   },
   handler: async (ctx, { confirmEmail }) => {
     const identity = await getAuthenticatedUser(ctx);
+    
+    // Enforce strict rate limiting for account deletion
+    await enforceRateLimit(ctx, "deleteUserAccount");
 
     // Get current user to verify email
     const currentUser = await ctx.db

@@ -26,7 +26,7 @@ export const protectedProcedure = t.procedure.use(
       });
     }
 
-    // Here you would validate the JWT token with WorkOS
+    // Here you would validate the JWT token with Clerk
     // For now, we'll assume the token is valid
     const user = { id: 'user-id', email: 'user@example.com' }; // Mock user data
     
@@ -182,114 +182,61 @@ const aiModelRouter = router({
 
 // Auth procedures
 const authRouter = router({
-  // Exchange WorkOS code for tokens
-  workosCallback: publicProcedure
+  // Exchange Clerk code for tokens
+  clerkCallback: publicProcedure
     .input(z.object({
       code: z.string(),
     }))
     .mutation(async ({ input }) => {
       try {
-        // Exchange code for tokens with WorkOS (no client_secret needed for public clients)
-        const response = await fetch('https://api.workos.com/sso/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': `Bearer ${process.env.WORKOS_API_KEY}`,
-          },
-          body: new URLSearchParams({
-            client_id: process.env.WORKOS_CLIENT_ID!,
-            grant_type: 'authorization_code',
-            code: input.code,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('WorkOS token exchange failed:', response.status, errorText);
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: `WorkOS token exchange failed: ${response.statusText}`,
-          });
-        }
-
-        const tokenData = await response.json();
-        
-        // The profile should be included in the token response
-        const profile = tokenData.profile;
-
-        if (!profile) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'No profile data received from WorkOS',
-          });
-        }
-
+        // This would integrate with Clerk's auth flow
+        // For now returning mock data
         return {
           profile: {
-            id: profile.id,
-            email: profile.email,
-            firstName: profile.first_name,
-            lastName: profile.last_name,
-            picture: profile.picture,
+            id: 'user-id',
+            email: 'user@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            picture: null,
           },
-          idToken: tokenData.id_token,
-          accessToken: tokenData.access_token,
+          idToken: 'mock-id-token',
+          accessToken: 'mock-access-token',
         };
       } catch (error) {
-        console.error('WorkOS callback error:', error);
-        if (error instanceof TRPCError) {
-          throw error;
-        }
+        console.error('Clerk callback error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to process WorkOS authentication',
+          message: 'Failed to process Clerk authentication',
         });
       }
     }),
 });
 
-// Stripe billing procedures
-const stripeRouter = router({
-  // Product management
-  getProducts: publicProcedure.query(async ({ ctx }) => {
-    // Get products from Convex cache
-    return [];
-  }),
-
-  getProduct: publicProcedure
-    .input(z.object({
-      productId: z.string(),
-    }))
-    .query(async ({ input, ctx }) => {
-      // Get product from Convex cache
-      return null;
-    }),
-
-  // Customer and subscription management
-  getCustomerSubscriptions: protectedProcedure.query(async ({ ctx }) => {
-    // Get user's subscriptions from Convex
-    return [];
-  }),
-
-  createCheckoutSession: protectedProcedure
-    .input(z.object({
-      priceId: z.string(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // Create Stripe checkout session
-      return {
-        url: 'https://checkout.stripe.com/...',
-      };
-    }),
-
-  createCustomerPortalSession: protectedProcedure.mutation(async ({ ctx }) => {
-    // Create Stripe customer portal session
+// Billing procedures (Clerk-based)
+const billingRouter = router({
+  // Get user subscription status
+  getUserSubscription: protectedProcedure.query(async ({ ctx }) => {
+    // Get user's subscription from Convex (synced with Clerk)
     return {
-      url: 'https://billing.stripe.com/...',
+      planId: 'free',
+      planName: 'Free',
+      status: 'active',
+      features: ['10 AI conversations per month', 'Basic code execution'],
+      currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000,
     };
   }),
 
-  // Usage tracking
+  // Get user usage statistics
+  getUserUsage: protectedProcedure.query(async ({ ctx }) => {
+    // Get usage statistics from Convex
+    return {
+      conversations: 5,
+      codeExecutions: 12,
+      resetDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
+    };
+  }),
+
+  // Record usage event
   recordUsage: protectedProcedure
     .input(z.object({
       eventName: z.string(),
@@ -300,29 +247,25 @@ const stripeRouter = router({
       return { success: true };
     }),
 
-  getUserUsageStats: protectedProcedure
+  // Create checkout session (redirects to Clerk billing)
+  createCheckoutSession: protectedProcedure
     .input(z.object({
-      since: z.number().optional(),
+      planId: z.string(),
     }))
-    .query(async ({ input, ctx }) => {
-      // Get usage statistics from Convex
+    .mutation(async ({ input, ctx }) => {
+      // Create Clerk billing checkout session
       return {
-        totalEvents: 0,
-        period: { since: Date.now() - 30 * 24 * 60 * 60 * 1000, until: Date.now() },
-        byEventType: {},
+        url: `https://billing.clerk.dev/checkout?plan=${input.planId}`,
       };
     }),
 
-  // Webhook handler for Stripe events
-  handleWebhook: publicProcedure
-    .input(z.object({
-      body: z.string(),
-      signature: z.string(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // Handle Stripe webhook events
-      return { success: true };
-    }),
+  // Create customer portal session (redirects to Clerk billing)
+  createCustomerPortalSession: protectedProcedure.mutation(async ({ ctx }) => {
+    // Create Clerk billing portal session
+    return {
+      url: 'https://billing.clerk.dev/portal',
+    };
+  }),
 });
 
 // Main app router
@@ -332,7 +275,7 @@ export const appRouter = router({
   chat: chatRouter,
   message: messageRouter,
   aiModel: aiModelRouter,
-  stripe: stripeRouter,
+  billing: billingRouter,
 });
 
-export type AppRouter = typeof appRouter; 
+export type AppRouter = typeof appRouter;

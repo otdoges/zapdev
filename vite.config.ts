@@ -22,7 +22,6 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
-    // Ensure environment variables are properly exposed
     // Ensure environment variables are properly exposed (client-safe only)
     define: {
       'process.env': Object.fromEntries(

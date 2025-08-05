@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { enforceRateLimit } from "./rateLimit";
 
 // Helper function to get authenticated user
 const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
@@ -163,7 +164,7 @@ export const createMessage = mutation({
     }
     
     // Rate limiting
-    await checkRateLimit(ctx, identity.subject, "create");
+    await enforceRateLimit(ctx, "sendMessage");
     
     // Input validation and sanitization
     const sanitizedContent = sanitizeContent(args.content);

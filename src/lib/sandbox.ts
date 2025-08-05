@@ -15,8 +15,9 @@ export async function initializeSandbox(): Promise<Sandbox> {
       return sandboxInstance
     }
     
+    
     // Validate API key
-    const apiKey = process.env.VITE_E2B_API_KEY
+    const apiKey = import.meta.env.VITE_E2B_API_KEY
     if (!apiKey) {
       throw new Error(
         '🔑 VITE_E2B_API_KEY is not configured.\n' +

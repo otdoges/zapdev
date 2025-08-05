@@ -1,121 +1,34 @@
 import { motion } from "framer-motion";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardSpotlight } from "./CardSpotlight";
-import { useQuery } from "@tanstack/react-query";
-import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-
-
-interface StripeProduct {
-  id: string;
-  name: string;
-  description?: string;
-  prices: StripePrice[];
-  active: boolean;
-  metadata?: Record<string, string>;
-  created_at: string;
-  updated_at: string;
-}
-
-interface StripePrice {
-  id: string;
-  type: 'one_time' | 'recurring';
-  recurring_interval?: 'month' | 'year';
-  unit_amount?: number; // Amount in cents
-  currency: string;
-  active: boolean;
-}
-
-const formatPrice = (price: StripePrice): string => {
-  if (!price.unit_amount || price.unit_amount === 0) return 'Free';
-
-  const amount = price.unit_amount / 100; // Convert from cents
-  const currency = price.currency || 'USD';
-
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency.toUpperCase(),
-    minimumFractionDigits: 0,
-  }).format(amount);
-};
-
-const getRecurringText = (price: StripePrice): string => {
-  if (price.type === 'one_time') return '';
-  if (price.recurring_interval === 'month') return '/month';
-  if (price.recurring_interval === 'year') return '/year';
-  return '';
-};
-
-const getPopularPlan = (products: StripeProduct[]): string | null => {
-  // Logic to determine which plan should be marked as popular
-  // Could be based on product metadata, name matching, or configuration
-  const professionalPlan = products.find(p =>
-    p.name.toLowerCase().includes('professional') ||
-    p.name.toLowerCase().includes('pro')
-  );
-  return professionalPlan?.id || null;
-};
-
-const getProductFeatures = (product: StripeProduct): string[] => {
-  // In a real implementation, features would come from product metadata
-  // For now, we'll provide defaults based on product name
-  const name = product.name.toLowerCase();
-  
-  if (name.includes('starter') || name.includes('free')) {
-    return [
-      "5 AI-generated websites",
-      "Basic templates library", 
-      "Standard hosting",
-      "Email support"
-    ];
-  }
-  
-  if (name.includes('professional') || name.includes('pro')) {
-    return [
-      "Unlimited websites",
-      "Premium templates",
-      "Custom domain support", 
-      "Priority support",
-      "Advanced AI prompts",
-      "Analytics dashboard"
-    ];
-  }
-  
-  if (name.includes('enterprise')) {
-    return [
-      "White-label solution",
-      "Custom integrations",
-      "Dedicated support team",
-      "Advanced security", 
-      "Custom AI training",
-      "SLA guarantee"
-    ];
-  }
-  
-  return [
-    "AI-powered features",
-    "Cloud hosting",
-    "Email support"
-  ];
-};
+import { 
+  BILLING_PLANS, 
+  createCheckoutSession, 
+  useUserSubscription, 
+  canUserPerformAction,
+  formatPrice,
+  type ClerkPlan 
+} from "@/lib/clerk-billing";
 
 const PricingTier = ({
-  product,
+  plan,
   isPopular,
   index,
   onSelectPlan,
   isLoading,
+  currentPlanId,
 }: {
-  product: StripeProduct;
+  plan: ClerkPlan;
   isPopular?: boolean;
   index: number;
-  onSelectPlan: (priceId: string) => void;
+  onSelectPlan: (planId: string) => void;
   isLoading: boolean;
+  currentPlanId?: string;
 }) => {
-  const primaryPrice = product.prices[0]; // Use first price as primary
-  const features = getProductFeatures(product);
+  const isCurrentPlan = currentPlanId === plan.id;
   
   return (
     <motion.div
@@ -138,11 +51,25 @@ const PricingTier = ({
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: 0.5 + index * 0.2 }}
-              className="text-xs font-medium bg-primary/10 text-primary rounded-full px-3 py-1 w-fit mb-4"
+              className="flex items-center gap-1 text-xs font-medium bg-primary/10 text-primary rounded-full px-3 py-1 w-fit mb-4"
             >
+              <Star className="w-3 h-3" />
               Most Popular
             </motion.span>
           )}
+          
+          {isCurrentPlan && (
+            <motion.span 
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: 0.5 + index * 0.2 }}
+              className="text-xs font-medium bg-green-500/10 text-green-500 rounded-full px-3 py-1 w-fit mb-4"
+            >
+              Current Plan
+            </motion.span>
+          )}
+          
           <motion.h3 
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -150,8 +77,9 @@ const PricingTier = ({
             transition={{ duration: 0.5, delay: 0.3 + index * 0.2 }}
             className="text-xl font-medium mb-2"
           >
-            {product.name}
+            {plan.name}
           </motion.h3>
+          
           <motion.div 
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
@@ -160,12 +88,10 @@ const PricingTier = ({
             className="mb-4"
           >
             <span className="text-4xl font-bold">
-              {formatPrice(primaryPrice)}
-            </span>
-            <span className="text-gray-400">
-              {getRecurringText(primaryPrice)}
+              {formatPrice(plan)}
             </span>
           </motion.div>
+          
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -173,10 +99,11 @@ const PricingTier = ({
             transition={{ duration: 0.5, delay: 0.5 + index * 0.2 }}
             className="text-gray-400 mb-6"
           >
-            {product.description || `Perfect for ${product.name.toLowerCase()} users`}
+            {plan.description}
           </motion.p>
+          
           <ul className="space-y-3 mb-8 flex-grow">
-            {features.map((feature, featureIndex) => (
+            {plan.features.map((feature, featureIndex) => (
               <motion.li 
                 key={featureIndex}
                 initial={{ opacity: 0, x: -10 }}
@@ -185,11 +112,12 @@ const PricingTier = ({
                 transition={{ duration: 0.4, delay: 0.6 + index * 0.2 + featureIndex * 0.1 }}
                 className="flex items-center gap-2"
               >
-                <Check className="w-5 h-5 text-primary" />
+                <Check className="w-5 h-5 text-primary flex-shrink-0" />
                 <span className="text-sm text-gray-300">{feature}</span>
               </motion.li>
             ))}
           </ul>
+          
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -199,17 +127,26 @@ const PricingTier = ({
             whileTap={{ scale: 0.95 }}
           >
             <Button 
-              className="button-gradient w-full"
-              onClick={() => onSelectPlan(primaryPrice.id)}
-              disabled={isLoading}
+              className={`w-full ${
+                isCurrentPlan 
+                  ? "bg-green-500/20 text-green-500 border-green-500/30" 
+                  : "button-gradient"
+              }`}
+              onClick={() => onSelectPlan(plan.id)}
+              disabled={isLoading || isCurrentPlan}
+              variant={isCurrentPlan ? "outline" : "default"}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Loading...
                 </>
+              ) : isCurrentPlan ? (
+                'Current Plan'
+              ) : plan.price === 0 ? (
+                'Get Started Free'
               ) : (
-                'Get Started'
+                `Upgrade to ${plan.name}`
               )}
             </Button>
           </motion.div>
@@ -222,85 +159,38 @@ const PricingTier = ({
 export const DynamicPricingSection = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
-  
-  // Query products from Stripe API via TRPC
-  const { data: products, isLoading: isLoadingProducts, error } = useQuery({
-    queryKey: ['stripe-products'],
-    queryFn: async () => {
-      // For now, return mock data until TRPC integration is complete
-      const mockProducts: StripeProduct[] = [
-        {
-          id: 'starter',
-          name: 'Starter',
-          description: 'Perfect for solo founders getting started',
-          prices: [{
-            id: 'price-starter',
-            type: 'recurring',
-            recurring_interval: 'month',
-            unit_amount: 0, // Free
-            currency: 'usd',
-            active: true,
-          }],
-          active: true,
-          metadata: { plan_type: 'starter' },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: 'professional',
-          name: 'Professional',
-          description: 'Advanced features for growing startups',
-          prices: [{
-            id: 'price-professional',
-            type: 'recurring',
-            recurring_interval: 'month',
-            unit_amount: 4900, // $49.00 in cents
-            currency: 'usd',
-            active: true,
-          }],
-          active: true,
-          metadata: { plan_type: 'professional' },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: 'enterprise',
-          name: 'Enterprise',
-          description: 'Custom solutions for large organizations',
-          prices: [{
-            id: 'price-enterprise',
-            type: 'recurring',
-            recurring_interval: 'month',
-            unit_amount: 19900, // $199.00 in cents
-            currency: 'usd',
-            active: true,
-          }],
-          active: true,
-          metadata: { plan_type: 'enterprise' },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
-      return mockProducts;
-    },
-  });
+  const { subscription, loading: subscriptionLoading } = useUserSubscription();
 
-  const createCheckoutSession = async (priceId: string) => {
+  const handleSelectPlan = async (planId: string) => {
     if (!user) {
       // Redirect to login with return URL to continue checkout
-      const returnUrl = encodeURIComponent(`/pricing?priceId=${priceId}`);
-      window.location.href = `/login?returnUrl=${returnUrl}`;
+      const returnUrl = encodeURIComponent(`/pricing?planId=${planId}`);
+      window.location.href = `/auth/sign-in?redirect_url=${returnUrl}`;
+      return;
+    }
+
+    // If user is trying to select their current plan, do nothing
+    if (subscription?.planId === planId) {
+      return;
+    }
+
+    // If selecting free plan and user has a paid plan, redirect to billing portal
+    if (planId === 'free' && subscription?.planId !== 'free') {
+      try {
+        const { createCustomerPortalSession } = await import('@/lib/clerk-billing');
+        const { url } = await createCustomerPortalSession();
+        window.location.href = url;
+      } catch (error) {
+        console.error('Error opening customer portal:', error);
+        alert('Failed to open billing portal. Please try again.');
+      }
       return;
     }
 
     setIsLoading(true);
     try {
-      // This would use TRPC to create checkout session
-      // const result = await trpc.stripe.createCheckoutSession.mutate({ priceId });
-      // window.location.href = result.url;
-
-      // For now, just show an alert
-      alert(`Creating Stripe checkout session for price: ${priceId}`);
+      const { url } = await createCheckoutSession(planId);
+      window.location.href = url;
     } catch (error) {
       console.error('Error creating checkout session:', error);
       alert('Failed to create checkout session. Please try again.');
@@ -309,12 +199,8 @@ export const DynamicPricingSection = () => {
     }
   };
 
-  if (error) {
-    console.error('Error loading products:', error);
-  }
-
-  const activeProducts = products?.filter(p => p.active) || [];
-  const popularPlanId = activeProducts.length > 0 ? getPopularPlan(activeProducts) : null;
+  const currentPlanId = subscription?.planId || 'free';
+  const popularPlanId = BILLING_PLANS.find(p => p.popular)?.id || 'pro';
 
   return (
     <motion.section 
@@ -353,7 +239,7 @@ export const DynamicPricingSection = () => {
             transition={{ duration: 0.6, delay: 0.8 }}
             className="text-gradient font-medium"
           >
-            Building Plan
+            Development Plan
           </motion.span>
         </motion.h2>
         <motion.p
@@ -363,35 +249,52 @@ export const DynamicPricingSection = () => {
           transition={{ duration: 0.6, delay: 1.0 }}
           className="text-lg text-gray-400"
         >
-          Select the perfect plan to build your startup's website with AI-powered tools
+          Select the perfect plan for your AI-powered development needs with secure Clerk billing
         </motion.p>
       </motion.div>
 
-      {isLoadingProducts ? (
+      {subscriptionLoading ? (
         <div className="flex justify-center items-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <span className="ml-2 text-gray-400">Loading pricing plans...</span>
-        </div>
-      ) : activeProducts.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-400">No pricing plans available at the moment.</p>
+          <span className="ml-2 text-gray-400">Loading your subscription...</span>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {activeProducts.map((product, index) => (
+          {BILLING_PLANS.map((plan, index) => (
             <PricingTier
-              key={product.id}
-              product={product}
-              isPopular={product.id === popularPlanId}
+              key={plan.id}
+              plan={plan}
+              isPopular={plan.id === popularPlanId}
               index={index}
-              onSelectPlan={createCheckoutSession}
+              onSelectPlan={handleSelectPlan}
               isLoading={isLoading}
+              currentPlanId={currentPlanId}
             />
           ))}
         </div>
+      )}
+
+      {/* Usage Information for Current Users */}
+      {user && subscription && (
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 1.2 }}
+          className="mt-12 text-center"
+        >
+          <p className="text-sm text-gray-400">
+            Current Plan: <span className="text-white font-medium">{BILLING_PLANS.find(p => p.id === currentPlanId)?.name}</span>
+            {subscription.status === 'active' && subscription.planId !== 'free' && (
+              <span className="ml-2">
+                • Next billing: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+              </span>
+            )}
+          </p>
+        </motion.div>
       )}
     </motion.section>
   );
 };
 
-export default DynamicPricingSection; 
+export default DynamicPricingSection;

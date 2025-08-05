@@ -161,12 +161,10 @@ const Settings = () => {
 
     setIsLoadingBilling(true);
     try {
-      // This would use TRPC to create customer portal session
-      // const result = await trpc.stripe.createCustomerPortalSession.mutate();
-      // window.location.href = result.url;
-
-      // For now, just show an alert
-      alert('Opening Stripe customer portal...');
+      // Use Clerk billing instead of Stripe
+      const { createCustomerPortalSession } = await import('@/lib/clerk-billing');
+      const result = await createCustomerPortalSession();
+      window.location.href = result.url;
     } catch (error) {
       console.error('Error opening customer portal:', error);
       alert('Failed to open billing portal. Please try again.');

@@ -40,7 +40,8 @@
       "WebFetch(domain:webcontainer-tutorial.pages.dev)",
       "WebFetch(domain:webcontainers.io)",
       "Bash(npx tsc:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

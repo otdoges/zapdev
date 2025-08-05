@@ -11,17 +11,28 @@ export default function UserSync({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isAuthenticated && !isLoading && clerkUser) {
+      // Validate required user data
+      const email = clerkUser.primaryEmailAddress?.emailAddress;
+      if (!email) {
+        console.error('User missing primary email address');
+        return;
+      }
+
       upsertUser({
-        email: clerkUser.primaryEmailAddress?.emailAddress || '',
+        email,
         fullName: clerkUser.fullName || undefined,
         avatarUrl: clerkUser.imageUrl || undefined,
-        username: clerkUser.username || `${clerkUser.primaryEmailAddress?.emailAddress?.split('@')[0]}_${Date.now()}`,
+        username: clerkUser.username || `${email.split('@')[0]}_${Date.now()}`,
         bio: '',
       }).catch((error) => {
         console.error('Failed to sync user to Convex:', error);
+        // In production, you might want to show a user-friendly error
+        if (import.meta.env.PROD) {
+          console.error('Authentication sync failed. Please refresh the page or contact support.');
+        }
       });
     }
-  }, [isAuthenticated, isLoading, clerkUser?.id, upsertUser]);
+  }, [isAuthenticated, isLoading, clerkUser?.id, clerkUser?.primaryEmailAddress?.emailAddress, clerkUser?.imageUrl, clerkUser?.fullName, clerkUser?.username, upsertUser]);
 
   return <>{children}</>;
 }

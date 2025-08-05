@@ -31,13 +31,29 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
-  throw new Error("Missing Clerk Publishable Key");
+  throw new Error("Missing Clerk Publishable Key - Check your environment configuration");
+}
+
+// Security validation for production
+if (import.meta.env.PROD && PUBLISHABLE_KEY.startsWith('pk_test_')) {
+  console.error('⚠️  SECURITY WARNING: Using test keys in production environment!');
+  throw new Error('Production deployment requires live Clerk keys (pk_live_*)');
 }
 
 const root = createRoot(document.getElementById('root')!);
 root.render(
   <StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+    <ClerkProvider 
+      publishableKey={PUBLISHABLE_KEY} 
+      afterSignOutUrl="/"
+      appearance={{
+        elements: {
+          formButtonPrimary: 'bg-primary hover:bg-primary/90',
+          card: 'bg-card border border-border',
+        },
+      }}
+      routing="hash"
+    >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
 {import.meta.env.VITE_PUBLIC_POSTHOG_KEY ? (
           <PostHogProvider

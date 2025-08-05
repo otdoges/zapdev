@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
+import { enforceRateLimit } from "./rateLimit";
 
 // Helper function to get authenticated user
 const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
@@ -161,7 +162,7 @@ export const createChat = mutation({
     const identity = await getAuthenticatedUser(ctx);
     
     // Rate limiting
-    await checkChatCreationRateLimit(ctx, identity.subject);
+    await enforceRateLimit(ctx, "createChat");
     
     // Input validation and sanitization
     const sanitizedTitle = sanitizeTitle(args.title);
@@ -422,7 +423,7 @@ export const duplicateChat = mutation({
     const identity = await getAuthenticatedUser(ctx);
     
     // Rate limiting
-    await checkChatCreationRateLimit(ctx, identity.subject);
+    await enforceRateLimit(ctx, "createChat");
     
     const originalChat = await ctx.db.get(args.chatId);
     
