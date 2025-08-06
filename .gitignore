@@ -26,3 +26,10 @@ dist-ssr
 .env.local
 # Sentry Config File
 .env.sentry-build-plugin
+.vercel
+
+# Enviorment Variables
+.env
+.env.*.local
+.env.production
+.env.vercel 

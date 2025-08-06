@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
 import Navigation from "@/components/Navigation";
+import { setSecureApiKey, getSecureApiKey, clearSecureApiKey, hasUserApiKey } from "@/lib/secure-storage";
 
 // Types and Constants
 interface SubscriptionData {
@@ -200,7 +201,14 @@ const Settings = () => {
     
     if (isValid) {
       setApiKeyStatus('valid');
-      localStorage.setItem('zapdev-api-config', JSON.stringify(apiConfig));
+      try {
+        setSecureApiKey(apiConfig.groqApiKey);
+        // Clear old insecure storage if it exists
+        localStorage.removeItem('zapdev-api-config');
+      } catch (error) {
+        console.error('Error saving API key securely:', error);
+        setApiKeyStatus('invalid');
+      }
     } else {
       setApiKeyStatus('invalid');
     }
@@ -209,6 +217,8 @@ const Settings = () => {
   const clearApiKey = () => {
     setApiConfig({ groqApiKey: '', useUserApiKey: false });
     setApiKeyStatus('idle');
+    clearSecureApiKey();
+    // Also clear old insecure storage if it exists
     localStorage.removeItem('zapdev-api-config');
   };
 
@@ -267,14 +277,37 @@ const Settings = () => {
           website: '',
         });
 
-        const savedApiConfig = localStorage.getItem('zapdev-api-config');
-        if (savedApiConfig) {
-          try {
-            const parsed = JSON.parse(savedApiConfig);
-            setApiConfig(parsed);
-            if (parsed.groqApiKey) setApiKeyStatus('valid');
-          } catch (error) {
-            console.error('Error parsing saved API config:', error);
+        // Try to load from secure storage first
+        const secureApiKey = getSecureApiKey();
+        if (secureApiKey && hasUserApiKey()) {
+          setApiConfig({
+            groqApiKey: secureApiKey,
+            useUserApiKey: true
+          });
+          setApiKeyStatus('valid');
+          // Clear old insecure storage if it exists
+          localStorage.removeItem('zapdev-api-config');
+        } else {
+          // Migrate from old insecure storage if it exists
+          const savedApiConfig = localStorage.getItem('zapdev-api-config');
+          if (savedApiConfig) {
+            try {
+              const parsed = JSON.parse(savedApiConfig);
+              setApiConfig(parsed);
+              if (parsed.groqApiKey) {
+                setApiKeyStatus('valid');
+                // Migrate to secure storage
+                try {
+                  setSecureApiKey(parsed.groqApiKey);
+                  localStorage.removeItem('zapdev-api-config');
+                  console.log('Migrated API key to secure storage');
+                } catch (error) {
+                  console.error('Error migrating API key to secure storage:', error);
+                }
+              }
+            } catch (error) {
+              console.error('Error parsing saved API config:', error);
+            }
           }
         }
       } catch (error) {
@@ -361,7 +394,7 @@ const Settings = () => {
         ))}
         <div className="mt-4 p-3 bg-gray-900/50 rounded-lg">
           <p className="text-gray-300 text-xs">
-            <strong>Security Note:</strong> Your API key is stored locally in your browser and never sent to our servers. Only you have access to it.
+            <strong>Security Note:</strong> Your API key is encrypted and stored locally in your browser using secure storage. It never leaves your device and is not sent to our servers. Old insecure storage is automatically migrated.
           </p>
         </div>
       </InfoCard>

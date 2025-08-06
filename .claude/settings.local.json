@@ -41,7 +41,11 @@
       "WebFetch(domain:webcontainers.io)",
       "Bash(npx tsc:*)",
       "Bash(cp:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(vercel env:*)",
+      "Bash(vercel link:*)",
+      "Bash(vercel:*)",
+      "WebFetch(domain:console.groq.com)"
     ],
     "deny": []
   }

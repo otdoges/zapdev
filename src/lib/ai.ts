@@ -2,21 +2,73 @@ import { createGroq } from '@ai-sdk/groq'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateText, streamText } from 'ai'
 import * as Sentry from '@sentry/react'
+import { recordAIConversation } from './usage-service'
+import { getSecureApiKey, getApiKeySource } from './secure-storage'
 
 const { logger } = Sentry;
 
-// Get user's API key from localStorage if available
-function getUserApiKey(): string | null {
-  try {
-    const savedConfig = localStorage.getItem('zapdev-api-config');
-    if (savedConfig) {
-      const config = JSON.parse(savedConfig);
-      return config.useUserApiKey && config.groqApiKey ? config.groqApiKey : null;
-    }
-  } catch (error) {
-    console.error('Error reading API config from localStorage:', error);
+// Cost tracking and limits
+const MODEL_PRICING = {
+  'openai/gpt-oss-20b': {
+    input: 0.10 / 10_000_000, // $0.10 per 10M tokens
+    output: 0.50 / 2_000_000,  // $0.50 per 2M tokens
   }
-  return null;
+};
+
+const DAILY_COST_LIMIT = 1.00; // $1.00 daily limit
+const COST_STORAGE_KEY = 'zapdev-daily-cost';
+
+// Cost tracking functions
+function calculateCost(modelId: string, inputTokens: number, outputTokens: number): number {
+  const pricing = MODEL_PRICING[modelId as keyof typeof MODEL_PRICING];
+  if (!pricing) return 0;
+  
+  return (inputTokens * pricing.input) + (outputTokens * pricing.output);
+}
+
+function getTodayCost(): number {
+  try {
+    const stored = localStorage.getItem(COST_STORAGE_KEY);
+    if (!stored) return 0;
+    
+    const { date, cost } = JSON.parse(stored);
+    const today = new Date().toDateString();
+    
+    if (date === today) {
+      return cost;
+    }
+    
+    return 0; // Reset for new day
+  } catch {
+    return 0;
+  }
+}
+
+function addTodayCost(cost: number): void {
+  try {
+    const today = new Date().toDateString();
+    const currentCost = getTodayCost();
+    const newCost = currentCost + cost;
+    
+    localStorage.setItem(COST_STORAGE_KEY, JSON.stringify({
+      date: today,
+      cost: newCost
+    }));
+  } catch (error) {
+    console.error('Error saving cost data:', error);
+  }
+}
+
+function checkCostLimit(estimatedCost: number): void {
+  const currentCost = getTodayCost();
+  if (currentCost + estimatedCost > DAILY_COST_LIMIT) {
+    throw new Error(`Daily cost limit of $${DAILY_COST_LIMIT} would be exceeded. Current: $${currentCost.toFixed(4)}, Request: $${estimatedCost.toFixed(4)}`);
+  }
+}
+
+// Get user's API key securely
+function getUserApiKey(): string | null {
+  return getSecureApiKey();
 }
 
 // Create Groq instance with user key or fallback to env key
@@ -24,10 +76,13 @@ function createGroqInstance() {
   const userApiKey = getUserApiKey();
   const apiKey = userApiKey || process.env.VITE_GROQ_API_KEY || '';
   
-  if (userApiKey) {
-    console.log('🔑 Using user-provided Groq API key');
-  } else if (process.env.VITE_GROQ_API_KEY) {
-    console.log('🔑 Using environment Groq API key');
+  // Security: Never log API key information in production
+  if (process.env.NODE_ENV === 'development') {
+    if (userApiKey) {
+      console.log('🔑 Using user-provided Groq API key');
+    } else if (process.env.VITE_GROQ_API_KEY) {
+      console.log('🔑 Using environment Groq API key');
+    }
   }
   
   return createGroq({ apiKey });
@@ -41,7 +96,7 @@ const openrouter = createOpenRouter({
 // Get current model instance
 function getCurrentModel() {
   const groq = createGroqInstance();
-  return groq('moonshotai/kimi-k2-instruct');
+  return groq('openai/gpt-oss-20b');
 }
 
 // OpenRouter failsafe model
@@ -57,9 +112,10 @@ export async function generateAIResponse(prompt: string) {
       try {
         const userApiKey = getUserApiKey();
         const envApiKey = process.env.VITE_GROQ_API_KEY;
+        const apiKeySource = getApiKeySource();
         
         span.setAttribute("prompt_length", prompt.length);
-        span.setAttribute("api_key_source", userApiKey ? "user" : "env");
+        span.setAttribute("api_key_source", apiKeySource);
         
         if (!userApiKey && !envApiKey) {
           const error = new Error('No Groq API key configured. Please add your API key in Settings or set VITE_GROQ_API_KEY in environment variables.');
@@ -67,25 +123,54 @@ export async function generateAIResponse(prompt: string) {
           throw error;
         }
 
+        // Estimate cost for input tokens (rough estimate: 1 token ≈ 4 chars)
+        const estimatedInputTokens = Math.ceil(prompt.length / 4);
+        const estimatedOutputTokens = 8000; // Max tokens we might use
+        const estimatedCost = calculateCost('openai/gpt-oss-20b', estimatedInputTokens, estimatedOutputTokens);
+        
+        // Check cost limit before making request
+        checkCostLimit(estimatedCost);
+
         logger.info("Starting AI text generation", { 
           promptLength: prompt.length,
-          apiKeySource: userApiKey ? "user" : "env"
+          estimatedCost: estimatedCost.toFixed(6),
+          apiKeySource
         });
 
         const model = getCurrentModel();
-        span.setAttribute("model", "moonshotai/kimi-k2-instruct");
+        span.setAttribute("model", "openai/gpt-oss-20b");
         
-        const { text } = await generateText({
+        const { text, usage } = await generateText({
           model,
           prompt,
-          maxTokens: 4000,
+          maxTokens: 8000, // Increased token limit for openai/gpt-oss-20b (max 32,768)
           temperature: 0.7,
         })
         
+        // Calculate actual cost based on usage
+        const actualCost = usage ? calculateCost('openai/gpt-oss-20b', usage.promptTokens, usage.completionTokens) : estimatedCost;
+        addTodayCost(actualCost);
+
+        // Record usage event
+        await recordAIConversation({
+          model: 'openai/gpt-oss-20b',
+          inputTokens: usage?.promptTokens || 0,
+          outputTokens: usage?.completionTokens || 0,
+          cost: actualCost,
+        });
+
         span.setAttribute("response_length", text.length);
+        span.setAttribute("actual_cost", actualCost.toFixed(6));
+        span.setAttribute("input_tokens", usage?.promptTokens || 0);
+        span.setAttribute("output_tokens", usage?.completionTokens || 0);
+        
         logger.info("AI text generation completed", { 
           responseLength: text.length,
-          model: "moonshotai/kimi-k2-instruct"
+          model: "openai/gpt-oss-20b",
+          actualCost: actualCost.toFixed(6),
+          inputTokens: usage?.promptTokens || 0,
+          outputTokens: usage?.completionTokens || 0,
+          dailyCost: getTodayCost().toFixed(4)
         });
         
         return text
@@ -137,9 +222,10 @@ export async function streamAIResponse(prompt: string) {
       try {
         const userApiKey = getUserApiKey();
         const envApiKey = process.env.VITE_GROQ_API_KEY;
+        const apiKeySource = getApiKeySource();
         
         span.setAttribute("prompt_length", prompt.length);
-        span.setAttribute("api_key_source", userApiKey ? "user" : "env");
+        span.setAttribute("api_key_source", apiKeySource);
         
         if (!userApiKey && !envApiKey) {
           const error = new Error('No Groq API key configured. Please add your API key in Settings or set VITE_GROQ_API_KEY in environment variables.');
@@ -147,14 +233,7 @@ export async function streamAIResponse(prompt: string) {
           throw error;
         }
 
-        logger.info("Starting AI text streaming", { 
-          promptLength: prompt.length,
-          apiKeySource: userApiKey ? "user" : "env"
-        });
-
-        const model = getCurrentModel();
-        span.setAttribute("model", "moonshotai/kimi-k2-instruct");
-        
+        // Estimate cost for input tokens
         const systemPrompt = `You are ZapDev AI, an expert coding assistant with E2B integration capabilities. You specialize in creating modern web applications using Next.js 14, TypeScript, and Tailwind CSS.
 
 Key Guidelines:
@@ -185,18 +264,48 @@ Make the output visually appealing with:
 
 Always aim to create production-ready, performant, and beautiful applications that showcase the power of Next.js and E2B integration.`;
 
+        const fullPrompt = systemPrompt + "\n\n" + prompt;
+        const estimatedInputTokens = Math.ceil(fullPrompt.length / 4);
+        const estimatedOutputTokens = 8000; // Max tokens we might use
+        const estimatedCost = calculateCost('openai/gpt-oss-20b', estimatedInputTokens, estimatedOutputTokens);
+        
+        // Check cost limit before making request
+        checkCostLimit(estimatedCost);
+
+        logger.info("Starting AI text streaming", { 
+          promptLength: prompt.length,
+          estimatedCost: estimatedCost.toFixed(6),
+          apiKeySource
+        });
+
+        const model = getCurrentModel();
+        span.setAttribute("model", "openai/gpt-oss-20b");
+
         const result = await streamText({
           model,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: prompt }
           ],
-          maxTokens: 4000,
+          maxTokens: 8000, // Increased token limit for openai/gpt-oss-20b
           temperature: 0.7,
         })
         
+        // Add cost tracking for streaming (estimate since we don't get exact tokens upfront)
+        addTodayCost(estimatedCost);
+
+        // Record usage event (estimated for streaming)
+        await recordAIConversation({
+          model: 'openai/gpt-oss-20b',
+          inputTokens: estimatedInputTokens,
+          outputTokens: estimatedOutputTokens,
+          cost: estimatedCost,
+        });
+        
         logger.info("AI streaming started successfully", { 
-          model: "moonshotai/kimi-k2-instruct"
+          model: "openai/gpt-oss-20b",
+          estimatedCost: estimatedCost.toFixed(6),
+          dailyCost: getTodayCost().toFixed(4)
         });
         
         return result
@@ -223,7 +332,7 @@ Always aim to create production-ready, performant, and beautiful applications th
               { role: 'system', content: systemPrompt },
               { role: 'user', content: prompt }
             ],
-            maxTokens: 4000,
+            maxTokens: 4000, // Keep lower limit for fallback model
             temperature: 0.7,
           })
           
@@ -241,3 +350,12 @@ Always aim to create production-ready, performant, and beautiful applications th
     }
   );
 }
+
+// Export cost tracking functions for use in other components
+export const costTracker = {
+  getTodayCost,
+  getDailyLimit: () => DAILY_COST_LIMIT,
+  getRemainingBudget: () => DAILY_COST_LIMIT - getTodayCost(),
+  getCostPercentage: () => (getTodayCost() / DAILY_COST_LIMIT) * 100,
+  isNearLimit: () => getTodayCost() > (DAILY_COST_LIMIT * 0.8), // 80% threshold
+};
