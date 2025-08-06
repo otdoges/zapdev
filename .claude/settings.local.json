@@ -46,7 +46,8 @@
       "Bash(vercel link:*)",
       "Bash(vercel:*)",
       "WebFetch(domain:console.groq.com)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }

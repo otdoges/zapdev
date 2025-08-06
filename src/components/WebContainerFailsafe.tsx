@@ -137,7 +137,7 @@ export const WebContainerFailsafe: React.FC<WebContainerFailsafeProps> = ({
     };
 
     checkSupport();
-  }, [isVisible]);
+  }, [isVisible, initializeWebContainer]);
 
   const addLog = useCallback((message: string, type: 'info' | 'error' | 'success' = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
@@ -145,7 +145,7 @@ export const WebContainerFailsafe: React.FC<WebContainerFailsafeProps> = ({
     setLogs(prev => [...prev, formattedMessage]);
   }, []);
 
-  const initializeWebContainer = async () => {
+  const initializeWebContainer = useCallback(async () => {
     if (!supportInfo.supported) {
       setError(supportInfo.reason);
       setStatus('error');
@@ -184,7 +184,7 @@ export const WebContainerFailsafe: React.FC<WebContainerFailsafeProps> = ({
         onFallback();
       }
     }
-  };
+  }, [supportInfo.supported, supportInfo.reason, addLog, onFallback]);
 
   const createProjectStructure = useCallback((codeInput: string, lang: string): { [key: string]: ProjectFile } => {
     const files: { [key: string]: ProjectFile } = {};

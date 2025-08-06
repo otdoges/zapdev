@@ -32,7 +32,7 @@ export default function UserSync({ children }: { children: React.ReactNode }) {
         }
       });
     }
-  }, [isAuthenticated, isLoading, clerkUser?.id, clerkUser?.primaryEmailAddress?.emailAddress, clerkUser?.imageUrl, clerkUser?.fullName, clerkUser?.username, upsertUser]);
+  }, [isAuthenticated, isLoading, clerkUser?.id, clerkUser?.primaryEmailAddress?.emailAddress, clerkUser?.imageUrl, clerkUser?.fullName, clerkUser?.username, upsertUser, clerkUser]);
 
   return <>{children}</>;
 }

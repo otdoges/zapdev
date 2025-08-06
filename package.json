@@ -12,7 +12,8 @@
     "setup-env": "bun scripts/setup-env.js",
     "create-env": "bun scripts/create-env-local.js",
     "test-ai": "bun src/test-ai-implementation.ts",
-    "test-ai-only": "bun scripts/test-ai-only.js"
+    "test-ai-only": "bun scripts/test-ai-only.js",
+    "validate": "bun src/validate-ai.ts"
   },
   "dependencies": {
     "@ai-sdk/groq": "^1.2.9",

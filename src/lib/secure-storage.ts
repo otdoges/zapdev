@@ -8,6 +8,8 @@
  * - API keys in browsers are inherently exposed to determined attackers
  */
 
+import { getDeviceFingerprint } from './device-fingerprint';
+
 // Configuration
 const STORAGE_KEY = 'zapdev-secure-config';
 const SALT_KEY = 'zapdev-salt';
@@ -51,37 +53,6 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
   );
 }
 
-/**
- * Generates a unique device fingerprint for key derivation
- * Combines multiple browser characteristics for better entropy
- */
-function getDeviceFingerprint(): string {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  
-  // Canvas fingerprinting for additional entropy
-  if (ctx) {
-    ctx.textBaseline = 'top';
-    ctx.font = '14px Arial';
-    ctx.fillText('🔐📱💻', 0, 0);
-  }
-  
-  const factors = [
-    navigator.userAgent,
-    navigator.language,
-    navigator.languages?.join(',') || '',
-    screen.width.toString(),
-    screen.height.toString(),
-    screen.pixelDepth?.toString() || '',
-    new Date().getTimezoneOffset().toString(),
-    navigator.hardwareConcurrency?.toString() || '',
-    // Remove deviceMemory since it's not supported in Navigator type
-    canvas.toDataURL()
-  ];
-  
-  // Hash the combined factors for consistent length
-  return factors.join('|');
-}
 
 /**
  * Generates a checksum for integrity verification

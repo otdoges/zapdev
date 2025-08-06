@@ -66,11 +66,48 @@ const checkRateLimit = async (ctx: QueryCtx | MutationCtx, userId: string, actio
   }
   
   if (action === "update") {
-    // Need to implement proper update tracking, possibly by:
-    // 1. Adding an updatedAt field to messages
-    // 2. Tracking updates in a separate table
-    // 3. Using a different rate limiting strategy for updates
-    throw new Error("Update rate limiting not properly implemented");
+    // For updates, use a more relaxed rate limit (1 per 5 seconds)
+    const updateTimeWindow = 5 * 1000; // 5 seconds
+    const maxUpdateRequests = 1;
+    
+    if (recentRequests.length >= maxUpdateRequests) {
+      const oldestRequest = recentRequests[0];
+      if (now - oldestRequest < updateTimeWindow) {
+        throw new ConvexError("Rate limit exceeded. Please wait before updating again.");
+      }
+    }
+  }
+};
+
+// Encryption validation helper
+const validateEncryptionData = (args: {
+  isEncrypted?: boolean;
+  encryptedContent?: string;
+  encryptionSalt?: string;
+  encryptionIv?: string;
+  contentChecksum?: string;
+}) => {
+  if (!args.isEncrypted) {
+    return; // No validation needed for non-encrypted messages
+  }
+
+  // Check for required encryption fields
+  if (!args.encryptedContent || !args.encryptionSalt || !args.encryptionIv || !args.contentChecksum) {
+    throw new Error("Missing required encryption fields for encrypted message");
+  }
+  
+  // Validate encrypted content length (reasonable limits)
+  if (args.encryptedContent.length > 200000) { // ~150KB base64 encoded limit
+    throw new Error("Encrypted content too large");
+  }
+  
+  // Basic validation of base64 encoding
+  try {
+    atob(args.encryptedContent);
+    atob(args.encryptionSalt);
+    atob(args.encryptionIv);
+  } catch (error) {
+    throw new Error("Invalid base64 encoding in encryption fields");
   }
 };
 
@@ -148,6 +185,14 @@ export const createMessage = mutation({
     chatId: v.id("chats"),
     content: v.string(),
     role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
+    
+    // Encryption support
+    isEncrypted: v.optional(v.boolean()),
+    encryptedContent: v.optional(v.string()),
+    encryptionSalt: v.optional(v.string()),
+    encryptionIv: v.optional(v.string()),
+    contentChecksum: v.optional(v.string()),
+    
     metadata: v.optional(v.object({
       model: v.optional(v.string()),
       tokens: v.optional(v.number()),
@@ -170,6 +215,9 @@ export const createMessage = mutation({
     const sanitizedContent = sanitizeContent(args.content);
     const sanitizedMetadata = sanitizeMetadata(args.metadata);
     
+    // Validate encryption data if provided
+    validateEncryptionData(args);
+    
     // Additional validation for role-based restrictions
     if (args.role === "system" && identity.subject !== chat.userId) {
       throw new Error("Only chat owners can create system messages");
@@ -177,14 +225,38 @@ export const createMessage = mutation({
     
     const now = Date.now();
     
-    const messageId = await ctx.db.insert("messages", {
+    // Build message data with conditional encryption fields
+    const messageData: {
+      chatId: Id<"chats">;
+      userId: string;
+      content: string;
+      role: "user" | "assistant" | "system";
+      metadata?: { model?: string; tokens?: number; cost?: number };
+      createdAt: number;
+      isEncrypted?: boolean;
+      encryptedContent?: string;
+      encryptionSalt?: string;
+      encryptionIv?: string;
+      contentChecksum?: string;
+    } = {
       chatId: args.chatId,
       userId: identity.subject,
       content: sanitizedContent,
       role: args.role,
       metadata: sanitizedMetadata,
       createdAt: now,
-    });
+    };
+    
+    // Add encryption fields if message is encrypted
+    if (args.isEncrypted) {
+      messageData.isEncrypted = true;
+      messageData.encryptedContent = args.encryptedContent;
+      messageData.encryptionSalt = args.encryptionSalt;
+      messageData.encryptionIv = args.encryptionIv;
+      messageData.contentChecksum = args.contentChecksum;
+    }
+    
+    const messageId = await ctx.db.insert("messages", messageData);
     
     // Update the chat's updatedAt timestamp
     await ctx.db.patch(args.chatId, {
@@ -200,6 +272,14 @@ export const updateMessage = mutation({
   args: {
     messageId: v.id("messages"),
     content: v.string(),
+    
+    // Encryption support for updates
+    isEncrypted: v.optional(v.boolean()),
+    encryptedContent: v.optional(v.string()),
+    encryptionSalt: v.optional(v.string()),
+    encryptionIv: v.optional(v.string()),
+    contentChecksum: v.optional(v.string()),
+    
     metadata: v.optional(v.object({
       model: v.optional(v.string()),
       tokens: v.optional(v.number()),
@@ -232,16 +312,46 @@ export const updateMessage = mutation({
     const sanitizedContent = sanitizeContent(args.content);
     const sanitizedMetadata = sanitizeMetadata(args.metadata);
     
+    // Validate encryption data if provided
+    validateEncryptionData(args);
+    
     // Prevent editing messages older than 24 hours (configurable business rule)
     const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
     if (message.createdAt < twentyFourHoursAgo) {
       throw new Error("Cannot edit messages older than 24 hours");
     }
     
-    await ctx.db.patch(args.messageId, {
+    // Build update data with conditional encryption fields
+    const updateData: {
+      content: string;
+      metadata?: { model?: string; tokens?: number; cost?: number };
+      isEncrypted?: boolean;
+      encryptedContent?: string;
+      encryptionSalt?: string;
+      encryptionIv?: string;
+      contentChecksum?: string;
+    } = {
       content: sanitizedContent,
       metadata: sanitizedMetadata,
-    });
+    };
+    
+    // Add or remove encryption fields based on isEncrypted flag
+    if (args.isEncrypted) {
+      updateData.isEncrypted = true;
+      updateData.encryptedContent = args.encryptedContent;
+      updateData.encryptionSalt = args.encryptionSalt;
+      updateData.encryptionIv = args.encryptionIv;
+      updateData.contentChecksum = args.contentChecksum;
+    } else {
+      // If switching from encrypted to unencrypted, clear encryption fields
+      updateData.isEncrypted = false;
+      updateData.encryptedContent = undefined;
+      updateData.encryptionSalt = undefined;
+      updateData.encryptionIv = undefined;
+      updateData.contentChecksum = undefined;
+    }
+    
+    await ctx.db.patch(args.messageId, updateData);
     
     // Update the chat's updatedAt timestamp
     await ctx.db.patch(message.chatId, {

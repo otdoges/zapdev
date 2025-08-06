@@ -23,7 +23,10 @@ import {
   Sparkles,
   Clock,
   Zap,
-  Loader2
+  Loader2,
+  Shield,
+  ShieldCheck,
+  ShieldX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
@@ -33,6 +36,7 @@ import { streamAIResponse } from '@/lib/ai';
 import { executeCode } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
 import { E2BCodeExecution } from './E2BCodeExecution';
+import { MessageEncryption, isEncryptedMessage } from '@/lib/message-encryption';
 import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
 
@@ -91,6 +95,14 @@ interface ConvexMessage {
   content: string;
   role: 'user' | 'assistant' | 'system';
   createdAt: number;
+  
+  // Encryption fields
+  isEncrypted?: boolean;
+  encryptedContent?: string;
+  encryptionSalt?: string;
+  encryptionIv?: string;
+  contentChecksum?: string;
+  
   metadata?: {
     model?: string;
     tokens?: number;
@@ -121,6 +133,14 @@ const ChatInterface: React.FC = () => {
   const [newChatTitle, setNewChatTitle] = useState('');
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
+  
+  // Encryption state
+  // Default encryption to disabled until initialization succeeds
+  const [encryptionEnabled, setEncryptionEnabled] = useState(false); // Default to disabled
+  const [messageEncryption, setMessageEncryption] = useState<MessageEncryption | null>(null);
+  const [encryptionInitialized, setEncryptionInitialized] = useState(false);
+  const [decryptedMessages, setDecryptedMessages] = useState<Map<string, string>>(new Map());
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Convex queries and mutations
@@ -132,9 +152,9 @@ const ChatInterface: React.FC = () => {
       : ("skip" as const)
   );
 
-  // Normalize paginated results into plain arrays for easier consumption in the UI
-  const chats = chatsData?.chats ?? [];
-  const messages = messagesData?.messages ?? [];
+  // Memoize normalized results to prevent useEffect dependencies from changing on every render
+  const chats = React.useMemo(() => chatsData?.chats ?? [], [chatsData?.chats]);
+  const messages = React.useMemo(() => messagesData?.messages ?? [], [messagesData?.messages]);
   const createChat = useMutation(api.chats.createChat);
   const createMessage = useMutation(api.messages.createMessage);
   const deleteChat = useMutation(api.chats.deleteChat);
@@ -147,12 +167,88 @@ const ChatInterface: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Initialize message encryption when user is available
+  useEffect(() => {
+    if (user?.id && !messageEncryption) {
+      try {
+        const encryption = new MessageEncryption(user.id);
+        setMessageEncryption(encryption);
+        setEncryptionInitialized(true);
+        // Only enable encryption if it was previously enabled or if this is the first initialization
+        if (!encryptionInitialized) {
+          setEncryptionEnabled(true);
+        }
+      } catch (error) {
+        console.error('Failed to initialize message encryption:', error);
+        setEncryptionEnabled(false);
+        setEncryptionInitialized(false);
+      }
+    }
+  }, [user?.id, messageEncryption, encryptionInitialized]);
+
   // Auto-select first chat if none selected
   useEffect(() => {
     if (chats && chats.length > 0 && !selectedChatId) {
       setSelectedChatId(chats[0]._id);
     }
   }, [chats, selectedChatId]);
+
+  // Decrypt messages when they change or encryption is initialized
+  const decryptMessages = React.useCallback(async () => {
+    if (!messageEncryption || !messages) return;
+    
+    const newDecryptedMessages = new Map<string, string>();
+    let hasChanges = false;
+    
+    for (const message of messages) {
+      // Skip if message is not encrypted or already decrypted
+      if (!message.isEncrypted || decryptedMessages.has(message._id)) {
+        continue;
+      }
+      
+      try {
+        if (message.encryptedContent && message.encryptionSalt && message.encryptionIv && message.contentChecksum) {
+          const encryptedData = {
+            encryptedContent: message.encryptedContent,
+            salt: message.encryptionSalt,
+            iv: message.encryptionIv,
+            checksum: message.contentChecksum,
+            timestamp: message.createdAt
+          };
+          
+          const result = await messageEncryption.decrypt(encryptedData);
+          
+          if (result.isValid) {
+            newDecryptedMessages.set(message._id, result.content);
+            hasChanges = true;
+          } else {
+            console.warn(`Failed to decrypt message ${message._id} - integrity check failed`);
+            newDecryptedMessages.set(message._id, '[Decryption Failed - Content may be corrupted]');
+            hasChanges = true;
+          }
+        }
+      } catch (error) {
+        console.error(`Error decrypting message ${message._id}:`, error);
+        newDecryptedMessages.set(message._id, '[Decryption Failed]');
+        hasChanges = true;
+      }
+    }
+    
+    if (hasChanges) {
+      setDecryptedMessages(prev => new Map([...prev, ...newDecryptedMessages]));
+    }
+  }, [messages, messageEncryption, decryptedMessages]);
+  
+  useEffect(() => {
+    decryptMessages();
+  }, [decryptMessages]);
+  // Helper function to get display content for a message
+  const getMessageContent = (message: ConvexMessage): string => {
+    if (message.isEncrypted) {
+      return decryptedMessages.get(message._id) || '[Decrypting...]';
+    }
+    return message.content;
+  };
 
   const extractCodeBlocks = (content: string): CodeBlock[] => {
     // Improved regex to be more secure and specific
@@ -281,15 +377,48 @@ const ChatInterface: React.FC = () => {
         try {
           logger.info("Sending chat message", { 
             messageLength: userContent.length,
-            chatId: selectedChatId
+            chatId: selectedChatId,
+            encrypted: encryptionEnabled
           });
           
-          // Create user message
-          await createMessage({
+          // Prepare message data with optional encryption
+          let messageData: {
+            chatId: Parameters<typeof createMessage>[0]['chatId'];
+            content: string;
+            role: 'user';
+            isEncrypted?: boolean;
+            encryptedContent?: string;
+            encryptionSalt?: string;
+            encryptionIv?: string;
+            contentChecksum?: string;
+          } = {
             chatId: selectedChatId as Parameters<typeof createMessage>[0]['chatId'],
             content: userContent,
-            role: 'user',
-          });
+            role: 'user' as const,
+          };
+          
+          // Encrypt message if encryption is enabled and available
+          if (encryptionEnabled && messageEncryption) {
+            try {
+              const encrypted = await messageEncryption.encrypt(userContent);
+              messageData = {
+                ...messageData,
+                isEncrypted: true,
+                encryptedContent: encrypted.encryptedContent,
+                encryptionSalt: encrypted.salt,
+                encryptionIv: encrypted.iv,
+                contentChecksum: encrypted.checksum,
+              };
+              
+              logger.info("Message encrypted successfully");
+            } catch (encryptionError) {
+              console.warn('Failed to encrypt message, sending as plaintext:', encryptionError);
+              toast.warning('Message encryption failed, sent as plaintext');
+            }
+          }
+          
+          // Create user message
+          await createMessage(messageData);
 
           // Stream AI response
           const streamResult = await streamAIResponse(userContent);
@@ -307,16 +436,47 @@ const ChatInterface: React.FC = () => {
           const sanitizedResponse = assistantContent.substring(0, 50000); // Hard limit
           span.setAttribute("response_length", sanitizedResponse.length);
 
-          // Create assistant message
-          await createMessage({
+          // Prepare assistant message data with optional encryption
+          let assistantMessageData: {
+            chatId: Parameters<typeof createMessage>[0]['chatId'];
+            content: string;
+            role: 'assistant';
+            metadata: { model: string; tokens: number };
+            isEncrypted?: boolean;
+            encryptedContent?: string;
+            encryptionSalt?: string;
+            encryptionIv?: string;
+            contentChecksum?: string;
+          } = {
             chatId: selectedChatId as Parameters<typeof createMessage>[0]['chatId'],
             content: sanitizedResponse,
-            role: 'assistant',
+            role: 'assistant' as const,
             metadata: {
               model: 'moonshotai/kimi-k2-instruct',
               tokens: Math.floor(sanitizedResponse.length / 4), // Rough estimate
             },
-          });
+          };
+          
+          // Encrypt assistant response if encryption is enabled
+          if (encryptionEnabled && messageEncryption) {
+            try {
+              const encrypted = await messageEncryption.encrypt(sanitizedResponse);
+              assistantMessageData = {
+                ...assistantMessageData,
+                isEncrypted: true,
+                encryptedContent: encrypted.encryptedContent,
+                encryptionSalt: encrypted.salt,
+                encryptionIv: encrypted.iv,
+                contentChecksum: encrypted.checksum,
+              };
+            } catch (encryptionError) {
+              console.warn('Failed to encrypt assistant response, sending as plaintext:', encryptionError);
+              toast.warning('Assistant response encryption failed, saved as plaintext');
+            }
+          }
+
+          // Create assistant message
+          await createMessage(assistantMessageData);
 
           logger.info("Chat message processed successfully", { 
             responseLength: sanitizedResponse.length,
@@ -520,6 +680,40 @@ const ChatInterface: React.FC = () => {
                       Next.js + E2B Ready
                     </Badge>
                   </motion.div>
+                  
+                  {/* Encryption toggle and status */}
+                  <Button
+                    size="sm"
+                    variant={encryptionEnabled ? "default" : "outline"}
+                    onClick={() => encryptionInitialized && setEncryptionEnabled(!encryptionEnabled)}
+                    disabled={!encryptionInitialized}
+                    className={`h-7 px-2 text-xs ${!encryptionInitialized ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={
+                      !encryptionInitialized 
+                        ? "Encryption unavailable - initialization failed" 
+                        : encryptionEnabled 
+                          ? "Encryption enabled" 
+                          : "Encryption disabled"
+                    }
+                  >
+                    {!encryptionInitialized ? (
+                      <>
+                        <Shield className="w-3 h-3 mr-1" />
+                        Unavailable
+                      </>
+                    ) : encryptionEnabled ? (
+                      <>
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        Encrypted
+                      </>
+                    ) : (
+                      <>
+                        <ShieldX className="w-3 h-3 mr-1" />
+                        Plaintext
+                      </>
+                    )}
+                  </Button>
+                  
                   <Badge variant="secondary" className="text-xs">
                     {messages?.length || 0} messages
                   </Badge>
@@ -556,12 +750,20 @@ const ChatInterface: React.FC = () => {
                           <CardContent className="p-4">
                             <div className="prose prose-sm max-w-none dark:prose-invert">
                               <div className="whitespace-pre-wrap">
-                                <SafeText>{message.content}</SafeText>
+                                <SafeText>{getMessageContent(message)}</SafeText>
                               </div>
+                              
+                              {/* Encryption indicator */}
+                              {message.isEncrypted && (
+                                <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  <span>End-to-end encrypted</span>
+                                </div>
+                              )}
                             </div>
                             
                             {/* Code blocks with E2B execution */}
-                            {message.role === 'assistant' && extractCodeBlocks(message.content).map((block) => (
+                            {message.role === 'assistant' && extractCodeBlocks(getMessageContent(message)).map((block) => (
                               <motion.div
                                 key={block.id}
                                 initial={{ opacity: 0, scale: 0.95 }}
@@ -595,7 +797,7 @@ const ChatInterface: React.FC = () => {
                                 size="sm"
                                 variant="ghost"
                                 className="h-6 w-6 p-0"
-                                onClick={() => copyToClipboard(message.content, message._id)}
+                                onClick={() => copyToClipboard(getMessageContent(message), message._id)}
                               >
                                 {copiedMessage === message._id ? (
                                   <Check className="w-3 h-3" />

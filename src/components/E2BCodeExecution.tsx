@@ -54,6 +54,7 @@ export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = t
   const [activeTab, setActiveTab] = useState('output');
   const [showFailsafe, setShowFailsafe] = useState(false);
   const [e2bFailed, setE2bFailed] = useState(false);
+  const [showCode, setShowCode] = useState(false);
 
   const handleExecute = async () => {
     setIsExecuting(true);
@@ -157,6 +158,16 @@ export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = t
               <Button
                 size="sm"
                 variant="outline"
+                onClick={() => setShowCode(!showCode)}
+                className="gap-2"
+              >
+                <Code2 className="w-3 h-3" />
+                {showCode ? 'Hide Code' : 'Show Code'}
+              </Button>
+              
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={handleCopy}
                 className="gap-2"
               >
@@ -210,11 +221,47 @@ export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = t
 
         <CardContent className="p-0">
           {/* Code Display */}
-          <div className="bg-gray-900 p-4 font-mono text-sm">
-            <ScrollArea className="max-h-[300px]">
-              <pre className="text-gray-300 whitespace-pre-wrap">{code}</pre>
-            </ScrollArea>
-          </div>
+          <AnimatePresence>
+            {showCode && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-gray-900 p-4 font-mono text-sm"
+              >
+                <ScrollArea className="max-h-[300px]">
+                  <pre className="text-gray-300 whitespace-pre-wrap">{code}</pre>
+                </ScrollArea>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          {/* Code Summary when hidden */}
+          {!showCode && (
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 p-4 border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    {getLanguageIcon()}
+                    <span className="font-medium text-sm">{language} Code Block</span>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {code.split('\n').length} lines
+                  </Badge>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowCode(true)}
+                  className="gap-1 text-xs"
+                >
+                  <Code2 className="w-3 h-3" />
+                  View Code
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Results */}
           <AnimatePresence>

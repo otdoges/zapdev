@@ -34,7 +34,7 @@ export const useAuth = () => {
         // Consider adding user-facing error handling here
       });
     }
-  }, [isLoaded, isSignedIn, clerkUser?.id, convexUser]);
+  }, [isLoaded, isSignedIn, clerkUser?.id, convexUser, clerkUser, upsertUser]);
 
   return {
     user: convexUser,
