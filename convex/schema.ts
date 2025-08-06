@@ -73,6 +73,10 @@ export default defineSchema({
       size: v.optional(v.number()),
       conversationId: v.optional(v.string()),
       codeExecutionId: v.optional(v.string()),
+      model: v.optional(v.string()),
+      inputTokens: v.optional(v.number()),
+      outputTokens: v.optional(v.number()),
+      cost: v.optional(v.number()),
     }),
     ingested: v.boolean(), // Whether processed for billing
     timestamp: v.number(),

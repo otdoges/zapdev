@@ -17,6 +17,7 @@ import type * as chats from "../chats.js";
 import type * as messages from "../messages.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as trpc_router from "../trpc/router.js";
+import type * as usageTracking from "../usageTracking.js";
 import type * as users from "../users.js";
 
 /**
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   rateLimit: typeof rateLimit;
   "trpc/router": typeof trpc_router;
+  usageTracking: typeof usageTracking;
   users: typeof users;
 }>;
 export declare const api: FilterApi<
