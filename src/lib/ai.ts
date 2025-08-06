@@ -1,11 +1,25 @@
 import { createGroq } from '@ai-sdk/groq'
-import { createOpenRouter } from '@openrouter/ai-sdk-provider'
+import { createOpenRouter, LanguageModelV1 } from '@openrouter/ai-sdk-provider'
 import { generateText, streamText } from 'ai'
 import * as Sentry from '@sentry/react'
 import { recordAIConversation } from './usage-service'
 import { getSecureApiKey, getApiKeySource } from './secure-storage'
+import { 
+  withRetry, 
+  monitorAIOperation, 
+  AICircuitBreaker, 
+  AIResponseCache,
+  parseAIError,
+  AIRateLimitError,
+  AIQuotaExceededError
+} from './ai-utils'
+import { aiMonitoring } from './ai-monitoring'
 
 const { logger } = Sentry;
+
+// Initialize production utilities
+const circuitBreaker = new AICircuitBreaker();
+const responseCache = new AIResponseCache();
 
 // Cost tracking and limits
 const MODEL_PRICING = {
@@ -67,20 +81,20 @@ function checkCostLimit(estimatedCost: number): void {
 }
 
 // Get user's API key securely
-function getUserApiKey(): string | null {
-  return getSecureApiKey();
+async function getUserApiKey(): Promise<string | null> {
+  return await getSecureApiKey();
 }
 
 // Create Groq instance with user key or fallback to env key
-function createGroqInstance() {
-  const userApiKey = getUserApiKey();
-  const apiKey = userApiKey || process.env.VITE_GROQ_API_KEY || '';
+async function createGroqInstance() {
+  const userApiKey = await getUserApiKey();
+  const apiKey = userApiKey || import.meta.env.VITE_GROQ_API_KEY || '';
   
   // Security: Never log API key information in production
-  if (process.env.NODE_ENV === 'development') {
+  if (import.meta.env.MODE === 'development') {
     if (userApiKey) {
       console.log('🔑 Using user-provided Groq API key');
-    } else if (process.env.VITE_GROQ_API_KEY) {
+    } else if (import.meta.env.VITE_GROQ_API_KEY) {
       console.log('🔑 Using environment Groq API key');
     }
   }
@@ -90,28 +104,52 @@ function createGroqInstance() {
 
 // OpenRouter as failsafe provider
 const openrouter = createOpenRouter({
-  apiKey: process.env.VITE_OPENROUTER_API_KEY || '',
+  apiKey: import.meta.env.VITE_OPENROUTER_API_KEY || '',
 })
 
 // Get current model instance
-function getCurrentModel() {
+async function getCurrentModel() {
   const groq = createGroqInstance();
-  return groq('openai/gpt-oss-20b');
+  return (await groq)('openai/gpt-oss-20b');
 }
 
 // OpenRouter failsafe model
 const fallbackModel = openrouter.chat('qwen/qwen3-coder:free')
 
-export async function generateAIResponse(prompt: string) {
+export async function generateAIResponse(prompt: string, options?: { skipCache?: boolean }) {
+  // Check cache first
+  if (!options?.skipCache) {
+    const cacheKey = responseCache.generateKey(prompt, { type: 'generate' });
+    const cached = responseCache.get(cacheKey);
+    if (cached) {
+      logger.info('Using cached AI response');
+      
+      // Record cache hit
+      aiMonitoring.recordOperation({
+        operation: 'generateText',
+        model: 'openai/gpt-oss-20b',
+        duration: 0, // Instant from cache
+        success: true,
+        inputTokens: 0,
+        outputTokens: 0,
+        cost: 0,
+        cacheHit: true
+      });
+      
+      return cached as string;
+    }
+  }
+  
   return Sentry.startSpan(
     {
       op: "ai.generate",
       name: "Generate AI Response",
     },
     async (span) => {
+      const startTime = Date.now();
       try {
-        const userApiKey = getUserApiKey();
-        const envApiKey = process.env.VITE_GROQ_API_KEY;
+        const userApiKey = await getUserApiKey();
+        const envApiKey = import.meta.env.VITE_GROQ_API_KEY;
         const apiKeySource = getApiKeySource();
         
         span.setAttribute("prompt_length", prompt.length);
@@ -137,15 +175,25 @@ export async function generateAIResponse(prompt: string) {
           apiKeySource
         });
 
-        const model = getCurrentModel();
         span.setAttribute("model", "openai/gpt-oss-20b");
         
-        const { text, usage } = await generateText({
-          model,
-          prompt,
-          maxTokens: 8000, // Increased token limit for openai/gpt-oss-20b (max 32,768)
-          temperature: 0.7,
-        })
+        // Execute with circuit breaker and retry logic
+        const { text, usage } = await circuitBreaker.execute(
+          () => withRetry(
+            () => monitorAIOperation(
+              () => generateText({
+                model: await getCurrentModel(),
+                prompt,
+                maxTokens: 8000, // Increased token limit for openai/gpt-oss-20b (max 32,768)
+                temperature: 0.7,
+              }),
+              'generateText',
+              { model: 'openai/gpt-oss-20b', promptLength: prompt.length }
+            ),
+            'AI Text Generation'
+          ),
+          'generateAIResponse'
+        )
         
         // Calculate actual cost based on usage
         const actualCost = usage ? calculateCost('openai/gpt-oss-20b', usage.promptTokens, usage.completionTokens) : estimatedCost;
@@ -173,14 +221,57 @@ export async function generateAIResponse(prompt: string) {
           dailyCost: getTodayCost().toFixed(4)
         });
         
+        // Record monitoring metrics
+        aiMonitoring.recordOperation({
+          operation: 'generateText',
+          model: 'openai/gpt-oss-20b',
+          duration: Date.now() - startTime,
+          success: true,
+          inputTokens: usage?.promptTokens || 0,
+          outputTokens: usage?.completionTokens || 0,
+          cost: actualCost,
+          cacheHit: false
+        });
+        
+        // Cache the response
+        if (!options?.skipCache) {
+          const cacheKey = responseCache.generateKey(prompt, { type: 'generate' });
+          responseCache.set(cacheKey, text);
+        }
+        
         return text
       } catch (error) {
-        logger.error("AI generation error", { error: error instanceof Error ? error.message : String(error) });
-        Sentry.captureException(error);
+        const aiError = parseAIError(error);
+        logger.error("AI generation error", { 
+          error: aiError.message,
+          code: aiError.code,
+          isRetryable: aiError.isRetryable 
+        });
+        Sentry.captureException(aiError);
+        
+        // Record failed operation
+        aiMonitoring.recordOperation({
+          operation: 'generateText',
+          model: 'openai/gpt-oss-20b',
+          duration: Date.now() - startTime,
+          success: false,
+          error: aiError.message,
+          errorCode: aiError.code,
+          cacheHit: false
+        });
+        
+        // Handle specific error types
+        if (aiError instanceof AIRateLimitError) {
+          // Could implement backoff based on retryAfter
+          logger.warn('Rate limit hit, using fallback provider');
+        } else if (aiError instanceof AIQuotaExceededError) {
+          // Alert user about quota
+          logger.error('Quota exceeded, fallback to free tier');
+        }
         
         // Try OpenRouter as failsafe
         try {
-          if (!process.env.VITE_OPENROUTER_API_KEY) {
+          if (!import.meta.env.VITE_OPENROUTER_API_KEY) {
             logger.warn("OpenRouter API key not configured, cannot use failsafe");
             throw error
           }
@@ -212,16 +303,19 @@ export async function generateAIResponse(prompt: string) {
   );
 }
 
-export async function streamAIResponse(prompt: string) {
+export async function streamAIResponse(prompt: string, options?: { skipCache?: boolean }) {
+  // Note: Streaming responses are not cached
+  
   return Sentry.startSpan(
     {
       op: "ai.stream",
       name: "Stream AI Response",
     },
     async (span) => {
+      const startTime = Date.now();
       try {
         const userApiKey = getUserApiKey();
-        const envApiKey = process.env.VITE_GROQ_API_KEY;
+        const envApiKey = import.meta.env.VITE_GROQ_API_KEY;
         const apiKeySource = getApiKeySource();
         
         span.setAttribute("prompt_length", prompt.length);
@@ -273,18 +367,28 @@ Deliver exceptional code that's secure, performant, and beautiful with clear tec
           apiKeySource
         });
 
-        const model = getCurrentModel();
+        const model = await getCurrentModel();
         span.setAttribute("model", "openai/gpt-oss-20b");
 
-        const result = await streamText({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: prompt }
-          ],
-          maxTokens: 8000, // Increased token limit for openai/gpt-oss-20b
-          temperature: 0.7,
-        })
+        const result = await circuitBreaker.execute(
+          () => withRetry(
+            () => monitorAIOperation(
+              async () => streamText({
+                model: await model,
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: prompt }
+                ],
+                maxTokens: 8000, // Increased token limit for openai/gpt-oss-20b
+                temperature: 0.7,
+              }),
+              'streamText',
+              { model: 'openai/gpt-oss-20b', promptLength: prompt.length }
+            ),
+            'AI Stream Generation'
+          ),
+          'streamAIResponse'
+        )
         
         // Add cost tracking for streaming (estimate since we don't get exact tokens upfront)
         addTodayCost(estimatedCost);
@@ -303,14 +407,31 @@ Deliver exceptional code that's secure, performant, and beautiful with clear tec
           dailyCost: getTodayCost().toFixed(4)
         });
         
+        // Record streaming operation (with estimates)
+        aiMonitoring.recordOperation({
+          operation: 'streamText',
+          model: 'openai/gpt-oss-20b',
+          duration: Date.now() - startTime,
+          success: true,
+          inputTokens: estimatedInputTokens,
+          outputTokens: estimatedOutputTokens,
+          cost: estimatedCost,
+          cacheHit: false
+        });
+        
         return result
       } catch (error) {
-        logger.error("AI streaming error", { error: error instanceof Error ? error.message : String(error) });
-        Sentry.captureException(error);
+        const aiError = parseAIError(error);
+        logger.error("AI streaming error", { 
+          error: aiError.message,
+          code: aiError.code,
+          isRetryable: aiError.isRetryable 
+        });
+        Sentry.captureException(aiError);
         
         // Try OpenRouter as failsafe
         try {
-          if (!process.env.VITE_OPENROUTER_API_KEY) {
+          if (!import.meta.env.VITE_OPENROUTER_API_KEY) {
             logger.warn("OpenRouter API key not configured, cannot use failsafe");
             throw error
           }

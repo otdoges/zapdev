@@ -5,6 +5,7 @@ import { ClerkProvider, useAuth } from '@clerk/clerk-react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 import * as Sentry from '@sentry/react'
 import { convex } from './lib/convex'
+import { initializeApiKeySecurity } from './lib/api-key-validator'
 import App from './App.tsx'
 import './index.css'
 
@@ -27,6 +28,18 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     replaysSessionSampleRate: import.meta.env.MODE === 'development' ? 1.0 : 0.1,
     replaysOnErrorSampleRate: 1.0,
   });
+}
+
+// Initialize API key security monitoring (production only)
+if (import.meta.env.PROD) {
+  try {
+    initializeApiKeySecurity();
+  } catch (error) {
+    console.error('Failed to initialize API key security:', error);
+    if (import.meta.env.VITE_SENTRY_DSN) {
+      Sentry.captureException(error);
+    }
+  }
 }
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;

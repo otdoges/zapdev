@@ -1,0 +1,25 @@
+# ZapDev Environment Configuration Template
+# Copy this content to your .env.local file
+
+# === REQUIRED: Clerk Authentication ===
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# === REQUIRED: Convex Backend ===
+VITE_CONVEX_URL=https://xxxxx.convex.cloud
+
+# === REQUIRED: AI Integration ===
+# Expose ONLY non-secret keys to the browser.
+# Move real GROQ credentials to a server-only .env file (without the VITE_ prefix)
+VITE_GROQ_API_KEY=
+# === OPTIONAL: AI Fallback ===
+VITE_OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# === OPTIONAL: Code Execution ===
+VITE_E2B_API_KEY=e2b_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# === OPTIONAL: Analytics ===
+VITE_PUBLIC_POSTHOG_KEY=phc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+VITE_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+
+# === OPTIONAL: Error Monitoring ===
+VITE_SENTRY_DSN=https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@xxxxx.ingest.sentry.io/xxxxxxx

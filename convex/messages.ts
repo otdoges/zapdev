@@ -3,6 +3,44 @@ import { v } from "convex/values";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { enforceRateLimit } from "./rateLimit";
+import { enforceAIRateLimit } from "./aiRateLimit";
+import DOMPurify from 'dompurify';
+
+// Security utility functions
+const generateSecureToken = async (length: number): Promise<string> => {
+  const array = new Uint8Array(length);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(array);
+  } else {
+    throw new Error('Secure random number generation is not available in this context');
+  }
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+const sanitizeHTML = (input: string): string => {
+  // Use DOMPurify for robust XSS protection
+  return DOMPurify.sanitize(input, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'p'],
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: true,
+    RETURN_DOM: false,
+    RETURN_DOM_FRAGMENT: false,
+    SANITIZE_DOM: true,
+  });
+};
+
+const sanitizeUrl = (url: string): string | null => {
+  try {
+    const parsed = new URL(url);
+    // Only allow http and https protocols
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+};
 
 // Helper function to get authenticated user
 const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
@@ -66,15 +104,14 @@ const checkRateLimit = async (ctx: QueryCtx | MutationCtx, userId: string, actio
   }
   
   if (action === "update") {
-    // For updates, use a more relaxed rate limit (1 per 5 seconds)
-    const updateTimeWindow = 5 * 1000; // 5 seconds
-    const maxUpdateRequests = 1;
+    // For updates, check recent updates within the last 5 seconds
+    const fiveSecondsAgo = Date.now() - 5000;
+    const recentUpdates = recentMessages.filter(msg => 
+      msg.createdAt > fiveSecondsAgo && msg.role === 'user'
+    );
     
-    if (recentRequests.length >= maxUpdateRequests) {
-      const oldestRequest = recentRequests[0];
-      if (now - oldestRequest < updateTimeWindow) {
-        throw new ConvexError("Rate limit exceeded. Please wait before updating again.");
-      }
+    if (recentUpdates.length >= 1) {
+      throw new Error("Rate limit exceeded: Please wait 5 seconds between message updates");
     }
   }
 };
@@ -139,321 +176,6 @@ export const getChatMessages = query({
     // Add cursor-based pagination if provided
     if (args.cursor) {
       messagesQuery = messagesQuery.filter((q) =>
-        q.gt(q.field("createdAt"), args.cursor!)
-      );
-    }
-      export const getCSPConfig = (nonce?: string) => {
-        const config: Record<string, string[]> = {
-          'default-src': ["'self'"],
-          'script-src': [
-            "'self'",
-            // Use nonce for inline scripts in production
-            nonce ? `'nonce-${nonce}'` : "'unsafe-inline'",
-            "https://cdn.jsdelivr.net", // For trusted CDNs
-          ],
-          'style-src': [
-            "'self'",
-            "'unsafe-inline'", // Often needed for CSS-in-JS
-            "https://fonts.googleapis.com",
-          ],
-          'font-src': [
-            "'self'",
-            "https://fonts.gstatic.com",
-          ],
-          'img-src': [
-            "'self'",
-            "data:",
-            "https:",
-            "blob:",
-          ],
-          'connect-src': [
-            "'self'",
-            // Add your API endpoints here
-          ],
-          'frame-src': ["'none'"],
-          'object-src': ["'none'"],
-          'base-uri': ["'self'"],
-          'form-action': ["'self'"],
-          'frame-ancestors': ["'none'"],
-        };
-      
-        // Add development-specific sources
-        if (process.env.NODE_ENV === 'development') {
-          config['script-src'].push("'unsafe-eval'"); // For HMR
-          config['connect-src'].push("ws://localhost:*", "http://localhost:*");
-        }
-      
-        return config;
-      };
-      
-      /**
-       * Generate CSP header string
-       */
-      export const generateCSPHeader = (nonce?: string): string => {
-        const config = getCSPConfig(nonce);
-        
-        return Object.entries(config)
-          .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
-          .join('; ');
-      };
-      
-      /**
-       * Security headers for production
-       */
-      export const getSecurityHeaders = (nonce?: string): Record<string, string> => {
-        return {
-          'Content-Security-Policy': generateCSPHeader(nonce),
-          'X-Content-Type-Options': 'nosniff',
-          'X-Frame-Options': 'DENY',
-          'X-XSS-Protection': '0', // Disabled in modern browsers, CSP is better
-          'Referrer-Policy': 'strict-origin-when-cross-origin',
-          'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-        };
-      };
-      
-      /**
-       * File upload validation
-       */
-      export const validateFileUpload = (
-        file: File,
-        options: {
-          maxSize?: number;
-          allowedTypes?: string[];
-          allowedExtensions?: string[];
-        } = {}
-      ): { valid: boolean; error?: string } => {
-        const {
-          maxSize = 10 * 1024 * 1024, // 10MB default
-          allowedTypes = [
-            'image/jpeg',
-            'image/png',
-            'image/gif',
-            'image/webp',
-            'image/svg+xml',
-            'application/pdf',
-            'text/plain',
-            'text/csv',
-            'application/json',
-          ],
-          allowedExtensions = [
-            '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg',
-            '.pdf', '.txt', '.csv', '.json'
-          ]
-        } = options;
-      
-        // Check file size
-        if (file.size > maxSize) {
-          const sizeMB = (maxSize / (1024 * 1024)).toFixed(0);
-          return { valid: false, error: `File size exceeds ${sizeMB}MB limit` };
-        }
-      
-        // Check file type
-        if (!allowedTypes.includes(file.type)) {
-          return { valid: false, error: 'File type not allowed' };
-        }
-      
-        // Check file extension
-        const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-        if (!allowedExtensions.includes(extension)) {
-          return { valid: false, error: 'File extension not allowed' };
-        }
-      
-        // Check for double extensions (potential bypass attempt)
-        const doubleExtPattern = /\.(jpg|jpeg|png|gif|webp|svg|pdf|txt|csv|json)\.(exe|js|sh|bat|cmd|com|scr)$/i;
-        if (doubleExtPattern.test(file.name)) {
-          return { valid: false, error: 'Suspicious file name detected' };
-        }
-      
-        return { valid: true };
-      };
-      
-      /**
-       * Browser storage utilities (not encrypted, but with JSON handling)
-       */
-      export const browserStorage = {
-        set: (key: string, value: unknown, expiryMs?: number): boolean => {
-          try {
-            const data = {
-              value,
-              expiry: expiryMs ? Date.now() + expiryMs : null,
-            };
-            localStorage.setItem(key, JSON.stringify(data));
-            return true;
-          } catch (error) {
-            console.error('Storage error:', error);
-            return false;
-          }
-        },
-      
-        get: <T = unknown>(key: string): T | null => {
-          try {
-            const item = localStorage.getItem(key);
-            if (!item) return null;
-      
-            const data = JSON.parse(item);
-            
-            // Check expiry
-            if (data.expiry && Date.now() > data.expiry) {
-              localStorage.removeItem(key);
-              return null;
-            }
-      
-            return data.value as T;
-          } catch (error) {
-            console.error('Storage error:', error);
-            return null;
-          }
-        },
-      
-        remove: (key: string): void => {
-          localStorage.removeItem(key);
-        },
-      
-        clear: (): void => {
-          localStorage.clear();
-        },
-      };
-      
-      /**
-       * Session storage wrapper with same interface
-       */
-      export const sessionStorage = {
-        set: (key: string, value: unknown): boolean => {
-          try {
-            window.sessionStorage.setItem(key, JSON.stringify(value));
-            return true;
-          } catch (error) {
-            console.error('Session storage error:', error);
-            return false;
-          }
-        },
-      
-        get: <T = unknown>(key: string): T | null => {
-          try {
-            const item = window.sessionStorage.getItem(key);
-            return item ? JSON.parse(item) as T : null;
-          } catch (error) {
-            console.error('Session storage error:', error);
-            return null;
-          }
-        },
-      
-        remove: (key: string): void => {
-          window.sessionStorage.removeItem(key);
-        },
-      
-        clear: (): void => {
-          window.sessionStorage.clear();
-        },
-      };
-      
-      /**
-       * CSRF Token management
-       */
-      export const csrf = {
-        generate: async (): Promise<string> => {
-          return generateSecureToken(32);
-        },
-      
-        store: (token: string): void => {
-          sessionStorage.set('csrf_token', token);
-        },
-      
-        get: (): string | null => {
-          return sessionStorage.get<string>('csrf_token');
-        },
-      
-        validate: (token: string): boolean => {
-          const stored = csrf.get();
-          return !!stored && stored === token;
-        },
-      };
-      
-      /**
-       * Trusted types policy creation (for browsers that support it)
-       */
-      export const createTrustedTypesPolicy = () => {
-        if (typeof window !== 'undefined' && 'trustedTypes' in window) {
-          try {
-            return (window as any).trustedTypes.createPolicy('default', {
-              createHTML: (input: string) => sanitizeHTML(input),
-              createScriptURL: (input: string) => {
-                const url = sanitizeUrl(input);
-                if (!url) throw new Error('Invalid URL');
-                return url;
-              },
-            });
-          } catch (error) {
-            console.warn('Trusted Types not available:', error);
-          }
-        }
-        return null;
-      };
-      
-      /**
-       * Check if running in secure context (HTTPS)
-       */
-      export const isSecureContext = (): boolean => {
-        return typeof window !== 'undefined' && window.isSecureContext;
-      };
-      
-      /**
-       * Detect potential XSS in user input (for logging/monitoring)
-       */
-      export const detectPotentialXSS = (input: string): boolean => {
-        const xssPatterns = [
-          /<script/i,
-          /<iframe/i,
-          /javascript:/i,
-          /on\w+\s*=/i,
-          /<embed/i,
-          /<object/i,
-        ];
-      
-        return xssPatterns.some(pattern => pattern.test(input));
-      };
-      
-      /**
-       * Format and validate phone numbers
-       */
-      export const validatePhoneNumber = (phone: string, countryCode: string = 'US'): boolean => {
-        // Basic international phone validation
-        const patterns: Record<string, RegExp> = {
-          US: /^(\+1)?[-.\s]?\(?[2-9]\d{2}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/,
-          UK: /^(\+44)?[-.\s]?(\(0\))?[-.\s]?(7\d{3}|\d{2,4})[-.\s]?\d{3,4}[-.\s]?\d{3,4}$/,
-          // Add more country patterns as needed
-        };
-      
-        const pattern = patterns[countryCode] || /^[\d\s()+-]+$/;
-        return pattern.test(phone.replace(/\s/g, ''));
-      };
-      
-      /**
-       * Sanitize JSON string to prevent injection
-       */
-      export const sanitizeJSON = (jsonString: string): string | null => {
-        try {
-          const parsed = JSON.parse(jsonString);
-          // Re-stringify to remove any potential code
-          return JSON.stringify(parsed);
-        } catch {
-          return null;
-        }
-      };
-      
-      /**
-       * Time-safe string comparison to prevent timing attacks
-       */
-      export const timingSafeEqual = (a: string, b: string): boolean => {
-        if (a.length !== b.length) return false;
-        
-        let result = 0;
-        for (let i = 0; i < a.length; i++) {
-          result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-        }
-        
-        return result === 0;
-      };
         q.gt(q.field("createdAt"), args.cursor!)
       );
     }
@@ -526,6 +248,29 @@ export const createMessage = mutation({
     
     // Rate limiting
     await enforceRateLimit(ctx, "sendMessage");
+    
+    // AI-specific rate limiting for assistant messages
+    if (args.role === "assistant") {
+      // Get user's subscription tier from database
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_user_id", (q) => q.eq("userId", identity.subject))
+        .first();
+      
+      const subscription = user ? await ctx.db
+        .query("userSubscriptions")
+        .withIndex("by_user_id", (q) => q.eq("userId", user.userId))
+        .first() : null;
+      
+      const tier = subscription?.planType || "free";
+      const estimatedCost = args.metadata?.cost || 0.01; // Default to 1 cent if no cost provided
+      
+      await enforceAIRateLimit(ctx, identity.subject, "ai_message", {
+        estimatedCost,
+        tier,
+        tokens: args.metadata?.tokens,
+      });
+    }
     
     // Input validation and sanitization
     const sanitizedContent = sanitizeContent(args.content);
@@ -877,3 +622,351 @@ export const bulkDeleteMessages = mutation({
     return { deletedCount: deletedIds.length, deletedIds };
   },
 });
+
+// ============================================================================
+// SECURITY UTILITIES
+// ============================================================================
+
+/**
+ * Content Security Policy (CSP) configuration
+ */
+export const getCSPConfig = (nonce?: string) => {
+  const config: Record<string, string[]> = {
+    'default-src': ["'self'"],
+    'script-src': [
+      "'self'",
+      // Use nonce for inline scripts in production
+      nonce ? `'nonce-${nonce}'` : "'unsafe-inline'",
+      "https://cdn.jsdelivr.net", // For trusted CDNs
+    ],
+    'style-src': [
+      "'self'",
+      "'unsafe-inline'", // Often needed for CSS-in-JS
+      "https://fonts.googleapis.com",
+    ],
+    'font-src': [
+      "'self'",
+      "https://fonts.gstatic.com",
+    ],
+    'img-src': [
+      "'self'",
+      "data:",
+      "https:",
+      "blob:",
+    ],
+    'connect-src': [
+      "'self'",
+      // Add your API endpoints here
+    ],
+    'frame-src': ["'none'"],
+    'object-src': ["'none'"],
+    'base-uri': ["'self'"],
+    'form-action': ["'self'"],
+    'frame-ancestors': ["'none'"],
+  };
+
+  // Add development-specific sources
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+    config['script-src'].push("'unsafe-eval'"); // For HMR
+    config['connect-src'].push("ws://localhost:*", "http://localhost:*");
+  }
+
+  return config;
+};
+
+/**
+ * Generate CSP header string
+ */
+export const generateCSPHeader = (nonce?: string): string => {
+  const config = getCSPConfig(nonce);
+  
+  return Object.entries(config)
+    .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
+    .join('; ');
+};
+
+/**
+ * Security headers for production
+ */
+export const getSecurityHeaders = (nonce?: string): Record<string, string> => {
+  return {
+    'Content-Security-Policy': generateCSPHeader(nonce),
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '0', // Disabled in modern browsers, CSP is better
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  };
+};
+
+/**
+ * File upload validation
+ */
+export const validateFileUpload = (
+  file: File,
+  options: {
+    maxSize?: number;
+    allowedTypes?: string[];
+    allowedExtensions?: string[];
+  } = {}
+): { valid: boolean; error?: string } => {
+  const {
+    maxSize = 10 * 1024 * 1024, // 10MB default
+    allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/svg+xml',
+      'application/pdf',
+      'text/plain',
+      'text/csv',
+      'application/json',
+    ],
+    allowedExtensions = [
+      '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg',
+      '.pdf', '.txt', '.csv', '.json'
+    ]
+  } = options;
+
+  // Check file size
+  if (file.size > maxSize) {
+    const sizeMB = (maxSize / (1024 * 1024)).toFixed(0);
+    return { valid: false, error: `File size exceeds ${sizeMB}MB limit` };
+  }
+
+  // Check file type
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: 'File type not allowed' };
+  }
+
+  // Check file extension
+  const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+  if (!allowedExtensions.includes(extension)) {
+    return { valid: false, error: 'File extension not allowed' };
+  }
+  const doubleExtPattern = /(\.[^.\s]{2,}){2,}$/i;
+  if (doubleExtPattern.test(file.name.toLowerCase())) {
+    return { valid: false, error: 'Suspicious file name detected' };
+  }
+
+  return { valid: true };
+};
+
+/**
+ * Browser storage utilities (not encrypted, but with JSON handling)
+ */
+export const browserStorage = {
+  set: (key: string, value: unknown, expiryMs?: number): boolean => {
+    try {
+      const data = {
+        value,
+        expiry: expiryMs ? Date.now() + expiryMs : null,
+      };
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(key, JSON.stringify(data));
+      }
+      return true;
+    } catch (error) {
+      console.error('Storage error:', error);
+      return false;
+    }
+  },
+
+  get: <T = unknown>(key: string): T | null => {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      
+      const item = localStorage.getItem(key);
+      if (!item) return null;
+
+      const data = JSON.parse(item);
+      
+      // Check expiry
+      if (data.expiry && Date.now() > data.expiry) {
+        localStorage.removeItem(key);
+        return null;
+      }
+
+      return data.value as T;
+    } catch (error) {
+      console.error('Storage error:', error);
+      return null;
+    }
+  },
+
+  remove: (key: string): void => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(key);
+    }
+  },
+
+  clear: (): void => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.clear();
+    }
+  },
+};
+
+/**
+ * Session storage wrapper with same interface
+ */
+export const sessionStorage = {
+  set: (key: string, value: unknown): boolean => {
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.setItem(key, JSON.stringify(value));
+      }
+      return true;
+    } catch (error) {
+      console.error('Session storage error:', error);
+      return false;
+    }
+  },
+
+  get: <T = unknown>(key: string): T | null => {
+    try {
+      if (typeof window === 'undefined' || !window.sessionStorage) return null;
+      
+      const item = window.sessionStorage.getItem(key);
+      return item ? JSON.parse(item) as T : null;
+    } catch (error) {
+      console.error('Session storage error:', error);
+      return null;
+    }
+  },
+
+  remove: (key: string): void => {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.removeItem(key);
+    }
+  },
+
+  clear: (): void => {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.clear();
+    }
+  },
+};
+
+/**
+ * CSRF Token management
+ */
+export const csrf = {
+  generate: async (): Promise<string> => {
+    return generateSecureToken(32);
+  },
+
+  store: (token: string): void => {
+    sessionStorage.set('csrf_token', token);
+  },
+  get: (): string | null => {
+    return sessionStorage.get<string>('csrf_token');
+  },
+  validate: (token: string): boolean => {
+    const stored = csrf.get();
+    return !!stored && stored === token;
+  },
+
+
+};
+
+/**
+ * Trusted types policy creation (for browsers that support it)
+ */
+export const createTrustedTypesPolicy = () => {
+  if (typeof window !== 'undefined' && 'trustedTypes' in window) {
+    try {
+      const trustedTypes = (window as typeof window & {
+        trustedTypes?: {
+          createPolicy: (name: string, policy: {
+            createHTML?: (input: string) => string;
+            createScriptURL?: (input: string) => string;
+          }) => unknown;
+        };
+      }).trustedTypes;
+      
+      if (trustedTypes) {
+        return trustedTypes.createPolicy('default', {
+          createHTML: (input: string) => sanitizeHTML(input),
+          createScriptURL: (input: string) => {
+            const url = sanitizeUrl(input);
+            if (!url) throw new Error('Invalid URL');
+            return url;
+          },
+        });
+      }
+    } catch (error) {
+      console.warn('Trusted Types not available:', error);
+    }
+  }
+  return null;
+};
+
+/**
+ * Check if running in secure context (HTTPS)
+ */
+export const isSecureContext = (): boolean => {
+  return typeof window !== 'undefined' && window.isSecureContext;
+};
+
+/**
+ * Detect potential XSS in user input (for logging/monitoring)
+ */
+export const detectPotentialXSS = (input: string): boolean => {
+  const xssPatterns = [
+    /<script/i,
+    /<iframe/i,
+    /javascript:/i,
+    /on\w+\s*=/i,
+    /<embed/i,
+    /<object/i,
+  ];
+
+  return xssPatterns.some(pattern => pattern.test(input));
+};
+
+/**
+ * Format and validate phone numbers
+ */
+export const validatePhoneNumber = (phone: string, countryCode: string = 'US'): boolean => {
+  // Basic international phone validation
+  const patterns: Record<string, RegExp> = {
+    US: /^(\+1)?[-.\s]?\(?[2-9]\d{2}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/,
+    UK: /^(\+44)?[-.\s]?(\(0\))?[-.\s]?(7\d{3}|\d{2,4})[-.\s]?\d{3,4}[-.\s]?\d{3,4}$/,
+    // Add more country patterns as needed
+  };
+
+  const pattern = patterns[countryCode] || /^[\d\s()+-]+$/;
+  return pattern.test(phone.replace(/\s/g, ''));
+};
+
+/**
+ * Sanitize JSON string to prevent injection
+ */
+export const sanitizeJSON = (jsonString: string): string | null => {
+  try {
+    const parsed = JSON.parse(jsonString);
+    // Re-stringify to remove any potential code
+    return JSON.stringify(parsed);
+  } catch {
+    return null;
+  }
+};
+export const timingSafeEqual = (a: string, b: string): boolean => {
+  const minLength = Math.min(a.length, b.length);
+  const maxLength = Math.max(a.length, b.length);
+
+  let result = 0;
+  // Compare up to max length, padding shorter string conceptually
+  for (let i = 0; i < maxLength; i++) {
+    const aChar = i < a.length ? a.charCodeAt(i) : 0;
+    const bChar = i < b.length ? b.charCodeAt(i) : 0;
+    result |= aChar ^ bChar;
+  }
+  
+  // Also incorporate length difference
+  result |= a.length ^ b.length;
+  
+  return result === 0;
+};

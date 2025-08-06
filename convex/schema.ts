@@ -192,4 +192,32 @@ export default defineSchema({
     .index("by_user_id", ["userId"])
     .index("by_plan_type", ["planType"])
     .index("by_status", ["status"]),
+    
+  aiRateLimits: defineTable({
+  /**
+   * AI Rate Limiting Schema
+   *
+   * This table implements rate limiting for AI operations using time-windowed tracking.
+   * Each record represents usage within a specific time window for a user-operation pair.
+   *
+   * Key Format: ai_rate_{userId}_{operation}
+   * Window Strategy: [Specify sliding/fixed window approach]
+   * Cleanup Policy: [Specify how old records are removed]
+   */
+    key: v.string(), // Composite key: ai_rate_{userId}_{operation}
+    userId: v.string(),
+    operation: v.string(),
+    requestCount: v.number(),
+    totalCost: v.number(),
+    windowStart: v.number(),
+    lastRequest: v.number(),
+    tokens: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_user", ["userId"])
+    .index("by_window", ["windowStart"])
+    .index("by_user_operation", ["userId", "operation"])
+    .index("by_user_window", ["userId", "windowStart"]),
 });

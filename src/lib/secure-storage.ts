@@ -306,13 +306,8 @@ export function getApiKeySource(): 'user' | 'environment' | 'none' {
     }
   }
   
-  // Check for environment variable (Vite)
+  // Check for environment variable
   if (import.meta.env?.VITE_GROQ_API_KEY) {
-    return 'environment';
-  }
-  
-  // Check for process.env (Node.js environments)
-  if (typeof process !== 'undefined' && process.env?.VITE_GROQ_API_KEY) {
     return 'environment';
   }
   
