@@ -45,7 +45,8 @@
       "Bash(vercel env:*)",
       "Bash(vercel link:*)",
       "Bash(vercel:*)",
-      "WebFetch(domain:console.groq.com)"
+      "WebFetch(domain:console.groq.com)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
