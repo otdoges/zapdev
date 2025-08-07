@@ -1,129 +1,123 @@
 # ZapDev
 
-An AI-powered development platform that helps developers build applications faster with intelligent code generation and real-time collaboration.
+An AI-powered development platform with real-time chat, code execution, and subscription management. Built with React 19 + TypeScript + Vite.
 
 ## Features
 
-- 🤖 AI-powered code generation
+- 🤖 AI-powered code generation and chat with Groq SDK + AI SDK
 - 🔐 Clerk authentication with Convex integration
 - 💬 Real-time chat interface
+- 🖥️ WebContainer API + E2B Code Interpreter for safe code execution
 - 💳 Stripe subscription management
-- 📱 Responsive design
+- 🎨 shadcn/ui components with Tailwind CSS
+- 📊 PostHog analytics
+- 📱 Responsive design with Framer Motion animations
 - ⚡ Fast development workflow
 
-## WorkOS Authentication Setup
+## Technology Stack
 
-This application uses WorkOS for Single Sign-On (SSO) authentication. Follow these steps to configure it properly:
+### Frontend
+- **React 19** with TypeScript
+- **Vite** build tool
+- **shadcn/ui** (Radix UI primitives) + Lucide React icons
+- **Tailwind CSS** with custom design system
+- **Framer Motion** for animations
+- **React Hook Form** with Zod validation
 
-### 1. WorkOS Dashboard Configuration
+### Backend & Services
+- **Convex** - Real-time serverless database
+- **Clerk** - Authentication and user management
+- **Stripe** - Payment processing and subscriptions
+- **Groq SDK** - AI model integration
+- **WebContainer API** - Safe code execution environment
+- **E2B Code Interpreter** - Advanced code execution
+- **PostHog** - Analytics and feature flags
 
-1. **Add Redirect URIs** in your [WorkOS Dashboard](https://dashboard.workos.com/redirects):
-   - Development: `http://localhost:5173/auth/callback`
-   - Production: `https://yourdomain.com/auth/callback`
-   - Staging: `https://staging.yourdomain.com/auth/callback` (if applicable)
+### Development Tools
+- **TypeScript** with strict settings
+- **ESLint** with React hooks support
+- **TanStack Query** for data fetching
+- **tRPC** for type-safe APIs
 
-2. **Set a Default Redirect URI** in the dashboard for your environment
+## Quick Start
 
-3. **Note**: Redirect URIs using HTTP are only allowed in Sandbox environments. Production must use HTTPS.
+1. Clone the repository
+2. Install dependencies: `pnpm install`
+3. Set up your environment variables (see Configuration below)
+4. Start the development server: `pnpm run dev`
+5. Open `http://localhost:8080` in your browser
 
-### 2. Choose Your Authentication Flow
+## Development Commands
 
-WorkOS supports two SSO authentication flows. Choose one based on your needs:
+- `pnpm run dev` - Start development server with hot reloading on port 8080
+- `pnpm run build` - Build for production 
+- `pnpm run build:dev` - Build in development mode
+- `pnpm run lint` - Run ESLint to check code quality
+- `pnpm run preview` - Preview production build locally
 
-#### Option A: Connection-based Flow (Single IdP)
-- **Use case**: You have a single identity provider for all users
-- **Setup**: 
-  1. In WorkOS Dashboard → Single Sign-On → Connections, copy your Connection ID (e.g., `conn_01G...`)
-  2. Set `VITE_WORKOS_CONNECTION_ID` in your environment variables
-- **Pros**: Simple setup, direct connection to your IdP
-- **Cons**: All users must use the same identity provider
-
-#### Option B: Domain-based Flow (Multi-tenant)
-- **Use case**: Different organizations use different identity providers
-- **Setup**:
-  1. In WorkOS Dashboard → Single Sign-On → Domains, add domains (e.g., `acme.com`) and map them to connections
-  2. Set `VITE_WORKOS_DOMAIN` in your environment variables
-- **Pros**: Supports multiple organizations with different IdPs
-- **Cons**: Requires domain configuration for each organization
-
-### 3. Environment Variables
+## Configuration
 
 Create a `.env` file in your project root with the following variables:
 
 ```bash
-# WorkOS Configuration
-VITE_WORKOS_CLIENT_ID=your_workos_client_id_here
+# Clerk Authentication
+VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key_here
 
-# Choose ONE of the following authentication flows:
-
-# Option A: Domain-based flow (auto-select per organization)
-VITE_WORKOS_DOMAIN=your_domain_here
-# Example: VITE_WORKOS_DOMAIN=acme.com
-
-# Option B: Connection-based flow (single IdP)
-# VITE_WORKOS_CONNECTION_ID=conn_01G...
-
-# Redirect URI configuration
-VITE_WORKOS_REDIRECT_URI=http://localhost:5173/auth/callback
-
-# For production, use:
-# VITE_WORKOS_REDIRECT_URI=https://yourdomain.com/auth/callback
-
-# Other required variables
+# Convex Database
 VITE_CONVEX_URL=your_convex_url_here
+
+# AI Services
+VITE_GROQ_API_KEY=your_groq_api_key_here
 
 # Stripe Configuration (for subscription management)
 VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_key_here
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_here
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+
+# PostHog Analytics
+VITE_POSTHOG_KEY=your_posthog_key_here
+VITE_POSTHOG_HOST=your_posthog_host_here
+
+# E2B Code Interpreter (optional)
+VITE_E2B_API_KEY=your_e2b_api_key_here
 ```
 
-### 4. Wildcard Redirect URIs (Optional)
+## Project Architecture
 
-WorkOS supports wildcard redirect URIs for multiple subdomains:
+### Core Structure
+- `src/main.tsx` - App entry point with providers (Clerk, Convex, PostHog)
+- `src/App.tsx` - Main routing with tRPC and protected routes
+- `src/pages/` - Page components (Index, Chat, Settings, Pricing)
+- `src/components/` - Feature components and UI library
+- `convex/` - Backend functions, schema, and authentication
 
-- ✅ Valid: `https://*.yourdomain.com/auth/callback`
-- ❌ Invalid: `https://*.*.yourdomain.com/auth/callback` (multiple wildcards)
-- ❌ Invalid: `https://sub.*.yourdomain.com/auth/callback` (wildcard not in leftmost subdomain)
+### Authentication Flow
+1. Clerk handles authentication UI and session management
+2. `UserSync` component syncs Clerk user with Convex database
+3. `AuthGuard` protects routes requiring authentication
+4. User data stored in Convex with proper indexing
 
-**Important**: Wildcard URIs cannot be set as the default redirect URI.
-
-### 5. Security Considerations
-
-- **Production**: Only HTTPS redirect URIs are allowed (except `http://127.0.0.1` for native clients)
-- **Development**: HTTP localhost URIs are permitted
-- **State Parameter**: Consider implementing CSRF protection using the state parameter
-- **Error Handling**: The app includes comprehensive error handling for redirect URI mismatches
-
-## Quick Start
-
-1. Clone the repository
-2. Install dependencies: `bun install`
-3. Set up your environment variables (see WorkOS setup above)
-4. Start the development server: `bun dev`
-5. Open `http://localhost:5173` in your browser
-
-## Development
-
-The application includes validation for redirect URIs that will:
-- Warn about HTTP usage in production
-- Validate redirect URI format
-- Provide helpful error messages for misconfigurations
-
-Check the browser console for any configuration warnings during development.
+### Security Features
+- All Convex functions use authentication verification
+- User data access controlled by ownership (userId checks)
+- XSS protection with input sanitization
+- Strict TypeScript configuration (no `any` types)
+- Input validation using Zod schemas
 
 ## Deployment
 
 When deploying to production:
 
-1. Update `VITE_WORKOS_REDIRECT_URI` to use your production domain with HTTPS
-2. Add the production redirect URI to your WorkOS Dashboard
-3. Ensure all environment variables are properly configured in your deployment platform
+1. Set environment variables in your deployment platform
+2. Update redirect URIs in your Clerk Dashboard
+3. Configure Stripe webhooks for your production domain
+4. Ensure HTTPS is used for all external service callbacks
 
-## Support
+## Development Notes
 
-If you encounter authentication issues:
-- Check that your redirect URIs are properly configured in the WorkOS Dashboard
-- Verify environment variables are set correctly
-- Review browser console for validation warnings
-- Contact support if redirect URI errors persist
+- Vite runs on port 8080 (not 5173)
+- Primary brand color: `#3E6FF3`
+- Uses lovable-tagger in development mode
+- Images stored in `public/lovable-uploads/`
+- Path alias `@/` points to `src/`
+- Package manager: pnpm (Bun as fallback)
