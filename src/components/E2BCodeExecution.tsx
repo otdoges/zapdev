@@ -45,9 +45,10 @@ interface E2BCodeExecutionProps {
   language: string;
   onExecute: (code: string, language: string) => Promise<ExecutionResult>;
   showNextJsHint?: boolean;
+  autoRun?: boolean;
 }
 
-export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = true }: E2BCodeExecutionProps) {
+export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = true, autoRun = false }: E2BCodeExecutionProps) {
   const [isExecuting, setIsExecuting] = useState(false);
   const [result, setResult] = useState<ExecutionResult | null>(null);
   const [copied, setCopied] = useState(false);
@@ -55,6 +56,18 @@ export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = t
   const [showFailsafe, setShowFailsafe] = useState(false);
   const [e2bFailed, setE2bFailed] = useState(false);
   const [showCode, setShowCode] = useState(false);
+
+  useEffect(() => {
+    if (autoRun) {
+      // fire and forget, errors are handled inside
+      // slight delay to ensure mount animation completes
+      const t = setTimeout(() => {
+        handleExecute();
+      }, 200);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun]);
 
   const handleExecute = async () => {
     setIsExecuting(true);

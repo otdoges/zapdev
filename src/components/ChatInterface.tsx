@@ -40,6 +40,7 @@ import { streamAIResponse } from '@/lib/ai';
 import { executeCode } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
 import { E2BCodeExecution } from './E2BCodeExecution';
+import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
 import { MessageEncryption, isEncryptedMessage } from '@/lib/message-encryption';
 import { braveSearchService, type BraveSearchResult, type WebsiteAnalysis } from '@/lib/search-service';
 import { toast } from 'sonner';
@@ -138,6 +139,8 @@ const ChatInterface: React.FC = () => {
   const [newChatTitle, setNewChatTitle] = useState('');
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
+  const [showShowcase, setShowShowcase] = useState(false);
+  const [showcaseExecutions, setShowcaseExecutions] = useState<ShowcaseExecutionResult[]>([]);
   
   // Search and website cloning state
   const [searchQuery, setSearchQuery] = useState('');
@@ -434,6 +437,38 @@ const ChatInterface: React.FC = () => {
           
           // Create user message
           await createMessage(messageData);
+
+          // Auto-run user code blocks via E2B (JS/TS only per project preference)
+          const userBlocks = extractCodeBlocks(userContent);
+          if (userBlocks.length > 0) {
+            // Respect preference to avoid executing Python automatically [[memory:4361423]]
+            const runnableBlocks = userBlocks.filter(b => b.language !== 'python');
+            const skippedPython = userBlocks.length !== runnableBlocks.length;
+            if (skippedPython) {
+              toast.info('Python blocks detected; auto-run is limited to JS/TS.');
+            }
+
+            setShowShowcase(true);
+            setShowcaseExecutions([]);
+
+            try {
+              const results = await Promise.all(runnableBlocks.map(async (b) => {
+                const res = await executeCode(b.code, b.language);
+                return {
+                  id: b.id,
+                  language: b.language,
+                  code: b.code,
+                  success: res.success,
+                  output: res.stdout,
+                  error: typeof res.error === 'string' ? res.error : undefined,
+                  logs: res.stderr ? [res.stderr] : [],
+                } as ShowcaseExecutionResult;
+              }));
+              setShowcaseExecutions(results);
+            } catch (execErr) {
+              console.error('Auto-execution failed:', execErr);
+            }
+          }
 
           // Stream AI response
           const streamResult = await streamAIResponse(userContent);
@@ -1144,6 +1179,11 @@ const ChatInterface: React.FC = () => {
 
             {/* Messages Area */}
             <div className="flex-1 relative overflow-hidden">
+              <AnimatedResultShowcase
+                visible={showShowcase}
+                onClose={() => setShowShowcase(false)}
+                executions={showcaseExecutions}
+              />
               {/* Animated background gradient */}
               <motion.div
                 animate={{
@@ -1196,7 +1236,7 @@ const ChatInterface: React.FC = () => {
                                 </div>
                               )}
                               
-                              {/* Code blocks with E2B execution */}
+                              {/* Code blocks with E2B execution (assistant) */}
                               {message.role === 'assistant' && extractCodeBlocks(getMessageContent(message)).map((block) => (
                                 <motion.div
                                   key={block.id}
@@ -1208,6 +1248,34 @@ const ChatInterface: React.FC = () => {
                                   <E2BCodeExecution
                                     code={block.code}
                                     language={block.language}
+                                    onExecute={async (code, language) => {
+                                      const result = await executeCode(code, language as 'python' | 'javascript');
+                                      return {
+                                        success: result.success,
+                                        output: result.stdout,
+                                        error: result.error as string | undefined,
+                                        logs: result.stderr ? [result.stderr] : [],
+                                        executionTime: Date.now() % 1000,
+                                      };
+                                    }}
+                                    showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
+                                  />
+                                </motion.div>
+                              ))}
+
+                              {/* Code blocks with E2B execution (user, auto-run for JS/TS) */}
+                              {message.role === 'user' && extractCodeBlocks(getMessageContent(message)).map((block) => (
+                                <motion.div
+                                  key={block.id}
+                                  initial={{ opacity: 0, scale: 0.95 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ duration: 0.3 }}
+                                  className="mt-4"
+                                >
+                                  <E2BCodeExecution
+                                    code={block.code}
+                                    language={block.language}
+                                    autoRun={block.language.toLowerCase() !== 'python'}
                                     onExecute={async (code, language) => {
                                       const result = await executeCode(code, language as 'python' | 'javascript');
                                       return {
