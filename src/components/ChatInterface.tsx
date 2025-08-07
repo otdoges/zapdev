@@ -26,7 +26,11 @@ import {
   Loader2,
   Shield,
   ShieldCheck,
-  ShieldX
+  ShieldX,
+  Search,
+  Globe,
+  ExternalLink,
+  Link
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
@@ -37,6 +41,7 @@ import { executeCode } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
 import { E2BCodeExecution } from './E2BCodeExecution';
 import { MessageEncryption, isEncryptedMessage } from '@/lib/message-encryption';
+import { braveSearchService, type BraveSearchResult, type WebsiteAnalysis } from '@/lib/search-service';
 import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
 
@@ -133,6 +138,16 @@ const ChatInterface: React.FC = () => {
   const [newChatTitle, setNewChatTitle] = useState('');
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
+  
+  // Search and website cloning state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [isAnalyzingWebsite, setIsAnalyzingWebsite] = useState(false);
+  const [searchResults, setSearchResults] = useState<BraveSearchResult[]>([]);
+  const [websiteAnalysis, setWebsiteAnalysis] = useState<WebsiteAnalysis | null>(null);
+  const [showSearchDialog, setShowSearchDialog] = useState(false);
+  const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   
   // Encryption state
   // Default encryption to disabled until initialization succeeds
@@ -509,6 +524,77 @@ const ChatInterface: React.FC = () => {
     }
   };
 
+  const handleSearch = async () => {
+    if (!searchQuery.trim() || isSearching) return;
+
+    setIsSearching(true);
+    try {
+      logger.info('Performing search', { query: searchQuery.trim() });
+      const results = await braveSearchService.search(searchQuery.trim(), {
+        count: 10,
+        safesearch: 'moderate'
+      });
+      
+      setSearchResults(results);
+      toast.success(`Found ${results.length} search results`);
+      
+      // Auto-add search results to chat if a chat is selected
+      if (selectedChatId && results.length > 0) {
+        const searchSummary = `Search Results for "${searchQuery}":\n\n` +
+          results.slice(0, 5).map((result, index) => 
+            `${index + 1}. **${result.title}**\n${result.description}\n${result.url}\n`
+          ).join('\n');
+        
+        setInput(prev => prev + (prev ? '\n\n' : '') + `Based on these search results:\n\n${searchSummary}\n\nPlease analyze and help me with: `);
+      }
+      
+    } catch (error) {
+      logger.error('Search error', { error: error instanceof Error ? error.message : String(error) });
+      toast.error(error instanceof Error ? error.message : 'Search failed');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleWebsiteAnalysis = async () => {
+    if (!websiteUrl.trim() || isAnalyzingWebsite) return;
+
+    setIsAnalyzingWebsite(true);
+    try {
+      logger.info('Analyzing website', { url: websiteUrl.trim() });
+      const analysis = await braveSearchService.analyzeWebsite(websiteUrl.trim());
+      
+      setWebsiteAnalysis(analysis);
+      toast.success('Website analysis complete!');
+      
+      // Auto-add analysis to chat if a chat is selected
+      if (selectedChatId && analysis) {
+        const analysisSummary = `Website Analysis: ${analysis.url}\n\n` +
+          `**Title:** ${analysis.title || 'N/A'}\n` +
+          `**Description:** ${analysis.description || 'N/A'}\n` +
+          `**Technologies:** ${analysis.technologies?.join(', ') || 'Unknown'}\n` +
+          `**Layout:** ${analysis.layout || 'Unknown'}\n` +
+          `**Components:** ${analysis.components?.join(', ') || 'None detected'}\n` +
+          `**Color Scheme:** ${analysis.colorScheme?.slice(0, 5).join(', ') || 'Not detected'}\n\n` +
+          `**Content Preview:** ${analysis.content?.substring(0, 500) || 'No content extracted'}...\n\n`;
+        
+        setInput(prev => prev + (prev ? '\n\n' : '') + `Please help me clone this website:\n\n${analysisSummary}\n\nI want to recreate: `);
+      }
+      
+    } catch (error) {
+      logger.error('Website analysis error', { error: error instanceof Error ? error.message : String(error) });
+      toast.error(error instanceof Error ? error.message : 'Website analysis failed');
+    } finally {
+      setIsAnalyzingWebsite(false);
+    }
+  };
+
+  const addSearchResultToInput = (result: BraveSearchResult) => {
+    const resultText = `Reference: ${result.title} - ${result.description} (${result.url})`;
+    setInput(prev => prev + (prev ? '\n\n' : '') + resultText + '\n\n');
+    toast.success('Search result added to message');
+  };
+
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString([], { 
       hour: '2-digit', 
@@ -543,207 +629,473 @@ const ChatInterface: React.FC = () => {
 
   return (
     <div className="flex h-full bg-background">
-      {/* Conditionally render chat sidebar only when no messages or split view */}
+      {/* Fullscreen Chat - No Messages */}
       {!hasMessages && (
-        <div className="w-80 border-r bg-card/50 backdrop-blur-sm">
-          <div className="p-4 border-b">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold flex items-center">
-                <MessageSquare className="w-5 h-5 mr-2" />
-                Chats
-              </h2>
-              <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" variant="outline">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Chat</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-4">
-                    <Input
-                      placeholder="Enter chat title..."
-                      value={newChatTitle}
-                      onChange={(e) => setNewChatTitle(e.target.value.substring(0, MAX_TITLE_LENGTH))}
-                      onKeyDown={(e) => e.key === 'Enter' && handleCreateChat()}
-                      maxLength={MAX_TITLE_LENGTH}
-                    />
-                    <div className="text-xs text-muted-foreground">
-                      {newChatTitle.length}/{MAX_TITLE_LENGTH} characters
-                    </div>
-                    <div className="flex justify-end space-x-2">
-                      <Button variant="outline" onClick={() => setIsNewChatOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleCreateChat} disabled={!newChatTitle.trim()}>
-                        Create Chat
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
+        <div className="flex-1 flex flex-col relative overflow-hidden">
+          {/* Animated background gradient */}
+          <motion.div
+            animate={{
+              background: [
+                "radial-gradient(circle at 20% 50%, rgba(62, 111, 243, 0.05) 0%, transparent 50%)",
+                "radial-gradient(circle at 80% 50%, rgba(147, 51, 234, 0.05) 0%, transparent 50%)",
+                "radial-gradient(circle at 20% 50%, rgba(62, 111, 243, 0.05) 0%, transparent 50%)",
+              ],
+            }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute inset-0 pointer-events-none"
+          />
 
-          <ScrollArea className="h-[calc(100%-80px)]">
-            <div className="p-2">
-              {chats?.map((chat) => (
-                <motion.div
-                  key={chat._id}
-                  layout
-                  className={`group relative p-3 rounded-lg cursor-pointer transition-all mb-2 ${
-                    selectedChatId === chat._id 
-                      ? 'bg-primary/10 border border-primary/20' 
-                      : 'hover:bg-muted/50'
-                  }`}
-                  onClick={() => setSelectedChatId(chat._id)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-sm truncate">
-                        <SafeText>{chat.title}</SafeText>
-                      </h3>
-                      <p className="text-xs text-muted-foreground flex items-center mt-1">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {formatTimestamp(chat.updatedAt)}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteChat(chat._id);
+          {/* Main content */}
+          <div className="flex-1 flex items-center justify-center px-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="text-center max-w-2xl w-full"
+            >
+              {/* Logo/Icon */}
+              <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="mb-8"
+              >
+                <div className="relative mx-auto w-20 h-20 mb-6">
+                  <motion.div
+                    animate={{ 
+                      rotate: [0, 360],
+                      scale: [1, 1.05, 1]
+                    }}
+                    transition={{ 
+                      rotate: { duration: 20, repeat: Infinity, ease: "linear" },
+                      scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                    }}
+                    className="w-full h-full bg-gradient-to-br from-purple-600 via-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-purple-500/20"
+                  >
+                    <Zap className="w-10 h-10 text-white" />
+                  </motion.div>
+                  <motion.div
+                    animate={{ rotate: [360, 0] }}
+                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                    className="absolute -inset-2 bg-gradient-to-r from-purple-600/20 via-transparent to-blue-600/20 rounded-3xl blur-xl"
+                  />
+                </div>
+              </motion.div>
+
+              {/* Title */}
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight"
+              >
+                ZapDev AI
+              </motion.h1>
+
+              {/* Subtitle */}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="text-xl text-muted-foreground mb-8 leading-relaxed"
+              >
+                Build applications with AI-powered development.
+                <br />
+                <span className="text-base opacity-80">Start a conversation to unlock powerful coding assistance.</span>
+              </motion.p>
+
+              {/* Chat input */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.5 }}
+                className="max-w-lg mx-auto"
+              >
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="relative">
+                    <Textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value.substring(0, MAX_MESSAGE_LENGTH))}
+                      placeholder="What would you like to build today?"
+                      className="min-h-[60px] text-base bg-card/80 backdrop-blur-sm border-2 border-muted/50 focus:border-primary/50 transition-all duration-200 resize-none pr-16 rounded-xl shadow-lg"
+                      maxLength={MAX_MESSAGE_LENGTH}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSubmit(e);
+                        }
                       }}
+                    />
+                    <Button 
+                      type="submit" 
+                      disabled={!input.trim() || isTyping}
+                      size="sm"
+                      className="absolute right-2 bottom-2 h-10 w-10 p-0 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      {isTyping ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
                     </Button>
                   </div>
-                </motion.div>
-              ))}
+                  
+                  <div className="flex justify-between items-center text-sm text-muted-foreground">
+                    <span>Press Enter to send, Shift+Enter for new line</span>
+                    <span className="text-xs">
+                      {input.length}/{MAX_MESSAGE_LENGTH}
+                    </span>
+                  </div>
+                </form>
+              </motion.div>
 
-              {chats?.length === 0 && (
-                <div className="text-center py-8">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">No chats yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Create your first chat to get started</p>
+              {/* Quick Actions */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 }}
+                className="mt-8 flex justify-center gap-4"
+              >
+                <Dialog open={showSearchDialog} onOpenChange={setShowSearchDialog}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="lg" 
+                      className="bg-card/80 backdrop-blur-sm border-2 hover:border-primary/50 transition-all duration-200"
+                    >
+                      <Search className="w-4 h-4 mr-2" />
+                      Search Web
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Search className="w-5 h-5 text-primary" />
+                        Web Search
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Search the web for information..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                          className="flex-1"
+                        />
+                        <Button onClick={handleSearch} disabled={!searchQuery.trim() || isSearching}>
+                          {isSearching ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Search className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                      
+                      {searchResults.length > 0 && (
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                          <h4 className="font-medium text-sm">Search Results:</h4>
+                          {searchResults.map((result, index) => (
+                            <motion.div
+                              key={index}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                              onClick={() => addSearchResultToInput(result)}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <h5 className="font-medium text-sm truncate">{result.title}</h5>
+                                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{result.description}</p>
+                                  <a 
+                                    href={result.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {result.url}
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                </div>
+                                <Button size="sm" variant="ghost" className="shrink-0">
+                                  <Plus className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={showWebsiteDialog} onOpenChange={setShowWebsiteDialog}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="lg"
+                      className="bg-card/80 backdrop-blur-sm border-2 hover:border-primary/50 transition-all duration-200"
+                    >
+                      <Globe className="w-4 h-4 mr-2" />
+                      Clone Website
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Globe className="w-5 h-5 text-primary" />
+                        Website Analysis & Cloning
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Enter website URL to analyze (e.g., https://example.com)"
+                          value={websiteUrl}
+                          onChange={(e) => setWebsiteUrl(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleWebsiteAnalysis()}
+                          className="flex-1"
+                        />
+                        <Button onClick={handleWebsiteAnalysis} disabled={!websiteUrl.trim() || isAnalyzingWebsite}>
+                          {isAnalyzingWebsite ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Globe className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                      
+                      {websiteAnalysis && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="space-y-4 max-h-96 overflow-y-auto"
+                        >
+                          <h4 className="font-medium text-sm">Website Analysis:</h4>
+                          <div className="p-4 border rounded-lg bg-muted/30">
+                            <div className="space-y-3 text-sm">
+                              <div>
+                                <span className="font-medium">URL:</span> 
+                                <a href={websiteAnalysis.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">
+                                  {websiteAnalysis.url}
+                                </a>
+                              </div>
+                              {websiteAnalysis.title && (
+                                <div><span className="font-medium">Title:</span> {websiteAnalysis.title}</div>
+                              )}
+                              {websiteAnalysis.description && (
+                                <div><span className="font-medium">Description:</span> {websiteAnalysis.description}</div>
+                              )}
+                              {websiteAnalysis.technologies && websiteAnalysis.technologies.length > 0 && (
+                                <div>
+                                  <span className="font-medium">Technologies:</span>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {websiteAnalysis.technologies.map((tech, index) => (
+                                      <Badge key={index} variant="secondary" className="text-xs">{tech}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {websiteAnalysis.layout && (
+                                <div><span className="font-medium">Layout:</span> {websiteAnalysis.layout}</div>
+                              )}
+                              {websiteAnalysis.components && websiteAnalysis.components.length > 0 && (
+                                <div>
+                                  <span className="font-medium">Components:</span>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {websiteAnalysis.components.map((comp, index) => (
+                                      <Badge key={index} variant="outline" className="text-xs">{comp}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {websiteAnalysis.colorScheme && websiteAnalysis.colorScheme.length > 0 && (
+                                <div>
+                                  <span className="font-medium">Colors:</span>
+                                  <div className="flex gap-1 mt-1">
+                                    {websiteAnalysis.colorScheme.slice(0, 8).map((color, index) => (
+                                      <div 
+                                        key={index} 
+                                        className="w-6 h-6 rounded border"
+                                        style={{ backgroundColor: color }}
+                                        title={color}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <Button 
+                              className="w-full mt-4" 
+                              onClick={() => {
+                                handleWebsiteAnalysis();
+                                setShowWebsiteDialog(false);
+                              }}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add to Chat
+                            </Button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </motion.div>
+
+              {/* Feature highlights */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.8 }}
+                className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-center"
+              >
+                <div className="space-y-2">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto shadow-lg">
+                    <Shield className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-sm">Secure by Design</h3>
+                  <p className="text-xs text-muted-foreground">End-to-end encryption for all conversations</p>
                 </div>
-              )}
-            </div>
-          </ScrollArea>
+                <div className="space-y-2">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center mx-auto shadow-lg">
+                    <Search className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-sm">Web Search</h3>
+                  <p className="text-xs text-muted-foreground">Search the web with Brave Search API integration</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mx-auto shadow-lg">
+                    <Globe className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-sm">Website Cloning</h3>
+                  <p className="text-xs text-muted-foreground">Analyze and recreate any website with AI assistance</p>
+                </div>
+              </motion.div>
+            </motion.div>
+          </div>
         </div>
       )}
 
-      {/* Split view when messages exist */}
+      {/* Split Layout - With Messages */}
       {hasMessages && (
-        <div className="flex-1 flex">
-          {/* Left Panel - Preview/Code Area */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="flex-1 flex"
+        >
+          {/* Left Sidebar - Chat List */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-            className="w-1/2 border-r bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 relative overflow-hidden"
+            className="w-80 border-r bg-card/30 backdrop-blur-sm flex flex-col"
           >
-            {/* Preview header */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="p-4 border-b bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm"
-            >
-              <div className="flex items-center gap-3">
-                <motion.div
-                  animate={{ rotate: [0, 360] }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                >
-                  <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                </motion.div>
-                <h3 className="font-semibold text-lg bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  API Key Obfuscation Security
-                </h3>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Secure storage utilities for sensitive data like API keys
-              </p>
-            </motion.div>
-
-            {/* Preview content */}
-            <div className="p-6 space-y-6">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="space-y-4"
-              >
-                <div className="bg-white dark:bg-slate-800 rounded-lg border p-4 shadow-sm">
-                  <h4 className="font-medium text-base mb-3 flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-green-600" />
-                    Security Implementation
-                  </h4>
-                  <div className="space-y-3 text-sm text-muted-foreground">
-                    <div className="flex items-start gap-2">
-                      <div className="w-1 h-1 bg-purple-600 rounded-full mt-2"></div>
-                      <p>Uses Web Crypto API for proper encryption (AES-GCM)</p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="w-1 h-1 bg-purple-600 rounded-full mt-2"></div>
-                      <p>For production, consider using a backend proxy instead of client-side storage</p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="w-1 h-1 bg-purple-600 rounded-full mt-2"></div>
-                      <p>This provides reasonable security for client-side storage but is not foolproof</p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <div className="w-1 h-1 bg-purple-600 rounded-full mt-2"></div>
-                      <p>API keys in browsers are inherently exposed to determined attackers</p>
-                    </div>
-                  </div>
-                </div>
-
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.6 }}
-                  className="bg-slate-900 dark:bg-slate-950 rounded-lg p-4 overflow-hidden"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-mono text-green-400">Configuration</span>
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                      <Copy className="w-3 h-3 text-slate-400" />
+            {/* Sidebar Header */}
+            <div className="p-4 border-b">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2 text-primary" />
+                  Chats
+                </h2>
+                <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                      <Plus className="w-4 h-4" />
                     </Button>
-                  </div>
-                  <pre className="text-xs text-slate-300 font-mono overflow-x-auto">
-{`const STORAGE_KEY = 'zapdev-secure-config';
-const SALT_KEY = 'zapdev-salt';
-const IV_KEY = 'zapdev-iv';
-const ITERATIONS = 100000;
-const KEY_EXPIRY_DAYS = 30;
-
-export interface SecureConfig {
-  useUserApiKey?: boolean;
-  encryptedApiKey?: string;
-  salt?: string;
-  iv?: string;
-  lastUpdated?: number;
-  checksum?: string;
-}`}
-                  </pre>
-                </motion.div>
-              </motion.div>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Chat</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <Input
+                        placeholder="Enter chat title..."
+                        value={newChatTitle}
+                        onChange={(e) => setNewChatTitle(e.target.value.substring(0, MAX_TITLE_LENGTH))}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCreateChat()}
+                        maxLength={MAX_TITLE_LENGTH}
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        {newChatTitle.length}/{MAX_TITLE_LENGTH} characters
+                      </div>
+                      <div className="flex justify-end space-x-2">
+                        <Button variant="outline" onClick={() => setIsNewChatOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleCreateChat} disabled={!newChatTitle.trim()}>
+                          Create Chat
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
+
+            {/* Chat List */}
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-1">
+                {chats?.map((chat) => (
+                  <motion.div
+                    key={chat._id}
+                    layout
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`group relative p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                      selectedChatId === chat._id 
+                        ? 'bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-primary/20 shadow-sm' 
+                        : 'hover:bg-muted/50'
+                    }`}
+                    onClick={() => setSelectedChatId(chat._id)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-sm truncate mb-1">
+                          <SafeText>{chat.title}</SafeText>
+                        </h3>
+                        <p className="text-xs text-muted-foreground flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {formatTimestamp(chat.updatedAt)}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteChat(chat._id);
+                        }}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+
+                {chats?.length === 0 && (
+                  <div className="text-center py-12">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">No chats yet</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">Create your first chat to get started</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
           </motion.div>
 
-          {/* Right Panel - Chat Area */}
+          {/* Right Panel - Chat Interface */}
           <motion.div
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, type: "spring", stiffness: 100, delay: 0.1 }}
-            className="w-1/2 flex flex-col relative overflow-hidden bg-background"
+            className="flex-1 flex flex-col relative overflow-hidden bg-background"
           >
-            {/* Chat header */}
+            {/* Chat Header */}
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -752,20 +1104,15 @@ export interface SecureConfig {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelectedChatId(null)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                  </Button>
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-white" />
+                  </div>
                   <div>
                     <h2 className="font-semibold text-base">
                       <SafeText>{chats?.find(c => c._id === selectedChatId)?.title || 'Chat'}</SafeText>
                     </h2>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant="secondary" className="text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 px-2 py-0.5">
+                      <Badge variant="secondary" className="text-xs bg-gradient-to-r from-purple-600 to-blue-600 text-white border-0 px-2 py-0.5">
                         ZapDev AI
                       </Badge>
                       <span>{messages?.length || 0} messages</span>
@@ -780,29 +1127,30 @@ export interface SecureConfig {
                     variant={encryptionEnabled ? "default" : "outline"}
                     onClick={() => encryptionInitialized && setEncryptionEnabled(!encryptionEnabled)}
                     disabled={!encryptionInitialized}
-                    className={`h-7 px-2 text-xs ${!encryptionInitialized ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`h-8 px-3 text-xs transition-all ${!encryptionInitialized ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {!encryptionInitialized ? (
-                      <Shield className="w-3 h-3" />
+                      <Shield className="w-3 h-3 mr-1" />
                     ) : encryptionEnabled ? (
-                      <ShieldCheck className="w-3 h-3" />
+                      <ShieldCheck className="w-3 h-3 mr-1 text-green-600" />
                     ) : (
-                      <ShieldX className="w-3 h-3" />
+                      <ShieldX className="w-3 h-3 mr-1" />
                     )}
+                    {encryptionEnabled ? 'Encrypted' : 'Plain'}
                   </Button>
                 </div>
               </div>
             </motion.div>
 
-            {/* Chat messages area */}
+            {/* Messages Area */}
             <div className="flex-1 relative overflow-hidden">
               {/* Animated background gradient */}
               <motion.div
                 animate={{
                   background: [
-                    "radial-gradient(circle at 20% 50%, rgba(147, 51, 234, 0.05) 0%, transparent 50%)",
-                    "radial-gradient(circle at 80% 50%, rgba(236, 72, 153, 0.05) 0%, transparent 50%)",
-                    "radial-gradient(circle at 20% 50%, rgba(147, 51, 234, 0.05) 0%, transparent 50%)",
+                    "radial-gradient(circle at 20% 50%, rgba(62, 111, 243, 0.03) 0%, transparent 50%)",
+                    "radial-gradient(circle at 80% 50%, rgba(147, 51, 234, 0.03) 0%, transparent 50%)",
+                    "radial-gradient(circle at 20% 50%, rgba(62, 111, 243, 0.03) 0%, transparent 50%)",
                   ],
                 }}
                 transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
@@ -810,8 +1158,8 @@ export interface SecureConfig {
               />
               
               {/* Messages */}
-              <ScrollArea className="h-full p-4">
-                <div className="space-y-4">
+              <ScrollArea className="h-full p-6">
+                <div className="space-y-6 max-w-4xl mx-auto">
                   <AnimatePresence>
                     {messages?.map((message) => (
                       <motion.div
@@ -819,32 +1167,32 @@ export interface SecureConfig {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
-                        className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         {message.role === 'assistant' && (
-                          <Avatar className="w-7 h-7 border border-primary/20">
-                            <AvatarFallback className="bg-primary/10">
-                              <Bot className="w-3 h-3 text-primary" />
+                          <Avatar className="w-8 h-8 border border-primary/20 shadow-sm">
+                            <AvatarFallback className="bg-gradient-to-br from-purple-600 to-blue-600">
+                              <Bot className="w-4 h-4 text-white" />
                             </AvatarFallback>
                           </Avatar>
                         )}
                         
-                        <div className={`max-w-[80%] ${message.role === 'user' ? 'order-1' : ''}`}>
-                          <Card className={`${
+                        <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
+                          <Card className={`shadow-sm ${
                             message.role === 'user' 
-                              ? 'bg-primary text-primary-foreground' 
-                              : 'bg-card/50 backdrop-blur-sm border-muted'
+                              ? 'bg-gradient-to-br from-purple-600 to-blue-600 text-white border-0' 
+                              : 'bg-card/70 backdrop-blur-sm border-muted/50'
                           }`}>
-                            <CardContent className="p-3">
-                              <div className="text-sm">
+                            <CardContent className="p-4">
+                              <div className="text-sm leading-relaxed">
                                 <SafeText>{getMessageContent(message)}</SafeText>
                               </div>
                               
                               {/* Encryption indicator */}
                               {message.isEncrypted && (
-                                <div className="flex items-center gap-1 mt-2 text-xs opacity-70">
+                                <div className="flex items-center gap-1 mt-3 text-xs opacity-70">
                                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                                  <span>Encrypted</span>
+                                  <span>End-to-end encrypted</span>
                                 </div>
                               )}
                               
@@ -855,7 +1203,7 @@ export interface SecureConfig {
                                   initial={{ opacity: 0, scale: 0.95 }}
                                   animate={{ opacity: 1, scale: 1 }}
                                   transition={{ duration: 0.3 }}
-                                  className="mt-3"
+                                  className="mt-4"
                                 >
                                   <E2BCodeExecution
                                     code={block.code}
@@ -875,14 +1223,14 @@ export interface SecureConfig {
                                 </motion.div>
                               ))}
                               
-                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/30">
+                              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
                                 <span className="text-xs opacity-70">
                                   {formatTimestamp(message.createdAt)}
                                 </span>
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="h-5 w-5 p-0 opacity-70 hover:opacity-100"
+                                  className="h-6 w-6 p-0 opacity-70 hover:opacity-100 transition-all"
                                   onClick={() => copyToClipboard(getMessageContent(message), message._id)}
                                 >
                                   {copiedMessage === message._id ? (
@@ -897,10 +1245,10 @@ export interface SecureConfig {
                         </div>
 
                         {message.role === 'user' && (
-                          <Avatar className="w-7 h-7 border border-muted">
+                          <Avatar className="w-8 h-8 border border-muted shadow-sm">
                             <AvatarImage src={user?.avatarUrl} />
-                            <AvatarFallback>
-                              <User className="w-3 h-3" />
+                            <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800">
+                              <User className="w-4 h-4" />
                             </AvatarFallback>
                           </Avatar>
                         )}
@@ -912,22 +1260,29 @@ export interface SecureConfig {
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex gap-3"
+                      className="flex gap-4"
                     >
-                      <Avatar className="w-7 h-7 border border-primary/20">
-                        <AvatarFallback className="bg-primary/10">
-                          <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                      <Avatar className="w-8 h-8 border border-primary/20 shadow-sm">
+                        <AvatarFallback className="bg-gradient-to-br from-purple-600 to-blue-600">
+                          <Loader2 className="w-4 h-4 text-white animate-spin" />
                         </AvatarFallback>
                       </Avatar>
-                      <Card className="bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200/50 dark:border-purple-800/50">
-                        <CardContent className="p-3">
-                          <motion.span
-                            className="text-sm text-purple-700 dark:text-purple-300"
-                            animate={{ opacity: [0.5, 1, 0.5] }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
+                      <Card className="bg-gradient-to-r from-purple-50/80 to-blue-50/80 dark:from-purple-950/30 dark:to-blue-950/30 border-purple-200/50 dark:border-purple-800/50 shadow-sm">
+                        <CardContent className="p-4">
+                          <motion.div
+                            className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300"
                           >
-                            Thinking...
-                          </motion.span>
+                            <motion.div
+                              animate={{ scale: [1, 1.2, 1] }}
+                              transition={{ duration: 1.5, repeat: Infinity }}
+                              className="flex gap-1"
+                            >
+                              <div className="w-2 h-2 bg-current rounded-full opacity-60" />
+                              <div className="w-2 h-2 bg-current rounded-full opacity-40" />
+                              <div className="w-2 h-2 bg-current rounded-full opacity-20" />
+                            </motion.div>
+                            <span>Thinking...</span>
+                          </motion.div>
                         </CardContent>
                       </Card>
                     </motion.div>
@@ -943,16 +1298,16 @@ export interface SecureConfig {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="p-4 border-t bg-card/30 backdrop-blur-sm"
+              className="p-6 border-t bg-card/30 backdrop-blur-sm"
             >
-              <form onSubmit={handleSubmit}>
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
+              <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1 relative">
                     <Textarea
                       value={input}
                       onChange={(e) => setInput(e.target.value.substring(0, MAX_MESSAGE_LENGTH))}
-                      placeholder="Ask me anything..."
-                      className="min-h-[40px] max-h-24 resize-none text-sm"
+                      placeholder="Continue the conversation..."
+                      className="min-h-[50px] max-h-32 resize-none text-sm bg-background/80 backdrop-blur-sm border-2 border-muted/50 focus:border-primary/50 transition-all duration-200 pr-16 rounded-xl shadow-sm"
                       maxLength={MAX_MESSAGE_LENGTH}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -961,91 +1316,30 @@ export interface SecureConfig {
                         }
                       }}
                     />
+                    <Button 
+                      type="submit" 
+                      disabled={!input.trim() || isTyping}
+                      size="sm"
+                      className="absolute right-2 bottom-2 h-9 w-9 p-0 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-md transition-all"
+                    >
+                      {isTyping ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </Button>
                   </div>
-                  <Button 
-                    type="submit" 
-                    disabled={!input.trim() || isTyping}
-                    size="sm"
-                    className="h-10 px-4"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
                 </div>
-                <div className="flex justify-between items-center mt-2">
-                  <p className="text-xs text-muted-foreground">
-                    Enter to send
-                  </p>
-                  <span className="text-xs text-muted-foreground">
+                <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
+                  <span>Press Enter to send • Shift+Enter for new line</span>
+                  <span className={input.length > MAX_MESSAGE_LENGTH * 0.9 ? 'text-orange-500' : ''}>
                     {input.length}/{MAX_MESSAGE_LENGTH}
                   </span>
                 </div>
               </form>
             </motion.div>
           </motion.div>
-        </div>
-      )}
-
-      {/* Welcome screen when no chat selected */}
-      {!hasMessages && !selectedChatId && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <motion.div
-              animate={{ rotate: [0, 360] }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            >
-              <Zap className="w-16 h-16 mx-auto mb-4 text-purple-600 dark:text-purple-400" />
-            </motion.div>
-            <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Welcome to ZapDev AI</h3>
-            <p className="text-muted-foreground mb-4">Create applications with AI-powered development</p>
-            <Button onClick={() => setIsNewChatOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create New Chat
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Empty chat state - selected chat but no messages */}
-      {!hasMessages && selectedChatId && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <motion.div
-              animate={{ rotate: [0, 360] }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            >
-              <MessageSquare className="w-16 h-16 mx-auto mb-4 text-purple-600 dark:text-purple-400" />
-            </motion.div>
-            <h3 className="text-xl font-semibold mb-2">Start the conversation</h3>
-            <p className="text-muted-foreground mb-6">Send your first message to begin chatting with ZapDev AI</p>
-            
-            {/* Input for first message */}
-            <div className="max-w-md mx-auto">
-              <form onSubmit={handleSubmit}>
-                <div className="flex gap-2">
-                  <Textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value.substring(0, MAX_MESSAGE_LENGTH))}
-                    placeholder="Ask me anything..."
-                    className="flex-1 min-h-[44px] resize-none"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSubmit(e);
-                      }
-                    }}
-                  />
-                  <Button 
-                    type="submit" 
-                    disabled={!input.trim() || isTyping}
-                    size="lg"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );
