@@ -58,6 +58,8 @@ root.render(
   <StrictMode>
     <ClerkProvider 
       publishableKey={PUBLISHABLE_KEY} 
+      domain="clerk.zapdev.link"
+      isSatellite={true}
       afterSignOutUrl="/"
       afterSignInUrl="/chat"
       afterSignUpUrl="/chat"
