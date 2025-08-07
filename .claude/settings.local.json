@@ -47,7 +47,9 @@
       "Bash(vercel:*)",
       "WebFetch(domain:console.groq.com)",
       "Bash(ls:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(echo $CLERK_JWT_ISSUER_DOMAIN)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
