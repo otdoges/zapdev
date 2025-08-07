@@ -36,13 +36,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { streamAIResponse } from '@/lib/ai';
+import { streamAIResponse, generateChatTitleFromMessages } from '@/lib/ai';
 import { executeCode } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
 import { E2BCodeExecution } from './E2BCodeExecution';
 import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
 import { MessageEncryption, isEncryptedMessage } from '@/lib/message-encryption';
 import { braveSearchService, type BraveSearchResult, type WebsiteAnalysis } from '@/lib/search-service';
+import { crawlSite } from '@/lib/firecrawl';
 import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
 
@@ -139,6 +140,7 @@ const ChatInterface: React.FC = () => {
   const [newChatTitle, setNewChatTitle] = useState('');
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
+  const [sessionStarted, setSessionStarted] = useState(false);
   const [showShowcase, setShowShowcase] = useState(false);
   const [showcaseExecutions, setShowcaseExecutions] = useState<ShowcaseExecutionResult[]>([]);
   
@@ -151,6 +153,8 @@ const ChatInterface: React.FC = () => {
   const [websiteAnalysis, setWebsiteAnalysis] = useState<WebsiteAnalysis | null>(null);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
+  const [isCrawling, setIsCrawling] = useState(false);
+  const [crawlPages, setCrawlPages] = useState<{url: string; title?: string}[]>([]);
   
   // Encryption state
   // Default encryption to disabled until initialization succeeds
@@ -174,6 +178,7 @@ const ChatInterface: React.FC = () => {
   const chats = React.useMemo(() => chatsData?.chats ?? [], [chatsData?.chats]);
   const messages = React.useMemo(() => messagesData?.messages ?? [], [messagesData?.messages]);
   const createChat = useMutation(api.chats.createChat);
+  const updateChat = useMutation(api.chats.updateChat);
   const createMessage = useMutation(api.messages.createMessage);
   const deleteChat = useMutation(api.chats.deleteChat);
 
@@ -333,7 +338,7 @@ const ChatInterface: React.FC = () => {
           span.setAttribute("chat_title", newChatTitle.trim());
           logger.info("Creating new chat", { title: newChatTitle.trim() });
           
-          const sanitizedTitle = sanitizeText(newChatTitle.trim());
+          let sanitizedTitle = sanitizeText(newChatTitle.trim());
           const chatId = await createChat({ title: sanitizedTitle });
           
           setSelectedChatId(chatId);
@@ -343,6 +348,15 @@ const ChatInterface: React.FC = () => {
           span.setAttribute("chat_id", chatId);
           logger.info("Chat created successfully", { chatId, title: sanitizedTitle });
           toast.success('New chat created!');
+
+          // Generate AI chat title using gemma2-9b-it based on initial context
+          try {
+            const messagesForTitle = [{ role: 'user' as const, content: sanitizedTitle }];
+            const aiTitle = await generateChatTitleFromMessages(messagesForTitle);
+            if (aiTitle && aiTitle !== sanitizedTitle) {
+              await updateChat({ chatId: chatId as Parameters<typeof updateChat>[0]['chatId'], title: aiTitle });
+            }
+          } catch {}
         } catch (error) {
           logger.error("Error creating chat", { 
             error: error instanceof Error ? error.message : String(error),
@@ -391,6 +405,7 @@ const ChatInterface: React.FC = () => {
         
         setInput('');
         setIsTyping(true);
+        setSessionStarted(true);
 
         try {
           logger.info("Sending chat message", { 
@@ -470,8 +485,15 @@ const ChatInterface: React.FC = () => {
             }
           }
 
-          // Stream AI response
-          const streamResult = await streamAIResponse(userContent);
+          // Stream AI response (prepend search / website analysis context if present)
+          const searchContext = searchResults.length > 0 ? (
+            `\n\nSearch Context (top 5):\n` + searchResults.slice(0,5).map((r,i)=>`${i+1}. ${r.title} - ${r.url}\n${r.description}`).join('\n')
+          ) : '';
+          const websiteContext = websiteAnalysis ? (
+            `\n\nWebsite Context: ${websiteAnalysis.url}\nTitle: ${websiteAnalysis.title || ''}\nTech: ${(websiteAnalysis.technologies||[]).join(', ')}`
+          ) : '';
+          const combined = userContent + searchContext + websiteContext;
+          const streamResult = await streamAIResponse(combined);
           let assistantContent = '';
 
           for await (const delta of streamResult.textStream) {
@@ -527,6 +549,18 @@ const ChatInterface: React.FC = () => {
 
           // Create assistant message
           await createMessage(assistantMessageData);
+
+          // Try AI title refinement after first exchange
+          try {
+            const msgs = [
+              { role: 'user' as const, content: userContent },
+              { role: 'assistant' as const, content: sanitizedResponse }
+            ];
+            const aiTitle = await generateChatTitleFromMessages(msgs);
+            if (aiTitle) {
+              await updateChat({ chatId: selectedChatId as Parameters<typeof updateChat>[0]['chatId'], title: aiTitle });
+            }
+          } catch {}
 
           logger.info("Chat message processed successfully", { 
             responseLength: sanitizedResponse.length,
@@ -661,11 +695,12 @@ const ChatInterface: React.FC = () => {
   }
 
   const hasMessages = messages && messages.length > 0;
+  const showSplitLayout = sessionStarted || hasMessages;
 
   return (
     <div className="flex h-full bg-background">
-      {/* Fullscreen Chat - No Messages */}
-      {!hasMessages && (
+      {/* Welcome Hero - shown until the user sends the first message */}
+      {!showSplitLayout && (
         <div className="flex-1 flex flex-col relative overflow-hidden">
           {/* Animated background gradient */}
           <motion.div
@@ -962,15 +997,64 @@ const ChatInterface: React.FC = () => {
                                 </div>
                               )}
                             </div>
+                            <div className="grid grid-cols-2 gap-2 mt-4">
+                              <Button 
+                                variant="secondary"
+                                onClick={async () => {
+                                  setIsCrawling(true);
+                                  try {
+                                    const result = await crawlSite(websiteAnalysis.url, { maxPages: 12, includeSitemap: true });
+                                    setCrawlPages(result.pages.map(p => ({ url: p.url, title: p.title })));
+                                    toast.success(`Crawled ${result.pages.length} pages with Firecrawl`);
+                                  } catch (err) {
+                                    toast.error(err instanceof Error ? err.message : 'Firecrawl failed');
+                                  } finally {
+                                    setIsCrawling(false);
+                                  }
+                                }}
+                                disabled={isCrawling}
+                              >
+                                {isCrawling ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <Globe className="w-4 h-4 mr-2"/>}
+                                Crawl with Firecrawl
+                              </Button>
+                              <Button 
+                                className="w-full"
+                                onClick={() => {
+                                  handleWebsiteAnalysis();
+                                  setShowWebsiteDialog(false);
+                                }}
+                              >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add to Chat
+                              </Button>
+                            </div>
+                            {crawlPages.length > 0 && (
+                              <div className="mt-3">
+                                <h5 className="font-medium text-sm mb-2">Crawled Pages</h5>
+                                <div className="max-h-40 overflow-auto space-y-1 text-xs">
+                                  {crawlPages.slice(0, 20).map((p, i) => (
+                                    <div key={i} className="flex items-center justify-between gap-2">
+                                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-primary truncate">
+                                        {p.title || p.url}
+                                      </a>
+                                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground">
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             <Button 
                               className="w-full mt-4" 
                               onClick={() => {
-                                handleWebsiteAnalysis();
+                                const summary = `Crawled ${crawlPages.length} pages from ${websiteAnalysis.url}. Key pages:\n` + crawlPages.slice(0,5).map(p=>`- ${p.title || p.url} (${p.url})`).join('\n');
+                                setInput(prev => prev + (prev ? '\n\n' : '') + summary + '\n\nUse these references to recreate the UI.');
                                 setShowWebsiteDialog(false);
                               }}
                             >
                               <Plus className="w-4 h-4 mr-2" />
-                              Add to Chat
+                              Insert Crawl Summary
                             </Button>
                           </div>
                         </motion.div>
@@ -1014,8 +1098,8 @@ const ChatInterface: React.FC = () => {
         </div>
       )}
 
-      {/* Split Layout - With Messages */}
-      {hasMessages && (
+      {/* Split Layout - post first send */}
+      {showSplitLayout && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1207,7 +1291,7 @@ const ChatInterface: React.FC = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
-                        className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        className={`group flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         {message.role === 'assistant' && (
                           <Avatar className="w-8 h-8 border border-primary/20 shadow-sm">
@@ -1218,10 +1302,10 @@ const ChatInterface: React.FC = () => {
                         )}
                         
                         <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
-                          <Card className={`shadow-sm ${
+                          <Card className={`transition-all duration-200 group-hover:shadow-xl ${
                             message.role === 'user' 
-                              ? 'bg-gradient-to-br from-purple-600 to-blue-600 text-white border-0' 
-                              : 'bg-card/70 backdrop-blur-sm border-muted/50'
+                              ? 'bg-white text-blue-600 border border-white/20' 
+                              : 'bg-card/80 backdrop-blur-md border-white/10'
                           }`}>
                             <CardContent className="p-4">
                               <div className="text-sm leading-relaxed">
@@ -1236,7 +1320,7 @@ const ChatInterface: React.FC = () => {
                                 </div>
                               )}
                               
-                              {/* Code blocks with E2B execution (assistant) */}
+                              {/* Code blocks with E2B execution (assistant, auto-run for JS/TS) */}
                               {message.role === 'assistant' && extractCodeBlocks(getMessageContent(message)).map((block) => (
                                 <motion.div
                                   key={block.id}
@@ -1248,6 +1332,7 @@ const ChatInterface: React.FC = () => {
                                   <E2BCodeExecution
                                     code={block.code}
                                     language={block.language}
+                                    autoRun={block.language.toLowerCase() !== 'python'}
                                     onExecute={async (code, language) => {
                                       const result = await executeCode(code, language as 'python' | 'javascript');
                                       return {
@@ -1361,21 +1446,25 @@ const ChatInterface: React.FC = () => {
               </ScrollArea>
             </div>
 
-            {/* Input Form */}
+            {/* Input Form - Lovable-style floating composer */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="p-6 border-t bg-card/30 backdrop-blur-sm"
+              transition={{ delay: 0.25 }}
+              className="px-6 pb-6 pt-2"
             >
-              <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-                <div className="flex gap-3 items-end">
-                  <div className="flex-1 relative">
+              <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+                <motion.div 
+                  initial={{ opacity: 0.95 }}
+                  whileFocus={{ opacity: 1 }}
+                  className="rounded-full bg-[#0F1012]/70 backdrop-blur-xl border border-white/10 shadow-2xl px-4 py-2 flex items-end gap-2"
+                >
+                  <div className="flex-1">
                     <Textarea
                       value={input}
                       onChange={(e) => setInput(e.target.value.substring(0, MAX_MESSAGE_LENGTH))}
-                      placeholder="Continue the conversation..."
-                      className="min-h-[50px] max-h-32 resize-none text-sm bg-background/80 backdrop-blur-sm border-2 border-muted/50 focus:border-primary/50 transition-all duration-200 pr-16 rounded-xl shadow-sm"
+                      placeholder="Ask anything or paste code (```js)..."
+                      className="min-h-[48px] max-h-40 resize-none text-sm bg-transparent border-0 focus-visible:ring-0 focus-visible:outline-none focus:outline-none pr-2 rounded-none"
                       maxLength={MAX_MESSAGE_LENGTH}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -1384,22 +1473,24 @@ const ChatInterface: React.FC = () => {
                         }
                       }}
                     />
-                    <Button 
-                      type="submit" 
-                      disabled={!input.trim() || isTyping}
-                      size="sm"
-                      className="absolute right-2 bottom-2 h-9 w-9 p-0 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-md transition-all"
-                    >
-                      {isTyping ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Send className="w-4 h-4" />
-                      )}
-                    </Button>
                   </div>
-                </div>
-                <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
-                  <span>Press Enter to send • Shift+Enter for new line</span>
+                  <Button 
+                    type="submit" 
+                    disabled={!input.trim() || isTyping}
+                    size="sm"
+                    className="h-9 px-4 rounded-full bg-white text-blue-600 hover:bg-white/90 shadow-md"
+                  >
+                    {isTyping ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                      </>
+                    )}
+                  </Button>
+                </motion.div>
+                <div className="flex justify-between items-center mt-2 text-[11px] text-muted-foreground">
+                  <span>Enter to send • Shift+Enter for newline</span>
                   <span className={input.length > MAX_MESSAGE_LENGTH * 0.9 ? 'text-orange-500' : ''}>
                     {input.length}/{MAX_MESSAGE_LENGTH}
                   </span>

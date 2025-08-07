@@ -113,6 +113,12 @@ async function getCurrentModel() {
   return (await groq)('openai/gpt-oss-20b');
 }
 
+// Gemma model (for concise title generation)
+async function getGemmaModel() {
+  const groq = await createGroqInstance();
+  return groq('google/gemma-2-9b-it');
+}
+
 // OpenRouter failsafe model
 const fallbackModel = openrouter.chat('qwen/qwen3-coder:free')
 
@@ -477,3 +483,22 @@ export const costTracker = {
   getCostPercentage: () => (getTodayCost() / DAILY_COST_LIMIT) * 100,
   isNearLimit: () => getTodayCost() > (DAILY_COST_LIMIT * 0.8), // 80% threshold
 };
+
+export async function generateChatTitleFromMessages(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
+  try {
+    const model = await getGemmaModel();
+    const lastUser = [...messages].reverse().find(m => m.role === 'user');
+    const seed = lastUser?.content || messages[messages.length - 1]?.content || '';
+    const instruction = `Create a short, catchy chat title (max 8 words). No quotes. No trailing punctuation. Focus on the main task/topic.\n\nContext:\n${seed.slice(0, 600)}`;
+    const res = await generateText({
+      model,
+      prompt: instruction,
+      temperature: 0.3,
+      maxTokens: 24,
+    });
+    const title = (res.text || 'New chat').trim().replace(/^"|"$/g, '').replace(/[.!?\s]+$/g, '').slice(0, 60);
+    return title.length > 0 ? title : 'New chat';
+  } catch (e) {
+    return 'New chat';
+  }
+}

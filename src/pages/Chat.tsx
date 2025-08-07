@@ -32,7 +32,7 @@ const Chat: React.FC = () => {
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="h-[calc(100vh-6rem)] bg-card/60 border border-white/10 rounded-2xl shadow-sm overflow-hidden backdrop-blur-sm"
+            className="h-[calc(100vh-6rem)] bg-[#0F1012]/70 border border-white/10 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl"
           >
             <ChatInterface />
           </motion.div>
