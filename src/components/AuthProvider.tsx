@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth as useClerkAuth, useUser } from '@clerk/clerk-react';
-import { AuthCookies } from '@/lib/auth-cookies';
+import type { UserResource } from '@clerk/types';
+import { useAuthToken } from '@/lib/auth-token';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: unknown;
+  user: UserResource | null | undefined;
   token: string | null;
   refreshAuth: () => Promise<void>;
 }
@@ -13,66 +14,55 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { getToken, isSignedIn, isLoaded } = useClerkAuth();
+  const { isSignedIn, isLoaded } = useClerkAuth();
   const { user } = useUser();
+  const { getValidToken, clearStoredToken } = useAuthToken();
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshAuth = useCallback(async () => {
-    setIsLoading(true);
     try {
       if (isSignedIn && isLoaded) {
-        const newToken = await getToken();
-        if (newToken) {
-          setToken(newToken);
-          AuthCookies.set(newToken);
-        }
+        const newToken = await getValidToken();
+        setToken(newToken);
       } else {
         setToken(null);
-        AuthCookies.remove();
+        clearStoredToken();
       }
     } catch (error) {
-      console.error('Failed to refresh auth token:', error);
-      // Try to use cached token if available
-      const cachedToken = AuthCookies.get();
-      if (cachedToken && AuthCookies.isValid()) {
-        setToken(cachedToken);
-      } else {
-        setToken(null);
-        AuthCookies.remove();
-      }
-    } finally {
-      setIsLoading(false);
+      console.error('Failed to refresh auth token');
+      setToken(null);
+      clearStoredToken();
     }
-  }, [isSignedIn, isLoaded, getToken]);
+  }, [isSignedIn, isLoaded, getValidToken, clearStoredToken]);
 
+  // Main auth effect - handles initial load and auth state changes
   useEffect(() => {
-    refreshAuth();
+    const handleAuth = async () => {
+      if (!isLoaded) {
+        // Still loading Clerk, keep loading state
+        return;
+      }
+      
+      setIsLoading(true);
+      await refreshAuth();
+      setIsLoading(false);
+    };
+    
+    handleAuth();
   }, [isSignedIn, isLoaded, user?.id, refreshAuth]);
 
   // Periodic token refresh to prevent expiration
   useEffect(() => {
-    if (isSignedIn) {
-      const interval = setInterval(() => {
-        refreshAuth();
-      }, 4 * 60 * 1000); // Refresh every 4 minutes
-
+    if (isSignedIn && isLoaded) {
+      const interval = setInterval(refreshAuth, 4 * 60 * 1000); // Every 4 minutes
       return () => clearInterval(interval);
     }
-  }, [isSignedIn, refreshAuth]);
-
-  // Initialize token from cookie on app start
-  useEffect(() => {
-    const cachedToken = AuthCookies.get();
-    if (cachedToken && AuthCookies.isValid() && !token) {
-      setToken(cachedToken);
-    }
-    setIsLoading(false);
-  }, [token]);
+  }, [isSignedIn, isLoaded, refreshAuth]);
 
   const value: AuthContextType = {
     isAuthenticated: isLoaded && isSignedIn && !!token,
-    isLoading: !isLoaded || isLoading,
+    isLoading: isLoading || !isLoaded,
     user,
     token,
     refreshAuth,

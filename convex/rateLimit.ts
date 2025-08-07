@@ -23,7 +23,8 @@ interface RateLimitEntry {
   resetTime: number;
 }
 
-// Simple in-memory rate limiting (for production, use Redis or similar)
+// Simple in-memory rate limiting with bounded size (for production, use Redis or similar)
+const MAX_RATE_LIMIT_ENTRIES = 10000; // Prevent unbounded growth
 const rateLimitStore = new Map<string, RateLimitEntry>();
 
 /**
@@ -38,8 +39,8 @@ export async function checkRateLimit(
     throw new Error("Authentication required for rate limiting");
   }
 
-  // Periodically clean up expired entries to prevent memory leaks
-  if (Math.random() < 0.01) { // 1% chance to cleanup on each call
+  // More aggressive cleanup to prevent memory leaks
+  if (Math.random() < 0.05 || rateLimitStore.size > MAX_RATE_LIMIT_ENTRIES) {
     cleanupExpiredRateLimits();
   }
 
@@ -104,9 +105,27 @@ export async function enforceRateLimit(
  */
 function cleanupExpiredRateLimits(): void {
   const now = Date.now();
+  const keysToDelete: string[] = [];
+  
   for (const [key, entry] of rateLimitStore.entries()) {
     if (now > entry.resetTime) {
-      rateLimitStore.delete(key);
+      keysToDelete.push(key);
+    }
+  }
+  
+  // Delete expired entries
+  for (const key of keysToDelete) {
+    rateLimitStore.delete(key);
+  }
+  
+  // If still too many entries, delete oldest ones (LRU-style)
+  if (rateLimitStore.size > MAX_RATE_LIMIT_ENTRIES) {
+    const entries = Array.from(rateLimitStore.entries());
+    entries.sort((a, b) => a[1].resetTime - b[1].resetTime);
+    
+    const numToDelete = rateLimitStore.size - MAX_RATE_LIMIT_ENTRIES;
+    for (let i = 0; i < numToDelete; i++) {
+      rateLimitStore.delete(entries[i][0]);
     }
   }
 }

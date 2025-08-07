@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useConvexAuth } from 'convex/react';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
-import { AuthCookies, useAuthCookies } from '@/lib/auth-cookies';
+import { useAuthToken } from '@/lib/auth-token';
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -10,33 +10,23 @@ interface AuthWrapperProps {
 export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
   const convexAuth = useConvexAuth();
   const clerkAuth = useClerkAuth();
-  const { getStoredToken, clearToken } = useAuthCookies();
+  const { getValidToken, clearStoredToken } = useAuthToken();
 
   useEffect(() => {
     // Handle authentication recovery on page load/refresh
     const handleAuthRecovery = async () => {
-      // If Convex shows not authenticated but we have a valid cookie token
-      if (!convexAuth.isAuthenticated && !convexAuth.isLoading) {
-        const storedToken = getStoredToken();
-        
-        if (storedToken && AuthCookies.isValid()) {
-          // Try to refresh Clerk session if needed
-          try {
-            if (clerkAuth.isSignedIn) {
-              const freshToken = await clerkAuth.getToken({ skipCache: true });
-              if (freshToken) {
-                AuthCookies.set(freshToken);
-                // Let Convex naturally re-authenticate without forcing reload
-                console.log('Auth token refreshed, waiting for Convex sync');
-              }
-            }
-          } catch (error) {
-            console.warn('Auth recovery failed:', error);
-            clearToken();
+      // If Convex shows not authenticated but Clerk is signed in
+      if (!convexAuth.isAuthenticated && !convexAuth.isLoading && clerkAuth.isSignedIn && clerkAuth.isLoaded) {
+        try {
+          // Get a fresh token to sync with Convex
+          const freshToken = await getValidToken();
+          if (freshToken) {
+            // Let Convex naturally re-authenticate without forcing reload
+            console.log('Auth token refreshed for Convex sync');
           }
-        } else if (storedToken) {
-          // Remove invalid token
-          clearToken();
+        } catch (error) {
+          console.error('Auth recovery failed');
+          clearStoredToken();
         }
       }
     };
@@ -44,14 +34,14 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
     // Run recovery after initial auth check
     const timeout = setTimeout(handleAuthRecovery, 1000);
     return () => clearTimeout(timeout);
-  }, [convexAuth.isAuthenticated, convexAuth.isLoading, clerkAuth.isSignedIn, getStoredToken, clearToken, clerkAuth]);
+  }, [convexAuth.isAuthenticated, convexAuth.isLoading, clerkAuth.isSignedIn, clerkAuth.isLoaded, getValidToken, clearStoredToken]);
 
   // Handle sign out cleanup
   useEffect(() => {
     if (!clerkAuth.isSignedIn && clerkAuth.isLoaded) {
-      clearToken();
+      clearStoredToken();
     }
-  }, [clerkAuth.isSignedIn, clerkAuth.isLoaded, clearToken]);
+  }, [clerkAuth.isSignedIn, clerkAuth.isLoaded, clearStoredToken]);
 
   return <>{children}</>;
 };

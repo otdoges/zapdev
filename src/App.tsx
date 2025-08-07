@@ -17,14 +17,16 @@ import Chat from "./pages/Chat";
 import AuthGuard from "./components/AuthGuard";
 import UserSync from "./components/UserSync";
 import { AuthWrapper } from "./components/AuthWrapper";
+import { AuthErrorBoundary } from "./components/AuthErrorBoundary";
 import E2BDemo from "./pages/E2BDemo";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-    <UserSync>
-      <AuthWrapper>
+    <AuthErrorBoundary>
+      <UserSync>
+        <AuthWrapper>
         <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
@@ -59,8 +61,9 @@ const App = () => (
           </TooltipProvider>
         </QueryClientProvider>
         </trpc.Provider>
-      </AuthWrapper>
-    </UserSync>
+        </AuthWrapper>
+      </UserSync>
+    </AuthErrorBoundary>
   </ConvexProviderWithClerk>
 );
 

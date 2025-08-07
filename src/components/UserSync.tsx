@@ -3,31 +3,12 @@ import { useConvexAuth } from 'convex/react';
 import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { AuthCookies } from '@/lib/auth-cookies';
 
 export default function UserSync({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { user: clerkUser } = useUser();
-  const { getToken, isSignedIn } = useClerkAuth();
+  const { isSignedIn } = useClerkAuth();
   const upsertUser = useMutation(api.users.upsertUser);
-
-  // Store auth token in cookies when user signs in
-  useEffect(() => {
-    const storeAuthToken = async () => {
-      if (isSignedIn && clerkUser) {
-        try {
-          const token = await getToken();
-          if (token) {
-            AuthCookies.set(token);
-          }
-        } catch (error) {
-          console.error('Failed to store auth token:', error);
-        }
-      }
-    };
-
-    storeAuthToken();
-  }, [isSignedIn, clerkUser?.id, getToken, clerkUser]);
 
   useEffect(() => {
     if (isAuthenticated && !isLoading && clerkUser) {

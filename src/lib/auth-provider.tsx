@@ -1,48 +1,32 @@
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useConvexAuth } from 'convex/react';
-import { AuthCookies } from './auth-cookies';
+import { useAuthToken } from './auth-token';
 
-// Enhanced auth hook that combines Clerk and Convex auth with cookie fallback
-export const useAuthWithCookies = () => {
+// Enhanced auth hook that combines Clerk and Convex auth with secure token management
+export const useAuthWithTokens = () => {
   const clerkAuth = useClerkAuth();
   const convexAuth = useConvexAuth();
+  const { getValidToken, clearStoredToken } = useAuthToken();
 
-  // Enhanced getToken that uses cookies as fallback
-  const getTokenWithFallback = async () => {
+  // Enhanced getToken that uses secure memory-based storage
+  const getTokenSecure = async () => {
     try {
-      // First, try to get token from Clerk
-      if (clerkAuth.isSignedIn) {
-        const token = await clerkAuth.getToken();
-        if (token) {
-          // Store token in cookie for persistence
-          AuthCookies.set(token);
-          return token;
-        }
-      }
-      
-      // Fallback to cookie if Clerk fails
-      const cookieToken = AuthCookies.get();
-      if (cookieToken && AuthCookies.isValid()) {
-        return cookieToken;
+      // Get token using the secure token manager
+      if (clerkAuth.isSignedIn && clerkAuth.isLoaded) {
+        return await getValidToken();
       }
       
       return null;
     } catch (error) {
-      console.error('Error getting auth token:', error);
-      
-      // Try cookie as last resort
-      const cookieToken = AuthCookies.get();
-      if (cookieToken && AuthCookies.isValid()) {
-        return cookieToken;
-      }
-      
+      console.error('Error getting auth token');
+      clearStoredToken();
       return null;
     }
   };
 
   // Clear tokens on sign out
   const signOut = async () => {
-    AuthCookies.remove();
+    clearStoredToken();
     if (clerkAuth.signOut) {
       await clerkAuth.signOut();
     }
@@ -51,7 +35,7 @@ export const useAuthWithCookies = () => {
   return {
     ...clerkAuth,
     ...convexAuth,
-    getToken: getTokenWithFallback,
+    getToken: getTokenSecure,
     signOut,
     isFullyAuthenticated: convexAuth.isAuthenticated && clerkAuth.isSignedIn,
   };
