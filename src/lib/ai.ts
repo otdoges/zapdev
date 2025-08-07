@@ -175,6 +175,8 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           apiKeySource
         });
 
+        // Get current model before callback chain
+        const currentModel = await getCurrentModel();
         span.setAttribute("model", "openai/gpt-oss-20b");
         
         // Execute with circuit breaker and retry logic
@@ -182,7 +184,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           () => withRetry(
             () => monitorAIOperation(
               () => generateText({
-                model: await getCurrentModel(),
+                model: currentModel,
                 prompt,
                 maxTokens: 8000, // Increased token limit for openai/gpt-oss-20b (max 32,768)
                 temperature: 0.7,
