@@ -50,10 +50,8 @@ const Navigation = () => {
   const navItems = [
     { name: "Features", href: "#features", onClick: () => scrollToSection('features') },
     { name: "Pricing", href: "/pricing", isLink: true },
-    { name: "Templates", href: "#testimonials", onClick: () => scrollToSection('testimonials') },
     ...(isAuthenticated ? [
-      { name: "AI Chat", href: "/chat", isLink: true },
-      { name: "E2B Demo", href: "/e2b-demo", isLink: true, isNew: true }
+      { name: "AI Chat", href: "/chat", isLink: true }
     ] : []),
   ];
 

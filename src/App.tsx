@@ -18,7 +18,6 @@ import AuthGuard from "./components/AuthGuard";
 import UserSync from "./components/UserSync";
 import { AuthWrapper } from "./components/AuthWrapper";
 import { AuthErrorBoundary } from "./components/AuthErrorBoundary";
-import E2BDemo from "./pages/E2BDemo";
 
 const queryClient = new QueryClient();
 
@@ -50,11 +49,6 @@ const App = () => (
                   } />
                   <Route path="/terms" element={<TermsOfService />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
-                  <Route path="/e2b-demo" element={
-                    <AuthGuard>
-                      <E2BDemo />
-                    </AuthGuard>
-                  } />
                 </Routes>
               </BrowserRouter>
             </div>

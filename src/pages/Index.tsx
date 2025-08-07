@@ -7,8 +7,6 @@ import { useAuth } from "@/hooks/useAuth";
 import Navigation from "@/components/Navigation";
 import { FeaturesSection } from "@/components/features/FeaturesSection";
 import { DynamicPricingSection } from "@/components/pricing/DynamicPricingSection";
-import LogoCarousel from "@/components/LogoCarousel";
-import TestimonialsSection from "@/components/TestimonialsSection";
 import Footer from "@/components/Footer";
 const Index = () => {
   const navigate = useNavigate();
@@ -172,15 +170,6 @@ const Index = () => {
         </div>
       </motion.section>
 
-      {/* Logo Carousel */}
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.2 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-      >
-        <LogoCarousel />
-      </motion.div>
 
       {/* Features Section */}
       <div id="features" className="bg-black">
@@ -192,16 +181,6 @@ const Index = () => {
         <DynamicPricingSection />
       </div>
 
-      {/* Testimonials Section */}
-      <motion.div 
-        initial={{ opacity: 0, y: 50 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.1 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-        className="bg-black"
-      >
-        <TestimonialsSection />
-      </motion.div>
 
       {/* CTA Section */}
       <motion.section 

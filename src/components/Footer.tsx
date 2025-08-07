@@ -18,7 +18,11 @@ const Footer = () => {
                 <Button variant="ghost" size="icon">
                   <Twitter className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="icon">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => window.open('https://github.com/otdoges/zapdev.git', '_blank')}
+                >
                   <Github className="w-4 h-4" />
                 </Button>
               </div>

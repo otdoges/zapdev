@@ -539,340 +539,420 @@ const ChatInterface: React.FC = () => {
     );
   }
 
+  const hasMessages = messages && messages.length > 0;
+
   return (
     <div className="flex h-full bg-background">
-      {/* Chat Sidebar */}
-      <div className="w-80 border-r bg-card/50 backdrop-blur-sm">
-        <div className="p-4 border-b">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold flex items-center">
-              <MessageSquare className="w-5 h-5 mr-2" />
-              Chats
-            </h2>
-            <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline">
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Chat</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <Input
-                    placeholder="Enter chat title..."
-                    value={newChatTitle}
-                    onChange={(e) => setNewChatTitle(e.target.value.substring(0, MAX_TITLE_LENGTH))}
-                    onKeyDown={(e) => e.key === 'Enter' && handleCreateChat()}
-                    maxLength={MAX_TITLE_LENGTH}
-                  />
-                  <div className="text-xs text-muted-foreground">
-                    {newChatTitle.length}/{MAX_TITLE_LENGTH} characters
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => setIsNewChatOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleCreateChat} disabled={!newChatTitle.trim()}>
-                      Create Chat
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-
-        <ScrollArea className="h-[calc(100%-80px)]">
-          <div className="p-2">
-            {chats?.map((chat) => (
-              <motion.div
-                key={chat._id}
-                layout
-                className={`group relative p-3 rounded-lg cursor-pointer transition-all mb-2 ${
-                  selectedChatId === chat._id 
-                    ? 'bg-primary/10 border border-primary/20' 
-                    : 'hover:bg-muted/50'
-                }`}
-                onClick={() => setSelectedChatId(chat._id)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm truncate">
-                      <SafeText>{chat.title}</SafeText>
-                    </h3>
-                    <p className="text-xs text-muted-foreground flex items-center mt-1">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {formatTimestamp(chat.updatedAt)}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteChat(chat._id);
-                    }}
-                  >
-                    <Trash2 className="w-3 h-3" />
+      {/* Conditionally render chat sidebar only when no messages or split view */}
+      {!hasMessages && (
+        <div className="w-80 border-r bg-card/50 backdrop-blur-sm">
+          <div className="p-4 border-b">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center">
+                <MessageSquare className="w-5 h-5 mr-2" />
+                Chats
+              </h2>
+              <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <Plus className="w-4 h-4" />
                   </Button>
-                </div>
-              </motion.div>
-            ))}
-
-            {chats?.length === 0 && (
-              <div className="text-center py-8">
-                <MessageSquare className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">No chats yet</p>
-                <p className="text-xs text-muted-foreground mt-1">Create your first chat to get started</p>
-              </div>
-            )}
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Chat</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <Input
+                      placeholder="Enter chat title..."
+                      value={newChatTitle}
+                      onChange={(e) => setNewChatTitle(e.target.value.substring(0, MAX_TITLE_LENGTH))}
+                      onKeyDown={(e) => e.key === 'Enter' && handleCreateChat()}
+                      maxLength={MAX_TITLE_LENGTH}
+                    />
+                    <div className="text-xs text-muted-foreground">
+                      {newChatTitle.length}/{MAX_TITLE_LENGTH} characters
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" onClick={() => setIsNewChatOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleCreateChat} disabled={!newChatTitle.trim()}>
+                        Create Chat
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
-        </ScrollArea>
-      </div>
 
-      {/* Chat Area with animated background */}
-      <div className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Animated background gradient */}
-        <motion.div
-          animate={{
-            background: [
-              "radial-gradient(circle at 20% 50%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)",
-              "radial-gradient(circle at 80% 50%, rgba(236, 72, 153, 0.1) 0%, transparent 50%)",
-              "radial-gradient(circle at 20% 50%, rgba(147, 51, 234, 0.1) 0%, transparent 50%)",
-            ],
-          }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute inset-0 pointer-events-none"
-        />
-        {selectedChatId ? (
-          <>
-            {/* Chat Header with animation */}
+          <ScrollArea className="h-[calc(100%-80px)]">
+            <div className="p-2">
+              {chats?.map((chat) => (
+                <motion.div
+                  key={chat._id}
+                  layout
+                  className={`group relative p-3 rounded-lg cursor-pointer transition-all mb-2 ${
+                    selectedChatId === chat._id 
+                      ? 'bg-primary/10 border border-primary/20' 
+                      : 'hover:bg-muted/50'
+                  }`}
+                  onClick={() => setSelectedChatId(chat._id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-sm truncate">
+                        <SafeText>{chat.title}</SafeText>
+                      </h3>
+                      <p className="text-xs text-muted-foreground flex items-center mt-1">
+                        <Clock className="w-3 h-3 mr-1" />
+                        {formatTimestamp(chat.updatedAt)}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteChat(chat._id);
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </motion.div>
+              ))}
+
+              {chats?.length === 0 && (
+                <div className="text-center py-8">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">No chats yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Create your first chat to get started</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {/* Split view when messages exist */}
+      {hasMessages && (
+        <div className="flex-1 flex">
+          {/* Left Panel - Preview/Code Area */}
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+            className="w-1/2 border-r bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 relative overflow-hidden"
+          >
+            {/* Preview header */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="p-4 border-b bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm"
+            >
+              <div className="flex items-center gap-3">
+                <motion.div
+                  animate={{ rotate: [0, 360] }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                >
+                  <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                </motion.div>
+                <h3 className="font-semibold text-lg bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  API Key Obfuscation Security
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Secure storage utilities for sensitive data like API keys
+              </p>
+            </motion.div>
+
+            {/* Preview content */}
+            <div className="p-6 space-y-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="space-y-4"
+              >
+                <div className="bg-white dark:bg-slate-800 rounded-lg border p-4 shadow-sm">
+                  <h4 className="font-medium text-base mb-3 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-green-600" />
+                    Security Implementation
+                  </h4>
+                  <div className="space-y-3 text-sm text-muted-foreground">
+                    <div className="flex items-start gap-2">
+                      <div className="w-1 h-1 bg-purple-600 rounded-full mt-2"></div>
+                      <p>Uses Web Crypto API for proper encryption (AES-GCM)</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1 h-1 bg-purple-600 rounded-full mt-2"></div>
+                      <p>For production, consider using a backend proxy instead of client-side storage</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1 h-1 bg-purple-600 rounded-full mt-2"></div>
+                      <p>This provides reasonable security for client-side storage but is not foolproof</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1 h-1 bg-purple-600 rounded-full mt-2"></div>
+                      <p>API keys in browsers are inherently exposed to determined attackers</p>
+                    </div>
+                  </div>
+                </div>
+
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.6 }}
+                  className="bg-slate-900 dark:bg-slate-950 rounded-lg p-4 overflow-hidden"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-mono text-green-400">Configuration</span>
+                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                      <Copy className="w-3 h-3 text-slate-400" />
+                    </Button>
+                  </div>
+                  <pre className="text-xs text-slate-300 font-mono overflow-x-auto">
+{`const STORAGE_KEY = 'zapdev-secure-config';
+const SALT_KEY = 'zapdev-salt';
+const IV_KEY = 'zapdev-iv';
+const ITERATIONS = 100000;
+const KEY_EXPIRY_DAYS = 30;
+
+export interface SecureConfig {
+  useUserApiKey?: boolean;
+  encryptedApiKey?: string;
+  salt?: string;
+  iv?: string;
+  lastUpdated?: number;
+  checksum?: string;
+}`}
+                  </pre>
+                </motion.div>
+              </motion.div>
+            </div>
+          </motion.div>
+
+          {/* Right Panel - Chat Area */}
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, type: "spring", stiffness: 100, delay: 0.1 }}
+            className="w-1/2 flex flex-col relative overflow-hidden bg-background"
+          >
+            {/* Chat header */}
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
               className="p-4 border-b bg-card/30 backdrop-blur-sm"
             >
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold flex items-center">
-                    <motion.div
-                      animate={{ rotate: [0, 360] }}
-                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                    >
-                      <Sparkles className="w-5 h-5 mr-2 text-primary" />
-                    </motion.div>
-                    AI Assistant with E2B
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    <SafeText>{chats?.find(c => c._id === selectedChatId)?.title || 'Chat'}</SafeText>
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                <div className="flex items-center gap-3">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedChatId(null)}
+                    className="h-8 w-8 p-0"
                   >
-                    <Badge variant="secondary" className="text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0">
-                      Next.js + E2B Ready
-                    </Badge>
-                  </motion.div>
-                  
-                  {/* Encryption toggle and status */}
+                    <MessageSquare className="w-4 h-4" />
+                  </Button>
+                  <div>
+                    <h2 className="font-semibold text-base">
+                      <SafeText>{chats?.find(c => c._id === selectedChatId)?.title || 'Chat'}</SafeText>
+                    </h2>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="secondary" className="text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 px-2 py-0.5">
+                        ZapDev AI
+                      </Badge>
+                      <span>{messages?.length || 0} messages</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Encryption status */}
+                <div className="flex items-center gap-2">
                   <Button
                     size="sm"
                     variant={encryptionEnabled ? "default" : "outline"}
                     onClick={() => encryptionInitialized && setEncryptionEnabled(!encryptionEnabled)}
                     disabled={!encryptionInitialized}
                     className={`h-7 px-2 text-xs ${!encryptionInitialized ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title={
-                      !encryptionInitialized 
-                        ? "Encryption unavailable - initialization failed" 
-                        : encryptionEnabled 
-                          ? "Encryption enabled" 
-                          : "Encryption disabled"
-                    }
                   >
                     {!encryptionInitialized ? (
-                      <>
-                        <Shield className="w-3 h-3 mr-1" />
-                        Unavailable
-                      </>
+                      <Shield className="w-3 h-3" />
                     ) : encryptionEnabled ? (
-                      <>
-                        <ShieldCheck className="w-3 h-3 mr-1" />
-                        Encrypted
-                      </>
+                      <ShieldCheck className="w-3 h-3" />
                     ) : (
-                      <>
-                        <ShieldX className="w-3 h-3 mr-1" />
-                        Plaintext
-                      </>
+                      <ShieldX className="w-3 h-3" />
                     )}
                   </Button>
-                  
-                  <Badge variant="secondary" className="text-xs">
-                    {messages?.length || 0} messages
-                  </Badge>
                 </div>
               </div>
             </motion.div>
 
-            {/* Messages */}
-            <ScrollArea className="flex-1 p-4">
-              <div className="max-w-4xl mx-auto space-y-6">
-                <AnimatePresence>
-                  {messages?.map((message) => (
-                    <motion.div
-                      key={message._id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      {message.role === 'assistant' && (
-                        <Avatar className="w-8 h-8 border-2 border-primary/20">
-                          <AvatarFallback className="bg-primary/10">
-                            <Bot className="w-4 h-4 text-primary" />
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      
-                      <div className={`max-w-[70%] ${message.role === 'user' ? 'order-1' : ''}`}>
-                        <Card className={`${
-                          message.role === 'user' 
-                            ? 'bg-primary text-primary-foreground' 
-                            : 'bg-card border-muted'
-                        }`}>
-                          <CardContent className="p-4">
-                            <div className="prose prose-sm max-w-none dark:prose-invert">
-                              <div className="whitespace-pre-wrap">
+            {/* Chat messages area */}
+            <div className="flex-1 relative overflow-hidden">
+              {/* Animated background gradient */}
+              <motion.div
+                animate={{
+                  background: [
+                    "radial-gradient(circle at 20% 50%, rgba(147, 51, 234, 0.05) 0%, transparent 50%)",
+                    "radial-gradient(circle at 80% 50%, rgba(236, 72, 153, 0.05) 0%, transparent 50%)",
+                    "radial-gradient(circle at 20% 50%, rgba(147, 51, 234, 0.05) 0%, transparent 50%)",
+                  ],
+                }}
+                transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute inset-0 pointer-events-none"
+              />
+              
+              {/* Messages */}
+              <ScrollArea className="h-full p-4">
+                <div className="space-y-4">
+                  <AnimatePresence>
+                    {messages?.map((message) => (
+                      <motion.div
+                        key={message._id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        {message.role === 'assistant' && (
+                          <Avatar className="w-7 h-7 border border-primary/20">
+                            <AvatarFallback className="bg-primary/10">
+                              <Bot className="w-3 h-3 text-primary" />
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                        
+                        <div className={`max-w-[80%] ${message.role === 'user' ? 'order-1' : ''}`}>
+                          <Card className={`${
+                            message.role === 'user' 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'bg-card/50 backdrop-blur-sm border-muted'
+                          }`}>
+                            <CardContent className="p-3">
+                              <div className="text-sm">
                                 <SafeText>{getMessageContent(message)}</SafeText>
                               </div>
                               
                               {/* Encryption indicator */}
                               {message.isEncrypted && (
-                                <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                  <span>End-to-end encrypted</span>
+                                <div className="flex items-center gap-1 mt-2 text-xs opacity-70">
+                                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                                  <span>Encrypted</span>
                                 </div>
                               )}
-                            </div>
-                            
-                            {/* Code blocks with E2B execution */}
-                            {message.role === 'assistant' && extractCodeBlocks(getMessageContent(message)).map((block) => (
-                              <motion.div
-                                key={block.id}
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ duration: 0.3 }}
-                                className="mt-4"
-                              >
-                                <E2BCodeExecution
-                                  code={block.code}
-                                  language={block.language}
-                                  onExecute={async (code, language) => {
-                                    const result = await executeCode(code, language as 'python' | 'javascript');
-                                    return {
-                                      success: result.success,
-                                      output: result.stdout,
-                                      error: result.error as string | undefined,
-                                      logs: result.stderr ? [result.stderr] : [],
-                                      executionTime: Date.now() % 1000, // Mock execution time
-                                    };
-                                  }}
-                                  showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
-                                />
-                              </motion.div>
-                            ))}
-                            
-                            <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50">
-                              <span className="text-xs text-muted-foreground">
-                                {formatTimestamp(message.createdAt)}
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0"
-                                onClick={() => copyToClipboard(getMessageContent(message), message._id)}
-                              >
-                                {copiedMessage === message._id ? (
-                                  <Check className="w-3 h-3" />
-                                ) : (
-                                  <Copy className="w-3 h-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
+                              
+                              {/* Code blocks with E2B execution */}
+                              {message.role === 'assistant' && extractCodeBlocks(getMessageContent(message)).map((block) => (
+                                <motion.div
+                                  key={block.id}
+                                  initial={{ opacity: 0, scale: 0.95 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ duration: 0.3 }}
+                                  className="mt-3"
+                                >
+                                  <E2BCodeExecution
+                                    code={block.code}
+                                    language={block.language}
+                                    onExecute={async (code, language) => {
+                                      const result = await executeCode(code, language as 'python' | 'javascript');
+                                      return {
+                                        success: result.success,
+                                        output: result.stdout,
+                                        error: result.error as string | undefined,
+                                        logs: result.stderr ? [result.stderr] : [],
+                                        executionTime: Date.now() % 1000,
+                                      };
+                                    }}
+                                    showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
+                                  />
+                                </motion.div>
+                              ))}
+                              
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/30">
+                                <span className="text-xs opacity-70">
+                                  {formatTimestamp(message.createdAt)}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-5 w-5 p-0 opacity-70 hover:opacity-100"
+                                  onClick={() => copyToClipboard(getMessageContent(message), message._id)}
+                                >
+                                  {copiedMessage === message._id ? (
+                                    <Check className="w-3 h-3" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
 
-                      {message.role === 'user' && (
-                        <Avatar className="w-8 h-8 border-2 border-muted">
-                          <AvatarImage src={user?.avatarUrl} />
-                          <AvatarFallback>
-                            <User className="w-4 h-4" />
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+                        {message.role === 'user' && (
+                          <Avatar className="w-7 h-7 border border-muted">
+                            <AvatarImage src={user?.avatarUrl} />
+                            <AvatarFallback>
+                              <User className="w-3 h-3" />
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
 
-                {isTyping && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-4"
-                  >
-                    <Avatar className="w-8 h-8 border-2 border-primary/20">
-                      <AvatarFallback className="bg-primary/10">
-                        <Bot className="w-4 h-4 text-primary" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <Card className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800">
-                      <CardContent className="p-4">
-                        <div className="flex items-center space-x-3">
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          >
-                            <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                          </motion.div>
+                  {isTyping && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex gap-3"
+                    >
+                      <Avatar className="w-7 h-7 border border-primary/20">
+                        <AvatarFallback className="bg-primary/10">
+                          <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <Card className="bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200/50 dark:border-purple-800/50">
+                        <CardContent className="p-3">
                           <motion.span
-                            className="text-sm text-purple-700 dark:text-purple-300 font-medium"
+                            className="text-sm text-purple-700 dark:text-purple-300"
                             animate={{ opacity: [0.5, 1, 0.5] }}
                             transition={{ duration: 1.5, repeat: Infinity }}
                           >
-                            Generating Next.js code with E2B...
+                            Thinking...
                           </motion.span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                )}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
 
-                <div ref={messagesEndRef} />
-              </div>
-            </ScrollArea>
+                  <div ref={messagesEndRef} />
+                </div>
+              </ScrollArea>
+            </div>
 
-            {/* Input Form with enhanced styling */}
+            {/* Input Form */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-4 border-t bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20 backdrop-blur-sm"
+              transition={{ delay: 0.4 }}
+              className="p-4 border-t bg-card/30 backdrop-blur-sm"
             >
-              <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-                <div className="flex gap-3 items-end">
+              <form onSubmit={handleSubmit}>
+                <div className="flex gap-2 items-end">
                   <div className="flex-1">
                     <Textarea
                       value={input}
                       onChange={(e) => setInput(e.target.value.substring(0, MAX_MESSAGE_LENGTH))}
                       placeholder="Ask me anything..."
-                      className="min-h-[44px] max-h-32 resize-none"
+                      className="min-h-[40px] max-h-24 resize-none text-sm"
                       maxLength={MAX_MESSAGE_LENGTH}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -885,14 +965,15 @@ const ChatInterface: React.FC = () => {
                   <Button 
                     type="submit" 
                     disabled={!input.trim() || isTyping}
-                    className="h-11 px-6"
+                    size="sm"
+                    className="h-10 px-4"
                   >
                     <Send className="w-4 h-4" />
                   </Button>
                 </div>
                 <div className="flex justify-between items-center mt-2">
                   <p className="text-xs text-muted-foreground">
-                    Press Enter to send, Shift+Enter for new line
+                    Enter to send
                   </p>
                   <span className="text-xs text-muted-foreground">
                     {input.length}/{MAX_MESSAGE_LENGTH}
@@ -900,26 +981,72 @@ const ChatInterface: React.FC = () => {
                 </div>
               </form>
             </motion.div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <motion.div
-                animate={{ rotate: [0, 360] }}
-                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-              >
-                <Zap className="w-16 h-16 mx-auto mb-4 text-purple-600 dark:text-purple-400" />
-              </motion.div>
-              <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Welcome to ZapDev AI</h3>
-              <p className="text-muted-foreground mb-4">Create Next.js applications with E2B integration</p>
-              <Button onClick={() => setIsNewChatOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create New Chat
-              </Button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Welcome screen when no chat selected */}
+      {!hasMessages && !selectedChatId && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <motion.div
+              animate={{ rotate: [0, 360] }}
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            >
+              <Zap className="w-16 h-16 mx-auto mb-4 text-purple-600 dark:text-purple-400" />
+            </motion.div>
+            <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Welcome to ZapDev AI</h3>
+            <p className="text-muted-foreground mb-4">Create applications with AI-powered development</p>
+            <Button onClick={() => setIsNewChatOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Create New Chat
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Empty chat state - selected chat but no messages */}
+      {!hasMessages && selectedChatId && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <motion.div
+              animate={{ rotate: [0, 360] }}
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            >
+              <MessageSquare className="w-16 h-16 mx-auto mb-4 text-purple-600 dark:text-purple-400" />
+            </motion.div>
+            <h3 className="text-xl font-semibold mb-2">Start the conversation</h3>
+            <p className="text-muted-foreground mb-6">Send your first message to begin chatting with ZapDev AI</p>
+            
+            {/* Input for first message */}
+            <div className="max-w-md mx-auto">
+              <form onSubmit={handleSubmit}>
+                <div className="flex gap-2">
+                  <Textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value.substring(0, MAX_MESSAGE_LENGTH))}
+                    placeholder="Ask me anything..."
+                    className="flex-1 min-h-[44px] resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSubmit(e);
+                      }
+                    }}
+                  />
+                  <Button 
+                    type="submit" 
+                    disabled={!input.trim() || isTyping}
+                    size="lg"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
