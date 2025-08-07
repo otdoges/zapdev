@@ -75,6 +75,8 @@ export const aiRateLimitState = mutation({
         windowStart: now,
         lastRequest: now,
         tokens: args.tokens || 0,
+        createdAt: now,
+        updatedAt: now,
       });
       return { allowed: true, remaining: limits.maxRequests - 1 };
     }
@@ -214,6 +216,8 @@ export async function enforceAIRateLimit(
       windowStart: now,
       lastRequest: now,
       tokens: options?.tokens || 0,
+      createdAt: now,
+      updatedAt: now,
     });
     return; // First request is always allowed
   }
