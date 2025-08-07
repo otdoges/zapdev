@@ -38,6 +38,11 @@ export async function checkRateLimit(
     throw new Error("Authentication required for rate limiting");
   }
 
+  // Periodically clean up expired entries to prevent memory leaks
+  if (Math.random() < 0.01) { // 1% chance to cleanup on each call
+    cleanupExpiredRateLimits();
+  }
+
   const config = RATE_LIMITS[operation];
   const key = `${identity.subject}:${operation}`;
   const now = Date.now();
@@ -95,9 +100,9 @@ export async function enforceRateLimit(
 }
 
 /**
- * Clean up expired rate limit entries (should be called periodically)
+ * Clean up expired rate limit entries (called during rate limit checks)
  */
-export function cleanupExpiredRateLimits(): void {
+function cleanupExpiredRateLimits(): void {
   const now = Date.now();
   for (const [key, entry] of rateLimitStore.entries()) {
     if (now > entry.resetTime) {
@@ -105,9 +110,6 @@ export function cleanupExpiredRateLimits(): void {
     }
   }
 }
-
-// Clean up expired entries every 5 minutes
-setInterval(cleanupExpiredRateLimits, 5 * 60 * 1000);
 
 /**
  * Get current rate limit status for a user and operation
