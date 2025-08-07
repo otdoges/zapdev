@@ -26,8 +26,8 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
               const freshToken = await clerkAuth.getToken({ skipCache: true });
               if (freshToken) {
                 AuthCookies.set(freshToken);
-                // Force Convex to re-authenticate
-                window.location.reload();
+                // Let Convex naturally re-authenticate without forcing reload
+                console.log('Auth token refreshed, waiting for Convex sync');
               }
             }
           } catch (error) {
