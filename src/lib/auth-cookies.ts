@@ -76,8 +76,8 @@ export const useAuthCookies = () => {
   }, [isSignedIn, getToken]);
   
   return {
-    getStoredToken: AuthCookies.get,
-    isTokenValid: AuthCookies.isValid,
-    clearToken: AuthCookies.remove
+    getStoredToken: () => AuthCookies.get(),
+    isTokenValid: () => AuthCookies.isValid(),
+    clearToken: () => AuthCookies.remove()
   };
 };
