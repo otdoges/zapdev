@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { useConvexAuth } from 'convex/react';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 export default function UserSync({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { user: clerkUser } = useUser();
+  const { isSignedIn } = useClerkAuth();
   const upsertUser = useMutation(api.users.upsertUser);
 
   useEffect(() => {

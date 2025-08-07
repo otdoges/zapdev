@@ -33,28 +33,31 @@ const PrivacyPolicy = () => {
               <h2 className="text-2xl font-semibold text-white mb-4">2. INFORMATION WE COLLECT</h2>
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-medium text-white mb-2">2.1. Information You Provide Directly:</h3>
+                  <h3 className="text-lg font-medium text-white mb-2">2.1. Messages and Communications:</h3>
                   <ul className="list-disc pl-6 space-y-1">
+                    <li>Chat messages and conversations you have with our AI platform</li>
+                    <li>All messages are encrypted and stored securely</li>
                     <li>Account registration information (name, email address)</li>
-                    <li>Profile information you choose to provide</li>
-                    <li>Code and content you create or upload</li>
                     <li>Communications with our support team</li>
                   </ul>
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-white mb-2">2.2. Information Collected Automatically:</h3>
+                  <h3 className="text-lg font-medium text-white mb-2">2.2. Analytics Data:</h3>
                   <ul className="list-disc pl-6 space-y-1">
-                    <li>Usage data and analytics</li>
-                    <li>Device and browser information</li>
-                    <li>IP addresses and location data</li>
-                    <li>Cookies and similar tracking technologies</li>
+                    <li>Usage patterns and platform interactions (anonymized)</li>
+                    <li>Performance metrics to improve service quality</li>
+                    <li>Basic device and browser information</li>
+                    <li>Session duration and feature usage statistics</li>
                   </ul>
+                  <p className="text-sm text-gray-400 mt-2">
+                    <strong>Important:</strong> We collect analytics to improve our service, but we do not sell your data to third parties.
+                  </p>
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-white mb-2">2.3. Information from Third Parties:</h3>
+                  <h3 className="text-lg font-medium text-white mb-2">2.3. Authentication Information:</h3>
                   <ul className="list-disc pl-6 space-y-1">
-                    <li>OAuth provider information (GitHub, Google) when you choose to authenticate</li>
-                    <li>Analytics and performance monitoring data</li>
+                    <li>OAuth provider information when you choose to authenticate</li>
+                    <li>Session tokens and authentication credentials (encrypted)</li>
                   </ul>
                 </div>
               </div>
@@ -98,27 +101,33 @@ const PrivacyPolicy = () => {
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">5. INFORMATION SHARING AND DISCLOSURE</h2>
-              <p className="mb-4">We do not sell your personal information. We may share your information only in these limited circumstances:</p>
+              <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-purple-300 mb-2">Our Data Commitment</h3>
+                <p className="text-gray-300">
+                  <strong>We do not sell your personal information or data to third parties.</strong> Your privacy is fundamental to our service, and we are committed to protecting your encrypted messages and personal information.
+                </p>
+              </div>
+              <p className="mb-4">We may share your information only in these strictly limited circumstances:</p>
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-medium text-white">5.1. With Your Consent:</h3>
-                  <p>When you explicitly authorize us to share specific information.</p>
+                  <h3 className="text-lg font-medium text-white">5.1. With Your Explicit Consent:</h3>
+                  <p>Only when you explicitly authorize us to share specific information for a particular purpose.</p>
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-white">5.2. Service Providers:</h3>
-                  <p>With trusted third-party providers who assist in operating our platform (hosting, analytics, payment processing) under strict confidentiality agreements.</p>
+                  <h3 className="text-lg font-medium text-white">5.2. Essential Service Providers:</h3>
+                  <p>With trusted third-party providers who assist in operating our platform (secure hosting, payment processing) under strict confidentiality agreements. These providers cannot access your encrypted messages.</p>
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-white">5.3. AI Service Providers:</h3>
-                  <p>Code generation requests may be sent to third-party AI providers (OpenAI, Anthropic, etc.) with privacy protections in place.</p>
+                  <h3 className="text-lg font-medium text-white">5.3. Analytics Partners:</h3>
+                  <p>Anonymized usage analytics may be shared with analytics services to help improve our platform. No personal messages or identifiable information is included.</p>
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-white">5.4. Legal Requirements:</h3>
-                  <p>When required by law, court order, or to protect our rights and safety.</p>
+                  <p>Only when required by valid legal process, court order, or to protect our users' safety and security.</p>
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-white">5.5. Business Transfers:</h3>
-                  <p>In connection with mergers, acquisitions, or asset sales, with appropriate privacy protections.</p>
+                  <p>In the unlikely event of a merger or acquisition, with appropriate privacy protections and user notification.</p>
                 </div>
               </div>
             </section>
@@ -153,26 +162,40 @@ const PrivacyPolicy = () => {
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">8. SECURITY MEASURES</h2>
+              <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4 mb-4">
+                <h3 className="text-lg font-semibold text-green-300 mb-2">Message Encryption</h3>
+                <p className="text-gray-300">
+                  All messages and conversations are encrypted both in transit and at rest. This means your conversations are protected and unreadable even if unauthorized access occurs.
+                </p>
+              </div>
               <p className="mb-3">We implement comprehensive security measures including:</p>
               <ul className="list-disc pl-6 space-y-2">
-                <li>Encryption in transit and at rest</li>
-                <li>Regular security audits and monitoring</li>
-                <li>Access controls and authentication requirements</li>
-                <li>Incident response procedures</li>
-                <li>Regular security training for our team</li>
+                <li><strong>End-to-end encryption</strong> for all messages and sensitive data</li>
+                <li>Encryption in transit (TLS/SSL) and at rest (AES-256)</li>
+                <li>Regular security audits and penetration testing</li>
+                <li>Multi-factor authentication and access controls</li>
+                <li>24/7 monitoring and incident response procedures</li>
+                <li>Regular security training for our development team</li>
+                <li>Secure data centers with physical access controls</li>
               </ul>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-white mb-4">9. COOKIES AND TRACKING TECHNOLOGIES</h2>
-              <p className="mb-3">We use cookies and similar technologies to:</p>
+              <h2 className="text-2xl font-semibold text-white mb-4">9. ANALYTICS AND TRACKING</h2>
+              <p className="mb-3">We use cookies and analytics technologies to:</p>
               <ul className="list-disc pl-6 space-y-2">
-                <li>Maintain your login session</li>
-                <li>Remember your preferences</li>
-                <li>Analyze usage patterns</li>
-                <li>Improve our services</li>
+                <li>Maintain your secure login session</li>
+                <li>Remember your preferences and settings</li>
+                <li>Analyze usage patterns to improve our AI platform</li>
+                <li>Monitor performance and identify technical issues</li>
+                <li>Understand which features are most valuable to users</li>
               </ul>
-              <p className="mt-4">You can control cookie settings through your browser preferences.</p>
+              <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mt-4">
+                <p className="text-gray-300">
+                  <strong>Analytics Transparency:</strong> We collect analytics to make ZapDev better for everyone, but we never sell this data or use it for advertising. All analytics data is anonymized and aggregated.
+                </p>
+              </div>
+              <p className="mt-4">You can control cookie settings through your browser preferences, though some features may require certain cookies to function properly.</p>
             </section>
 
             <section>

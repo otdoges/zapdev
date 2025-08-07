@@ -507,7 +507,7 @@ export const csrf = {
 export const createTrustedTypesPolicy = () => {
   if (typeof window !== 'undefined' && 'trustedTypes' in window) {
     try {
-      return (window as any).trustedTypes.createPolicy('default', {
+      return (window as typeof window & { trustedTypes: { createPolicy: (name: string, policy: unknown) => unknown } }).trustedTypes.createPolicy('default', {
         createHTML: (input: string) => sanitizeHTML(input),
         createScriptURL: (input: string) => {
           const url = sanitizeUrl(input);
