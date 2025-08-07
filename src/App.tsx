@@ -16,6 +16,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Chat from "./pages/Chat";
 import AuthGuard from "./components/AuthGuard";
 import UserSync from "./components/UserSync";
+import { AuthWrapper } from "./components/AuthWrapper";
 import E2BDemo from "./pages/E2BDemo";
 
 const queryClient = new QueryClient();
@@ -23,7 +24,8 @@ const queryClient = new QueryClient();
 const App = () => (
   <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
     <UserSync>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <AuthWrapper>
+        <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <div className="min-h-screen bg-background">
@@ -56,7 +58,8 @@ const App = () => (
             </div>
           </TooltipProvider>
         </QueryClientProvider>
-      </trpc.Provider>
+        </trpc.Provider>
+      </AuthWrapper>
     </UserSync>
   </ConvexProviderWithClerk>
 );

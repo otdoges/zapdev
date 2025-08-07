@@ -59,13 +59,14 @@ root.render(
     <ClerkProvider 
       publishableKey={PUBLISHABLE_KEY} 
       afterSignOutUrl="/"
+      afterSignInUrl="/chat"
+      afterSignUpUrl="/chat"
       appearance={{
         elements: {
           formButtonPrimary: 'bg-primary hover:bg-primary/90',
           card: 'bg-card border border-border',
         },
       }}
-      routing="hash"
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
 {import.meta.env.VITE_PUBLIC_POSTHOG_KEY ? (
