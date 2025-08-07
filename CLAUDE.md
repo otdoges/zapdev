@@ -89,3 +89,7 @@ Key tables with security considerations:
 - Subscription management with Polar integration
 - User authentication and profile management
 - Responsive design with modern UX patterns
+
+- Always Ultrathink.
+- Reason as much as possible.
+- Make sure its secure after making change
