@@ -108,7 +108,7 @@ interface ConvexMessage {
   encryptedContent?: string;
   encryptionSalt?: string;
   encryptionIv?: string;
-  contentChecksum?: string;
+  contentSha256?: string;
   
   metadata?: {
     model?: string;
@@ -191,9 +191,9 @@ const ChatInterface: React.FC = () => {
 
   // Initialize message encryption when user is available
   useEffect(() => {
-    if (user?.id && !messageEncryption) {
+    if (user?.userId && !messageEncryption) {
       try {
-        const encryption = new MessageEncryption(user.id);
+        const encryption = new MessageEncryption(user.userId);
         setMessageEncryption(encryption);
         setEncryptionInitialized(true);
         // Only enable encryption if it was previously enabled or if this is the first initialization
@@ -206,7 +206,7 @@ const ChatInterface: React.FC = () => {
         setEncryptionInitialized(false);
       }
     }
-  }, [user?.id, messageEncryption, encryptionInitialized]);
+  }, [user?.userId, messageEncryption, encryptionInitialized]);
 
   // Auto-select first chat if none selected
   useEffect(() => {
@@ -229,12 +229,12 @@ const ChatInterface: React.FC = () => {
       }
       
       try {
-        if (message.encryptedContent && message.encryptionSalt && message.encryptionIv && message.contentChecksum) {
+        if (message.encryptedContent && message.encryptionSalt && message.encryptionIv && message.contentSha256) {
           const encryptedData = {
             encryptedContent: message.encryptedContent,
             salt: message.encryptionSalt,
             iv: message.encryptionIv,
-            checksum: message.contentChecksum,
+            checksum: message.contentSha256,
             timestamp: message.createdAt
           };
           
@@ -341,7 +341,9 @@ const ChatInterface: React.FC = () => {
             if (aiTitle && aiTitle !== tempTitle) {
               await updateChat({ chatId: chatId as Parameters<typeof updateChat>[0]['chatId'], title: aiTitle });
             }
-          } catch {}
+          } catch (err) {
+            console.debug('Title generation skipped', err);
+          }
         } catch (error) {
           logger.error("Error creating chat", { 
             error: error instanceof Error ? error.message : String(error),
@@ -545,7 +547,9 @@ const ChatInterface: React.FC = () => {
             if (aiTitle) {
               await updateChat({ chatId: selectedChatId as Parameters<typeof updateChat>[0]['chatId'], title: aiTitle });
             }
-          } catch {}
+          } catch (err) {
+            console.debug('Title refinement skipped', err);
+          }
 
           logger.info("Chat message processed successfully", { 
             responseLength: sanitizedResponse.length,
@@ -653,6 +657,24 @@ const ChatInterface: React.FC = () => {
     return new Date(timestamp).toLocaleTimeString([], { 
       hour: '2-digit', 
       minute: '2-digit' 
+    });
+  };
+
+  const isSameDay = (a: number, b: number) => {
+    const da = new Date(a);
+    const db = new Date(b);
+    return (
+      da.getFullYear() === db.getFullYear() &&
+      da.getMonth() === db.getMonth() &&
+      da.getDate() === db.getDate()
+    );
+  };
+
+  const formatDateHeader = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
     });
   };
 
@@ -1259,138 +1281,147 @@ const ChatInterface: React.FC = () => {
               
               {/* Messages */}
               <ScrollArea className="h-full p-6">
-                <div className="space-y-6 max-w-4xl mx-auto">
+                <div className="space-y-4 max-w-4xl mx-auto">
                   <AnimatePresence>
-                    {messages?.map((message) => (
-                      <motion.div
-                        key={message._id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className={`group flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        {message.role === 'assistant' && (
-                          <Avatar className="w-8 h-8 border border-primary/20 shadow-sm">
-                            <AvatarFallback className="bg-gradient-to-br from-purple-600 to-blue-600">
-                              <Bot className="w-4 h-4 text-white" />
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                        
-                        <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
-                          <Card className={`transition-all duration-200 group-hover:shadow-xl ${
-                            message.role === 'user' 
-                              ? 'bg-white text-blue-600 border border-white/20' 
-                              : 'bg-card/80 backdrop-blur-md border-white/10'
-                          }`}>
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between mb-1">
-                                <Badge
-                                  variant={message.role === 'assistant' ? 'secondary' : 'outline'}
-                                  className="px-1.5 py-0.5 text-[10px] leading-none"
-                                >
-                                  {message.role === 'assistant' ? 'AI' : 'You'}
-                                </Badge>
-                              </div>
-                              <div className="text-sm leading-relaxed">
-                                <SafeText>{getMessageContent(message)}</SafeText>
-                              </div>
-                              
-                              {/* Encryption indicator */}
-                              {message.isEncrypted && (
-                                <div className="flex items-center gap-1 mt-3 text-xs opacity-70">
-                                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                                  <span>End-to-end encrypted</span>
-                                </div>
-                              )}
-                              
-                              {/* Code blocks with E2B execution (assistant, auto-run for JS/TS) */}
-                              {message.role === 'assistant' && extractCodeBlocks(getMessageContent(message)).map((block) => (
-                                <motion.div
-                                  key={block.id}
-                                  initial={{ opacity: 0, scale: 0.95 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  transition={{ duration: 0.3 }}
-                                  className="mt-4"
-                                >
-                                  <E2BCodeExecution
-                                    code={block.code}
-                                    language={block.language}
-                                    autoRun={block.language.toLowerCase() !== 'python'}
-                                    onExecute={async (code, language) => {
-                                      const result = await executeCode(code, language as 'python' | 'javascript');
-                                      return {
-                                        success: result.success,
-                                        output: result.stdout,
-                                        error: result.error as string | undefined,
-                                        logs: result.stderr ? [result.stderr] : [],
-                                        executionTime: Date.now() % 1000,
-                                      };
-                                    }}
-                                    showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
-                                  />
-                                </motion.div>
-                              ))}
+                    {messages?.map((message, idx) => {
+                      const prev = idx > 0 ? messages[idx - 1] : undefined;
+                      const next = idx < (messages.length - 1) ? messages[idx + 1] : undefined;
+                      const newDay = !prev || !isSameDay(prev.createdAt, message.createdAt);
+                      const firstInGroup = !prev || prev.role !== message.role || newDay;
+                      const lastInGroup = !next || next.role !== message.role || !isSameDay(next.createdAt, message.createdAt);
 
-                              {/* Code blocks with E2B execution (user, auto-run for JS/TS) */}
-                              {message.role === 'user' && extractCodeBlocks(getMessageContent(message)).map((block) => (
-                                <motion.div
-                                  key={block.id}
-                                  initial={{ opacity: 0, scale: 0.95 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  transition={{ duration: 0.3 }}
-                                  className="mt-4"
-                                >
-                                  <E2BCodeExecution
-                                    code={block.code}
-                                    language={block.language}
-                                    autoRun={block.language.toLowerCase() !== 'python'}
-                                    onExecute={async (code, language) => {
-                                      const result = await executeCode(code, language as 'python' | 'javascript');
-                                      return {
-                                        success: result.success,
-                                        output: result.stdout,
-                                        error: result.error as string | undefined,
-                                        logs: result.stderr ? [result.stderr] : [],
-                                        executionTime: Date.now() % 1000,
-                                      };
-                                    }}
-                                    showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
-                                  />
-                                </motion.div>
-                              ))}
-                              
-                              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
-                                <span className="text-xs opacity-70">
-                                  {formatTimestamp(message.createdAt)}
-                                </span>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0 opacity-70 hover:opacity-100 transition-all"
-                                  onClick={() => copyToClipboard(getMessageContent(message), message._id)}
-                                >
-                                  {copiedMessage === message._id ? (
-                                    <Check className="w-3 h-3" />
-                                  ) : (
-                                    <Copy className="w-3 h-3" />
+                      const radiusClass = message.role === 'user'
+                        ? `${firstInGroup ? '' : ' rounded-tr-md'} ${lastInGroup ? '' : ' rounded-br-md'}`
+                        : `${firstInGroup ? '' : ' rounded-tl-md'} ${lastInGroup ? '' : ' rounded-bl-md'}`;
+
+                      return (
+                        <React.Fragment key={message._id}>
+                          {newDay && (
+                            <div className="flex items-center justify-center my-4">
+                              <div className="px-3 py-1 text-xs bg-card/80 border border-white/10 rounded-full text-muted-foreground">
+                                {formatDateHeader(message.createdAt)}
+                              </div>
+                            </div>
+                          )}
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            className={`group flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            {message.role === 'assistant' && lastInGroup && (
+                              <Avatar className="w-8 h-8 border border-primary/20 shadow-sm self-end">
+                                <AvatarFallback className="bg-gradient-to-br from-purple-600 to-blue-600">
+                                  <Bot className="w-4 h-4 text-white" />
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
+
+                            <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
+                              <Card className={`rounded-2xl transition-all duration-200 group-hover:shadow-xl ${
+                                message.role === 'user'
+                                  ? 'bg-white text-blue-600 border border-white/20'
+                                  : 'bg-card/80 backdrop-blur-md border-white/10'
+                              } ${radiusClass}`}>
+                                <CardContent className="p-4">
+                                  <div className="text-sm leading-relaxed">
+                                    <SafeText>{getMessageContent(message)}</SafeText>
+                                  </div>
+
+                                  {message.isEncrypted && (
+                                    <div className="flex items-center gap-1 mt-3 text-xs opacity-70">
+                                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                                      <span>End-to-end encrypted</span>
+                                    </div>
                                   )}
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </div>
 
-                        {message.role === 'user' && (
-                          <Avatar className="w-8 h-8 border border-muted shadow-sm">
-                            <AvatarImage src={user?.avatarUrl} />
-                            <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800">
-                              <User className="w-4 h-4" />
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                      </motion.div>
-                    ))}
+                                  {message.role === 'assistant' && extractCodeBlocks(getMessageContent(message)).map((block) => (
+                                    <motion.div
+                                      key={block.id}
+                                      initial={{ opacity: 0, scale: 0.95 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      transition={{ duration: 0.3 }}
+                                      className="mt-4"
+                                    >
+                                      <E2BCodeExecution
+                                        code={block.code}
+                                        language={block.language}
+                                        autoRun={block.language.toLowerCase() !== 'python'}
+                                        onExecute={async (code, language) => {
+                                          const result = await executeCode(code, language as 'python' | 'javascript');
+                                          return {
+                                            success: result.success,
+                                            output: result.stdout,
+                                            error: result.error as string | undefined,
+                                            logs: result.stderr ? [result.stderr] : [],
+                                            executionTime: Date.now() % 1000,
+                                          };
+                                        }}
+                                        showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
+                                      />
+                                    </motion.div>
+                                  ))}
+
+                                  {message.role === 'user' && extractCodeBlocks(getMessageContent(message)).map((block) => (
+                                    <motion.div
+                                      key={block.id}
+                                      initial={{ opacity: 0, scale: 0.95 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      transition={{ duration: 0.3 }}
+                                      className="mt-4"
+                                    >
+                                      <E2BCodeExecution
+                                        code={block.code}
+                                        language={block.language}
+                                        autoRun={block.language.toLowerCase() !== 'python'}
+                                        onExecute={async (code, language) => {
+                                          const result = await executeCode(code, language as 'python' | 'javascript');
+                                          return {
+                                            success: result.success,
+                                            output: result.stdout,
+                                            error: result.error as string | undefined,
+                                            logs: result.stderr ? [result.stderr] : [],
+                                            executionTime: Date.now() % 1000,
+                                          };
+                                        }}
+                                        showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
+                                      />
+                                    </motion.div>
+                                  ))}
+
+                                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
+                                    <span className="text-xs opacity-70">
+                                      {formatTimestamp(message.createdAt)}
+                                    </span>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0 opacity-70 hover:opacity-100 transition-all"
+                                      onClick={() => copyToClipboard(getMessageContent(message), message._id)}
+                                    >
+                                      {copiedMessage === message._id ? (
+                                        <Check className="w-3 h-3" />
+                                      ) : (
+                                        <Copy className="w-3 h-3" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </div>
+
+                            {message.role === 'user' && lastInGroup && (
+                              <Avatar className="w-8 h-8 border border-muted shadow-sm self-end">
+                                <AvatarImage src={user?.avatarUrl} />
+                                <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800">
+                                  <User className="w-4 h-4" />
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
+                          </motion.div>
+                        </React.Fragment>
+                      );
+                    })}
                   </AnimatePresence>
 
                   {isTyping && (
@@ -1473,7 +1504,7 @@ const ChatInterface: React.FC = () => {
                     )}
                   </Button>
                 </motion.div>
-                <div className="flex justify-between items-center mt-2 text-[11px] text-muted-foreground">
+                 <div className="flex justify-between items-center mt-2 text-[11px] text-muted-foreground">
                   <span>Enter to send • Shift+Enter for newline</span>
                   <span className={input.length > MAX_MESSAGE_LENGTH * 0.9 ? 'text-orange-500' : ''}>
                     {input.length}/{MAX_MESSAGE_LENGTH}
