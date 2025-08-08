@@ -511,7 +511,7 @@ const ChatInterface: React.FC = () => {
             content: sanitizedResponse,
             role: 'assistant' as const,
             metadata: {
-              model: 'moonshotai/kimi-k2-instruct',
+              model: 'openai/gpt-oss-120b',
               tokens: Math.floor(sanitizedResponse.length / 4), // Rough estimate
             },
           };
@@ -705,7 +705,7 @@ const ChatInterface: React.FC = () => {
   const showSplitLayout = sessionStarted || hasMessages;
 
   return (
-    <div className="flex h-full bg-background">
+    <div className="flex h-full bg-[#0A0A0A] text-gray-100">
       {/* Welcome Hero - shown until the user sends the first message */}
       {!showSplitLayout && (
         <div className="flex-1 flex flex-col relative overflow-hidden">
@@ -1118,18 +1118,18 @@ const ChatInterface: React.FC = () => {
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-            className="w-80 border-r bg-card/30 backdrop-blur-sm flex flex-col"
+            className="w-80 border-r border-gray-800/60 bg-[#1A1A1A]/90 backdrop-blur-xl flex flex-col"
           >
             {/* Sidebar Header */}
-            <div className="p-4 border-b">
+            <div className="p-6 border-b border-gray-800/60">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold flex items-center">
-                  <MessageSquare className="w-5 h-5 mr-2 text-primary" />
-                  Chats
+                <h2 className="text-lg font-semibold flex items-center text-gray-100">
+                  <MessageSquare className="w-5 h-5 mr-2 text-purple-400" />
+                  Conversations
                 </h2>
                 <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                    <Button size="sm" className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 border-0 shadow-lg shadow-purple-500/25 transition-all duration-200">
                       <Plus className="w-4 h-4" />
                     </Button>
                   </DialogTrigger>
@@ -1155,17 +1155,17 @@ const ChatInterface: React.FC = () => {
 
             {/* Chat List */}
             <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1">
+              <div className="p-3 space-y-2">
                 {chats?.map((chat) => (
                   <motion.div
                     key={chat._id}
                     layout
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`group relative p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                    whileHover={{ scale: 1.01, x: 4 }}
+                    whileTap={{ scale: 0.99 }}
+                    className={`group relative p-4 rounded-lg cursor-pointer transition-all duration-300 ${
                       selectedChatId === chat._id 
-                        ? 'bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-primary/20 shadow-sm' 
-                        : 'hover:bg-muted/50'
+                        ? 'bg-gradient-to-r from-purple-500/20 to-violet-500/20 border border-purple-500/30 shadow-lg shadow-purple-500/10' 
+                        : 'hover:bg-gray-800/50 border border-transparent hover:border-gray-700/50'
                     }`}
                     onClick={() => setSelectedChatId(chat._id)}
                   >
@@ -1174,7 +1174,7 @@ const ChatInterface: React.FC = () => {
                         <h3 className="font-medium text-sm truncate mb-1">
                           <SafeText>{chat.title}</SafeText>
                         </h3>
-                        <p className="text-xs text-muted-foreground flex items-center">
+                        <p className="text-xs text-gray-400 flex items-center">
                           <Clock className="w-3 h-3 mr-1" />
                           {formatTimestamp(chat.updatedAt)}
                         </p>
@@ -1182,7 +1182,7 @@ const ChatInterface: React.FC = () => {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                        className="opacity-0 group-hover:opacity-100 transition-all duration-200 h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400 rounded-md"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteChat(chat._id);
@@ -1210,50 +1210,67 @@ const ChatInterface: React.FC = () => {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, type: "spring", stiffness: 100, delay: 0.1 }}
-            className="flex-1 flex flex-col relative overflow-hidden bg-background"
+            className="flex-1 flex flex-col relative overflow-hidden bg-[#0F0F0F]"
           >
             {/* Chat Header */}
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="p-4 border-b bg-card/30 backdrop-blur-sm"
+              className="p-6 border-b border-gray-800/60 bg-[#1A1A1A]/50 backdrop-blur-xl"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-                    <Bot className="w-4 h-4 text-white" />
-                  </div>
+                <div className="flex items-center gap-4">
+                  <motion.div 
+                    className="w-10 h-10 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25"
+                    animate={{ 
+                      boxShadow: [
+                        "0 10px 25px rgba(168, 85, 247, 0.25)",
+                        "0 10px 25px rgba(139, 92, 246, 0.35)",
+                        "0 10px 25px rgba(168, 85, 247, 0.25)"
+                      ]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <Bot className="w-5 h-5 text-white" />
+                  </motion.div>
                   <div>
-                    <h2 className="font-semibold text-base">
-                      <SafeText>{chats?.find(c => c._id === selectedChatId)?.title || 'Chat'}</SafeText>
+                    <h2 className="font-semibold text-lg text-gray-100">
+                      <SafeText>{chats?.find(c => c._id === selectedChatId)?.title || 'New Conversation'}</SafeText>
                     </h2>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant="secondary" className="text-xs bg-gradient-to-r from-purple-600 to-blue-600 text-white border-0 px-2 py-0.5">
+                    <div className="flex items-center gap-3 text-xs text-gray-400">
+                      <Badge variant="secondary" className="text-xs bg-gradient-to-r from-purple-500/20 to-violet-500/20 text-purple-300 border border-purple-500/30 px-2 py-1">
                         ZapDev AI
                       </Badge>
-                      <span>{messages?.length || 0} messages</span>
+                      <span className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+                        {messages?.length || 0} messages
+                      </span>
                     </div>
                   </div>
                 </div>
                 
                 {/* Encryption status */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Button
                     size="sm"
                     variant={encryptionEnabled ? "default" : "outline"}
                     onClick={() => encryptionInitialized && setEncryptionEnabled(!encryptionEnabled)}
                     disabled={!encryptionInitialized}
-                    className={`h-8 px-3 text-xs transition-all ${!encryptionInitialized ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`h-9 px-4 text-xs transition-all duration-200 ${
+                      encryptionEnabled 
+                        ? 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30' 
+                        : 'bg-gray-800/50 text-gray-400 border-gray-700/50 hover:bg-gray-700/50'
+                    } ${!encryptionInitialized ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {!encryptionInitialized ? (
-                      <Shield className="w-3 h-3 mr-1" />
+                      <Shield className="w-3 h-3 mr-2" />
                     ) : encryptionEnabled ? (
-                      <ShieldCheck className="w-3 h-3 mr-1 text-green-600" />
+                      <ShieldCheck className="w-3 h-3 mr-2" />
                     ) : (
-                      <ShieldX className="w-3 h-3 mr-1" />
+                      <ShieldX className="w-3 h-3 mr-2" />
                     )}
-                    {encryptionEnabled ? 'Encrypted' : 'Plain'}
+                    {encryptionEnabled ? 'E2E Encrypted' : 'Plain Text'}
                   </Button>
                 </div>
               </div>
@@ -1318,19 +1335,19 @@ const ChatInterface: React.FC = () => {
                             )}
 
                             <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
-                              <Card className={`rounded-2xl transition-all duration-200 group-hover:shadow-xl ${
+                              <Card className={`rounded-xl transition-all duration-300 group-hover:shadow-2xl ${
                                 message.role === 'user'
-                                  ? 'bg-white text-blue-600 border border-white/20'
-                                  : 'bg-card/80 backdrop-blur-md border-white/10'
+                                  ? 'bg-gradient-to-br from-purple-500/10 to-violet-500/10 border border-purple-500/20 shadow-lg shadow-purple-500/5'
+                                  : 'bg-[#1A1A1A]/90 backdrop-blur-xl border border-gray-800/50 shadow-xl shadow-black/20'
                               } ${radiusClass}`}>
-                                <CardContent className="p-4">
-                                  <div className="text-sm leading-relaxed">
+                                <CardContent className="p-5">
+                                  <div className="text-sm leading-relaxed text-gray-100">
                                     <SafeText>{getMessageContent(message)}</SafeText>
                                   </div>
 
                                   {message.isEncrypted && (
-                                    <div className="flex items-center gap-1 mt-3 text-xs opacity-70">
-                                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                                    <div className="flex items-center gap-2 mt-4 text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+                                      <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
                                       <span>End-to-end encrypted</span>
                                     </div>
                                   )}
@@ -1430,26 +1447,41 @@ const ChatInterface: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className="flex gap-4"
                     >
-                      <Avatar className="w-8 h-8 border border-primary/20 shadow-sm">
-                        <AvatarFallback className="bg-gradient-to-br from-purple-600 to-blue-600">
-                          <Loader2 className="w-4 h-4 text-white animate-spin" />
+                      <Avatar className="w-8 h-8 border border-purple-500/20 shadow-lg shadow-purple-500/25">
+                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-violet-600">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          >
+                            <Bot className="w-4 h-4 text-white" />
+                          </motion.div>
                         </AvatarFallback>
                       </Avatar>
-                      <Card className="bg-gradient-to-r from-purple-50/80 to-blue-50/80 dark:from-purple-950/30 dark:to-blue-950/30 border-purple-200/50 dark:border-purple-800/50 shadow-sm">
+                      <Card className="bg-[#1A1A1A]/90 backdrop-blur-xl border border-gray-800/50 shadow-xl shadow-black/20">
                         <CardContent className="p-4">
                           <motion.div
-                            className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300"
+                            className="flex items-center gap-3 text-sm text-gray-300"
                           >
                             <motion.div
-                              animate={{ scale: [1, 1.2, 1] }}
-                              transition={{ duration: 1.5, repeat: Infinity }}
                               className="flex gap-1"
                             >
-                              <div className="w-2 h-2 bg-current rounded-full opacity-60" />
-                              <div className="w-2 h-2 bg-current rounded-full opacity-40" />
-                              <div className="w-2 h-2 bg-current rounded-full opacity-20" />
+                              {[0, 1, 2].map((i) => (
+                                <motion.div
+                                  key={i}
+                                  className="w-2 h-2 bg-purple-400 rounded-full"
+                                  animate={{
+                                    scale: [1, 1.4, 1],
+                                    opacity: [0.4, 1, 0.4]
+                                  }}
+                                  transition={{
+                                    duration: 1.5,
+                                    repeat: Infinity,
+                                    delay: i * 0.2
+                                  }}
+                                />
+                              ))}
                             </motion.div>
-                            <span>Thinking...</span>
+                            <span>ZapDev AI is thinking...</span>
                           </motion.div>
                         </CardContent>
                       </Card>
@@ -1461,25 +1493,25 @@ const ChatInterface: React.FC = () => {
               </ScrollArea>
             </div>
 
-            {/* Input Form - Lovable-style floating composer */}
+            {/* Input Form - Professional code editor style */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.25 }}
-              className="px-6 pb-6 pt-2"
+              className="p-6 border-t border-gray-800/60 bg-[#1A1A1A]/50 backdrop-blur-xl"
             >
-              <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+              <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
                 <motion.div 
                   initial={{ opacity: 0.95 }}
                   whileFocus={{ opacity: 1 }}
-                  className="rounded-full bg-[#0F1012]/70 backdrop-blur-xl border border-white/10 shadow-2xl px-4 py-2 flex items-end gap-2"
+                  className="rounded-xl bg-[#0A0A0A]/90 backdrop-blur-xl border border-gray-700/50 shadow-2xl px-5 py-3 flex items-end gap-3 transition-all duration-200 focus-within:border-purple-500/50 focus-within:shadow-purple-500/20"
                 >
                   <div className="flex-1">
                     <Textarea
                       value={input}
                       onChange={(e) => setInput(e.target.value.substring(0, MAX_MESSAGE_LENGTH))}
-                      placeholder="Ask anything or paste code (```js)..."
-                      className="min-h-[48px] max-h-40 resize-none text-sm bg-transparent border-0 focus-visible:ring-0 focus-visible:outline-none focus:outline-none pr-2 rounded-none"
+                      placeholder="Ask me anything about development, debugging, or paste code for review..."
+                      className="min-h-[52px] max-h-48 resize-none text-sm bg-transparent border-0 focus-visible:ring-0 focus-visible:outline-none focus:outline-none pr-2 rounded-none text-gray-100 placeholder:text-gray-500"
                       maxLength={MAX_MESSAGE_LENGTH}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -1489,25 +1521,28 @@ const ChatInterface: React.FC = () => {
                       }}
                     />
                   </div>
-                  <Button 
-                    type="submit" 
-                    disabled={!input.trim() || isTyping}
-                    size="sm"
-                    className="h-9 px-4 rounded-full bg-white text-blue-600 hover:bg-white/90 shadow-md"
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    {isTyping ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
+                    <Button 
+                      type="submit" 
+                      disabled={!input.trim() || isTyping}
+                      size="sm"
+                      className="h-10 px-5 rounded-xl bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white border-0 shadow-lg shadow-purple-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isTyping ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
                         <Send className="w-4 h-4" />
-                      </>
-                    )}
-                  </Button>
+                      )}
+                    </Button>
+                  </motion.div>
                 </motion.div>
-                 <div className="flex justify-between items-center mt-2 text-[11px] text-muted-foreground">
-                  <span>Enter to send • Shift+Enter for newline</span>
-                  <span className={input.length > MAX_MESSAGE_LENGTH * 0.9 ? 'text-orange-500' : ''}>
-                    {input.length}/{MAX_MESSAGE_LENGTH}
+                 <div className="flex justify-between items-center mt-3 text-[11px] text-gray-500">
+                  <span>⏎ Enter to send • ⇧⏎ Shift+Enter for newline</span>
+                  <span className={input.length > MAX_MESSAGE_LENGTH * 0.9 ? 'text-orange-400' : 'text-gray-600'}>
+                    {input.length.toLocaleString()}/{MAX_MESSAGE_LENGTH.toLocaleString()}
                   </span>
                 </div>
               </form>

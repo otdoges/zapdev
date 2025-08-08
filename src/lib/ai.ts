@@ -338,7 +338,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
           throw error;
         }
 
-        // Use centralized system prompt (performance-focused, Team Lead included)
+        // Use full development-focused system prompt
         const systemPrompt = SYSTEM_PROMPT;
 
         const fullPrompt = systemPrompt + "\n\n" + prompt;
