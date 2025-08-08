@@ -25,9 +25,10 @@ const responseCache = new AIResponseCache();
 
 // Cost tracking and limits
 const MODEL_PRICING = {
-  'openai/gpt-oss-20b': {
-    input: 0.10 / 10_000_000, // $0.10 per 10M tokens
-    output: 0.50 / 2_000_000,  // $0.50 per 2M tokens
+  'openai/gpt-oss-120b': {
+    // Pricing based on Groq docs: $0.15 / 1M input tokens, $0.75 / 1M output tokens
+    input: 0.15 / 1_000_000,
+    output: 0.75 / 1_000_000,
   }
 };
 
@@ -101,7 +102,7 @@ async function createGroqInstance() {
     }
   }
   
-  return createGroq({ apiKey });
+  return createGroq({ apiKey, baseURL: 'https://api.groq.com/openai/v1' });
 }
 
 // OpenRouter as failsafe provider
@@ -112,13 +113,13 @@ const openrouter = createOpenRouter({
 // Get current model instance
 async function getCurrentModel() {
   const groq = createGroqInstance();
-  return (await groq)('openai/gpt-oss-20b');
+  return (await groq)('openai/gpt-oss-120b');
 }
 
 // Gemma model (for concise title generation)
 async function getGemmaModel() {
   const groq = await createGroqInstance();
-  return groq('google/gemma-2-9b-it');
+  return groq('openai/gpt-oss-120b');
 }
 
 // OpenRouter failsafe model
@@ -172,7 +173,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         // Estimate cost for input tokens (rough estimate: 1 token ≈ 4 chars)
         const estimatedInputTokens = Math.ceil(prompt.length / 4);
         const estimatedOutputTokens = 8000; // Max tokens we might use
-        const estimatedCost = calculateCost('openai/gpt-oss-20b', estimatedInputTokens, estimatedOutputTokens);
+        const estimatedCost = calculateCost('openai/gpt-oss-120b', estimatedInputTokens, estimatedOutputTokens);
         
         // Check cost limit before making request
         checkCostLimit(estimatedCost);
@@ -185,7 +186,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
 
         // Get current model before callback chain
         const currentModel = await getCurrentModel();
-        span.setAttribute("model", "openai/gpt-oss-20b");
+        span.setAttribute("model", "openai/gpt-oss-120b");
         
         // Execute with circuit breaker and retry logic
         const { text, usage } = await circuitBreaker.execute(
@@ -198,7 +199,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
                 temperature: 0.7,
               }),
               'generateText',
-              { model: 'openai/gpt-oss-20b', promptLength: prompt.length }
+              { model: 'openai/gpt-oss-120b', promptLength: prompt.length }
             ),
             'AI Text Generation'
           ),
@@ -206,12 +207,12 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         )
         
         // Calculate actual cost based on usage
-        const actualCost = usage ? calculateCost('openai/gpt-oss-20b', usage.promptTokens, usage.completionTokens) : estimatedCost;
+        const actualCost = usage ? calculateCost('openai/gpt-oss-120b', usage.promptTokens, usage.completionTokens) : estimatedCost;
         addTodayCost(actualCost);
 
         // Record usage event
         await recordAIConversation({
-          model: 'openai/gpt-oss-20b',
+          model: 'openai/gpt-oss-120b',
           inputTokens: usage?.promptTokens || 0,
           outputTokens: usage?.completionTokens || 0,
           cost: actualCost,
@@ -224,7 +225,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         
         logger.info("AI text generation completed", { 
           responseLength: text.length,
-          model: "openai/gpt-oss-20b",
+          model: "openai/gpt-oss-120b",
           actualCost: actualCost.toFixed(6),
           inputTokens: usage?.promptTokens || 0,
           outputTokens: usage?.completionTokens || 0,
@@ -234,7 +235,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         // Record monitoring metrics
         aiMonitoring.recordOperation({
           operation: 'generateText',
-          model: 'openai/gpt-oss-20b',
+          model: 'openai/gpt-oss-120b',
           duration: Date.now() - startTime,
           success: true,
           inputTokens: usage?.promptTokens || 0,
@@ -343,7 +344,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
         const fullPrompt = systemPrompt + "\n\n" + prompt;
         const estimatedInputTokens = Math.ceil(fullPrompt.length / 4);
         const estimatedOutputTokens = 8000; // Max tokens we might use
-        const estimatedCost = calculateCost('openai/gpt-oss-20b', estimatedInputTokens, estimatedOutputTokens);
+        const estimatedCost = calculateCost('openai/gpt-oss-120b', estimatedInputTokens, estimatedOutputTokens);
         
         // Check cost limit before making request
         checkCostLimit(estimatedCost);
@@ -355,7 +356,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
         });
 
         const model = await getCurrentModel();
-        span.setAttribute("model", "openai/gpt-oss-20b");
+        span.setAttribute("model", "openai/gpt-oss-120b");
 
         const result = await circuitBreaker.execute(
           () => withRetry(
@@ -370,7 +371,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
                 temperature: 0.7,
               }),
               'streamText',
-              { model: 'openai/gpt-oss-20b', promptLength: prompt.length }
+              { model: 'openai/gpt-oss-120b', promptLength: prompt.length }
             ),
             'AI Stream Generation'
           ),
@@ -382,14 +383,14 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
 
         // Record usage event (estimated for streaming)
         await recordAIConversation({
-          model: 'openai/gpt-oss-20b',
+          model: 'openai/gpt-oss-120b',
           inputTokens: estimatedInputTokens,
           outputTokens: estimatedOutputTokens,
           cost: estimatedCost,
         });
         
         logger.info("AI streaming started successfully", { 
-          model: "openai/gpt-oss-20b",
+          model: "openai/gpt-oss-120b",
           estimatedCost: estimatedCost.toFixed(6),
           dailyCost: getTodayCost().toFixed(4)
         });
@@ -397,7 +398,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
         // Record streaming operation (with estimates)
         aiMonitoring.recordOperation({
           operation: 'streamText',
-          model: 'openai/gpt-oss-20b',
+          model: 'openai/gpt-oss-120b',
           duration: Date.now() - startTime,
           success: true,
           inputTokens: estimatedInputTokens,

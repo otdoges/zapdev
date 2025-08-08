@@ -122,14 +122,14 @@ const validateEncryptionData = (args: {
   encryptedContent?: string;
   encryptionSalt?: string;
   encryptionIv?: string;
-  contentChecksum?: string;
+  contentSha256?: string;
 }) => {
   if (!args.isEncrypted) {
     return; // No validation needed for non-encrypted messages
   }
 
   // Check for required encryption fields
-  if (!args.encryptedContent || !args.encryptionSalt || !args.encryptionIv || !args.contentChecksum) {
+  if (!args.encryptedContent || !args.encryptionSalt || !args.encryptionIv || !args.contentSha256) {
     throw new Error("Missing required encryption fields for encrypted message");
   }
   
@@ -229,7 +229,7 @@ export const createMessage = mutation({
     encryptedContent: v.optional(v.string()),
     encryptionSalt: v.optional(v.string()),
     encryptionIv: v.optional(v.string()),
-    contentChecksum: v.optional(v.string()),
+    contentSha256: v.optional(v.string()),
     
     metadata: v.optional(v.object({
       model: v.optional(v.string()),
@@ -298,7 +298,7 @@ export const createMessage = mutation({
       encryptedContent?: string;
       encryptionSalt?: string;
       encryptionIv?: string;
-      contentChecksum?: string;
+      contentSha256?: string;
     } = {
       chatId: args.chatId,
       userId: identity.subject,
@@ -314,7 +314,7 @@ export const createMessage = mutation({
       messageData.encryptedContent = args.encryptedContent;
       messageData.encryptionSalt = args.encryptionSalt;
       messageData.encryptionIv = args.encryptionIv;
-      messageData.contentChecksum = args.contentChecksum;
+      messageData.contentSha256 = args.contentSha256;
     }
     
     const messageId = await ctx.db.insert("messages", messageData);
@@ -339,7 +339,7 @@ export const updateMessage = mutation({
     encryptedContent: v.optional(v.string()),
     encryptionSalt: v.optional(v.string()),
     encryptionIv: v.optional(v.string()),
-    contentChecksum: v.optional(v.string()),
+    contentSha256: v.optional(v.string()),
     
     metadata: v.optional(v.object({
       model: v.optional(v.string()),
@@ -390,7 +390,7 @@ export const updateMessage = mutation({
       encryptedContent?: string;
       encryptionSalt?: string;
       encryptionIv?: string;
-      contentChecksum?: string;
+      contentSha256?: string;
     } = {
       content: sanitizedContent,
       metadata: sanitizedMetadata,
@@ -402,14 +402,14 @@ export const updateMessage = mutation({
       updateData.encryptedContent = args.encryptedContent;
       updateData.encryptionSalt = args.encryptionSalt;
       updateData.encryptionIv = args.encryptionIv;
-      updateData.contentChecksum = args.contentChecksum;
+      updateData.contentSha256 = args.contentSha256;
     } else {
       // If switching from encrypted to unencrypted, clear encryption fields
       updateData.isEncrypted = false;
       updateData.encryptedContent = undefined;
       updateData.encryptionSalt = undefined;
       updateData.encryptionIv = undefined;
-      updateData.contentChecksum = undefined;
+      updateData.contentSha256 = undefined;
     }
     
     await ctx.db.patch(args.messageId, updateData);

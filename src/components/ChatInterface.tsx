@@ -410,7 +410,7 @@ const ChatInterface: React.FC = () => {
             encryptedContent?: string;
             encryptionSalt?: string;
             encryptionIv?: string;
-            contentChecksum?: string;
+            contentSha256?: string;
           } = {
             chatId: selectedChatId as Parameters<typeof createMessage>[0]['chatId'],
             content: userContent,
@@ -427,7 +427,7 @@ const ChatInterface: React.FC = () => {
                 encryptedContent: encrypted.encryptedContent,
                 encryptionSalt: encrypted.salt,
                 encryptionIv: encrypted.iv,
-                contentChecksum: encrypted.checksum,
+                contentSha256: encrypted.checksum,
               };
               
               logger.info("Message encrypted successfully");
@@ -505,7 +505,7 @@ const ChatInterface: React.FC = () => {
             encryptedContent?: string;
             encryptionSalt?: string;
             encryptionIv?: string;
-            contentChecksum?: string;
+            contentSha256?: string;
           } = {
             chatId: selectedChatId as Parameters<typeof createMessage>[0]['chatId'],
             content: sanitizedResponse,
@@ -526,7 +526,7 @@ const ChatInterface: React.FC = () => {
                 encryptedContent: encrypted.encryptedContent,
                 encryptionSalt: encrypted.salt,
                 encryptionIv: encrypted.iv,
-                contentChecksum: encrypted.checksum,
+                contentSha256: encrypted.checksum,
               };
             } catch (encryptionError) {
               console.warn('Failed to encrypt assistant response, sending as plaintext:', encryptionError);
