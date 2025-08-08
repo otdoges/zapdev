@@ -5,7 +5,15 @@ import { SignedIn, SignedOut, SignInButton, ClerkLoaded } from "@clerk/clerk-rea
 // https://clerk.com/docs/custom-flows/checkout-new-payment-method
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore -- experimental export may not have type defs yet
-import { CheckoutProvider, useCheckout, PaymentElementProvider, PaymentElement, usePaymentElement } from "@clerk/clerk-react/experimental";
+// Experimental modules may not be available in all environments in Vite build.
+// Use local fallbacks that no-op at build time to avoid resolution failure.
+import {
+  CheckoutProvider,
+  useCheckout,
+  PaymentElementProvider,
+  PaymentElement,
+  usePaymentElement
+} from "@/lib/clerk-experimental";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
