@@ -22,6 +22,11 @@ export default defineConfig(({ mode }) => {
         injectRegister: 'auto',
         workbox: {
           navigateFallbackDenylist: [/^\/api\//, /^\/convex\//, /^\/_/],
+          runtimeCaching: [{
+            urlPattern: /^https:\/\/api\./,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'api-cache' }
+          }]
         },
         devOptions: {
           enabled: mode === 'development',
