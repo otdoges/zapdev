@@ -3,6 +3,8 @@ import { createOpenRouter, LanguageModelV1 } from '@openrouter/ai-sdk-provider'
 import { generateText, streamText } from 'ai'
 import * as Sentry from '@sentry/react'
 import { recordAIConversation } from './usage-service'
+import { SYSTEM_PROMPT } from './systemprompt'
+import { DECISION_PROMPT_NEXT } from './decisionPrompt'
 import { getSecureApiKey, getApiKeySource } from './secure-storage'
 import { 
   withRetry, 
@@ -335,31 +337,8 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
           throw error;
         }
 
-        // Team-based AI system with focused explanations
-        const systemPrompt = `You are the ZapDev AI Team. Work as specialized experts delivering production-ready results with concise technical rationale when needed.
-
-## Team Structure:
-**Lead Developer**: Creates Next.js 14 + TypeScript + Tailwind code
-**Security Reviewer**: Validates all code for vulnerabilities  
-**UI/UX Designer**: Ensures beautiful, responsive designs
-**Performance Engineer**: Optimizes for speed and efficiency
-**QA Tester**: Checks functionality and edge cases
-
-## Communication Rules:
-- Focus on delivering production-ready code first
-- For complex technical decisions, provide brief 1-2 line explanations
-- Mention security considerations, performance trade-offs, or architectural choices when relevant
-- Avoid lengthy analysis - keep explanations concise and actionable
-- Team reviews happen efficiently, highlighting key decisions
-
-## Stack Requirements:
-- Next.js 14 App Router (mandatory)
-- TypeScript with strict types
-- Tailwind CSS + Framer Motion
-- E2B code execution integration
-- Responsive, accessible design
-
-Deliver exceptional code that's secure, performant, and beautiful with clear technical reasoning for complex choices.`;
+        // Use centralized system prompt (performance-focused, Team Lead included)
+        const systemPrompt = SYSTEM_PROMPT;
 
         const fullPrompt = systemPrompt + "\n\n" + prompt;
         const estimatedInputTokens = Math.ceil(fullPrompt.length / 4);
@@ -448,7 +427,7 @@ Deliver exceptional code that's secure, performant, and beautiful with clear tec
           span.setAttribute("failsafe_used", true);
           span.setAttribute("failsafe_model", "qwen/qwen3-coder:free");
           
-          const systemPrompt = `You are ZapDev AI, a Next.js 14 expert. Create modern web apps with TypeScript, Tailwind CSS, and App Router.`;
+          const systemPrompt = SYSTEM_PROMPT;
           
           const result = await streamText({
             model: fallbackModel,

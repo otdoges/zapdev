@@ -84,7 +84,7 @@ export async function initializeSandbox(): Promise<Sandbox> {
  */
 export async function executeCode(
   code: string, 
-  language: 'python' | 'javascript' = 'python'
+  language: 'javascript' = 'javascript'
 ): Promise<{
   stdout: string;
   stderr: string;

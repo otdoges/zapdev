@@ -1284,6 +1284,14 @@ const ChatInterface: React.FC = () => {
                               : 'bg-card/80 backdrop-blur-md border-white/10'
                           }`}>
                             <CardContent className="p-4">
+                              <div className="flex items-center justify-between mb-1">
+                                <Badge
+                                  variant={message.role === 'assistant' ? 'secondary' : 'outline'}
+                                  className="px-1.5 py-0.5 text-[10px] leading-none"
+                                >
+                                  {message.role === 'assistant' ? 'AI' : 'You'}
+                                </Badge>
+                              </div>
                               <div className="text-sm leading-relaxed">
                                 <SafeText>{getMessageContent(message)}</SafeText>
                               </div>
