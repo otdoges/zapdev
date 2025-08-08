@@ -137,7 +137,6 @@ const ChatInterface: React.FC = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  const [newChatTitle, setNewChatTitle] = useState('');
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
@@ -321,46 +320,32 @@ const ChatInterface: React.FC = () => {
         name: "Create New Chat",
       },
       async (span) => {
-        const validation = validateInput(newChatTitle, MAX_TITLE_LENGTH);
-        if (!validation.isValid) {
-          toast.error(validation.error);
-          span.setAttribute("validation_error", validation.error);
-          return;
-        }
-        
-        if (newChatTitle.trim().length < MIN_TITLE_LENGTH) {
-          toast.error('Chat title must be at least 1 character');
-          span.setAttribute("validation_error", "title_too_short");
-          return;
-        }
-        
         try {
-          span.setAttribute("chat_title", newChatTitle.trim());
-          logger.info("Creating new chat", { title: newChatTitle.trim() });
-          
-          let sanitizedTitle = sanitizeText(newChatTitle.trim());
-          const chatId = await createChat({ title: sanitizedTitle });
+          // Create chat with a temporary placeholder, then rename via AI
+          const tempTitle = 'New chat';
+          span.setAttribute("chat_title", tempTitle);
+          logger.info("Creating new chat", { title: tempTitle });
+          const chatId = await createChat({ title: tempTitle });
           
           setSelectedChatId(chatId);
-          setNewChatTitle('');
           setIsNewChatOpen(false);
           
           span.setAttribute("chat_id", chatId);
-          logger.info("Chat created successfully", { chatId, title: sanitizedTitle });
+          logger.info("Chat created successfully", { chatId, title: tempTitle });
           toast.success('New chat created!');
 
           // Generate AI chat title using gemma2-9b-it based on initial context
           try {
-            const messagesForTitle = [{ role: 'user' as const, content: sanitizedTitle }];
+            const messagesForTitle = [{ role: 'user' as const, content: input.trim() || 'General coding help' }];
             const aiTitle = await generateChatTitleFromMessages(messagesForTitle);
-            if (aiTitle && aiTitle !== sanitizedTitle) {
+            if (aiTitle && aiTitle !== tempTitle) {
               await updateChat({ chatId: chatId as Parameters<typeof updateChat>[0]['chatId'], title: aiTitle });
             }
           } catch {}
         } catch (error) {
           logger.error("Error creating chat", { 
             error: error instanceof Error ? error.message : String(error),
-            title: newChatTitle.trim()
+            title: 'New chat'
           });
           Sentry.captureException(error);
           toast.error('Failed to create chat');
@@ -1128,24 +1113,15 @@ const ChatInterface: React.FC = () => {
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Create New Chat</DialogTitle>
+                      <DialogTitle>Start a new chat</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 pt-4">
-                      <Input
-                        placeholder="Enter chat title..."
-                        value={newChatTitle}
-                        onChange={(e) => setNewChatTitle(e.target.value.substring(0, MAX_TITLE_LENGTH))}
-                        onKeyDown={(e) => e.key === 'Enter' && handleCreateChat()}
-                        maxLength={MAX_TITLE_LENGTH}
-                      />
-                      <div className="text-xs text-muted-foreground">
-                        {newChatTitle.length}/{MAX_TITLE_LENGTH} characters
-                      </div>
+                    <div className="space-y-4 pt-2 text-sm text-muted-foreground">
+                      <p>Well auto-generate a great title based on your first message.</p>
                       <div className="flex justify-end space-x-2">
                         <Button variant="outline" onClick={() => setIsNewChatOpen(false)}>
                           Cancel
                         </Button>
-                        <Button onClick={handleCreateChat} disabled={!newChatTitle.trim()}>
+                        <Button onClick={handleCreateChat}>
                           Create Chat
                         </Button>
                       </div>

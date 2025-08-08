@@ -6,7 +6,6 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   BILLING_PLANS, 
-  createCheckoutSession, 
   useUserSubscription, 
   canUserPerformAction,
   formatPrice,
@@ -189,11 +188,8 @@ export const DynamicPricingSection = () => {
 
     setIsLoading(true);
     try {
-      const { url } = await createCheckoutSession(planId);
-      window.location.href = url;
-    } catch (error) {
-      console.error('Error creating checkout session:', error);
-      alert('Failed to create checkout session. Please try again.');
+      // Navigate to in-app Clerk custom checkout page using experimental PaymentElement
+      window.location.href = `/checkout?planId=${encodeURIComponent(planId)}`;
     } finally {
       setIsLoading(false);
     }

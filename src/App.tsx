@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import AuthCallback from "./pages/AuthCallback";
 import Settings from "./pages/Settings";
 import Pricing from "./pages/Pricing";
+import CheckoutPage from "./pages/Checkout";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Chat from "./pages/Chat";
@@ -37,6 +38,11 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/checkout" element={
+                    <AuthGuard>
+                      <CheckoutPage />
+                    </AuthGuard>
+                  } />
                   <Route path="/chat" element={
                     <AuthGuard>
                       <Chat />

@@ -37,5 +37,5 @@
 - Handle errors per [error-handling.mdc](mdc:.cursor/rules/error-handling.mdc)
 description:
 globs:
-alwaysApply: false
+alwaysApply: true
 ---

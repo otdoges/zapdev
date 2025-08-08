@@ -86,6 +86,25 @@ export const BILLING_PLANS: ClerkPlan[] = [
 ];
 
 /**
+ * Resolve incoming plan identifiers (aliases, case-insensitive) to a known plan id.
+ * Falls back to 'pro' if unknown.
+ */
+export function resolvePlanId(raw: string): string {
+  const normalized = (raw || '').toLowerCase();
+  const aliases: Record<string, string> = {
+    pro: 'pro',
+    professional: 'pro',
+    starter: 'free',
+    free: 'free',
+    enterprise: 'enterprise',
+    team: 'pro',
+  };
+  const mapped = aliases[normalized] || normalized;
+  const exists = BILLING_PLANS.some(p => p.id === mapped);
+  return exists ? mapped : 'pro';
+}
+
+/**
  * Get user's current subscription status
  * In a real implementation, this would query Clerk's billing API
  */
