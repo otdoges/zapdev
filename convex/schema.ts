@@ -109,6 +109,8 @@ export default defineSchema({
     // Used for integrity verification after decryption to detect tampering
     // Calculated before encryption: SHA-256(original_plaintext)
     contentSha256: v.optional(v.string()),
+    // Backward compatibility: previously named contentChecksum on some clients
+    contentChecksum: v.optional(v.string()),
     
     metadata: v.optional(v.object({
       model: v.optional(v.string()),

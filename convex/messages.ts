@@ -123,13 +123,16 @@ const validateEncryptionData = (args: {
   encryptionSalt?: string;
   encryptionIv?: string;
   contentSha256?: string;
+  // Backward compatibility: accept deprecated client field name
+  contentChecksum?: string;
 }) => {
   if (!args.isEncrypted) {
     return; // No validation needed for non-encrypted messages
   }
 
   // Check for required encryption fields
-  if (!args.encryptedContent || !args.encryptionSalt || !args.encryptionIv || !args.contentSha256) {
+  const checksum = args.contentSha256 || args.contentChecksum;
+  if (!args.encryptedContent || !args.encryptionSalt || !args.encryptionIv || !checksum) {
     throw new Error("Missing required encryption fields for encrypted message");
   }
   
@@ -230,6 +233,8 @@ export const createMessage = mutation({
     encryptionSalt: v.optional(v.string()),
     encryptionIv: v.optional(v.string()),
     contentSha256: v.optional(v.string()),
+    // Backward compatibility: accept deprecated client field name
+    contentChecksum: v.optional(v.string()),
     
     metadata: v.optional(v.object({
       model: v.optional(v.string()),
@@ -314,7 +319,8 @@ export const createMessage = mutation({
       messageData.encryptedContent = args.encryptedContent;
       messageData.encryptionSalt = args.encryptionSalt;
       messageData.encryptionIv = args.encryptionIv;
-      messageData.contentSha256 = args.contentSha256;
+      // Support old client field name `contentChecksum`
+      messageData.contentSha256 = args.contentSha256 || (args as unknown as { contentChecksum?: string }).contentChecksum;
     }
     
     const messageId = await ctx.db.insert("messages", messageData);
@@ -340,6 +346,8 @@ export const updateMessage = mutation({
     encryptionSalt: v.optional(v.string()),
     encryptionIv: v.optional(v.string()),
     contentSha256: v.optional(v.string()),
+    // Backward compatibility: accept deprecated client field name
+    contentChecksum: v.optional(v.string()),
     
     metadata: v.optional(v.object({
       model: v.optional(v.string()),
@@ -402,7 +410,8 @@ export const updateMessage = mutation({
       updateData.encryptedContent = args.encryptedContent;
       updateData.encryptionSalt = args.encryptionSalt;
       updateData.encryptionIv = args.encryptionIv;
-      updateData.contentSha256 = args.contentSha256;
+      // Support old client field name `contentChecksum`
+      updateData.contentSha256 = args.contentSha256 || (args as unknown as { contentChecksum?: string }).contentChecksum;
     } else {
       // If switching from encrypted to unencrypted, clear encryption fields
       updateData.isEncrypted = false;
