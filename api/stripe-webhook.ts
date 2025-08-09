@@ -120,9 +120,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     return res.status(200).json({ received: true });
-  } catch (err: any) {
-    console.error('[STRIPE WEBHOOK] Error', err?.message || err);
-    return res.status(400).send(`Webhook Error: ${err?.message || 'Unknown error'}`);
+  } catch (err: unknown) {
+    const errorMessage =
+      typeof err === 'object' && err !== null && 'message' in err
+        ? (err as { message?: string }).message
+        : String(err);
+    console.error('[STRIPE WEBHOOK] Error', errorMessage);
+    return res.status(400).send(`Webhook Error: ${errorMessage || 'Unknown error'}`);
   }
 }
 
