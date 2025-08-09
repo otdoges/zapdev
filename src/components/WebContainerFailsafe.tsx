@@ -66,13 +66,15 @@ interface WebContainerFailsafeProps {
   language: string;
   onFallback?: () => void;
   isVisible: boolean;
+  autoRun?: boolean;
 }
 
 export const WebContainerFailsafe: React.FC<WebContainerFailsafeProps> = ({
   code,
   language,
   onFallback,
-  isVisible
+  isVisible,
+  autoRun = false,
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [webcontainer, setWebcontainer] = useState<WebContainerInstance | null>(null);
@@ -90,6 +92,7 @@ export const WebContainerFailsafe: React.FC<WebContainerFailsafeProps> = ({
     crossOriginIsolated: false,
     sharedArrayBufferSupported: false
   });
+  const hasTriggeredAutoRunRef = useRef(false);
 
   // Check WebContainer support on mount
   useEffect(() => {
@@ -138,6 +141,47 @@ export const WebContainerFailsafe: React.FC<WebContainerFailsafeProps> = ({
 
     checkSupport();
   }, [isVisible, initializeWebContainer]);
+
+  // Auto-run when visible and supported
+  useEffect(() => {
+    if (!isVisible || !autoRun) return;
+    if (!supportInfo.supported) return;
+    if (hasTriggeredAutoRunRef.current && status !== 'idle') return;
+
+    const run = async () => {
+      try {
+        hasTriggeredAutoRunRef.current = true;
+        // Ensure booted
+        if (!webcontainer) {
+          await initializeWebContainer();
+        }
+        // Small delay to allow state to settle
+        setTimeout(() => {
+          void runProject();
+        }, 150);
+      } catch (e) {
+        // no-op; errors handled downstream
+      }
+    };
+
+    run();
+    // re-run when code changes (new code => new preview)
+    // reset flag to allow another auto run on new code
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVisible, autoRun, supportInfo.supported, code, language]);
+
+  // Trigger auto-run once webcontainer becomes available
+  useEffect(() => {
+    if (!isVisible || !autoRun) return;
+    if (!supportInfo.supported) return;
+    if (!webcontainer) return;
+    if (status !== 'idle' && status !== 'error') return;
+    if (hasTriggeredAutoRunRef.current) {
+      // allow subsequent auto-run when code changes
+      void runProject();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [webcontainer]);
 
   const addLog = useCallback((message: string, type: 'info' | 'error' | 'success' = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
@@ -487,7 +531,7 @@ module.exports = {
   const runProject = async () => {
     if (!webcontainer) {
       await initializeWebContainer();
-      return;
+      // will re-enter when webcontainer is set by effect
     }
     
     try {

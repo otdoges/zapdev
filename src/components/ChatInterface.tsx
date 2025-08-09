@@ -36,8 +36,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { streamAIResponse, generateChatTitleFromMessages } from '@/lib/ai';
-import { executeCode } from '@/lib/sandbox.ts';
+import { streamAIResponse, generateChatTitleFromMessages, generateAIResponse } from '@/lib/ai';
+import { executeCode, startSandbox } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
 import { E2BCodeExecution } from './E2BCodeExecution';
 import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
@@ -46,6 +46,8 @@ import { braveSearchService, type BraveSearchResult, type WebsiteAnalysis } from
 import { crawlSite } from '@/lib/firecrawl';
 import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
+import WebContainerFailsafe from './WebContainerFailsafe';
+import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
 
 const { logger } = Sentry;
 
@@ -142,6 +144,13 @@ const ChatInterface: React.FC = () => {
   const [sessionStarted, setSessionStarted] = useState(false);
   const [showShowcase, setShowShowcase] = useState(false);
   const [showcaseExecutions, setShowcaseExecutions] = useState<ShowcaseExecutionResult[]>([]);
+  // Persistent right-side preview state
+  const [previewCode, setPreviewCode] = useState<string>('');
+  const [previewLanguage, setPreviewLanguage] = useState<string>('javascript');
+  const [showPreview, setShowPreview] = useState<boolean>(false);
+  // Team Lead planning
+  const [teamLeadPlan, setTeamLeadPlan] = useState<string | null>(null);
+  const [isPlanning, setIsPlanning] = useState<boolean>(false);
   
   // Search and website cloning state
   const [searchQuery, setSearchQuery] = useState('');
@@ -188,6 +197,13 @@ const ChatInterface: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Pre-warm E2B sandbox so execution feels instant and actually tries to connect
+  useEffect(() => {
+    startSandbox().catch(() => {
+      // Ignore; E2B errors will be surfaced by execution components
+    });
+  }, []);
 
   // Initialize message encryption when user is available
   useEffect(() => {
@@ -450,6 +466,14 @@ const ChatInterface: React.FC = () => {
               toast.info('Python blocks detected; auto-run is limited to JS/TS.');
             }
 
+            // Set persistent preview to the first runnable JS/TS block
+            const first = runnableBlocks[0];
+            if (first) {
+              setPreviewCode(first.code);
+              setPreviewLanguage(first.language);
+              setShowPreview(true);
+            }
+
             setShowShowcase(true);
             setShowcaseExecutions([]);
 
@@ -470,6 +494,18 @@ const ChatInterface: React.FC = () => {
             } catch (execErr) {
               console.error('Auto-execution failed:', execErr);
             }
+          }
+
+          // Team Lead planning step before streaming
+          try {
+            setIsPlanning(true);
+            const planningPrompt = `${DECISION_PROMPT_NEXT}\n\n<user_request>\n${userContent}\n</user_request>\n\nProduce a concise Team Lead plan and execution strategy as bullet points. No code.`;
+            const plan = await generateAIResponse(planningPrompt, { skipCache: true });
+            setTeamLeadPlan(plan);
+          } catch (planErr) {
+            console.debug('Planning step skipped', planErr);
+          } finally {
+            setIsPlanning(false);
           }
 
           // Stream AI response (prepend search / website analysis context if present)
@@ -494,6 +530,15 @@ const ChatInterface: React.FC = () => {
           // Sanitize AI response (though it should be safe from reputable AI providers)
           const sanitizedResponse = assistantContent.substring(0, 50000); // Hard limit
           span.setAttribute("response_length", sanitizedResponse.length);
+
+          // Extract assistant code blocks for preview
+          const assistantBlocks = extractCodeBlocks(sanitizedResponse);
+          const assistantRunnable = assistantBlocks.filter(b => b.language !== 'python');
+          if (assistantRunnable[0]) {
+            setPreviewCode(assistantRunnable[0].code);
+            setPreviewLanguage(assistantRunnable[0].language);
+            setShowPreview(true);
+          }
 
           // Prepare assistant message data with optional encryption
           let assistantMessageData: {
@@ -1099,9 +1144,9 @@ const ChatInterface: React.FC = () => {
                   <h3 className="font-semibold text-sm">Website Cloning</h3>
                   <p className="text-xs text-muted-foreground">Analyze and recreate any website with AI assistance</p>
                 </div>
-              </motion.div>
-            </motion.div>
-          </div>
+                  </motion.div>
+                </motion.div>
+              </div>
         </div>
       )}
 
@@ -1210,15 +1255,17 @@ const ChatInterface: React.FC = () => {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, type: "spring", stiffness: 100, delay: 0.1 }}
-            className="flex-1 flex flex-col relative overflow-hidden bg-[#0F0F0F]"
+            className="flex-1 flex relative overflow-hidden bg-[#0F0F0F]"
           >
-            {/* Chat Header */}
-            <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="p-6 border-b border-gray-800/60 bg-[#1A1A1A]/50 backdrop-blur-xl"
-            >
+            {/* Left column: Chat area */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Chat Header */}
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="p-6 border-b border-gray-800/60 bg-[#1A1A1A]/50 backdrop-blur-xl"
+              >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <motion.div 
@@ -1274,10 +1321,10 @@ const ChatInterface: React.FC = () => {
                   </Button>
                 </div>
               </div>
-            </motion.div>
+              </motion.div>
 
-            {/* Messages Area */}
-            <div className="flex-1 relative overflow-hidden">
+              {/* Messages Area */}
+              <div className="flex-1 relative overflow-hidden">
               <AnimatedResultShowcase
                 visible={showShowcase}
                 onClose={() => setShowShowcase(false)}
@@ -1296,7 +1343,21 @@ const ChatInterface: React.FC = () => {
                 className="absolute inset-0 pointer-events-none"
               />
               
-              {/* Messages */}
+                {/* Team Lead Plan */}
+                {teamLeadPlan && (
+                  <div className="px-6 pt-4">
+                    <Card className="bg-[#1A1A1A]/90 border border-purple-500/30">
+                      <CardContent className="p-4">
+                        <div className="text-xs uppercase tracking-wide text-purple-300 mb-2">Team Lead Plan</div>
+                        <div className="prose prose-invert max-w-none text-sm whitespace-pre-wrap">
+                          <SafeText>{teamLeadPlan}</SafeText>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Messages */}
               <ScrollArea className="h-full p-6">
                 <div className="space-y-4 max-w-4xl mx-auto">
                   <AnimatePresence>
@@ -1491,15 +1552,15 @@ const ChatInterface: React.FC = () => {
                   <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
-            </div>
+              </div>
 
-            {/* Input Form - Professional code editor style */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className="p-6 border-t border-gray-800/60 bg-[#1A1A1A]/50 backdrop-blur-xl"
-            >
+              {/* Input Form - Professional code editor style */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className="p-6 border-t border-gray-800/60 bg-[#1A1A1A]/50 backdrop-blur-xl"
+              >
               <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
                 <motion.div 
                   initial={{ opacity: 0.95 }}
@@ -1537,16 +1598,45 @@ const ChatInterface: React.FC = () => {
                         <Send className="w-4 h-4" />
                       )}
                     </Button>
-                  </motion.div>
-                </motion.div>
-                 <div className="flex justify-between items-center mt-3 text-[11px] text-gray-500">
-                  <span>⏎ Enter to send • ⇧⏎ Shift+Enter for newline</span>
-                  <span className={input.length > MAX_MESSAGE_LENGTH * 0.9 ? 'text-orange-400' : 'text-gray-600'}>
-                    {input.length.toLocaleString()}/{MAX_MESSAGE_LENGTH.toLocaleString()}
-                  </span>
-                </div>
-              </form>
+              </motion.div>
             </motion.div>
+
+            <div className="flex justify-between items-center mt-3 text-[11px] text-gray-500">
+              <span>⏎ Enter to send • ⇧⏎ Shift+Enter for newline</span>
+              <span className={input.length > MAX_MESSAGE_LENGTH * 0.9 ? 'text-orange-400' : 'text-gray-600'}>
+                {input.length.toLocaleString()}/{MAX_MESSAGE_LENGTH.toLocaleString()}
+              </span>
+            </div>
+            </form>
+          </motion.div>
+          {/* Close left column */}
+          </div>
+
+          {/* Right column: Persistent live preview */}
+          <div className="hidden xl:flex w-[36%] min-w-[360px] max-w-[520px] border-l border-gray-800/60 bg-[#111] flex-col">
+            <div className="p-4 border-b border-gray-800/60 flex items-center justify-between">
+              <div className="text-sm font-medium text-gray-200 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-purple-400" /> Live Preview
+              </div>
+              <div className="text-xs text-gray-400">{previewLanguage.toUpperCase()}</div>
+            </div>
+            <div className="flex-1 overflow-hidden p-4">
+              {showPreview ? (
+                <WebContainerFailsafe
+                  code={previewCode}
+                  language={previewLanguage}
+                  isVisible={true}
+                  autoRun={true}
+                  onFallback={() => toast.info('WebContainer failsafe preview running')}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  Paste or generate JS code to preview here
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Close Right Panel - Chat Interface */}
           </motion.div>
         </motion.div>
       )}
