@@ -45,18 +45,27 @@ export type StripeSubCache =
 async function syncStripeDataToKV(customerId: string) {
   const subscriptions = await stripe.subscriptions.list({
     customer: customerId,
-    limit: 1,
+    // Fetch more than one to avoid caching a stale/cancelled sub
+    limit: 100,
     status: 'all',
     expand: ['data.default_payment_method'],
   });
 
-  if (subscriptions.data.length === 0) {
+  const allSubs = subscriptions.data ?? [];
+
+  // Prefer active or trialing subscriptions, most recent by current period start
+  const candidates = allSubs
+    .filter((s) => s.status === 'active' || s.status === 'trialing')
+    .sort((a, b) => (b.current_period_start ?? 0) - (a.current_period_start ?? 0));
+
+  const subscription = candidates[0];
+
+  if (!subscription) {
     const subData: StripeSubCache = { status: 'none' };
     await kvPutJson(`stripe:customer:${customerId}`, subData);
     return subData;
   }
 
-  const subscription = subscriptions.data[0];
   const subData: StripeSubCache = {
     subscriptionId: subscription.id,
     status: subscription.status,
@@ -91,27 +100,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sig = req.headers['stripe-signature'] as string | undefined;
   if (!sig) return res.status(400).send('Missing stripe-signature header');
 
-  const rawBody = (req as any).rawBody || (req.body && typeof req.body === 'string' ? req.body : undefined);
+  const rawBody = (req as VercelRequest & { rawBody?: string }).rawBody || (req.body && typeof req.body === 'string' ? req.body : undefined);
   // When deployed on Vercel, set functions config: { api: { bodyParser: false } }
   if (!rawBody) {
-    return res.status(400).send('Missing raw body – ensure `bodyParser: false`');
+    // Vercel automatically provides rawBody when bodyParser is disabled
+    // If unavailable, we can't verify the signature
+    return res.status(400).send('Raw body required');
   }
 
   try {
     const event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
 
     if (allowedEvents.includes(event.type)) {
-      const obj: any = event.data?.object ?? {};
-      const customerId = obj.customer as string | undefined;
+      const obj = event.data?.object as { customer?: string } | undefined;
+      const customerId = obj?.customer;
       if (customerId && typeof customerId === 'string') {
         await syncStripeDataToKV(customerId);
       }
     }
 
     return res.status(200).json({ received: true });
-  } catch (err: any) {
-    console.error('[STRIPE WEBHOOK] Error', err?.message || err);
-    return res.status(400).send(`Webhook Error: ${err?.message || 'Unknown error'}`);
+  } catch (err: unknown) {
+    const errorMessage =
+      typeof err === 'object' && err !== null && 'message' in err
+        ? (err as { message?: string }).message
+        : String(err);
+    console.error('[STRIPE WEBHOOK] Error', errorMessage);
+    return res.status(400).send(`Webhook Error: ${errorMessage || 'Unknown error'}`);
   }
 }
 
@@ -120,5 +135,3 @@ export const config = {
     bodyParser: false,
   },
 };
-
-
