@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { stripe } from './_utils/stripe';
+import { kvGet } from './_utils/kv';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -42,12 +43,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    if (!userId || !providedCustomerId) {
-      return res.status(400).send('Missing userId or customerId');
+    if (!userId) {
+      return res.status(400).send('Missing userId');
+    }
+
+    // Derive customerId from KV if not explicitly provided
+    const customerId = providedCustomerId || (await kvGet(`stripe:user:${userId}`));
+    if (!customerId) {
+      return res.status(404).send('No Stripe customer found for user');
     }
 
     const session = await stripe.billingPortal.sessions.create({
-      customer: providedCustomerId,
+      customer: customerId,
       return_url: safeReturn,
     });
 

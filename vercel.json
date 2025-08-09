@@ -3,11 +3,6 @@
   "outputDirectory": "dist",
   "installCommand": "bun install",
   "framework": null,
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "headers": [
     {
       "source": "/api/stripe-webhook",

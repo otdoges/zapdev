@@ -5,7 +5,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { key, json } = req.query as { key?: string; json?: string };
   if (!key) return res.status(400).send('Missing key');
 
-  const allowedPrefixes = ['public:'];
+  const allowedPrefixes = ['public:', 'stripe:user:', 'stripe:customer:'];
   const isAllowedKey = allowedPrefixes.some((prefix) => key.startsWith(prefix));
   if (!isAllowedKey) return res.status(403).send('Forbidden');
 

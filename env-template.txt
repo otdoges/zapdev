@@ -36,10 +36,9 @@ STRIPE_PRICE_ENTERPRISE_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Optional: Stripe Customer Portal (no extra env needed unless custom settings)
 
-# === OPTIONAL: Cloudflare KV (for Stripe cache) ===
-CLOUDFLARE_ACCOUNT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-CF_KV_NAMESPACE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-CLOUDFLARE_API_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# === OPTIONAL: Upstash Redis (for Stripe cache) ===
+UPSTASH_REDIS_REST_URL=https://us1-worthy-mammal-12345.upstash.io
+UPSTASH_REDIS_REST_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # === REQUIRED for server-side fetches to own APIs ===
 PUBLIC_ORIGIN=http://localhost:5173
