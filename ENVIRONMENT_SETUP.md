@@ -48,6 +48,20 @@ cp .env.local.template .env.local
 1. Go to [OpenRouter](https://openrouter.ai)
 2. Get API key for `VITE_OPENROUTER_API_KEY`
 
+#### **Stripe + Cloudflare KV (Subscriptions)**
+1. Go to Stripe Dashboard and create prices. Set:
+   - `VITE_STRIPE_PUBLISHABLE_KEY`
+   - `STRIPE_SECRET_KEY`
+   - `STRIPE_WEBHOOK_SECRET`
+   - `STRIPE_PRICE_PRO_MONTH`, `STRIPE_PRICE_PRO_YEAR`
+   - `STRIPE_PRICE_ENTERPRISE_MONTH`, `STRIPE_PRICE_ENTERPRISE_YEAR`
+2. Go to Cloudflare Dashboard, create a KV Namespace, and an API Token with KV Read/Write on the namespace. Set:
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `CF_KV_NAMESPACE_ID`
+   - `CLOUDFLARE_API_TOKEN`
+3. Set app origin for server-side fetches:
+   - `PUBLIC_ORIGIN=http://localhost:5173`
+
 ### 4. Start Development
 ```bash
 bun run dev

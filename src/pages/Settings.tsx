@@ -139,6 +139,20 @@ const Settings = () => {
     bio: '',
     website: '',
   });
+  const [invoices, setInvoices] = useState<Array<{
+    id: string;
+    number: string | null;
+    status: string | null;
+    currency: string | null;
+    amount_paid: number | null;
+    amount_due: number | null;
+    created: number | null;
+    hosted_invoice_url: string | null;
+    invoice_pdf: string | null;
+    period_start: number | null;
+    period_end: number | null;
+  }>>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
 
   // Utility Functions
   const formatCurrency = (amount: number, currency: string) => 
@@ -162,10 +176,9 @@ const Settings = () => {
 
     setIsLoadingBilling(true);
     try {
-      // Use Clerk billing instead of Stripe
       const { createCustomerPortalSession } = await import('@/lib/clerk-billing');
-      const result = await createCustomerPortalSession();
-      window.location.href = result.url;
+      const { url } = await createCustomerPortalSession();
+      window.location.href = url;
     } catch (error) {
       console.error('Error opening customer portal:', error);
       alert('Failed to open billing portal. Please try again.');
@@ -278,8 +291,8 @@ const Settings = () => {
         });
 
         // Try to load from secure storage first
-        const secureApiKey = getSecureApiKey();
-        if (secureApiKey && hasUserApiKey()) {
+        const secureApiKey = await getSecureApiKey();
+        if (secureApiKey && (await hasUserApiKey())) {
           setApiConfig({
             groqApiKey: secureApiKey,
             useUserApiKey: true
@@ -319,6 +332,30 @@ const Settings = () => {
 
     loadData();
   }, [isAuthenticated, navigate, user]);
+
+  useEffect(() => {
+    async function loadInvoices() {
+      if (!user) return;
+      try {
+        setLoadingInvoices(true);
+        const body: any = { userId: user._id };
+        const res = await fetch('/api/list-invoices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          setInvoices(Array.isArray(json?.invoices) ? json.invoices : []);
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        setLoadingInvoices(false);
+      }
+    }
+    loadInvoices();
+  }, [user?.id]);
 
   // Tab Components
   const ProfileTab = () => (
@@ -440,8 +477,18 @@ const Settings = () => {
             </div>
             
             <div className="pt-4 border-t border-gray-800 space-y-2">
-              <Button variant="outline" className="w-full border-gray-700">Change Plan</Button>
-              <Button variant="outline" className="w-full border-red-700 text-red-400 hover:bg-red-900/20">
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-700"
+                onClick={() => navigate('/pricing')}
+              >
+                Change Plan
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full border-red-700 text-red-400 hover:bg-red-900/20"
+                onClick={handleManageBilling}
+              >
                 Cancel Subscription
               </Button>
             </div>
@@ -458,6 +505,42 @@ const Settings = () => {
           </CardContent>
         </Card>
       )}
+
+      <Card className="bg-gray-900 border-gray-800">
+        <CardHeader>
+          <CardTitle>Billing History</CardTitle>
+          <CardDescription>Your recent invoices</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {loadingInvoices ? (
+            <p className="text-gray-400">Loading invoices...</p>
+          ) : invoices.length === 0 ? (
+            <p className="text-gray-400">No invoices found.</p>
+          ) : (
+            <div className="space-y-2">
+              {invoices.map((inv) => (
+                <div key={inv.id} className="flex items-center justify-between p-3 rounded-md border border-gray-800">
+                  <div>
+                    <p className="text-sm font-medium">Invoice {inv.number || inv.id}</p>
+                    <p className="text-xs text-gray-400">
+                      {inv.created ? new Date(inv.created * 1000).toLocaleDateString() : ''} • {inv.status}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm">{typeof inv.amount_paid === 'number' ? formatCurrency(inv.amount_paid, (inv.currency || 'USD').toUpperCase()) : ''}</p>
+                    {inv.hosted_invoice_url && (
+                      <a className="text-blue-400 hover:text-blue-300 text-sm" href={inv.hosted_invoice_url} target="_blank" rel="noreferrer">View</a>
+                    )}
+                    {inv.invoice_pdf && (
+                      <a className="text-blue-400 hover:text-blue-300 text-sm" href={inv.invoice_pdf} target="_blank" rel="noreferrer">PDF</a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 

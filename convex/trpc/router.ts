@@ -212,60 +212,67 @@ const authRouter = router({
     }),
 });
 
-// Billing procedures (Clerk-based)
+// Billing procedures (Stripe + Cloudflare KV)
 const billingRouter = router({
-  // Get user subscription status
+  // Get user subscription status from KV cache
   getUserSubscription: protectedProcedure.query(async ({ ctx }) => {
-    // Get user's subscription from Convex (synced with Clerk)
-    return {
-      planId: 'free',
-      planName: 'Free',
-      status: 'active',
-      features: ['10 AI conversations per month', 'Basic code execution'],
-      currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000,
-    };
-  }),
-
-  // Get user usage statistics
-  getUserUsage: protectedProcedure.query(async ({ ctx }) => {
-    // Get usage statistics from Convex
-    return {
-      conversations: 5,
-      codeExecutions: 12,
-      resetDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
-    };
-  }),
-
-  // Record usage event
-  recordUsage: protectedProcedure
-    .input(z.object({
-      eventName: z.string(),
-      metadata: z.record(z.union([z.string(), z.number(), z.boolean()])),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // Record usage event for billing
-      return { success: true };
-    }),
-
-  // Create checkout session (redirects to Clerk billing)
-  createCheckoutSession: protectedProcedure
-    .input(z.object({
-      planId: z.string(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // Create Clerk billing checkout session
+    try {
+      const base = process.env.PUBLIC_ORIGIN;
+      if (!base) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'PUBLIC_ORIGIN not set',
+        });
+      }
+      const userId = ctx.user!.id;
+      const kvUserRes = await fetch(
+        `${base}/api/kv-proxy?key=${encodeURIComponent(`stripe:user:${userId}`)}`
+      );
+      if (!kvUserRes.ok) {
+        return {
+          planId: 'free',
+          planName: 'Free',
+          status: 'none',
+          features: [],
+          currentPeriodEnd: Date.now(),
+        };
+      }
+      const customerId = await kvUserRes.text();
+      const kvSubRes = await fetch(
+        `${base}/api/kv-proxy?key=${encodeURIComponent(`stripe:customer:${customerId}`)}&json=1`
+      );
+      if (!kvSubRes.ok) {
+        return { planId: 'free', planName: 'Free', status: 'none', features: [], currentPeriodEnd: Date.now() };
+      }
+      const sub = await kvSubRes.json();
+      const priceId: string | null = sub?.priceId || null;
+      const planId = priceId?.includes('pro') ? 'pro' : priceId?.includes('enterprise') ? 'enterprise' : 'free';
       return {
-        url: `https://billing.clerk.dev/checkout?plan=${input.planId}`,
+        planId,
+        planName: planId.charAt(0).toUpperCase() + planId.slice(1),
+        status: sub?.status || 'none',
+        features: planId === 'pro' ? ['Unlimited AI conversations', 'Advanced code execution'] : ['10 AI conversations per month', 'Basic code execution'],
+        currentPeriodEnd: sub?.currentPeriodEnd ? sub.currentPeriodEnd * 1000 : Date.now(),
       };
-    }),
-
-  // Create customer portal session (redirects to Clerk billing)
-  createCustomerPortalSession: protectedProcedure.mutation(async ({ ctx }) => {
-    // Create Clerk billing portal session
-    return {
-      url: 'https://billing.clerk.dev/portal',
-    };
+    } catch (e) {
+      return { planId: 'free', planName: 'Free', status: 'none', features: [], currentPeriodEnd: Date.now() };
+    }
   }),
+
+  // Create Stripe checkout session via API route
+  createCheckoutSession: protectedProcedure
+    .input(z.object({ planId: z.string(), period: z.enum(['month', 'year']).optional() }))
+    .mutation(async ({ input, ctx }) => {
+      const base = process.env.PUBLIC_ORIGIN || '';
+      const res = await fetch(`${base}/api/create-checkout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: input.planId, period: input.period, userId: ctx.user!.id, email: ctx.user!.email }),
+      });
+      if (!res.ok) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create checkout session' });
+      const data = await res.json();
+      return { url: data.url as string };
+    }),
 });
 
 // Main app router

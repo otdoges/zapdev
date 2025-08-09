@@ -21,7 +21,7 @@ export const useUsageTracking = () => {
   // Identify the user in PostHog when authenticated
   useEffect(() => {
     if (user) {
-      posthog?.identify(user.id);
+      posthog?.identify(user.userId);
     }
   }, [user, posthog]);
 
@@ -35,7 +35,7 @@ export const useUsageTracking = () => {
       // Store event locally first for immediate tracking
       const localEvent = {
         ...event,
-        userId: user.id,
+        userId: user.userId,
         timestamp: Date.now(),
         ingested: false,
       };
@@ -48,7 +48,7 @@ export const useUsageTracking = () => {
       // Send event to PostHog
       posthog?.capture(event.eventName, {
         ...event.metadata,
-        userId: user.id,
+        userId: user.userId,
         timestamp: localEvent.timestamp,
       });
 
@@ -146,5 +146,28 @@ export const useUsageTracking = () => {
     getPendingEvents,
     clearPendingEvents,
     syncPendingEvents,
+    getSubscription: async () => {
+      try {
+        const base = import.meta.env.VITE_CONVEX_URL as string | undefined;
+        const url = base
+          ? `${base.replace(/\/$/, '')}/trpc/billing.getUserSubscription`
+          : '/trpc/billing.getUserSubscription';
+        const token = localStorage.getItem('authToken') || undefined;
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            ...(token ? { authorization: `Bearer ${token}` } : {}),
+            accept: 'application/json',
+          },
+          // Include cookies if same-origin; omit if cross-origin bearer-token flow
+          credentials: base ? 'omit' : 'include',
+        });
+        if (!res.ok) return null;
+        const json = await res.json();
+        return json?.result?.data ?? null;
+      } catch {
+        return null;
+      }
+    },
   };
 };

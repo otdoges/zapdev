@@ -382,6 +382,10 @@ export class AICircuitBreaker {
       throw error;
     }
   }
+
+  getState() {
+    return { state: this.state } as const;
+  }
 }
 
 /**

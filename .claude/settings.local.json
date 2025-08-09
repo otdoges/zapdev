@@ -51,7 +51,8 @@
       "Bash(echo $CLERK_JWT_ISSUER_DOMAIN)",
       "Bash(curl:*)",
       "Bash(bunx:*)",
-      "Bash(npx convex env:*)"
+      "Bash(npx convex env list)",
+      "WebFetch(domain:clerk.com)"
     ],
     "deny": []
   }

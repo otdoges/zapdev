@@ -12,25 +12,34 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 
 import { useAuth } from "@/hooks/useAuth";
-import React from "react"; // Added missing import for React
+import React, { useEffect } from "react"; // Added missing import for React
 
 const HeroSection = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+    <div className="min-h-screen bg-black relative overflow-hidden">
       <Navigation />
       
       {/* Background Elements */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/20 via-slate-900/40 to-black/60"></div>
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-purple-500/5 to-transparent"></div>
+      <div className="absolute inset-0 bg-[#0A0A0A]" />
+      <div 
+        className="absolute left-0 top-0 w-full h-full rounded-full"
+        style={{
+          background: '#377AFB',
+          opacity: 0.1,
+          boxShadow: '300px 300px 300px',
+          filter: 'blur(150px)',
+          zIndex: 1
+        }}
+      />
       
       <motion.section 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1 }}
-        className="relative pt-32 pb-20 px-4"
+        className="relative pt-32 pb-20 px-4 z-10"
       >
         <div className="container max-w-4xl mx-auto text-center">
           <motion.div
@@ -38,7 +47,7 @@ const HeroSection = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.8 }}
           >
-            <Badge variant="outline" className="mb-4 border-purple-500/50 text-purple-300">
+            <Badge variant="outline" className="mb-4 border-blue-500/50 text-blue-300">
               <Star className="w-3 h-3 mr-1" />
               Choose Your Perfect Plan
             </Badge>
@@ -51,7 +60,7 @@ const HeroSection = () => {
             className="text-5xl md:text-7xl font-bold mb-6 text-white"
           >
             Simple,{" "}
-            <span className="text-gradient bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            <span className="text-gradient">
               Transparent
             </span>{" "}
             Pricing
@@ -61,7 +70,7 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.8 }}
-            className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed"
+            className="text-xl text-gray-200 mb-8 max-w-3xl mx-auto leading-relaxed"
           >
             Start building with AI-powered tools today. Choose the plan that fits your needs and scale as you grow. No hidden fees, no surprises.
           </motion.p>
@@ -75,7 +84,7 @@ const HeroSection = () => {
             {!isAuthenticated && (
               <Button 
                 size="lg" 
-                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3"
+                className="button-gradient px-8 py-3"
                 onClick={() => navigate('/chat')}
               >
                 Start Free Trial
@@ -85,7 +94,7 @@ const HeroSection = () => {
             <Button 
               size="lg" 
               variant="outline" 
-              className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10 px-8 py-3"
+              className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10 px-8 py-3"
               onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
             >
               View Pricing
@@ -154,7 +163,7 @@ const FeatureComparisonTable = () => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.8 }}
-      className="py-20 bg-gray-900/50"
+      className="py-20 bg-black"
     >
       <div className="container px-4 max-w-6xl mx-auto">
         <div className="text-center mb-16">
@@ -167,14 +176,14 @@ const FeatureComparisonTable = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full bg-gray-900 rounded-lg overflow-hidden">
+          <table className="w-full bg-[#0A0A0A] rounded-lg overflow-hidden border border-gray-800">
             <thead>
               <tr className="border-b border-gray-800">
                 <th className="text-left p-6 text-gray-400 font-medium">Features</th>
                 <th className="text-center p-6 text-white font-medium">Starter</th>
                 <th className="text-center p-6 text-white font-medium relative">
                   Professional
-                  <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-xs">
+                  <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-[#3E6FF3] text-white text-xs">
                     Popular
                   </Badge>
                 </th>
@@ -184,16 +193,16 @@ const FeatureComparisonTable = () => {
             <tbody>
               {features.map((category, categoryIndex) => (
                 <React.Fragment key={category.category}>
-                  <tr className="bg-gray-800/50">
-                    <td colSpan={4} className="p-4 font-semibold text-purple-300 text-sm uppercase tracking-wider">
+                  <tr className="bg-gray-800/20">
+                    <td colSpan={4} className="p-4 font-semibold text-blue-300 text-sm uppercase tracking-wider">
                       {category.category}
                     </td>
                   </tr>
                   {category.items.map((item, itemIndex) => (
-                    <tr key={`${categoryIndex}-${itemIndex}`} className="border-b border-gray-800 hover:bg-gray-800/30 transition-colors">
+                    <tr key={`${categoryIndex}-${itemIndex}`} className="border-b border-gray-800 hover:bg-blue-500/5 transition-colors">
                       <td className="p-4 text-gray-300">{item.name}</td>
                       <td className="p-4 text-center">{renderFeatureValue(item.starter)}</td>
-                      <td className="p-4 text-center bg-purple-500/5">{renderFeatureValue(item.professional)}</td>
+                      <td className="p-4 text-center bg-blue-500/5">{renderFeatureValue(item.professional)}</td>
                       <td className="p-4 text-center">{renderFeatureValue(item.enterprise)}</td>
                     </tr>
                   ))}
@@ -277,11 +286,11 @@ const FAQSection = () => {
                 onOpenChange={() => setOpenItem(openItem === index ? null : index)}
               >
                 <CollapsibleTrigger asChild>
-                  <Card className="bg-gray-900 border-gray-800 hover:border-purple-500/50 transition-all cursor-pointer">
+                  <Card className="bg-[#0A0A0A] border-gray-800 hover:border-blue-500/50 transition-all cursor-pointer">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 py-4">
                       <h3 className="text-lg font-medium text-white">{faq.question}</h3>
                       {openItem === index ? (
-                        <ChevronUp className="w-5 h-5 text-purple-400" />
+                        <ChevronUp className="w-5 h-5 text-blue-400" />
                       ) : (
                         <ChevronDown className="w-5 h-5 text-gray-400" />
                       )}
@@ -306,64 +315,81 @@ const CTASection = () => {
 
   return (
     <motion.section 
-      initial={{ opacity: 0, y: 50 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.8 }}
-      className="py-20 bg-gradient-to-r from-purple-900/20 to-blue-900/20"
+      initial={{ opacity: 0, scale: 0.95 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.8, delay: 0.2 }}
+      className="w-full border-t border-white"
+      style={{
+        paddingLeft: '120px',
+        paddingRight: '120px',
+        paddingTop: '80px',
+        paddingBottom: '80px',
+        background: '#3E6FF3',
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
+        alignItems: 'center',
+        gap: '40px',
+        display: 'inline-flex'
+      }}
     >
-      <div className="container px-4 max-w-4xl mx-auto text-center">
-        <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl p-12 border border-purple-500/20">
-          <Sparkles className="w-12 h-12 text-purple-400 mx-auto mb-6" />
-          <h2 className="text-4xl font-bold mb-4 text-white">
-            Ready to Start Building?
-          </h2>
-          <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-            Join thousands of developers who are already building amazing applications with our AI-powered platform.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3"
-              onClick={() => navigate('/chat')}
-            >
-              {isAuthenticated ? 'Go to Dashboard' : 'Start Free Trial'}
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10 px-8 py-3"
-              onClick={() => window.open('mailto:support@zapdev.com')}
-            >
-              Contact Sales
-            </Button>
-          </div>
-          
-          <div className="mt-8 pt-8 border-t border-gray-800">
-            <div className="flex flex-wrap justify-center items-center gap-8 text-sm text-gray-400">
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-green-500" />
-                30-day money-back guarantee
-              </div>
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-blue-500" />
-                Instant setup
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-purple-500" />
-                No credit card required for trial
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <motion.div 
+        initial={{ opacity: 0, y: 50 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8, delay: 0.4 }}
+        className="text-center"
+      >
+        <motion.h2 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="text-3xl md:text-4xl font-bold mb-4 text-white"
+        >
+          Ready to launch your website?
+        </motion.h2>
+        <motion.p 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+          className="text-lg text-white/80 mb-8 max-w-2xl mx-auto"
+        >
+          Join thousands of developers who have already discovered the power of zap dev AI-driven development.
+        </motion.p>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 1.0 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <Button 
+            size="lg" 
+            className="bg-white text-blue-600 hover:bg-white/90"
+            onClick={() => navigate('/chat')}
+          >
+            {isAuthenticated ? 'Open Chat' : 'Get Started'}
+            <ArrowRight className="ml-2 w-4 h-4" />
+          </Button>
+        </motion.div>
+      </motion.div>
     </motion.section>
   );
 };
 
 const Pricing = () => {
+  // Trigger KV sync after successful checkout redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('billing') === 'success') {
+      const id = localStorage.getItem('convexUserId');
+      if (id) fetch(`/api/success?userId=${encodeURIComponent(id)}`, { method: 'POST' }).catch(() => {});
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
   return (
     <div className="min-h-screen bg-black text-white">
       <HeroSection />

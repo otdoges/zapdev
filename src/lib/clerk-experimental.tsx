@@ -1,4 +1,6 @@
 import React from "react";
+import { BILLING_PLANS, createCheckoutSession } from "@/lib/clerk-billing";
+import { useUser } from "@clerk/clerk-react";
 
 type CheckoutStatus =
   | "idle"
@@ -27,20 +29,57 @@ const CheckoutContext = React.createContext<CheckoutContextValue | null>(null);
 
 export const CheckoutProvider: React.FC<{
   children: React.ReactNode;
-}> = ({ children }) => {
+  for?: "user" | "org";
+  planId?: string;
+  planPeriod?: "month" | "year";
+}> = ({ children, planId = "pro", planPeriod = "month" }) => {
+  const [status] = React.useState<CheckoutStatus>("idle");
+  const [fetchStatus, setFetchStatus] = React.useState<"idle" | "fetching">("idle");
+  const [error, setError] = React.useState<{ message: string } | null>(null);
+
+  const resolvedPlan = React.useMemo(() => {
+    return BILLING_PLANS.find(p => p.id === planId) || BILLING_PLANS.find(p => p.id === "pro")!;
+  }, [planId]);
+
+  const { user } = useUser();
+
+  const start = React.useCallback(async () => {
+    try {
+      setFetchStatus("fetching");
+      setError(null);
+      const { url } = await createCheckoutSession(resolvedPlan.id, { userId: user?.id || undefined, email: user?.primaryEmailAddress?.emailAddress || undefined });
+      window.location.href = url;
+    } catch (e) {
+      console.error("Checkout start failed", e);
+      setError({ message: "Failed to start checkout. Please try again." });
+    } finally {
+      setFetchStatus("idle");
+    }
+  }, [resolvedPlan.id, user?.id, user?.primaryEmailAddress?.emailAddress]);
+
   const value: CheckoutContextValue = {
     checkout: {
-      status: "needs_initialization",
-      fetchStatus: "idle",
+      status,
+      fetchStatus,
       isConfirming: false,
-      error: null,
-      plan: { name: "Pro", period: "month" },
-      totals: { totalDueNow: { amountFormatted: "0", currencySymbol: "$" }, totalRecurring: null },
-      start: async () => undefined,
+      error,
+      plan: { name: resolvedPlan.name, period: planPeriod },
+      totals: {
+        totalDueNow: {
+          amountFormatted: String(resolvedPlan.price || 0),
+          currencySymbol: "$",
+        },
+        totalRecurring: resolvedPlan.price > 0 ? {
+          amountFormatted: String(resolvedPlan.price),
+          currencySymbol: "$",
+        } : null,
+      },
+      start,
       confirm: async () => undefined,
       finalize: async () => undefined,
     },
   };
+
   return <CheckoutContext.Provider value={value}>{children}</CheckoutContext.Provider>;
 };
 

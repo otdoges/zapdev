@@ -5,6 +5,8 @@
  */
 
 import { useUser } from "@clerk/clerk-react";
+import React from "react";
+import { mapStripeCacheToSubscription, type NormalizedSubscription } from "./stripe";
 
 // Clerk billing configuration
 export const CLERK_BILLING_CONFIG = {
@@ -114,54 +116,106 @@ export const useUserSubscription = (): {
   error: string | null;
 } => {
   const { user, isLoaded } = useUser();
+  const [subscription, setSubscription] = React.useState<ClerkSubscription | null>(null);
+  const [loading, setLoading] = React.useState<boolean>(true);
+  const [error, setError] = React.useState<string | null>(null);
 
-  // Mock implementation - replace with actual Clerk billing API calls
-  if (!isLoaded) {
-    return { subscription: null, loading: true, error: null };
-  }
+  React.useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      try {
+        if (!isLoaded) {
+          setSubscription(null);
+          setLoading(true);
+          return;
+        }
+        // Prefer Convex user id stored by app during auth
+        const convexUserId = localStorage.getItem('convexUserId');
+        if (!convexUserId) {
+          setSubscription({
+            planId: 'free',
+            status: 'none',
+            currentPeriodStart: Date.now(),
+            currentPeriodEnd: Date.now(),
+            cancelAtPeriodEnd: false,
+          });
+          setLoading(false);
+          return;
+        }
+        // Resolve customer id
+        const customerIdRes = await fetch(`/api/kv-proxy?key=${encodeURIComponent(`stripe:user:${convexUserId}`)}`);
+        if (!customerIdRes.ok) {
+          setSubscription({
+            planId: 'free',
+            status: 'none',
+            currentPeriodStart: Date.now(),
+            currentPeriodEnd: Date.now(),
+            cancelAtPeriodEnd: false,
+          });
+          setLoading(false);
+          return;
+        }
+        const customerId = await customerIdRes.text();
+        // Load subscription cache
+        const subRes = await fetch(`/api/kv-proxy?key=${encodeURIComponent(`stripe:customer:${customerId}`)}&json=1`);
+        if (!subRes.ok) {
+          setSubscription({
+            planId: 'free',
+            status: 'none',
+            currentPeriodStart: Date.now(),
+            currentPeriodEnd: Date.now(),
+            cancelAtPeriodEnd: false,
+          });
+          setLoading(false);
+          return;
+        }
+        const sub = await subRes.json();
+        const normalized: NormalizedSubscription = mapStripeCacheToSubscription(sub);
+        const result: ClerkSubscription = {
+          planId: normalized.planId,
+          status: normalized.status as ClerkSubscription['status'],
+          currentPeriodStart: normalized.currentPeriodStart,
+          currentPeriodEnd: normalized.currentPeriodEnd,
+          cancelAtPeriodEnd: normalized.cancelAtPeriodEnd,
+        };
+        if (!cancelled) setSubscription(result);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load subscription');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, user?.id]);
 
-  if (!user) {
-    return { subscription: null, loading: false, error: null };
-  }
-
-  // Check user metadata for subscription info
-  const subscriptionData = user.publicMetadata?.subscription as ClerkSubscription | undefined;
-
-  return {
-    subscription: subscriptionData || {
-      planId: 'free',
-      status: 'active',
-      currentPeriodStart: Date.now(),
-      currentPeriodEnd: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
-      cancelAtPeriodEnd: false
-    },
-    loading: false,
-    error: null
-  };
+  return { subscription, loading, error };
 };
 
 /**
  * Create a checkout session for upgrading subscription
  * This would integrate with Clerk's billing system
  */
-export const createCheckoutSession = async (planId: string): Promise<{ url: string }> => {
-  try {
-    // In a real implementation, this would call Clerk's billing API
-    // For now, we'll simulate the process
-    
-    const plan = BILLING_PLANS.find(p => p.id === planId);
-    if (!plan) {
-      throw new Error('Plan not found');
-    }
-
-    // Mock checkout URL - replace with actual Clerk billing URL
-    const checkoutUrl = `https://billing.clerk.dev/checkout?plan=${planId}&return_url=${encodeURIComponent(window.location.origin)}/billing/success`;
-    
-    return { url: checkoutUrl };
-  } catch (error) {
-    console.error('Error creating checkout session:', error);
-    throw error;
+export const createCheckoutSession = async (
+  planId: string,
+  options?: { userId?: string; email?: string; period?: 'month' | 'year' }
+): Promise<{ url: string }> => {
+  const plan = BILLING_PLANS.find((p) => p.id === planId);
+  if (!plan) throw new Error('Plan not found');
+  const res = await fetch('/api/create-checkout-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ planId: plan.id, period: options?.period || plan.interval, userId: options?.userId, email: options?.email }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || 'Failed to create checkout session');
   }
+  const data = await res.json();
+  if (!data?.url) throw new Error('Invalid response from checkout session API');
+  return { url: data.url };
 };
 
 /**
@@ -170,10 +224,19 @@ export const createCheckoutSession = async (planId: string): Promise<{ url: stri
  */
 export const createCustomerPortalSession = async (): Promise<{ url: string }> => {
   try {
-    // Mock portal URL - replace with actual Clerk billing portal
-    const portalUrl = `https://billing.clerk.dev/portal?return_url=${encodeURIComponent(window.location.origin)}/settings`;
-    
-    return { url: portalUrl };
+    const convexUserId = localStorage.getItem('convexUserId');
+    const res = await fetch('/api/create-portal-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: convexUserId || undefined, returnUrl: `${window.location.origin}/settings` }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(text || 'Failed to create portal session');
+    }
+    const data = await res.json();
+    if (!data?.url) throw new Error('Invalid response from portal session API');
+    return { url: data.url };
   } catch (error) {
     console.error('Error creating customer portal session:', error);
     throw error;

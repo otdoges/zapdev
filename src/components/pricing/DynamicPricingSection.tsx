@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Check, Loader2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardSpotlight } from "./CardSpotlight";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   BILLING_PLANS, 
@@ -157,8 +157,35 @@ const PricingTier = ({
 
 export const DynamicPricingSection = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
   const { user } = useAuth();
+  // Persist convex user id for success redirect sync
+  useEffect(() => {
+    if (user?._id) {
+      try {
+        localStorage.setItem('convexUserId', user._id);
+      } catch (error) {
+        // Optionally log error or ignore
+      }
+    }
+  }, [user?._id]);
+
   const { subscription, loading: subscriptionLoading } = useUserSubscription();
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('canceled') === 'true') {
+        setBannerMessage('Checkout was canceled. No charges were made.');
+        // clean URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete('canceled');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {
+      // no-op
+    }
+  }, []);
 
   const handleSelectPlan = async (planId: string) => {
     if (!user) {
@@ -188,8 +215,15 @@ export const DynamicPricingSection = () => {
 
     setIsLoading(true);
     try {
-      // Navigate to in-app Clerk custom checkout page using experimental PaymentElement
-      window.location.href = `/checkout?planId=${encodeURIComponent(planId)}`;
+      const { createCheckoutSession } = await import('@/lib/clerk-billing');
+      const { url } = await createCheckoutSession(planId, {
+        userId: user?._id,
+        email: user?.email,
+      });
+      window.location.href = url;
+    } catch (err) {
+      console.error('Failed to start checkout', err);
+      alert(err instanceof Error ? err.message : 'Failed to start checkout. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -248,6 +282,14 @@ export const DynamicPricingSection = () => {
           Select the perfect plan for your AI-powered development needs with secure Clerk billing
         </motion.p>
       </motion.div>
+
+      {bannerMessage && (
+        <div className="max-w-6xl mx-auto mb-6">
+          <div className="rounded-md border border-yellow-600/30 bg-yellow-500/10 text-yellow-300 px-4 py-3 text-sm">
+            {bannerMessage}
+          </div>
+        </div>
+      )}
 
       {subscriptionLoading ? (
         <div className="flex justify-center items-center py-12">

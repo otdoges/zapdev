@@ -1,6 +1,16 @@
 import * as Sentry from '@sentry/react';
 import { costTracker } from './ai';
 
+type SentryWithMetrics = typeof Sentry & {
+  metrics?: {
+    distribution: (name: string, value: number, options?: unknown) => void;
+    increment: (name: string, value?: number, options?: unknown) => void;
+    gauge: (name: string, value: number, options?: unknown) => void;
+  };
+};
+
+const SentryMetrics = Sentry as SentryWithMetrics;
+
 /**
  * Production-grade AI monitoring and observability
  */
@@ -96,14 +106,29 @@ class AIMonitoringService {
     
     // Log significant events
     if (!data.success) {
-      logger.error('AI Operation Failed', data);
+      logger.error('AI Operation Failed', {
+        operation: data.operation,
+        model: data.model,
+        error: data.error,
+        errorCode: data.errorCode,
+        duration: data.duration
+      });
     } else if (data.duration > 10000) { // Slow operation (>10s)
-      logger.warn('Slow AI Operation', data);
+      logger.warn('Slow AI Operation', {
+        operation: data.operation,
+        model: data.model,
+        duration: data.duration
+      });
     }
     
     // Send real-time metrics for critical failures
     if (!data.success && data.errorCode === 'QUOTA_EXCEEDED') {
-      this.sendCriticalAlert('AI Quota Exceeded', data);
+      this.sendCriticalAlert('AI Quota Exceeded', {
+        operation: data.operation,
+        model: data.model,
+        errorCode: data.errorCode,
+        duration: data.duration
+      });
     }
   }
   
@@ -201,9 +226,9 @@ class AIMonitoringService {
     this.performanceBuffer = [];
     
     try {
-      // Send to Sentry as custom metrics
+      // Send to Sentry as custom metrics (if available)
       buffer.forEach(data => {
-        Sentry.metrics.distribution('ai.operation.duration', data.duration, {
+        SentryMetrics.metrics?.distribution('ai.operation.duration', data.duration, {
           tags: {
             operation: data.operation,
             model: data.model,
@@ -211,18 +236,18 @@ class AIMonitoringService {
             cache_hit: String(data.cacheHit || false)
           }
         });
-        
+
         if (data.cost) {
-          Sentry.metrics.distribution('ai.operation.cost', data.cost, {
+          SentryMetrics.metrics?.distribution('ai.operation.cost', data.cost, {
             tags: {
               operation: data.operation,
               model: data.model
             }
           });
         }
-        
+
         if (data.inputTokens && data.outputTokens) {
-          Sentry.metrics.distribution('ai.tokens.total', data.inputTokens + data.outputTokens, {
+          SentryMetrics.metrics?.distribution('ai.tokens.total', data.inputTokens + data.outputTokens, {
             tags: {
               operation: data.operation,
               model: data.model
@@ -235,15 +260,15 @@ class AIMonitoringService {
       metrics.forEach((metricData, key) => {
         const [operation, model] = key.split('_');
         
-        Sentry.metrics.gauge('ai.metrics.error_rate', metricData.errorRate, {
+        SentryMetrics.metrics?.gauge('ai.metrics.error_rate', metricData.errorRate, {
           tags: { operation, model }
         });
         
-        Sentry.metrics.gauge('ai.metrics.avg_response_time', metricData.avgResponseTime, {
+        SentryMetrics.metrics?.gauge('ai.metrics.avg_response_time', metricData.avgResponseTime, {
           tags: { operation, model }
         });
         
-        Sentry.metrics.gauge('ai.metrics.total_cost', metricData.totalCost, {
+        SentryMetrics.metrics?.gauge('ai.metrics.total_cost', metricData.totalCost, {
           tags: { operation, model }
         });
       });
@@ -253,7 +278,7 @@ class AIMonitoringService {
       logger.info('AI Performance Insights', insights);
       
       // Send health score
-      Sentry.metrics.gauge('ai.health.score', insights.healthScore);
+      SentryMetrics.metrics?.gauge('ai.health.score', insights.healthScore);
       
       // Check for critical conditions
       if (insights.healthScore < 50) {
@@ -268,8 +293,8 @@ class AIMonitoringService {
       const dailyLimit = costTracker.getDailyLimit();
       const costPercentage = costTracker.getCostPercentage();
       
-      Sentry.metrics.gauge('ai.cost.daily', dailyCost);
-      Sentry.metrics.gauge('ai.cost.percentage', costPercentage);
+      SentryMetrics.metrics?.gauge('ai.cost.daily', dailyCost);
+      SentryMetrics.metrics?.gauge('ai.cost.percentage', costPercentage);
       
       if (costTracker.isNearLimit()) {
         this.sendCriticalAlert('AI Daily Cost Near Limit', {
@@ -287,7 +312,7 @@ class AIMonitoringService {
   /**
    * Send critical alerts
    */
-  private sendCriticalAlert(message: string, data: unknown): void {
+  private sendCriticalAlert(message: string, data: Record<string, unknown>): void {
     Sentry.captureMessage(message, {
       level: 'error',
       tags: {

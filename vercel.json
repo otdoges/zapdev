@@ -3,7 +3,24 @@
   "outputDirectory": "dist",
   "installCommand": "bun install",
   "framework": null,
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/stripe-webhook",
+      "headers": [
+        { "key": "x-vercel-disable-binary", "value": "true" }
+      ]
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

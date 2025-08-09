@@ -8,7 +8,7 @@ An AI-powered development platform with real-time chat, code execution, and subs
 - 🔐 Clerk authentication with Convex integration
 - 💬 Real-time chat interface
 - 🖥️ WebContainer API + E2B Code Interpreter for safe code execution
-- 💳 Stripe subscription management
+- 💳 Stripe subscription management (Cloudflare KV + Convex)
 - 🎨 shadcn/ui components with Tailwind CSS
 - 📊 PostHog analytics
 - 📱 Responsive design with Framer Motion animations
@@ -57,7 +57,7 @@ An AI-powered development platform with real-time chat, code execution, and subs
 
 ## Configuration
 
-Create a `.env` file in your project root with the following variables:
+Create a `.env.local` file in your project root. You can start from `.env.example` and fill in values:
 
 ```bash
 # Clerk Authentication
@@ -70,13 +70,36 @@ VITE_CONVEX_URL=your_convex_url_here
 VITE_GROQ_API_KEY=your_groq_api_key_here
 
 # Stripe Configuration (for subscription management)
-VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_key_here
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_here
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+STRIPE_PRICE_PRO_MONTH=price_xxx
+STRIPE_PRICE_PRO_YEAR=
+STRIPE_PRICE_ENTERPRISE_MONTH=price_xxx
+STRIPE_PRICE_ENTERPRISE_YEAR=
+STRIPE_PRICE_PRO_MONTH=
+STRIPE_PRICE_PRO_YEAR=
+STRIPE_PRICE_ENTERPRISE_MONTH=
+STRIPE_PRICE_ENTERPRISE_YEAR=
+
+# Cloudflare KV (for subscription cache)
+CLOUDFLARE_ACCOUNT_ID=
+CF_KV_NAMESPACE_ID=
+CLOUDFLARE_API_TOKEN=
+
+# App origin used by server-side fetches
+PUBLIC_ORIGIN=http://localhost:5173
 
 # PostHog Analytics
-VITE_POSTHOG_KEY=your_posthog_key_here
-VITE_POSTHOG_HOST=your_posthog_host_here
+VITE_PUBLIC_POSTHOG_KEY=your_posthog_key_here
+VITE_PUBLIC_POSTHOG_HOST=your_posthog_host_here
+
+# Cloudflare KV (Stripe cache)
+CLOUDFLARE_ACCOUNT_ID=
+CF_KV_NAMESPACE_ID=
+CLOUDFLARE_API_TOKEN=
+
+# App origin used by server-side fetches
+PUBLIC_ORIGIN=http://localhost:5173
 
 # E2B Code Interpreter (optional)
 VITE_E2B_API_KEY=your_e2b_api_key_here
@@ -112,6 +135,27 @@ When deploying to production:
 2. Update redirect URIs in your Clerk Dashboard
 3. Configure Stripe webhooks for your production domain
 4. Ensure HTTPS is used for all external service callbacks
+
+### Stripe Integration Notes
+
+- Endpoints:
+  - `POST /api/create-checkout-session`: creates a subscription Checkout session for a given `planId` and `userId` (customer is created and mapped in KV if missing). Returns `{ url }`.
+  - `POST /api/stripe-webhook`: handles Stripe events and syncs subscription state to KV. Ensure raw body is passed; Vercel function config already disables body parsing.
+  - `POST /api/create-portal-session`: creates a Stripe Customer Portal session using the stored customerId from KV and returns `{ url }`.
+  - `POST /api/success`: after success redirect, triggers a KV sync and redirects to `/`.
+
+- KV Keys:
+  - `stripe:user:{userId}` -> `customerId`
+  - `stripe:customer:{customerId}` -> cached subscription object
+
+- Local testing with Stripe CLI:
+  1. Login: `stripe login`
+  2. Forward webhooks: `stripe listen --forward-to http://localhost:3000/api/stripe-webhook`
+  3. Trigger test events: `stripe trigger checkout.session.completed` etc.
+
+- Environment variables required (see `env-template.txt`):
+  - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, price IDs per plan, `PUBLIC_ORIGIN`.
+  - Cloudflare KV: `CLOUDFLARE_ACCOUNT_ID`, `CF_KV_NAMESPACE_ID`, `CLOUDFLARE_API_TOKEN`.
 
 ## Development Notes
 

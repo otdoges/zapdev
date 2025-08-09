@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { SignInButton } from "@clerk/clerk-react";
 import { useAuth } from "@/hooks/useAuth";
 import Navigation from "@/components/Navigation";
@@ -11,6 +12,23 @@ import Footer from "@/components/Footer";
 const Index = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+
+  // Trigger sync after Stripe redirect back if applicable
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.pathname === '/success') {
+      try {
+        const convexUserId = user?._id || localStorage.getItem('convexUserId');
+        if (convexUserId) {
+          fetch(`/api/success?userId=${encodeURIComponent(convexUserId)}`, { method: 'POST' }).catch(() => {});
+        }
+      } catch (e) {
+        // no-op
+      }
+      // Clean up URL
+      window.history.replaceState({}, '', '/');
+    }
+  }, [user?._id]);
 
   return (
     <div className="min-h-screen bg-black text-foreground">

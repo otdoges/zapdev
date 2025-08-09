@@ -134,7 +134,7 @@ describe('AI Production Tests', () => {
       
       // Should not exceed max delay (account for jitter more precisely)
       const maxAttempt = calculateBackoffDelay(10, config);
-      expect(maxAttempt).toBeGreaterThan(config.baseDelay);
+      expect(maxAttempt).toBeGreaterThan(config.initialDelay);
       expect(maxAttempt).toBeLessThanOrEqual(config.maxDelay + (config.maxDelay * 0.1)); // 10% jitter buffer
     });
   });
@@ -189,7 +189,7 @@ describe('AI Production Tests', () => {
       expect(cache.getStats().size).toBe(1);
     });
     
-    it('should expire old cache entries', () => {
+    it('should expire old cache entries', async () => {
       const cache = new AIResponseCache(100, 10); // 100ms TTL
       const key = cache.generateKey('Test prompt');
       
@@ -197,9 +197,8 @@ describe('AI Production Tests', () => {
       expect(cache.get(key)).toBe('Test response');
       
       // Wait for expiration
-      setTimeout(() => {
-        expect(cache.get(key)).toBeNull();
-      }, 150);
+      await new Promise(resolve => setTimeout(resolve, 150));
+      expect(cache.get(key)).toBeNull();
     });
     
     it('should enforce max cache size', () => {
@@ -217,7 +216,6 @@ describe('AI Production Tests', () => {
       expect(cache.get(cache.generateKey('Prompt 3'))).toBe('Response 3');
     });
   });
-
   describe('API Key Validation', () => {
     it('should validate Groq API keys', () => {
       expect(validateUserApiKey('gsk_1234567890abcdef', 'groq')).toEqual({ valid: true });
@@ -262,7 +260,7 @@ describe('AI Production Tests', () => {
   describe('AI Monitoring', () => {
     it('should record successful operations', () => {
       const recordSpy = vi.spyOn(aiMonitoring, 'recordOperation');
-      
+
       aiMonitoring.recordOperation({
         operation: 'test',
         model: 'test-model',
@@ -272,19 +270,19 @@ describe('AI Production Tests', () => {
         outputTokens: 200,
         cost: 0.01
       });
-      
+
       expect(recordSpy).toHaveBeenCalled();
-      
+
       const metrics = aiMonitoring.getMetrics('test', 'test-model');
       expect(metrics).toBeTruthy();
-      if (metrics && typeof metrics !== 'object') {
+      if (metrics && typeof metrics === 'object' && 'totalRequests' in metrics) {
         expect(metrics.totalRequests).toBe(1);
         expect(metrics.successfulRequests).toBe(1);
         expect(metrics.avgResponseTime).toBe(1000);
         expect(metrics.totalCost).toBe(0.01);
       }
     });
-    
+
     it('should track error rates', () => {
       // Record some failures
       for (let i = 0; i < 3; i++) {
@@ -297,7 +295,7 @@ describe('AI Production Tests', () => {
           errorCode: 'TEST_ERROR'
         });
       }
-      
+
       // Record one success
       aiMonitoring.recordOperation({
         operation: 'test',
@@ -305,15 +303,15 @@ describe('AI Production Tests', () => {
         duration: 500,
         success: true
       });
-      
+
       const metrics = aiMonitoring.getMetrics('test', 'test-model');
-      if (metrics && typeof metrics !== 'object') {
+      if (metrics && typeof metrics === 'object' && 'totalRequests' in metrics) {
         expect(metrics.totalRequests).toBe(4);
         expect(metrics.failedRequests).toBe(3);
         expect(metrics.errorRate).toBe(75);
       }
     });
-    
+
     it('should generate insights', () => {
       // Add some test data
       for (let i = 0; i < 5; i++) {
@@ -325,15 +323,13 @@ describe('AI Production Tests', () => {
           cost: 0.05
         });
       }
-      
+
       const insights = aiMonitoring.getInsights();
       expect(insights.healthScore).toBeGreaterThan(0);
       expect(insights.slowestOperations).toBeTruthy();
       expect(insights.costBreakdown).toBeTruthy();
     });
   });
-
-  describe('Production Configuration Validation', () => {
     it('should validate production API configuration', () => {
       const validation = validateProductionApiConfig();
       
@@ -374,7 +370,6 @@ describe('AI Production Tests', () => {
       // );
     });
   });
-});
 
 describe('Production Readiness Checklist', () => {
   it('✅ Environment variables are using import.meta.env', () => {
