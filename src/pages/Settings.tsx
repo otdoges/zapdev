@@ -181,7 +181,7 @@ const Settings = () => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'moonshotai/kimi-k2-instruct',
+          model: 'openai/gpt-oss-120b',
           messages: [{ role: 'user', content: 'Hello' }],
           max_tokens: 5,
         }),

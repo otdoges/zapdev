@@ -136,7 +136,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
       // Record cache hit
       aiMonitoring.recordOperation({
         operation: 'generateText',
-        model: 'openai/gpt-oss-20b',
+        model: 'openai/gpt-oss-120b',
         duration: 0, // Instant from cache
         success: true,
         inputTokens: 0,
@@ -195,7 +195,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
               () => generateText({
                 model: currentModel,
                 prompt,
-                maxTokens: 8000, // Increased token limit for openai/gpt-oss-20b (max 32,768)
+                maxTokens: 8000, // using openai/gpt-oss-120b
                 temperature: 0.7,
               }),
               'generateText',
@@ -263,7 +263,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         // Record failed operation
         aiMonitoring.recordOperation({
           operation: 'generateText',
-          model: 'openai/gpt-oss-20b',
+          model: 'openai/gpt-oss-120b',
           duration: Date.now() - startTime,
           success: false,
           error: aiError.message,
@@ -367,7 +367,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
                   { role: 'system', content: systemPrompt },
                   { role: 'user', content: prompt }
                 ],
-                maxTokens: 8000, // Increased token limit for openai/gpt-oss-20b
+                maxTokens: 8000, // using openai/gpt-oss-120b
                 temperature: 0.7,
               }),
               'streamText',

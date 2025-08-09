@@ -295,7 +295,7 @@ class AITester {
     // Main test runner
     async runAllTests() {
         this.log('Starting AI Implementation Test Suite', 'INFO');
-        this.log('Model: moonshotai/kimi-k2-instruct (Kimi K2 Instruct)', 'INFO');
+        this.log('Model: openai/gpt-oss-120b (OpenAI OSS 120B)', 'INFO');
         this.startTime = Date.now();
         // Run all tests
         await this.runTest('AI Configuration', () => this.testAIConfiguration());

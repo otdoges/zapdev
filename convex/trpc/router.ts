@@ -156,10 +156,10 @@ const aiModelRouter = router({
     return [
       {
         id: 'model-1',
-        name: 'Kimi K2 Instruct',
+        name: 'OpenAI OSS 120B',
         provider: 'groq',
-        modelId: 'moonshotai/kimi-k2-instruct',
-        description: 'Advanced conversational AI model',
+        modelId: 'openai/gpt-oss-120b',
+        description: 'Primary Groq model',
         maxTokens: 8192,
         temperature: 0.7,
         isActive: true,
