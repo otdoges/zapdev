@@ -277,7 +277,7 @@ const Settings = () => {
 
   // Load initial data
   useEffect(() => {
-    if (!isAuthenticated) return null;
+    if (!isAuthenticated) return;
 
     const loadData = async () => {
       setIsLoading(true);
@@ -305,7 +305,7 @@ const Settings = () => {
           const savedApiConfig = localStorage.getItem('zapdev-api-config');
           if (savedApiConfig) {
             try {
-              const parsed = JSON.parse(savedApiConfig);
+              const parsed = JSON.parse(savedApiConfig) as ApiConfiguration;
               setApiConfig(parsed);
               if (parsed.groqApiKey) {
                 setApiKeyStatus('valid');
@@ -331,14 +331,14 @@ const Settings = () => {
     };
 
     loadData();
-  }, [isAuthenticated, navigate, user]);
+  }, [isAuthenticated, navigate, user?.fullName, user?.email]);
 
   useEffect(() => {
     async function loadInvoices() {
       if (!user) return;
       try {
         setLoadingInvoices(true);
-        const body: any = { userId: user._id };
+        const body: { userId: string } = { userId: (user as unknown as { _id: string })._id };
         const res = await fetch('/api/list-invoices', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -355,7 +355,7 @@ const Settings = () => {
       }
     }
     loadInvoices();
-  }, [user?.id]);
+  }, [user?._id]);
 
   // Tab Components
   const ProfileTab = () => (

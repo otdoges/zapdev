@@ -35,7 +35,7 @@ STRIPE_PRICE_ENTERPRISE_MONTH=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 STRIPE_PRICE_ENTERPRISE_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Optional: Stripe Customer Portal (no extra env needed unless custom settings)
-
+DO NOT COMMIT SERECTS 
 # === OPTIONAL: Upstash Redis (for Stripe cache) ===
 UPSTASH_REDIS_REST_URL=https://us1-worthy-mammal-12345.upstash.io
 UPSTASH_REDIS_REST_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

@@ -12,6 +12,23 @@ const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
   return identity;
 };
 
+// Resolve user's plan type; default to "free" when unknown
+const getUserPlanType = async (
+  ctx: QueryCtx | MutationCtx,
+  userId: string
+): Promise<"free" | "pro" | "enterprise"> => {
+  const userDoc = await ctx.db
+    .query("users")
+    .withIndex("by_user_id", (q) => q.eq("userId", userId))
+    .first();
+  if (!userDoc) return "free";
+  const sub = await ctx.db
+    .query("userSubscriptions")
+    .withIndex("by_user_id", (q) => q.eq("userId", userDoc.userId))
+    .first();
+  return (sub?.planType as "free" | "pro" | "enterprise") ?? "free";
+};
+
 // Input sanitization helpers
 const sanitizeTitle = (title: string): string => {
   if (!title || typeof title !== 'string') {
@@ -161,19 +178,29 @@ export const createChat = mutation({
   handler: async (ctx, args) => {
     const identity = await getAuthenticatedUser(ctx);
     
-    // Rate limiting
     await enforceRateLimit(ctx, "createChat");
     
-    // Input validation and sanitization
     const sanitizedTitle = sanitizeTitle(args.title);
+
+    // Enforce free plan project limit (max 5)
+    const planType = await getUserPlanType(ctx, identity.subject);
+    if (planType === "free") {
+      const existing = await ctx.db
+        .query("chats")
+        .withIndex("by_user_id", (q) => q.eq("userId", identity.subject))
+        .take(6);
+      if (existing.length >= 5) {
+        throw new Error("Free plan limit reached: You can create up to 5 projects. Upgrade to Pro to create more.");
+      }
+    }
     
-    // Check if user has too many chats (optional business rule)
+    // Safety upper bound
     const userChats = await ctx.db
       .query("chats")
       .withIndex("by_user_id", (q) => q.eq("userId", identity.subject))
       .collect();
     
-    if (userChats.length >= 1000) { // Configurable limit
+    if (userChats.length >= 1000) {
       throw new Error("Maximum number of chats reached (1000)");
     }
     
@@ -199,7 +226,6 @@ export const updateChat = mutation({
   handler: async (ctx, args) => {
     const identity = await getAuthenticatedUser(ctx);
     
-    // Rate limiting
     await checkChatUpdateRateLimit(ctx, identity.subject);
     
     const chat = await ctx.db.get(args.chatId);
@@ -212,10 +238,8 @@ export const updateChat = mutation({
       throw new Error("Access denied");
     }
     
-    // Input validation and sanitization
     const sanitizedTitle = sanitizeTitle(args.title);
     
-    // Prevent unnecessary updates
     if (chat.title === sanitizedTitle) {
       return args.chatId;
     }
@@ -247,18 +271,15 @@ export const deleteChat = mutation({
       throw new Error("Access denied");
     }
     
-    // Optional title confirmation for important chats
     if (args.confirmTitle && chat.title !== args.confirmTitle.trim()) {
       throw new Error("Chat title confirmation does not match");
     }
     
-    // Use proper index query instead of filter for better performance
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_chat_id", (q) => q.eq("chatId", args.chatId))
       .collect();
     
-    // Delete messages in batches to avoid timeout
     const batchSize = 100;
     for (let i = 0; i < messages.length; i += batchSize) {
       const batch = messages.slice(i, i + batchSize);
@@ -267,7 +288,6 @@ export const deleteChat = mutation({
       }
     }
     
-    // Delete the chat
     await ctx.db.delete(args.chatId);
     
     return args.chatId;
@@ -291,10 +311,9 @@ export const touchChat = mutation({
       throw new Error("Access denied");
     }
     
-    // Throttle touch updates to prevent excessive database writes
     const fiveSecondsAgo = Date.now() - 5000;
     if (chat.updatedAt > fiveSecondsAgo) {
-      return args.chatId; // Skip update if recently touched
+      return args.chatId;
     }
     
     await ctx.db.patch(args.chatId, {
@@ -343,7 +362,6 @@ export const searchChats = query({
   handler: async (ctx, args) => {
     const identity = await getAuthenticatedUser(ctx);
     
-    // Validate search term
     const searchTerm = args.searchTerm.trim();
     if (searchTerm.length < 2) {
       throw new Error("Search term must be at least 2 characters long");
@@ -422,8 +440,19 @@ export const duplicateChat = mutation({
   handler: async (ctx, args) => {
     const identity = await getAuthenticatedUser(ctx);
     
-    // Rate limiting
     await enforceRateLimit(ctx, "createChat");
+    
+    // Enforce free plan project limit (max 5)
+    const planType = await getUserPlanType(ctx, identity.subject);
+    if (planType === "free") {
+      const existing = await ctx.db
+        .query("chats")
+        .withIndex("by_user_id", (q) => q.eq("userId", identity.subject))
+        .take(6);
+      if (existing.length >= 5) {
+        throw new Error("Free plan limit reached: You can create up to 5 projects. Upgrade to Pro to create more.");
+      }
+    }
     
     const originalChat = await ctx.db.get(args.chatId);
     
@@ -435,7 +464,6 @@ export const duplicateChat = mutation({
       throw new Error("Access denied");
     }
     
-    // Determine new title
     const newTitle = args.newTitle 
       ? sanitizeTitle(args.newTitle)
       : `Copy of ${originalChat.title}`;

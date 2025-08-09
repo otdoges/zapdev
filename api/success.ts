@@ -41,7 +41,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).send('Method Not Allowed');
   }
 
-  const userId = (req.query.userId as string) || (req.body && (req.body as any).userId);
+  const userIdFromQueryParam = req.query.userId;
+  const userIdFromQuery = Array.isArray(userIdFromQueryParam)
+    ? userIdFromQueryParam[0]
+    : (userIdFromQueryParam as string | undefined);
+
+  let userIdFromBody: string | undefined;
+  if (req.body && typeof req.body === 'object') {
+    const maybe = (req.body as { userId?: unknown }).userId;
+    if (typeof maybe === 'string') userIdFromBody = maybe;
+  }
+
+  const userId = userIdFromQuery || userIdFromBody;
   if (!userId) return res.status(400).send('Missing userId');
 
   try {
@@ -51,8 +62,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     await syncStripeDataToKV(customerId);
     return res.status(303).setHeader('Location', '/').send('');
-  } catch (err: any) {
-    console.error('[SUCCESS] sync error', err);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal Server Error';
+    console.error('[SUCCESS] sync error', message);
     return res.status(500).send('Internal Server Error');
   }
 }

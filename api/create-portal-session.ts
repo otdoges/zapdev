@@ -2,6 +2,31 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { stripe } from './_utils/stripe';
 import { kvGet } from './_utils/kv';
 
+function getBearerOrSessionToken(req: VercelRequest): string | null {
+  const authHeader = (Array.isArray(req.headers['authorization'])
+    ? req.headers['authorization'][0]
+    : req.headers['authorization']) as string | undefined;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  const cookieHeader = req.headers.cookie as string | undefined;
+  if (cookieHeader) {
+    const tokenCookie = cookieHeader
+      .split(';')
+      .map((c) => c.trim())
+      .find((c) => c.startsWith('__session='));
+    if (tokenCookie) {
+      const val = tokenCookie.split('=')[1] || '';
+      try {
+        return decodeURIComponent(val);
+      } catch {
+        return val;
+      }
+    }
+  }
+  return null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -9,11 +34,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { userId, customerId: providedCustomerId, returnUrl } = (req.body || {}) as {
-      userId?: string;
+    const { customerId: providedCustomerId, returnUrl } = (req.body || {}) as {
       customerId?: string;
       returnUrl?: string;
     };
+
+    const token = getBearerOrSessionToken(req);
+    if (!token) return res.status(401).send('Unauthorized');
+    const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
+    if (!issuer) return res.status(500).send('Missing CLERK_JWT_ISSUER_DOMAIN');
+    // @ts-expect-error Types may be unavailable in dev; runtime import is valid
+    const { verifyToken } = await import('@clerk/backend');
+    const verified = await verifyToken(token, { issuer });
+    const authenticatedUserId = verified.sub;
+    if (!authenticatedUserId) return res.status(401).send('Unauthorized');
 
     const xfHost = (Array.isArray(req.headers['x-forwarded-host'])
       ? req.headers['x-forwarded-host'][0]
@@ -43,12 +77,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    if (!userId) {
-      return res.status(400).send('Missing userId');
-    }
-
-    // Derive customerId from KV if not explicitly provided
-    const customerId = providedCustomerId || (await kvGet(`stripe:user:${userId}`));
+    // Determine customerId with ownership enforcement
+    const storedCustomerId = await kvGet(`stripe:user:${authenticatedUserId}`);
+    const customerId = (providedCustomerId && storedCustomerId && providedCustomerId === storedCustomerId)
+      ? providedCustomerId
+      : storedCustomerId;
     if (!customerId) {
       return res.status(404).send('No Stripe customer found for user');
     }

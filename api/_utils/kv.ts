@@ -14,7 +14,7 @@ function assertEnv() {
   }
 }
 
-async function upstashRequest<T = any>(path: string, method: 'GET' | 'POST' = 'GET', body?: BodyInit): Promise<T> {
+async function upstashRequest<T = unknown>(path: string, method: 'GET' | 'POST' = 'GET', body?: BodyInit): Promise<T> {
   assertEnv();
   const url = `${UPSTASH_URL!.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
   const res = await fetch(url, {
@@ -37,9 +37,12 @@ export async function kvGet(key: string): Promise<string | null> {
   return data.result ?? null;
 }
 
-export async function kvPut(key: string, value: string): Promise<void> {
-  // Use POST /set/{key}/{value}
-  await upstashRequest(`set/${encodeURIComponent(key)}/${encodeURIComponent(value)}`, 'POST');
+export async function kvPut(key: string, value: string, ttlSeconds?: number): Promise<void> {
+  const ttlQuery = typeof ttlSeconds === 'number' && Number.isFinite(ttlSeconds)
+    ? `?_expire=${Math.max(0, Math.floor(ttlSeconds))}`
+    : '';
+  const path = `set/${encodeURIComponent(key)}${ttlQuery}`;
+  await upstashRequest<{ result: string }>(path, 'POST', JSON.stringify({ value }));
 }
 
 export async function kvGetJson<T = unknown>(key: string): Promise<T | null> {
@@ -52,8 +55,8 @@ export async function kvGetJson<T = unknown>(key: string): Promise<T | null> {
   }
 }
 
-export async function kvPutJson(key: string, value: unknown): Promise<void> {
-  await kvPut(key, JSON.stringify(value));
+export async function kvPutJson(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
+  await kvPut(key, JSON.stringify(value), ttlSeconds);
 }
 
 
