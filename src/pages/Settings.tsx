@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
-import { useClerk } from "@clerk/clerk-react";
+import { SignInButton, useClerk } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
 import Navigation from "@/components/Navigation";
 import { setSecureApiKey, getSecureApiKey, clearSecureApiKey, hasUserApiKey } from "@/lib/secure-storage";
+import { z } from "zod";
+import { toast } from "sonner";
 
 // Types and Constants
 interface SubscriptionData {
@@ -49,6 +51,11 @@ interface ApiConfiguration {
   groqApiKey: string;
   useUserApiKey: boolean;
 }
+
+const ApiConfigurationSchema = z.object({
+  groqApiKey: z.string().default(''),
+  useUserApiKey: z.boolean().default(false)
+});
 
 const MOCK_SUBSCRIPTION: SubscriptionData = {
   id: 'sub_123',
@@ -181,7 +188,7 @@ const Settings = () => {
       window.location.href = url;
     } catch (error) {
       console.error('Error opening customer portal:', error);
-      alert('Failed to open billing portal. Please try again.');
+      toast.error('Failed to open billing portal. Please try again.');
     } finally {
       setIsLoadingBilling(false);
     }
@@ -277,7 +284,10 @@ const Settings = () => {
 
   // Load initial data
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
 
     const loadData = async () => {
       setIsLoading(true);
@@ -305,11 +315,15 @@ const Settings = () => {
           const savedApiConfig = localStorage.getItem('zapdev-api-config');
           if (savedApiConfig) {
             try {
-              const parsed = JSON.parse(savedApiConfig) as ApiConfiguration;
-              setApiConfig(parsed);
+              const parsedUnknown = JSON.parse(savedApiConfig);
+              const parsed = ApiConfigurationSchema.parse(parsedUnknown) as ApiConfiguration;
+              const nextConfig: ApiConfiguration = {
+                groqApiKey: parsed.groqApiKey ?? '',
+                useUserApiKey: parsed.useUserApiKey ?? false,
+              };
+              setApiConfig(nextConfig);
               if (parsed.groqApiKey) {
                 setApiKeyStatus('valid');
-                // Migrate to secure storage
                 try {
                   setSecureApiKey(parsed.groqApiKey);
                   localStorage.removeItem('zapdev-api-config');
@@ -319,7 +333,7 @@ const Settings = () => {
                 }
               }
             } catch (error) {
-              console.error('Error parsing saved API config:', error);
+              console.warn('Invalid API config in localStorage', error);
             }
           }
         }
@@ -338,18 +352,20 @@ const Settings = () => {
       if (!user) return;
       try {
         setLoadingInvoices(true);
-        const body: { userId: string } = { userId: (user as unknown as { _id: string })._id };
         const res = await fetch('/api/list-invoices', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify({}),
         });
-        if (res.ok) {
-          const json = await res.json();
-          setInvoices(Array.isArray(json?.invoices) ? json.invoices : []);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || 'Failed to load invoices');
         }
+        const json = await res.json();
+        setInvoices(Array.isArray(json?.invoices) ? json.invoices : []);
       } catch (e) {
-        // ignore
+        console.error('Failed fetching invoices', e);
+        toast.error('Failed to load invoices');
       } finally {
         setLoadingInvoices(false);
       }
@@ -759,6 +775,19 @@ const Settings = () => {
       </Card>
     </div>
   );
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-gray-400">Please sign in to manage your settings.</p>
+          <SignInButton mode="redirect" forceRedirectUrl="/settings">
+            <Button className="bg-blue-600 hover:bg-blue-700">Sign In</Button>
+          </SignInButton>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

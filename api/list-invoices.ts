@@ -1,6 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { stripe } from './_utils/stripe';
 import { kvGet } from './_utils/kv';
+import { z } from 'zod';
+import { getBearerOrSessionToken } from './_utils/auth';
+import { KV_PREFIXES } from './_utils/kv-constants';
+
+// token extraction centralized in ./_utils/auth
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -9,24 +14,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { userId, limit } = (req.body || {}) as {
-      userId?: string;
-      customerId?: string;
-      limit?: number;
-    };
-
-    let customerId: string | undefined;
-
-    if (!customerId) {
-      if (!userId) return res.status(400).send('Missing userId or customerId');
-      const fetchedCustomerId = await kvGet(`stripe:user:${userId}`);
-      if (!fetchedCustomerId) return res.status(404).send('Stripe customer not found');
-      customerId = fetchedCustomerId || undefined;
+    const BodySchema = z.object({
+      limit: z.coerce.number().int().optional(),
+    });
+    const parsed = BodySchema.safeParse(
+      typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : req.body
+    );
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid request body' });
     }
+    const limitValue = Math.max(1, Math.min(24, parsed.data.limit ?? 12));
+
+    const token = getBearerOrSessionToken(req);
+    if (!token) return res.status(401).send('Unauthorized');
+    const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
+    if (!issuer) return res.status(500).send('Server misconfiguration');
+    // @ts-expect-error runtime import OK in serverless
+    const { verifyToken } = await import('@clerk/backend');
+    let verified;
+    try {
+      const audience = process.env.CLERK_JWT_AUDIENCE;
+      const options: Record<string, unknown> = { issuer };
+      if (audience) options.audience = audience;
+      verified = await verifyToken(token, options as any);
+    } catch {
+      return res.status(401).send('Unauthorized');
+    }
+    const authenticatedUserId = verified.sub;
+    if (!authenticatedUserId) return res.status(401).send('Unauthorized');
+
+    const fetchedCustomerId = await kvGet(`${KV_PREFIXES.STRIPE_USER}${authenticatedUserId}`);
+    if (!fetchedCustomerId) {
+      return res.status(200).json({ invoices: [] });
+    }
+    const customerId = fetchedCustomerId;
 
     const invoices = await stripe.invoices.list({
       customer: customerId,
-      limit: Math.max(1, Math.min(24, Number(limit) || 12)),
+      limit: limitValue,
     });
 
     const data = invoices.data.map((inv) => ({
@@ -47,7 +72,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ invoices: data });
   } catch (err) {
     console.error('Stripe list invoices error', err);
-    const message = err instanceof Error ? err.message : 'Internal Server Error';
-    return res.status(500).send(message);
+    return res.status(500).send('Internal Server Error');
   }
 }

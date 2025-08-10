@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { stripe } from './_utils/stripe';
 import { kvGet, kvPutJson } from './_utils/kv';
+import { getBearerOrSessionToken } from './_utils/auth';
+import { KV_PREFIXES } from './_utils/kv-constants';
+
+// token extraction centralized in ./_utils/auth
 
 async function syncStripeDataToKV(customerId: string) {
   const subscriptions = await stripe.subscriptions.list({
@@ -36,27 +40,32 @@ async function syncStripeDataToKV(customerId: string) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    res.setHeader('Allow', 'GET, POST');
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
     return res.status(405).send('Method Not Allowed');
   }
 
-  const userIdFromQueryParam = req.query.userId;
-  const userIdFromQuery = Array.isArray(userIdFromQueryParam)
-    ? userIdFromQueryParam[0]
-    : (userIdFromQueryParam as string | undefined);
-
-  let userIdFromBody: string | undefined;
-  if (req.body && typeof req.body === 'object') {
-    const maybe = (req.body as { userId?: unknown }).userId;
-    if (typeof maybe === 'string') userIdFromBody = maybe;
-  }
-
-  const userId = userIdFromQuery || userIdFromBody;
-  if (!userId) return res.status(400).send('Missing userId');
-
   try {
-    const customerId = await kvGet(`stripe:user:${userId}`);
+    // Enforce authenticated request; prefer Authorization header token
+    const token = getBearerOrSessionToken(req);
+    if (!token) return res.status(401).send('Unauthorized');
+    const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
+    if (!issuer) return res.status(500).send('Server misconfiguration');
+    // @ts-expect-error Runtime import for serverless
+    const { verifyToken } = await import('@clerk/backend');
+    let verified;
+    try {
+      const audience = process.env.CLERK_JWT_AUDIENCE;
+      const options: Record<string, unknown> = { issuer };
+      if (audience) options.audience = audience;
+      verified = await verifyToken(token, options as any);
+    } catch {
+      return res.status(401).send('Unauthorized');
+    }
+    const authenticatedUserId = verified.sub;
+    if (!authenticatedUserId) return res.status(401).send('Unauthorized');
+
+    const customerId = await kvGet(`${KV_PREFIXES.STRIPE_USER}${authenticatedUserId}`);
     if (!customerId) {
       return res.status(303).setHeader('Location', '/').send('');
     }

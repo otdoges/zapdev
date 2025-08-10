@@ -12,21 +12,39 @@ const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
   return identity;
 };
 
-// Resolve user's plan type; default to "free" when unknown
+// Resolve user's plan type; default to "free" for unknown/invalid values
 const getUserPlanType = async (
   ctx: QueryCtx | MutationCtx,
   userId: string
 ): Promise<"free" | "pro" | "enterprise"> => {
-  const userDoc = await ctx.db
-    .query("users")
-    .withIndex("by_user_id", (q) => q.eq("userId", userId))
-    .first();
-  if (!userDoc) return "free";
   const sub = await ctx.db
     .query("userSubscriptions")
-    .withIndex("by_user_id", (q) => q.eq("userId", userDoc.userId))
+    .withIndex("by_user_id", (q) => q.eq("userId", userId))
     .first();
-  return (sub?.planType as "free" | "pro" | "enterprise") ?? "free";
+  const plan = sub?.planType;
+  if (plan === "free" || plan === "pro" || plan === "enterprise") {
+    return plan;
+  }
+  return "free";
+};
+
+// Ensure free plan users do not exceed the allowed number of chats
+const ensureWithinFreePlanChatLimit = async (
+  ctx: QueryCtx | MutationCtx,
+  userId: string,
+  maxFreeChats: number = 5
+) => {
+  const planType = await getUserPlanType(ctx, userId);
+  if (planType !== "free") return;
+  const existing = await ctx.db
+    .query("chats")
+    .withIndex("by_user_id", (q) => q.eq("userId", userId))
+    .take(maxFreeChats + 1);
+  if (existing.length >= maxFreeChats) {
+    throw new Error(
+      `Free plan limit reached: You can create up to ${maxFreeChats} chats. Upgrade to Pro to create more.`
+    );
+  }
 };
 
 // Input sanitization helpers
@@ -182,17 +200,8 @@ export const createChat = mutation({
     
     const sanitizedTitle = sanitizeTitle(args.title);
 
-    // Enforce free plan project limit (max 5)
-    const planType = await getUserPlanType(ctx, identity.subject);
-    if (planType === "free") {
-      const existing = await ctx.db
-        .query("chats")
-        .withIndex("by_user_id", (q) => q.eq("userId", identity.subject))
-        .take(6);
-      if (existing.length >= 5) {
-        throw new Error("Free plan limit reached: You can create up to 5 projects. Upgrade to Pro to create more.");
-      }
-    }
+    // Enforce free plan chat limit (max 5)
+    await ensureWithinFreePlanChatLimit(ctx, identity.subject, 5);
     
     // Safety upper bound
     const userChats = await ctx.db
@@ -442,17 +451,8 @@ export const duplicateChat = mutation({
     
     await enforceRateLimit(ctx, "createChat");
     
-    // Enforce free plan project limit (max 5)
-    const planType = await getUserPlanType(ctx, identity.subject);
-    if (planType === "free") {
-      const existing = await ctx.db
-        .query("chats")
-        .withIndex("by_user_id", (q) => q.eq("userId", identity.subject))
-        .take(6);
-      if (existing.length >= 5) {
-        throw new Error("Free plan limit reached: You can create up to 5 projects. Upgrade to Pro to create more.");
-      }
-    }
+    // Enforce free plan chat limit (max 5)
+    await ensureWithinFreePlanChatLimit(ctx, identity.subject, 5);
     
     const originalChat = await ctx.db.get(args.chatId);
     

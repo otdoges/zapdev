@@ -32,6 +32,7 @@ export interface AIMetrics {
   failedRequests: number;
   avgResponseTime: number;
   avgTokensUsed: number;
+  tokenSamples: number;
   totalCost: number;
   errorRate: number;
   lastUpdated: number;
@@ -82,7 +83,7 @@ class AIMonitoringService {
   }
 
   recordOperation(data: AIPerformanceData): void {
-    const key = `${data.operation}_${data.model}`;
+    const key = `${data.operation}::${data.model}`;
     const currentMetrics = this.metrics.get(key) ?? this.createEmptyMetrics();
 
     const previousCount = currentMetrics.totalRequests;
@@ -103,9 +104,11 @@ class AIMonitoringService {
       typeof data.outputTokens === 'number'
     ) {
       const totalTokens = data.inputTokens + data.outputTokens;
+      const prevSamples = currentMetrics.tokenSamples;
+      currentMetrics.tokenSamples = prevSamples + 1;
       currentMetrics.avgTokensUsed =
-        (currentMetrics.avgTokensUsed * previousCount + totalTokens) /
-        (previousCount + 1);
+        (currentMetrics.avgTokensUsed * prevSamples + totalTokens) /
+        (prevSamples + 1);
     }
 
     if (typeof data.cost === 'number') {
@@ -159,7 +162,7 @@ class AIMonitoringService {
   getMetrics(operation: string, model: string): AIMetrics | undefined;
   getMetrics(operation?: string, model?: string): Map<string, AIMetrics> | AIMetrics | undefined {
     if (typeof operation === 'string' && typeof model === 'string') {
-      const key = `${operation}_${model}`;
+      const key = `${operation}::${model}`;
       return this.metrics.get(key);
     }
     return this.metrics;
@@ -185,7 +188,7 @@ class AIMonitoringService {
 
     const operationTimes = new Map<string, { total: number; count: number }>();
     this.metrics.forEach((metricData, key) => {
-      const [operation] = key.split('_');
+      const [operation] = key.split('::');
       const existing = operationTimes.get(operation) ?? { total: 0, count: 0 };
       existing.total += metricData.avgResponseTime * metricData.totalRequests;
       existing.count += metricData.totalRequests;
@@ -202,7 +205,7 @@ class AIMonitoringService {
 
     const costByModel = new Map<string, number>();
     this.metrics.forEach((metricData, key) => {
-      const [, model] = key.split('_');
+      const [, model] = key.split('::');
       costByModel.set(
         model,
         (costByModel.get(model) || 0) + metricData.totalCost
@@ -238,8 +241,6 @@ class AIMonitoringService {
     const buffer = [...this.performanceBuffer];
     const metrics = new Map(this.metrics);
 
-    this.performanceBuffer = [];
-
     try {
       for (const data of buffer) {
         SentryMetrics.metrics?.distribution(
@@ -274,7 +275,7 @@ class AIMonitoringService {
       }
 
       metrics.forEach((metricData, key) => {
-        const [operation, model] = key.split('_');
+        const [operation, model] = key.split('::');
 
         SentryMetrics.metrics?.gauge('ai.metrics.error_rate', metricData.errorRate, {
           tags: { operation, model },
@@ -291,6 +292,7 @@ class AIMonitoringService {
         });
       });
 
+      // Compute insights before clearing the buffer so topErrors are correct
       const insights = this.getInsights();
       logger.info('AI Performance Insights', insights);
 
@@ -320,6 +322,8 @@ class AIMonitoringService {
     } catch (error) {
       logger.error('Failed to flush AI monitoring data', error);
     }
+    // Clear buffer only after insights are computed and processed
+    this.performanceBuffer = [];
   }
 
   private sendCriticalAlert(
@@ -351,6 +355,7 @@ class AIMonitoringService {
       failedRequests: 0,
       avgResponseTime: 0,
       avgTokensUsed: 0,
+      tokenSamples: 0,
       totalCost: 0,
       errorRate: 0,
       lastUpdated: Date.now(),

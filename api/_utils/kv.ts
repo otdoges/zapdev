@@ -37,12 +37,13 @@ export async function kvGet(key: string): Promise<string | null> {
   return data.result ?? null;
 }
 
-export async function kvPut(key: string, value: string, ttlSeconds?: number): Promise<void> {
+export async function kvPut(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
   const ttlQuery = typeof ttlSeconds === 'number' && Number.isFinite(ttlSeconds)
     ? `?_expire=${Math.max(0, Math.floor(ttlSeconds))}`
     : '';
   const path = `set/${encodeURIComponent(key)}${ttlQuery}`;
-  await upstashRequest<{ result: string }>(path, 'POST', JSON.stringify({ value }));
+  const encodedValue = typeof value === 'string' ? value : JSON.stringify(value);
+  await upstashRequest<{ result: string }>(path, 'POST', JSON.stringify({ value: encodedValue }));
 }
 
 export async function kvGetJson<T = unknown>(key: string): Promise<T | null> {
@@ -56,7 +57,7 @@ export async function kvGetJson<T = unknown>(key: string): Promise<T | null> {
 }
 
 export async function kvPutJson(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
-  await kvPut(key, JSON.stringify(value), ttlSeconds);
+  await kvPut(key, value, ttlSeconds);
 }
 
 
