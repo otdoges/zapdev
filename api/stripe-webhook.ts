@@ -37,14 +37,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).send('Missing STRIPE_WEBHOOK_SECRET');
   }
 
-  const sig = req.headers['stripe-signature'] as string | undefined;
+  const sigHeader = req.headers['stripe-signature'];
+  const sig = Array.isArray(sigHeader) ? sigHeader[0] : (sigHeader as string | undefined);
   if (!sig) return res.status(400).send('Missing stripe-signature header');
 
-  type ReqWithRaw = VercelRequest & { rawBody?: string | Buffer; body?: unknown };
+  type ReqWithRaw = VercelRequest & { rawBody?: string | Buffer; body?: unknown } & { text?: () => Promise<string> };
   const r = req as ReqWithRaw;
-  const raw: Buffer | undefined =
+  let raw: Buffer | undefined =
     typeof r.rawBody === 'string' ? Buffer.from(r.rawBody) : (Buffer.isBuffer(r.rawBody) ? r.rawBody :
     (Buffer.isBuffer(r.body) ? r.body : (typeof r.body === 'string' ? Buffer.from(r.body) : undefined)));
+  // As a last resort in some runtimes, try accessing text()
+  if (!raw && typeof r.text === 'function') {
+    try {
+      const txt = await r.text();
+      raw = Buffer.from(txt);
+    } catch {
+      // ignore
+    }
+  }
   // When deployed on Vercel, set functions config: { api: { bodyParser: false } }
   if (!raw) {
     // Vercel automatically provides rawBody when bodyParser is disabled
@@ -54,6 +64,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const event = stripe.webhooks.constructEvent(raw, sig, webhookSecret);
+    // Optional: Quickly acknowledge for non-relevant events
+    if (!allowedEvents.includes(event.type)) {
+      return res.status(200).json({ received: true, ignored: true, type: event.type });
+    }
 
     // Intentionally minimal webhook: signature verified + 200 OK
     // Subscription state is fetched on-demand by the client/API.
