@@ -8,7 +8,7 @@ An AI-powered development platform with real-time chat, code execution, and subs
 - 🔐 Clerk authentication with Convex integration
 - 💬 Real-time chat interface
 - 🖥️ WebContainer API + E2B Code Interpreter for safe code execution
-- 💳 Stripe subscription management (Convex + Stripe)
+- 💳 Billing with Polar (Convex + Polar)
 - 🎨 shadcn/ui components with Tailwind CSS
 - 📊 PostHog analytics
 - 📱 Responsive design with Framer Motion animations
@@ -131,23 +131,21 @@ When deploying to production:
 3. Configure Stripe webhooks for your production domain
 4. Ensure HTTPS is used for all external service callbacks
 
-### Stripe Integration Notes
+### Billing Integration Notes (Polar)
 
 - Endpoints:
-   - `POST /api/create-checkout-session`: creates a subscription Checkout session for a given `planId` and `userId` (customer is created in Stripe with metadata mapping). Returns `{ url }`.
-   - `POST /api/stripe-webhook`: handles Stripe events. Signature is verified; subscription state is fetched on-demand.
-   - `POST /api/create-portal-session`: creates a Stripe Customer Portal session using the Stripe customer identified by Clerk user metadata and returns `{ url }`.
-   - `POST /api/success`: after success redirect, triggers a Stripe fetch to ensure latest state, then redirects to `/`.
-   - `GET /api/get-subscription`: returns the user's current subscription from Stripe in a normalized cache shape.
+   - `POST /api/create-checkout-session`: returns a Polar Checkout URL based on env-configured links per plan/period.
+   - `POST /api/create-portal-session`: returns a Polar customer portal URL with return_url.
+   - `POST /api/success`: completes hosted flow and redirects to `/`.
+   - `GET /api/get-subscription`: returns the user's current subscription (queried from Polar).
 
-- Local testing with Stripe CLI:
-  1. Login: `stripe login`
-  2. Forward webhooks: `stripe listen --forward-to http://localhost:3000/api/stripe-webhook`
-  3. Trigger test events: `stripe trigger checkout.session.completed` etc.
+- Webhook URL:
+  - Production: `https://www.zapdev.link/api/webhook/polar`
+  - Local (via tunnel): `https://YOUR-NGROK-SUBDOMAIN.ngrok.io/api/webhook/polar`
 
 - Environment variables required (see `env-template.txt`):
-  - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, price IDs per plan, `PUBLIC_ORIGIN`.
-  - No KV configuration required.
+  - `POLAR_ACCESS_TOKEN` (optional if only linking to hosted checkouts), `POLAR_WEBHOOK_SECRET` (optional), `PUBLIC_ORIGIN`.
+  - For hosted links: `POLAR_CHECKOUT_PRO_MONTH`, `POLAR_CHECKOUT_PRO_YEAR`, `POLAR_CHECKOUT_ENTERPRISE_MONTH`, `POLAR_CHECKOUT_ENTERPRISE_YEAR`, and `POLAR_PORTAL_URL`.
 
 ## Development Notes
 

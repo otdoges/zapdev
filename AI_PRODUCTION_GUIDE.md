@@ -59,9 +59,10 @@ This will check:
      - `VITE_PUBLIC_POSTHOG_KEY`
      - `VITE_PUBLIC_POSTHOG_HOST`
 
-5. **Stripe Billing**
-   - Stripe Keys: `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
-   - Price IDs: `STRIPE_PRICE_PRO_MONTH`, `STRIPE_PRICE_PRO_YEAR`, `STRIPE_PRICE_ENTERPRISE_MONTH`, `STRIPE_PRICE_ENTERPRISE_YEAR`
+5. **Polar Billing**
+   - Polar Access Token: `POLAR_ACCESS_TOKEN` (optional for hosted links only flow)
+   - Polar Webhook Secret: `POLAR_WEBHOOK_SECRET` (optional)
+   - Hosted URLs: `POLAR_CHECKOUT_*` per plan/period and `POLAR_PORTAL_URL`
    - App origin for server-side fetches: `PUBLIC_ORIGIN`
 
 ## 🛡️ Production Security Features

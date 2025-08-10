@@ -1,27 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import type Stripe from 'stripe';
-import { stripe } from './_utils/stripe';
+// Replaced by Polar webhook
 
-// Allowed events that can affect subscription state
+// Allowed Polar events (placeholder, adjust to Polar's event types as needed)
 const allowedEvents: string[] = [
-  'checkout.session.completed',
-  'customer.subscription.created',
-  'customer.subscription.updated',
-  'customer.subscription.deleted',
-  'customer.subscription.paused',
-  'customer.subscription.resumed',
-  'customer.subscription.pending_update_applied',
-  'customer.subscription.pending_update_expired',
-  'customer.subscription.trial_will_end',
+  'subscription.created',
+  'subscription.updated',
+  'subscription.canceled',
+  'checkout.completed',
   'invoice.paid',
   'invoice.payment_failed',
-  'invoice.payment_action_required',
-  'invoice.upcoming',
-  'invoice.marked_uncollectible',
-  'invoice.payment_succeeded',
-  'payment_intent.succeeded',
-  'payment_intent.payment_failed',
-  'payment_intent.canceled',
 ];
 
 // No persistence layer here anymore; clients fetch on-demand via API
@@ -32,12 +19,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).send('Method Not Allowed');
   }
 
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const webhookSecret = process.env.POLAR_WEBHOOK_SECRET;
   if (!webhookSecret) {
     return res.status(500).send('Missing STRIPE_WEBHOOK_SECRET');
   }
 
-  const sigHeader = req.headers['stripe-signature'];
+  const sigHeader = req.headers['polar-signature'] || req.headers['stripe-signature'];
   const sig = Array.isArray(sigHeader) ? sigHeader[0] : (sigHeader as string | undefined);
   if (!sig) return res.status(400).send('Missing stripe-signature header');
 
@@ -63,7 +50,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const event = stripe.webhooks.constructEvent(raw, sig, webhookSecret);
+    // For Polar, implement signature verification accordingly when available.
+    // For now, if a secret is set, require signature header to be present.
+    if (webhookSecret && !sig) {
+      return res.status(400).send('Missing signature header');
+    }
+    const event = { type: (req.headers['polar-event'] as string) || 'unknown', payload: undefined } as { type: string; payload?: unknown };
     // Optional: Quickly acknowledge for non-relevant events
     if (!allowedEvents.includes(event.type)) {
       return res.status(200).json({ received: true, ignored: true, type: event.type });

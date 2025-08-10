@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getStripeSubscriptionCache, findCustomerIdForUser } from './_utils/stripe';
+// Polar success redirect handler (no-op except auth and redirect)
 import { getBearerOrSessionToken } from './_utils/auth';
 
 // token extraction centralized in ./_utils/auth
@@ -29,12 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const authenticatedUserId = verified.sub;
     if (!authenticatedUserId) return res.status(401).send('Unauthorized');
 
-    const customerId = await findCustomerIdForUser(authenticatedUserId);
-    if (!customerId) {
-      return res.status(303).setHeader('Location', '/').send('');
-    }
-    // Fetch from Stripe so next reads are accurate (stateless fetch)
-    await getStripeSubscriptionCache(customerId);
+    // With Polar hosted checkout, nothing to sync here (webhooks will update, or client fetches live)
     return res.status(303).setHeader('Location', '/').send('');
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal Server Error';

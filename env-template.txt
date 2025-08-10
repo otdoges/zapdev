@@ -34,8 +34,17 @@ STRIPE_PRICE_PRO_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 STRIPE_PRICE_ENTERPRISE_MONTH=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 STRIPE_PRICE_ENTERPRISE_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# Optional: Stripe Customer Portal (no extra env needed unless custom settings)
-DO NOT COMMIT SERECTS 
+# Billing (Polar)
+POLAR_ACCESS_TOKEN=
+POLAR_WEBHOOK_SECRET=
+POLAR_API_BASE=https://api.polar.sh
+
+# Hosted Checkout/Portal URLs (configure in Polar dashboard)
+POLAR_CHECKOUT_PRO_MONTH=
+POLAR_CHECKOUT_PRO_YEAR=
+POLAR_CHECKOUT_ENTERPRISE_MONTH=
+POLAR_CHECKOUT_ENTERPRISE_YEAR=
+POLAR_PORTAL_URL=
 
 # === REQUIRED for server-side fetches to own APIs ===
 PUBLIC_ORIGIN=http://localhost:5173

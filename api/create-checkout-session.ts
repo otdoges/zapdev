@@ -1,4 +1,4 @@
-import { stripe, getOrCreateCustomerIdForUser } from './_utils/stripe';
+import { resolveCheckoutUrl } from './_utils/polar';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Basic map from planId to Stripe Price ID(s)
@@ -35,24 +35,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const priceId = (period === 'year' ? mapping.year : mapping.month) || mapping.month;
     if (!priceId) return res.status(400).send('No Stripe price configured for this plan');
 
-    const origin = process.env.PUBLIC_ORIGIN || 'https://zapdev.link';
-
-    // Ensure Stripe customer exists and bind via Stripe metadata
-    const stripeCustomerId = await getOrCreateCustomerIdForUser(userId, email);
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer: stripeCustomerId,
-      payment_method_types: ['card'],
-      line_items: [
-        { price: priceId, quantity: 1 },
-      ],
-      success_url: `${origin}/success`,
-      cancel_url: `${origin}/pricing?canceled=true`,
-      allow_promotion_codes: true,
-    });
-
-    return res.status(200).json({ url: session.url });
+    // Return a Polar Checkout URL mapped via env
+    const url = resolveCheckoutUrl(planId, period || 'month', { userId, email });
+    return res.status(200).json({ url });
   } catch (err) {
     console.error('Stripe checkout error', err);
     const message = err instanceof Error ? err.message : 'Internal Server Error';

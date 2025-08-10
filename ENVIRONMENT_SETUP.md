@@ -48,13 +48,12 @@ cp .env.local.template .env.local
 1. Go to [OpenRouter](https://openrouter.ai)
 2. Get API key for `VITE_OPENROUTER_API_KEY`
 
-#### **Stripe (Subscriptions)**
-1. Go to Stripe Dashboard and create prices. Set:
-   - `VITE_STRIPE_PUBLISHABLE_KEY`
-   - `STRIPE_SECRET_KEY`
-   - `STRIPE_WEBHOOK_SECRET`
-   - `STRIPE_PRICE_PRO_MONTH`, `STRIPE_PRICE_PRO_YEAR`
-   - `STRIPE_PRICE_ENTERPRISE_MONTH`, `STRIPE_PRICE_ENTERPRISE_YEAR`
+#### **Polar (Subscriptions)**
+1. Configure hosted checkout and portal links in Polar dashboard. Set:
+   - `POLAR_CHECKOUT_PRO_MONTH`, `POLAR_CHECKOUT_PRO_YEAR`
+   - `POLAR_CHECKOUT_ENTERPRISE_MONTH`, `POLAR_CHECKOUT_ENTERPRISE_YEAR`
+   - `POLAR_PORTAL_URL`
+   - Optional: `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`
 2. Set app origin for server-side fetches:
    - `PUBLIC_ORIGIN=http://localhost:5173`
 

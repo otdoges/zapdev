@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getStripeSubscriptionCache, findCustomerIdForUser } from './_utils/stripe';
+import { getUserSubscriptionFromPolar } from './_utils/polar';
 import { getBearerOrSessionToken } from './_utils/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -26,12 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const authenticatedUserId = verified.sub;
     if (!authenticatedUserId) return res.status(401).send('Unauthorized');
 
-    const customerId = await findCustomerIdForUser(authenticatedUserId);
-    if (!customerId) {
-      return res.status(200).json({ status: 'none' });
-    }
-
-    const sub = await getStripeSubscriptionCache(customerId);
+    const sub = await getUserSubscriptionFromPolar(authenticatedUserId, verified.email as string | undefined);
     return res.status(200).json(sub);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal Server Error';

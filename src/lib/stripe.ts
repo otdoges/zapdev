@@ -45,6 +45,7 @@ export function mapStripeCacheToSubscription(cache: StripeSubscriptionCache | nu
     };
   }
 
+  // For Polar flow, we may only have a plan id already; fall back to 'free' if unknown
   const priceId = cache.priceId || '';
   const planId: 'free' | 'pro' | 'enterprise' = priceId.includes('enterprise')
     ? 'enterprise'

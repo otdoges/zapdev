@@ -5,7 +5,7 @@
   "framework": null,
   "headers": [
     {
-      "source": "/api/stripe-webhook",
+      "source": "/api/webhook/polar",
       "headers": [
         { "key": "x-vercel-disable-binary", "value": "true" }
       ]

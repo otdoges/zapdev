@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { stripe } from './_utils/stripe';
-import { findCustomerIdForUser } from './_utils/stripe';
+import { resolvePortalUrl } from './_utils/polar';
 
 function getBearerOrSessionToken(req: VercelRequest): string | null {
   const authHeader = (Array.isArray(req.headers['authorization'])
@@ -76,21 +75,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Determine customerId (must belong to authenticated user)
-    const storedCustomerId = await findCustomerIdForUser(authenticatedUserId);
-    const customerId = (providedCustomerId && storedCustomerId && providedCustomerId === storedCustomerId)
-      ? providedCustomerId
-      : storedCustomerId;
-    if (!customerId) {
-      return res.status(404).send('No Stripe customer found for user');
-    }
-
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: safeReturn,
-    });
-
-    return res.status(200).json({ url: session.url });
+    const url = resolvePortalUrl(safeReturn);
+    return res.status(200).json({ url });
   } catch (err) {
     console.error('Stripe portal error', err);
     const message = err instanceof Error ? err.message : 'Internal Server Error';
