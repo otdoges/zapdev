@@ -285,6 +285,82 @@ export const deleteUserAccount = mutation({
   },
 });
 
+// Upsert user subscription (called from webhooks)
+export const upsertUserSubscription = mutation({
+  args: {
+    userId: v.string(),
+    planId: v.string(),
+    status: v.union(
+      v.literal('active'),
+      v.literal('canceled'),
+      v.literal('past_due'),
+      v.literal('incomplete'),
+      v.literal('trialing'),
+      v.literal('none')
+    ),
+    currentPeriodStart: v.number(),
+    currentPeriodEnd: v.number(),
+    cancelAtPeriodEnd: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const planType: 'free' | 'pro' | 'enterprise' =
+      args.planId.includes('enterprise') ? 'enterprise' : args.planId.includes('pro') ? 'pro' : 'free';
+
+    const features = planType === 'enterprise'
+      ? ['Everything in Pro', 'Dedicated support', 'SLA guarantee', 'Custom deployment', 'Advanced analytics', 'Custom billing']
+      : planType === 'pro'
+      ? ['Unlimited AI conversations', 'Advanced code execution', 'Priority support', 'Fast response time', 'Custom integrations', 'Team collaboration']
+      : ['10 AI conversations per month', 'Basic code execution', 'Community support', 'Standard response time'];
+
+    const usageLimits = {
+      maxConversations: planType === 'free' ? 10 : undefined,
+      maxCodeExecutions: planType === 'free' ? 10 : undefined,
+      hasAdvancedFeatures: planType !== 'free',
+    } as { maxConversations?: number; maxCodeExecutions?: number; hasAdvancedFeatures: boolean };
+
+    const existing = await ctx.db
+      .query('userSubscriptions')
+      .withIndex('by_user_id', (q) => q.eq('userId', args.userId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        planId: args.planId,
+        planName: planType.charAt(0).toUpperCase() + planType.slice(1),
+        planType,
+        status: args.status,
+        features,
+        usageLimits,
+        currentUsage: existing.currentUsage ?? { conversationsUsed: 0, codeExecutionsUsed: 0 },
+        currentPeriodStart: args.currentPeriodStart,
+        currentPeriodEnd: args.currentPeriodEnd,
+        resetDate: args.currentPeriodEnd,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
+    const id = await ctx.db.insert('userSubscriptions', {
+      userId: args.userId,
+      planId: args.planId,
+      planName: planType.charAt(0).toUpperCase() + planType.slice(1),
+      planType,
+      status: args.status,
+      features,
+      usageLimits,
+      currentUsage: { conversationsUsed: 0, codeExecutionsUsed: 0 },
+      currentPeriodStart: args.currentPeriodStart,
+      currentPeriodEnd: args.currentPeriodEnd,
+      resetDate: args.currentPeriodEnd,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return id;
+  },
+});
+
 // Get user profile by username (public profile view)
 export const getUserByUsername = query({
   args: { username: v.string() },

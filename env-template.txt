@@ -38,6 +38,9 @@ STRIPE_PRICE_ENTERPRISE_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 POLAR_ACCESS_TOKEN=
 POLAR_WEBHOOK_SECRET=
 POLAR_API_BASE=https://api.polar.sh
+# Comma-separated Polar product/price IDs mapping
+POLAR_PLAN_PRO_IDS=prod_xxx,price_xxx
+POLAR_PLAN_ENTERPRISE_IDS=prod_yyy,price_yyy
 
 # Hosted Checkout/Portal URLs (configure in Polar dashboard)
 POLAR_CHECKOUT_PRO_MONTH=
