@@ -5,10 +5,23 @@ import { z } from 'zod';
 import Stripe from 'stripe';
 import { ensureStripeCustomer } from './_utils/stripe';
 
+function withCors(res: VercelResponse, allowOrigin?: string) {
+  const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  return res;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'OPTIONS') {
+    withCors(res);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return res.status(204).end();
+  }
+
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).send('Method Not Allowed');
+    res.setHeader('Allow', 'POST, OPTIONS');
+    return withCors(res).status(405).send('Method Not Allowed');
   }
 
   try {
@@ -44,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!parsed.success) {
       const details = parsed.error.flatten();
       console.error('Invalid request body for checkout:', details);
-      return res.status(400).json({ error: 'Invalid request body', details });
+      return withCors(res).status(400).json({ error: 'Invalid request body', details });
     }
 
     const { planId, period } = parsed.data;
@@ -53,10 +66,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const stripeSecret = process.env.STRIPE_SECRET_KEY;
     const origin = process.env.PUBLIC_ORIGIN;
     if (!stripeSecret || !origin) {
-      return res.status(500).json({ error: 'Server misconfiguration' });
+      return withCors(res).status(500).json({ error: 'Server misconfiguration' });
     }
     if (planId === 'free') {
-      return res.status(400).json({ error: 'Free plan does not require checkout' });
+      return withCors(res).status(400).json({ error: 'Free plan does not require checkout' });
     }
 
     const priceId = resolvePlanPriceId(planId as 'pro' | 'enterprise', period);
@@ -73,11 +86,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       subscription_data: { metadata: { userId: verified?.sub || '' } },
       metadata: { userId: verified?.sub || '' },
     });
-    return res.status(200).json({ url: session.url });
+    return withCors(res).status(200).json({ url: session.url });
   } catch (err) {
     console.error('Checkout error', err);
     const message = err instanceof Error ? err.message : 'Internal Server Error';
-    return res.status(500).json({ error: message });
+    return withCors(res).status(500).json({ error: message });
   }
 }
 

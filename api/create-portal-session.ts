@@ -3,10 +3,23 @@ import { getBearerOrSessionToken, verifyClerkToken, type VerifiedClerkToken } fr
 import Stripe from 'stripe';
 import { ensureStripeCustomer } from './_utils/stripe';
 
+function withCors(res: VercelResponse, allowOrigin?: string) {
+  const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  return res;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'OPTIONS') {
+    withCors(res);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return res.status(204).end();
+  }
+
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).send('Method Not Allowed');
+    res.setHeader('Allow', 'POST, OPTIONS');
+    return withCors(res).status(405).send('Method Not Allowed');
   }
 
   try {
@@ -46,15 +59,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
     const stripeSecret = process.env.STRIPE_SECRET_KEY;
-    if (!stripeSecret) return res.status(500).send('Server misconfiguration');
+    if (!stripeSecret) return withCors(res).status(500).send('Server misconfiguration');
     const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' });
     const customer = await ensureStripeCustomer(stripe, verified?.email as string | undefined, verified?.sub);
-    if (!customer) return res.status(400).send('No customer');
+    if (!customer) return withCors(res).status(400).send('No customer');
     const session = await stripe.billingPortal.sessions.create({ customer, return_url: safeReturn });
-    return res.status(200).json({ url: session.url });
+    return withCors(res).status(200).json({ url: session.url });
   } catch (err) {
     console.error('Polar portal error', err);
     const message = err instanceof Error ? err.message : 'Internal Server Error';
-    return res.status(500).send(message);
+    return withCors(res).status(500).send(message);
   }
 }
