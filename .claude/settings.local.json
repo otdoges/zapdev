@@ -52,7 +52,8 @@
       "Bash(curl:*)",
       "Bash(bunx:*)",
       "Bash(npx convex env list)",
-      "WebFetch(domain:clerk.com)"
+      "WebFetch(domain:clerk.com)",
+      "WebFetch(domain:docs.polar.sh)"
     ],
     "deny": []
   }

@@ -219,45 +219,106 @@ const billingRouter = router({
     try {
       const base = process.env.PUBLIC_ORIGIN;
       if (!base) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'PUBLIC_ORIGIN not set',
-        });
+        console.error('PUBLIC_ORIGIN environment variable not set');
+        return { planId: 'free', planName: 'Free', status: 'none', features: ['10 AI conversations per month', 'Basic code execution'], currentPeriodEnd: Date.now() };
       }
+      
+      console.log('Fetching subscription from:', `${base}/api/get-subscription`);
       const resp = await fetch(`${base}/api/get-subscription`, {
-        headers: { Authorization: `Bearer ${ctx.authToken}` },
+        headers: { 
+          Authorization: `Bearer ${ctx.authToken}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000, // 10 second timeout
       });
+      
       if (!resp.ok) {
-        return { planId: 'free', planName: 'Free', status: 'none', features: [], currentPeriodEnd: Date.now() };
+        console.error('API subscription fetch failed:', resp.status, resp.statusText);
+        return { planId: 'free', planName: 'Free', status: 'none', features: ['10 AI conversations per month', 'Basic code execution'], currentPeriodEnd: Date.now() };
       }
+      
       const sub = await resp.json();
-      const priceId: string | null = sub?.priceId || null;
-      const planId = priceId?.includes('pro') ? 'pro' : priceId?.includes('enterprise') ? 'enterprise' : 'free';
+      console.log('Subscription data received:', sub);
+      
+      // Handle Polar subscription format
+      const planId = sub?.planId || 'free';
+      const status = sub?.status || 'none';
+      const features = planId === 'enterprise' 
+        ? ['Everything in Pro', 'Dedicated support', 'SLA guarantee', 'Custom deployment', 'Advanced analytics', 'Custom billing']
+        : planId === 'pro' 
+        ? ['Unlimited AI conversations', 'Advanced code execution', 'Priority support', 'Fast response time', 'Custom integrations', 'Team collaboration']
+        : ['10 AI conversations per month', 'Basic code execution', 'Community support', 'Standard response time'];
+        
       return {
         planId,
         planName: planId.charAt(0).toUpperCase() + planId.slice(1),
-        status: sub?.status || 'none',
-        features: planId === 'pro' ? ['Unlimited AI conversations', 'Advanced code execution'] : ['10 AI conversations per month', 'Basic code execution'],
-        currentPeriodEnd: sub?.currentPeriodEnd ? sub.currentPeriodEnd * 1000 : Date.now(),
+        status,
+        features,
+        currentPeriodEnd: sub?.currentPeriodEnd || Date.now(),
+        currentPeriodStart: sub?.currentPeriodStart || Date.now(),
+        cancelAtPeriodEnd: sub?.cancelAtPeriodEnd || false,
       };
-    } catch (e) {
-      return { planId: 'free', planName: 'Free', status: 'none', features: [], currentPeriodEnd: Date.now() };
+    } catch (error) {
+      console.error('getUserSubscription error:', error);
+      return { 
+        planId: 'free', 
+        planName: 'Free', 
+        status: 'none', 
+        features: ['10 AI conversations per month', 'Basic code execution', 'Community support', 'Standard response time'], 
+        currentPeriodEnd: Date.now() 
+      };
     }
   }),
 
-    // Create Stripe checkout session via API route
+    // Create Polar checkout session via API route
   createCheckoutSession: protectedProcedure
-    .input(z.object({ planId: z.string(), period: z.enum(['month', 'year']).optional() }))
+    .input(z.object({ planId: z.string(), period: z.enum(['month', 'year']).optional().default('month') }))
     .mutation(async ({ input, ctx }) => {
-      const base = process.env.PUBLIC_ORIGIN || '';
+      try {
+        const base = process.env.PUBLIC_ORIGIN;
+        if (!base) {
+          console.error('PUBLIC_ORIGIN environment variable not set');
+          throw new TRPCError({ 
+            code: 'INTERNAL_SERVER_ERROR', 
+            message: 'Configuration error: PUBLIC_ORIGIN not set' 
+          });
+        }
+        
+        console.log('Creating checkout session for:', input);
         const res = await fetch(`${base}/api/create-checkout-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: input.planId, period: input.period, userId: ctx.user!.id, email: ctx.user!.email }),
-      });
-      if (!res.ok) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create checkout session' });
-      const data = await res.json();
-      return { url: data.url as string };
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ctx.authToken}`,
+          },
+          body: JSON.stringify({ 
+            planId: input.planId, 
+            period: input.period || 'month'
+          }),
+        });
+        
+        if (!res.ok) {
+          const errorText = await res.text().catch(() => 'Unknown error');
+          console.error('Checkout session creation failed:', res.status, res.statusText, errorText);
+          throw new TRPCError({ 
+            code: 'INTERNAL_SERVER_ERROR', 
+            message: `Failed to create checkout session: ${res.status} ${res.statusText}` 
+          });
+        }
+        
+        const data = await res.json();
+        console.log('Checkout session created:', data);
+        return { url: data.url as string };
+      } catch (error) {
+        console.error('createCheckoutSession error:', error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({ 
+          code: 'INTERNAL_SERVER_ERROR', 
+          message: 'Failed to create checkout session' 
+        });
+      }
     }),
 });
 

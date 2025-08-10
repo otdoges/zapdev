@@ -20,9 +20,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const audience = process.env.CLERK_JWT_AUDIENCE;
         verified = await verifyClerkToken(token, issuer, audience);
-      } catch {
-        // Ignore token errors for checkout; continue without user context
+        console.log('Checkout session token verified for user:', verified?.sub);
+      } catch (error) {
+        console.error('Token verification failed in checkout:', error);
+        // Continue without user context for checkout
       }
+    } else {
+      console.log('Missing token or issuer for checkout:', { hasToken: !!token, hasIssuer: !!issuer });
     }
 
     // Validate request body with Zod (Vercel may pass string)
@@ -38,10 +42,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const parsed = BodySchema.safeParse(rawBody);
     if (!parsed.success) {
       const details = parsed.error.flatten();
+      console.error('Invalid request body for checkout:', details);
       return res.status(400).json({ error: 'Invalid request body', details });
     }
 
     const { planId, period } = parsed.data;
+    console.log('Creating checkout session for plan:', planId, 'period:', period);
 
     const authenticatedUserId = verified?.sub;
     const authenticatedEmail = verified?.email as string | undefined;
@@ -50,10 +56,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userId: authenticatedUserId,
       email: authenticatedEmail,
     });
+    
     if (!url || url === '#/billing') {
       console.error(`No checkout URL configured for plan ${planId} period ${period}`);
-      return res.status(400).json({ error: 'Checkout not configured for this plan' });
+      console.error('Available env vars:', Object.keys(process.env).filter(k => k.startsWith('POLAR_CHECKOUT')));
+      return res.status(400).json({ 
+        error: 'Checkout not configured for this plan',
+        plan: planId,
+        period: period 
+      });
     }
+    
+    console.log('Checkout URL resolved:', url);
     return res.status(200).json({ url });
   } catch (err) {
     console.error('Checkout error', err);
