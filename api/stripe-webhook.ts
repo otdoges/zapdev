@@ -40,21 +40,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sig = req.headers['stripe-signature'] as string | undefined;
   if (!sig) return res.status(400).send('Missing stripe-signature header');
 
-  const rawBody = (req as VercelRequest & { rawBody?: string }).rawBody || (req.body && typeof req.body === 'string' ? req.body : undefined);
+  type ReqWithRaw = VercelRequest & { rawBody?: string | Buffer; body?: unknown };
+  const r = req as ReqWithRaw;
+  const raw: Buffer | undefined =
+    typeof r.rawBody === 'string' ? Buffer.from(r.rawBody) : (Buffer.isBuffer(r.rawBody) ? r.rawBody :
+    (Buffer.isBuffer(r.body) ? r.body : (typeof r.body === 'string' ? Buffer.from(r.body) : undefined)));
   // When deployed on Vercel, set functions config: { api: { bodyParser: false } }
-  if (!rawBody) {
+  if (!raw) {
     // Vercel automatically provides rawBody when bodyParser is disabled
     // If unavailable, we can't verify the signature
     return res.status(400).send('Raw body required');
   }
 
   try {
-    const event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    const event = stripe.webhooks.constructEvent(raw, sig, webhookSecret);
 
     // Intentionally minimal webhook: signature verified + 200 OK
     // Subscription state is fetched on-demand by the client/API.
 
-    return res.status(200).json({ received: true });
+    return res.status(200).json({ received: true, type: event.type });
   } catch (err: unknown) {
     const errorMessage =
       typeof err === 'object' && err !== null && 'message' in err
