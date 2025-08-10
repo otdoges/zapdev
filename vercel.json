@@ -1,4 +1,5 @@
 {
+  "version": 2,
   "buildCommand": "bun run build",
   "outputDirectory": "dist",
   "installCommand": "bun install",
@@ -12,7 +13,12 @@
     }
   ],
   "functions": {
-    "api/stripe-webhook.ts": {
+    "api/**/*.ts": {
+      "runtime": "nodejs20.x",
+      "memory": 256,
+      "maxDuration": 10
+    },
+    "api/**/*.js": {
       "runtime": "nodejs20.x",
       "memory": 256,
       "maxDuration": 10
