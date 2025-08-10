@@ -8,7 +8,7 @@ An AI-powered development platform with real-time chat, code execution, and subs
 - 🔐 Clerk authentication with Convex integration
 - 💬 Real-time chat interface
 - 🖥️ WebContainer API + E2B Code Interpreter for safe code execution
-- 💳 Stripe subscription management (Cloudflare KV + Convex)
+- 💳 Stripe subscription management (Convex + Stripe)
 - 🎨 shadcn/ui components with Tailwind CSS
 - 📊 PostHog analytics
 - 📱 Responsive design with Framer Motion animations
@@ -81,9 +81,6 @@ STRIPE_PRICE_PRO_YEAR=
 STRIPE_PRICE_ENTERPRISE_MONTH=
 STRIPE_PRICE_ENTERPRISE_YEAR=
 
-# Cloudflare KV (for subscription cache)
-CLOUDFLARE_ACCOUNT_ID=
-CF_KV_NAMESPACE_ID=
 CLOUDFLARE_API_TOKEN=
 
 # App origin used by server-side fetches
@@ -93,9 +90,7 @@ PUBLIC_ORIGIN=http://localhost:5173
 VITE_PUBLIC_POSTHOG_KEY=your_posthog_key_here
 VITE_PUBLIC_POSTHOG_HOST=your_posthog_host_here
 
-# Cloudflare KV (Stripe cache)
-CLOUDFLARE_ACCOUNT_ID=
-CF_KV_NAMESPACE_ID=
+ 
 CLOUDFLARE_API_TOKEN=
 
 # App origin used by server-side fetches
@@ -139,14 +134,11 @@ When deploying to production:
 ### Stripe Integration Notes
 
 - Endpoints:
-  - `POST /api/create-checkout-session`: creates a subscription Checkout session for a given `planId` and `userId` (customer is created and mapped in KV if missing). Returns `{ url }`.
-  - `POST /api/stripe-webhook`: handles Stripe events and syncs subscription state to KV. Ensure raw body is passed; Vercel function config already disables body parsing.
-  - `POST /api/create-portal-session`: creates a Stripe Customer Portal session using the stored customerId from KV and returns `{ url }`.
-  - `POST /api/success`: after success redirect, triggers a KV sync and redirects to `/`.
-
-- KV Keys:
-  - `stripe:user:{userId}` -> `customerId`
-  - `stripe:customer:{customerId}` -> cached subscription object
+   - `POST /api/create-checkout-session`: creates a subscription Checkout session for a given `planId` and `userId` (customer is created in Stripe with metadata mapping). Returns `{ url }`.
+   - `POST /api/stripe-webhook`: handles Stripe events. Signature is verified; subscription state is fetched on-demand.
+   - `POST /api/create-portal-session`: creates a Stripe Customer Portal session using the Stripe customer identified by Clerk user metadata and returns `{ url }`.
+   - `POST /api/success`: after success redirect, triggers a Stripe fetch to ensure latest state, then redirects to `/`.
+   - `GET /api/get-subscription`: returns the user's current subscription from Stripe in a normalized cache shape.
 
 - Local testing with Stripe CLI:
   1. Login: `stripe login`
@@ -155,7 +147,7 @@ When deploying to production:
 
 - Environment variables required (see `env-template.txt`):
   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, price IDs per plan, `PUBLIC_ORIGIN`.
-  - Cloudflare KV: `CLOUDFLARE_ACCOUNT_ID`, `CF_KV_NAMESPACE_ID`, `CLOUDFLARE_API_TOKEN`.
+  - No KV configuration required.
 
 ## Development Notes
 

@@ -1,9 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { stripe } from './_utils/stripe';
-import { kvGet } from './_utils/kv';
+import { findCustomerIdForUser } from './_utils/stripe';
 import { z } from 'zod';
 import { getBearerOrSessionToken } from './_utils/auth';
-import { KV_PREFIXES } from './_utils/kv-constants';
 
 // token extraction centralized in ./_utils/auth
 
@@ -29,21 +28,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!token) return res.status(401).send('Unauthorized');
     const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
     if (!issuer) return res.status(500).send('Server misconfiguration');
-    // @ts-expect-error runtime import OK in serverless
     const { verifyToken } = await import('@clerk/backend');
     let verified;
     try {
       const audience = process.env.CLERK_JWT_AUDIENCE;
-      const options: Record<string, unknown> = { issuer };
+      const options: { jwtKey?: string; audience?: string } = { jwtKey: issuer };
       if (audience) options.audience = audience;
-      verified = await verifyToken(token, options as any);
+      verified = await verifyToken(token, options);
     } catch {
       return res.status(401).send('Unauthorized');
     }
     const authenticatedUserId = verified.sub;
     if (!authenticatedUserId) return res.status(401).send('Unauthorized');
 
-    const fetchedCustomerId = await kvGet(`${KV_PREFIXES.STRIPE_USER}${authenticatedUserId}`);
+    const fetchedCustomerId = await findCustomerIdForUser(authenticatedUserId);
     if (!fetchedCustomerId) {
       return res.status(200).json({ invoices: [] });
     }

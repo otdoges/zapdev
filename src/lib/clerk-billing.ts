@@ -142,22 +142,11 @@ export const useUserSubscription = (): {
           setLoading(false);
           return;
         }
-        // Resolve customer id
-        const customerIdRes = await fetch(`/api/kv-proxy?key=${encodeURIComponent(`stripe:user:${convexUserId}`)}`);
-        if (!customerIdRes.ok) {
-          setSubscription({
-            planId: 'free',
-            status: 'none',
-            currentPeriodStart: Date.now(),
-            currentPeriodEnd: Date.now(),
-            cancelAtPeriodEnd: false,
-          });
-          setLoading(false);
-          return;
-        }
-        const customerId = await customerIdRes.text();
-        // Load subscription cache
-        const subRes = await fetch(`/api/kv-proxy?key=${encodeURIComponent(`stripe:customer:${customerId}`)}&json=1`);
+        // Load subscription directly from API (requires auth token)
+        const token = localStorage.getItem('authToken') || '';
+        const subRes = await fetch(`/api/get-subscription`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (!subRes.ok) {
           setSubscription({
             planId: 'free',

@@ -1,5 +1,4 @@
-import { stripe } from './_utils/stripe';
-import { kvGet, kvPut } from './_utils/kv';
+import { stripe, getOrCreateCustomerIdForUser } from './_utils/stripe';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Basic map from planId to Stripe Price ID(s)
@@ -38,17 +37,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const origin = process.env.PUBLIC_ORIGIN || 'https://zapdev.link';
 
-    // Ensure Stripe customer exists and bind to user in KV
-    const kvKey = `stripe:user:${userId}`;
-    let stripeCustomerId = await kvGet(kvKey);
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: email,
-        metadata: { userId },
-      });
-      await kvPut(kvKey, customer.id);
-      stripeCustomerId = customer.id;
-    }
+    // Ensure Stripe customer exists and bind via Stripe metadata
+    const stripeCustomerId = await getOrCreateCustomerIdForUser(userId, email);
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',

@@ -212,9 +212,9 @@ const authRouter = router({
     }),
 });
 
-// Billing procedures (Stripe + Cloudflare KV)
+// Billing procedures (Stripe)
 const billingRouter = router({
-  // Get user subscription status from KV cache
+  // Get user subscription status directly from API
   getUserSubscription: protectedProcedure.query(async ({ ctx }) => {
     try {
       const base = process.env.PUBLIC_ORIGIN;
@@ -224,27 +224,13 @@ const billingRouter = router({
           message: 'PUBLIC_ORIGIN not set',
         });
       }
-      const userId = ctx.user!.id;
-      const kvUserRes = await fetch(
-        `${base}/api/kv-proxy?key=${encodeURIComponent(`stripe:user:${userId}`)}`
-      );
-      if (!kvUserRes.ok) {
-        return {
-          planId: 'free',
-          planName: 'Free',
-          status: 'none',
-          features: [],
-          currentPeriodEnd: Date.now(),
-        };
-      }
-      const customerId = await kvUserRes.text();
-      const kvSubRes = await fetch(
-        `${base}/api/kv-proxy?key=${encodeURIComponent(`stripe:customer:${customerId}`)}&json=1`
-      );
-      if (!kvSubRes.ok) {
+      const resp = await fetch(`${base}/api/get-subscription`, {
+        headers: { Authorization: `Bearer ${ctx.authToken}` },
+      });
+      if (!resp.ok) {
         return { planId: 'free', planName: 'Free', status: 'none', features: [], currentPeriodEnd: Date.now() };
       }
-      const sub = await kvSubRes.json();
+      const sub = await resp.json();
       const priceId: string | null = sub?.priceId || null;
       const planId = priceId?.includes('pro') ? 'pro' : priceId?.includes('enterprise') ? 'enterprise' : 'free';
       return {
@@ -259,12 +245,12 @@ const billingRouter = router({
     }
   }),
 
-  // Create Stripe checkout session via API route
+    // Create Stripe checkout session via API route
   createCheckoutSession: protectedProcedure
     .input(z.object({ planId: z.string(), period: z.enum(['month', 'year']).optional() }))
     .mutation(async ({ input, ctx }) => {
       const base = process.env.PUBLIC_ORIGIN || '';
-      const res = await fetch(`${base}/api/create-checkout-session`, {
+        const res = await fetch(`${base}/api/create-checkout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId: input.planId, period: input.period, userId: ctx.user!.id, email: ctx.user!.email }),

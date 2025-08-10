@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { stripe } from './_utils/stripe';
-import { kvGet } from './_utils/kv';
+import { findCustomerIdForUser } from './_utils/stripe';
 
 function getBearerOrSessionToken(req: VercelRequest): string | null {
   const authHeader = (Array.isArray(req.headers['authorization'])
@@ -43,9 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!token) return res.status(401).send('Unauthorized');
     const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
     if (!issuer) return res.status(500).send('Missing CLERK_JWT_ISSUER_DOMAIN');
-    // @ts-expect-error Types may be unavailable in dev; runtime import is valid
     const { verifyToken } = await import('@clerk/backend');
-    const verified = await verifyToken(token, { issuer });
+    const verified = await verifyToken(token, { jwtKey: issuer });
     const authenticatedUserId = verified.sub;
     if (!authenticatedUserId) return res.status(401).send('Unauthorized');
 
@@ -77,8 +76,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Determine customerId with ownership enforcement
-    const storedCustomerId = await kvGet(`stripe:user:${authenticatedUserId}`);
+    // Determine customerId (must belong to authenticated user)
+    const storedCustomerId = await findCustomerIdForUser(authenticatedUserId);
     const customerId = (providedCustomerId && storedCustomerId && providedCustomerId === storedCustomerId)
       ? providedCustomerId
       : storedCustomerId;

@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type Stripe from 'stripe';
 import { stripe } from './_utils/stripe';
-import { kvPutJson } from './_utils/kv';
 
 // Allowed events that can affect subscription state
 const allowedEvents: string[] = [
@@ -25,66 +24,7 @@ const allowedEvents: string[] = [
   'payment_intent.canceled',
 ];
 
-export type StripeSubCache =
-  | {
-      subscriptionId: string | null;
-      status: Stripe.Subscription.Status;
-      priceId: string | null;
-      currentPeriodStart: number | null;
-      currentPeriodEnd: number | null;
-      cancelAtPeriodEnd: boolean;
-      paymentMethod: {
-        brand: string | null;
-        last4: string | null;
-      } | null;
-    }
-  | {
-      status: 'none';
-    };
-
-async function syncStripeDataToKV(customerId: string) {
-  const subscriptions = await stripe.subscriptions.list({
-    customer: customerId,
-    // Fetch more than one to avoid caching a stale/cancelled sub
-    limit: 100,
-    status: 'all',
-    expand: ['data.default_payment_method'],
-  });
-
-  const allSubs = subscriptions.data ?? [];
-
-  // Prefer active or trialing subscriptions, most recent by current period start
-  const candidates = allSubs
-    .filter((s) => s.status === 'active' || s.status === 'trialing')
-    .sort((a, b) => (b.current_period_start ?? 0) - (a.current_period_start ?? 0));
-
-  const subscription = candidates[0];
-
-  if (!subscription) {
-    const subData: StripeSubCache = { status: 'none' };
-    await kvPutJson(`stripe:customer:${customerId}`, subData);
-    return subData;
-  }
-
-  const subData: StripeSubCache = {
-    subscriptionId: subscription.id,
-    status: subscription.status,
-    priceId: subscription.items.data[0]?.price?.id ?? null,
-    currentPeriodStart: subscription.current_period_start ?? null,
-    currentPeriodEnd: subscription.current_period_end ?? null,
-    cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
-    paymentMethod:
-      subscription.default_payment_method && typeof subscription.default_payment_method !== 'string'
-        ? {
-            brand: subscription.default_payment_method.card?.brand ?? null,
-            last4: subscription.default_payment_method.card?.last4 ?? null,
-          }
-        : null,
-  };
-
-  await kvPutJson(`stripe:customer:${customerId}`, subData);
-  return subData;
-}
+// No persistence layer here anymore; clients fetch on-demand via API
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -111,13 +51,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
 
-    if (allowedEvents.includes(event.type)) {
-      const obj = event.data?.object as { customer?: string } | undefined;
-      const customerId = obj?.customer;
-      if (customerId && typeof customerId === 'string') {
-        await syncStripeDataToKV(customerId);
-      }
-    }
+    // Intentionally minimal webhook: signature verified + 200 OK
+    // Subscription state is fetched on-demand by the client/API.
 
     return res.status(200).json({ received: true });
   } catch (err: unknown) {

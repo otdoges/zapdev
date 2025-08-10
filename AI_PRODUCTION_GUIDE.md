@@ -59,10 +59,9 @@ This will check:
      - `VITE_PUBLIC_POSTHOG_KEY`
      - `VITE_PUBLIC_POSTHOG_HOST`
 
-5. **Stripe + Cloudflare KV** (Billing)
+5. **Stripe Billing**
    - Stripe Keys: `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
    - Price IDs: `STRIPE_PRICE_PRO_MONTH`, `STRIPE_PRICE_PRO_YEAR`, `STRIPE_PRICE_ENTERPRISE_MONTH`, `STRIPE_PRICE_ENTERPRISE_YEAR`
-   - Cloudflare KV: `CLOUDFLARE_ACCOUNT_ID`, `CF_KV_NAMESPACE_ID`, `CLOUDFLARE_API_TOKEN`
    - App origin for server-side fetches: `PUBLIC_ORIGIN`
 
 ## 🛡️ Production Security Features

@@ -2,16 +2,13 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getStripeSubscriptionCache, findCustomerIdForUser } from './_utils/stripe';
 import { getBearerOrSessionToken } from './_utils/auth';
 
-// token extraction centralized in ./_utils/auth
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
     return res.status(405).send('Method Not Allowed');
   }
 
   try {
-    // Enforce authenticated request; prefer Authorization header token
     const token = getBearerOrSessionToken(req);
     if (!token) return res.status(401).send('Unauthorized');
     const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
@@ -31,15 +28,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const customerId = await findCustomerIdForUser(authenticatedUserId);
     if (!customerId) {
-      return res.status(303).setHeader('Location', '/').send('');
+      return res.status(200).json({ status: 'none' });
     }
-    // Fetch from Stripe so next reads are accurate (stateless fetch)
-    await getStripeSubscriptionCache(customerId);
-    return res.status(303).setHeader('Location', '/').send('');
-  } catch (err: unknown) {
+
+    const sub = await getStripeSubscriptionCache(customerId);
+    return res.status(200).json(sub);
+  } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal Server Error';
-    console.error('[SUCCESS] sync error', message);
-    return res.status(500).send('Internal Server Error');
+    return res.status(500).send(message);
   }
 }
 
