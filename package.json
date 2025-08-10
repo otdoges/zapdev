@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=20 <23",
+    "node": "20.x",
     "bun": ">=1.0.0 <2"
   },
   "packageManager": "bun@1.2.18",
