@@ -11,16 +11,25 @@ function withCors(res: VercelResponse, allowOrigin?: string) {
   return res;
 }
 
+function resolveOriginFromRequest(req: VercelRequest): string | undefined {
+  const hdrOrigin = (req.headers?.origin as string | undefined)?.trim();
+  if (hdrOrigin) return hdrOrigin;
+  const proto = (req.headers['x-forwarded-proto'] as string | undefined) || 'https';
+  const host = (req.headers['x-forwarded-host'] as string | undefined) || (req.headers.host as string | undefined);
+  if (host) return `${proto}://${host}`;
+  return undefined;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method === 'OPTIONS') {
+  if (req.method === 'OPTIONS' || req.method === 'HEAD') {
     withCors(res);
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, HEAD');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     return res.status(204).end();
   }
 
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST, OPTIONS');
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    res.setHeader('Allow', 'POST, GET, OPTIONS, HEAD');
     return withCors(res).status(405).send('Method Not Allowed');
   }
 
@@ -43,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log('Missing token or issuer for checkout:', { hasToken: !!token, hasIssuer: !!issuer });
     }
 
-    // Validate request body with Zod (Vercel may pass string)
+    // Validate request body with Zod (support POST body and GET query fallback)
     const BodySchema = z.object({
       planId: z.string(),
       period: z.enum(['month', 'year']),
@@ -53,7 +62,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })()
       : req.body;
 
-    const parsed = BodySchema.safeParse(rawBody);
+    let sourceData: unknown = rawBody;
+    if (req.method === 'GET') {
+      const q = req.query as Record<string, string | string[] | undefined>;
+      const planId = Array.isArray(q?.planId) ? q.planId[0] : (q?.planId ?? '');
+      const period = Array.isArray(q?.period) ? q.period[0] : (q?.period ?? 'month');
+      sourceData = { planId: String(planId), period: String(period) };
+    }
+
+    const parsed = BodySchema.safeParse(sourceData);
     if (!parsed.success) {
       const details = parsed.error.flatten();
       console.error('Invalid request body for checkout:', details);
@@ -64,7 +81,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('Creating Stripe checkout for plan:', planId, 'period:', period);
 
     const stripeSecret = process.env.STRIPE_SECRET_KEY;
-    const origin = process.env.PUBLIC_ORIGIN;
+    const envOrigin = process.env.PUBLIC_ORIGIN;
+    const inferredOrigin = resolveOriginFromRequest(req);
+    const origin = envOrigin || inferredOrigin;
     if (!stripeSecret || !origin) {
       return withCors(res).status(500).json({ error: 'Server misconfiguration' });
     }

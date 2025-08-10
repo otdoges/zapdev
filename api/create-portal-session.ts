@@ -6,19 +6,20 @@ import { ensureStripeCustomer } from './_utils/stripe';
 function withCors(res: VercelResponse, allowOrigin?: string) {
   const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
   res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Cache-Control', 'private, no-store');
   return res;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method === 'OPTIONS') {
+  if (req.method === 'OPTIONS' || req.method === 'HEAD') {
     withCors(res);
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, HEAD');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     return res.status(204).end();
   }
 
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST, OPTIONS');
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    res.setHeader('Allow', 'POST, GET, OPTIONS, HEAD');
     return withCors(res).status(405).send('Method Not Allowed');
   }
 

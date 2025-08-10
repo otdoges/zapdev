@@ -20,6 +20,27 @@ export type StripeSubscription = {
   cancelAtPeriodEnd: boolean;
 };
 
+const PUBLIC_API_ORIGIN = (import.meta.env.VITE_PUBLIC_API_ORIGIN as string | undefined)?.trim();
+const VERCEL_URL = (import.meta.env.VITE_VERCEL_URL as string | undefined)?.trim();
+
+function buildApiOriginCandidates(): string[] {
+  const candidates: string[] = [];
+  candidates.push('');
+  if (PUBLIC_API_ORIGIN) candidates.push(PUBLIC_API_ORIGIN);
+  if (typeof window !== 'undefined') {
+    const current = window.location.origin;
+    const toggled = current.includes('://www.')
+      ? current.replace('://www.', '://')
+      : current.replace('://', '://www.');
+    if (!candidates.includes(toggled)) candidates.push(toggled);
+  }
+  if (VERCEL_URL) {
+    const absolute = VERCEL_URL.startsWith('http') ? VERCEL_URL : `https://${VERCEL_URL}`;
+    if (!candidates.includes(absolute)) candidates.push(absolute);
+  }
+  return candidates;
+}
+
 export const STRIPE_PLANS: StripePlan[] = [
   {
     id: 'free',
@@ -160,27 +181,67 @@ export async function createStripeCheckout(planId: 'pro' | 'enterprise', period:
   if (!validPlanIds.includes(planId) || !validPeriods.includes(period)) {
     throw new Error('Invalid checkout parameters');
   }
-  const res = await fetch('/api/create-checkout-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify({ planId, period }),
-  });
-  if (!res.ok) throw new Error('Failed to create checkout');
-  const data = await res.json();
-  return { url: data.url as string };
+  const origins = buildApiOriginCandidates();
+  let lastError: Error | null = null;
+  for (const origin of origins) {
+    try {
+      const base = origin ? origin : '';
+      const url = `${base}/api/create-checkout-session`;
+      let res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ planId, period }),
+      });
+      if (res.status === 405) {
+        const params = new URLSearchParams({ planId, period });
+        res = await fetch(`${url}?${params.toString()}`, {
+          method: 'GET',
+          credentials: 'same-origin',
+        });
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      return { url: data.url as string };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error('Failed to create checkout');
+      continue;
+    }
+  }
+  throw lastError ?? new Error('Failed to create checkout');
 }
 
 export async function createStripePortal(): Promise<{ url: string }> {
-  const res = await fetch('/api/create-portal-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify({}),
-  });
-  if (!res.ok) throw new Error('Failed to create portal session');
-  const data = await res.json();
-  return { url: data.url as string };
+  const origins = buildApiOriginCandidates();
+  let lastError: Error | null = null;
+  for (const origin of origins) {
+    try {
+      const base = origin ? origin : '';
+      const url = `${base}/api/create-portal-session`;
+      let res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({}),
+      });
+      if (res.status === 405) {
+        res = await fetch(url, { method: 'GET', credentials: 'same-origin' });
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      return { url: data.url as string };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error('Failed to create portal session');
+      continue;
+    }
+  }
+  throw lastError ?? new Error('Failed to create portal session');
 }
 
 export function canUserPerformStripeAction(subscription: StripeSubscription | null, action: 'create_conversation' | 'execute_code' | 'use_advanced_features'): boolean {
