@@ -55,12 +55,18 @@ VITE_PUBLIC_POSTHOG_HOST=https://app.posthog.com
 # BILLING (Optional)
 # =============================================================================
 
-# Polar Billing Integration
-VITE_POLAR_ACCESS_TOKEN=
-VITE_POLAR_ORGANIZATION_ID=
+# Stripe Billing Integration
+VITE_STRIPE_PUBLISHABLE_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_PRO_MONTH=
+STRIPE_PRICE_PRO_YEAR=
+STRIPE_PRICE_ENTERPRISE_MONTH=
+STRIPE_PRICE_ENTERPRISE_YEAR=
 
 # Application URL
 VITE_APP_URL=http://localhost:5173
+PUBLIC_ORIGIN=http://localhost:5173
 
 # =============================================================================
 # E2B ADVANCED CONFIG (Optional)
@@ -85,15 +91,17 @@ VITE_APP_URL=http://localhost:5173
 try {
   if (!existsSync('.env.local')) {
     writeFileSync('.env.local', envContent);
-    console.log('✅ Created .env.local with E2B configuration');
+    console.log('✅ Created .env.local with configuration');
     console.log('📝 Edit .env.local and add your API keys:');
     console.log('   - Groq: https://console.groq.com/keys');
     console.log('   - E2B: https://e2b.dev/dashboard');
+    console.log('   - Stripe: https://dashboard.stripe.com/apikeys');
   } else {
     console.log('ℹ️ .env.local already exists');
     console.log('📝 Make sure it has:');
     console.log('   VITE_GROQ_API_KEY=your_groq_key');
     console.log('   VITE_E2B_API_KEY=your_e2b_key');
+    console.log('   STRIPE_SECRET_KEY=sk_test_...');
   }
 } catch (error) {
   console.error('❌ Failed to create .env.local:', error.message);

@@ -1,35 +1,31 @@
-# 🔄 Stripe to Clerk Billing Migration - Complete
+# 🔄 Billing reverted to Stripe - Clerk/Polar references deprecated
 
 ## ✅ Migration Summary
 
-Successfully replaced Stripe integration with Clerk billing system throughout the ZapDev codebase. This migration improves security, reduces complexity, and provides native integration with your existing Clerk authentication.
+Stripe is now the only billing provider. tRPC + Convex procedures handle checkout, portal, and subscription reads. Polar/Clerk billing references have been removed or shimmed.
 
 ## 🗑️ Files Removed
 
-### Stripe Integration Files
-- ❌ `src/lib/stripe.ts` - Stripe SDK wrapper and utilities
-- ❌ `src/lib/stripe-webhook.ts` - Stripe webhook handlers
-- ❌ `src/api/stripe-webhook.ts` - Stripe webhook API endpoints
-- ❌ `convex/stripe.ts` - Convex Stripe functions
+### Removed Polar/Clerk Billing Files
+- ❌ `api/_utils/polar.ts`
+- ❌ `api/webhook/polar.ts`
 
-### Dependencies Removed
-- ❌ `stripe` package - Removed from package.json
+### Dependencies
+- ✅ `stripe` package is required
 
 ## 🔄 Files Updated
 
 ### Core Integration Files
-- ✅ `src/lib/clerk-billing.ts` - **NEW** Clerk billing integration
-- ✅ `src/components/pricing/DynamicPricingSection.tsx` - Complete rewrite for Clerk
-- ✅ `src/pages/Settings.tsx` - Updated billing portal integration
+- ✅ `src/lib/stripe-billing.ts` - Stripe UI helpers
+- ✅ `src/components/pricing/DynamicPricingSection.tsx` - Uses Stripe helpers
+- ✅ `src/pages/Settings.tsx` - Uses Stripe portal
 
 ### Database Schema
-- ✅ `convex/schema.ts` - Removed Stripe tables, added Clerk billing schema
-  - Removed: `stripeProducts`, `stripePrices`, `stripeCustomers`, `stripeSubscriptions`
-  - Updated: `usageEvents`, `userSubscriptions` for Clerk integration
+- ✅ `convex/schema.ts` - Uses generic `userSubscriptions`
 
 ### API Layer
-- ✅ `convex/trpc/router.ts` - Replaced `stripe` router with `billing` router
-  - New endpoints: Clerk-based checkout, portal, subscription management
+- ✅ `convex/trpc/router.ts` - `billing` router with Stripe checkout/portal/subscription
+- ✅ `/api/stripe-webhook` - Stripe webhook for subscription sync
 
 ### Configuration
 - ✅ `.env.example` - Removed Stripe variables, documented Clerk billing

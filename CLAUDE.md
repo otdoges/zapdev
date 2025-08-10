@@ -57,7 +57,7 @@ Key tables with security considerations:
 - `users` - User profiles with email/username uniqueness
 - `chats` - Chat conversations owned by users
 - `messages` - Chat messages with role-based content
-- `products`, `prices`, `customers`, `subscriptions` - Polar integration
+- `userSubscriptions` - Subscription cache
 - `usageEvents`, `meters` - Usage tracking for billing
 - `userSubscriptions` - Cached subscription status and limits
 
@@ -86,7 +86,7 @@ Key tables with security considerations:
 ### Key Features
 - Real-time AI chat with code execution capabilities
 - WebContainer-based safe code running environment
-- Subscription management with Polar integration
+- Subscription management with Stripe integration
 - User authentication and profile management
 - Responsive design with modern UX patterns
 

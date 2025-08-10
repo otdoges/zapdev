@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button";
 import { CardSpotlight } from "./CardSpotlight";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { 
-  BILLING_PLANS, 
-  useUserSubscription, 
-  canUserPerformAction,
-  formatPrice,
-  type ClerkPlan 
-} from "@/lib/polar-billing";
+import {
+  STRIPE_PLANS as BILLING_PLANS,
+  useStripeSubscription as useUserSubscription,
+  canUserPerformStripeAction as canUserPerformAction,
+  formatStripePrice as formatPrice,
+  type StripePlan as ClerkPlan,
+} from '@/lib/stripe-billing';
 
 const PricingTier = ({
   plan,
@@ -203,8 +203,8 @@ export const DynamicPricingSection = () => {
     // If selecting free plan and user has a paid plan, redirect to billing portal
     if (planId === 'free' && subscription?.planId !== 'free') {
       try {
-        const { createCustomerPortalSession } = await import('@/lib/polar-billing');
-        const { url } = await createCustomerPortalSession();
+        const { createStripePortal } = await import('@/lib/stripe-billing');
+        const { url } = await createStripePortal();
         window.location.href = url;
       } catch (error) {
         console.error('Error opening customer portal:', error);
@@ -215,11 +215,8 @@ export const DynamicPricingSection = () => {
 
     setIsLoading(true);
     try {
-      const { createCheckoutSession } = await import('@/lib/polar-billing');
-      const { url } = await createCheckoutSession(planId, {
-        userId: user?._id,
-        email: user?.email,
-      });
+      const { createStripeCheckout } = await import('@/lib/stripe-billing');
+      const { url } = await createStripeCheckout(planId as 'pro' | 'enterprise');
       window.location.href = url;
     } catch (err) {
       console.error('Failed to start checkout', err);
@@ -279,7 +276,7 @@ export const DynamicPricingSection = () => {
           transition={{ duration: 0.6, delay: 1.0 }}
           className="text-lg text-gray-400"
         >
-          Select the perfect plan for your AI-powered development needs with secure Polar billing
+            Select the perfect plan for your AI-powered development needs with secure Stripe billing
         </motion.p>
       </motion.div>
 

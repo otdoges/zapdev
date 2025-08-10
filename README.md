@@ -8,7 +8,7 @@ An AI-powered development platform with real-time chat, code execution, and subs
 - 🔐 Clerk authentication with Convex integration
 - 💬 Real-time chat interface
 - 🖥️ WebContainer API + E2B Code Interpreter for safe code execution
-- 💳 Billing with Polar (Convex + Polar)
+- 💳 Billing with Stripe (Convex + tRPC)
 - 🎨 shadcn/ui components with Tailwind CSS
 - 📊 PostHog analytics
 - 📱 Responsive design with Framer Motion animations
@@ -131,21 +131,26 @@ When deploying to production:
 3. Configure Stripe webhooks for your production domain
 4. Ensure HTTPS is used for all external service callbacks
 
-### Billing Integration Notes (Polar)
+### Billing Integration Notes (Stripe)
 
-- Endpoints:
-   - `POST /api/create-checkout-session`: returns a Polar Checkout URL based on env-configured links per plan/period.
-   - `POST /api/create-portal-session`: returns a Polar customer portal URL with return_url.
-   - `POST /api/success`: completes hosted flow and redirects to `/`.
-   - `GET /api/get-subscription`: returns the user's current subscription (queried from Polar).
+- Procedures (tRPC on Convex):
+  - `billing.getUserSubscription`: returns the user's current subscription from Stripe.
+  - `billing.createCheckoutSession`: returns a Stripe Checkout URL for the given plan.
+  - `billing.createCustomerPortalSession`: returns a Stripe billing portal URL.
+
+- API routes (compat):
+  - `POST /api/create-checkout-session`: Stripe Checkout URL.
+  - `POST /api/create-portal-session`: Stripe billing portal URL.
+  - `GET /api/get-subscription`: Stripe subscription snapshot.
 
 - Webhook URL:
-  - Production: `https://www.zapdev.link/api/webhook/polar`
-  - Local (via tunnel): `https://YOUR-NGROK-SUBDOMAIN.ngrok.io/api/webhook/polar`
+  - `/api/stripe-webhook` (raw body, set STRIPE_WEBHOOK_SECRET)
 
-- Environment variables required (see `env-template.txt`):
-  - `POLAR_ACCESS_TOKEN` (optional if only linking to hosted checkouts), `POLAR_WEBHOOK_SECRET` (optional), `PUBLIC_ORIGIN`.
-  - For hosted links: `POLAR_CHECKOUT_PRO_MONTH`, `POLAR_CHECKOUT_PRO_YEAR`, `POLAR_CHECKOUT_ENTERPRISE_MONTH`, `POLAR_CHECKOUT_ENTERPRISE_YEAR`, and `POLAR_PORTAL_URL`.
+- Environment variables (see `env-template.txt`):
+  - `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+  - `STRIPE_PRICE_PRO_MONTH`, `STRIPE_PRICE_PRO_YEAR`,
+  - `STRIPE_PRICE_ENTERPRISE_MONTH`, `STRIPE_PRICE_ENTERPRISE_YEAR`,
+  - `PUBLIC_ORIGIN`.
 
 ## Development Notes
 

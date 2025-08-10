@@ -59,11 +59,12 @@ This will check:
      - `VITE_PUBLIC_POSTHOG_KEY`
      - `VITE_PUBLIC_POSTHOG_HOST`
 
-5. **Polar Billing**
-   - Polar Access Token: `POLAR_ACCESS_TOKEN` (optional for hosted links only flow)
-   - Polar Webhook Secret: `POLAR_WEBHOOK_SECRET` (optional)
-   - Hosted URLs: `POLAR_CHECKOUT_*` per plan/period and `POLAR_PORTAL_URL`
-   - App origin for server-side fetches: `PUBLIC_ORIGIN`
+5. **Stripe Billing**
+   - Stripe Publishable Key: `VITE_STRIPE_PUBLISHABLE_KEY`
+   - Stripe Secret Key: `STRIPE_SECRET_KEY`
+   - Stripe Webhook Secret: `STRIPE_WEBHOOK_SECRET`
+   - Prices: `STRIPE_PRICE_PRO_MONTH`, `STRIPE_PRICE_PRO_YEAR`, `STRIPE_PRICE_ENTERPRISE_MONTH`, `STRIPE_PRICE_ENTERPRISE_YEAR`
+   - App origin for server-side redirects: `PUBLIC_ORIGIN`
 
 ## 🛡️ Production Security Features
 
@@ -81,6 +82,11 @@ This will check:
   - Enterprise: 100 requests/minute
 
 ### 3. Input Validation
+### 4. Authentication
+- All tRPC procedures that modify or read user-specific data are protected with Clerk JWT verification.
+- Set `CLERK_JWT_ISSUER_DOMAIN` and optional `CLERK_JWT_AUDIENCE` in environment variables.
+- The server validates `Authorization: Bearer <token>` on `convex/trpc` endpoints.
+
 - Maximum message length: 50,000 characters
 - XSS protection via SafeText component
 - Malicious pattern detection

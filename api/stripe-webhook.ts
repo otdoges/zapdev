@@ -1,17 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-// Replaced by Polar webhook
-
-// Allowed Polar events (placeholder, adjust to Polar's event types as needed)
-const allowedEvents: string[] = [
-  'subscription.created',
-  'subscription.updated',
-  'subscription.canceled',
-  'checkout.completed',
-  'invoice.paid',
-  'invoice.payment_failed',
-];
-
-// No persistence layer here anymore; clients fetch on-demand via API
+import Stripe from 'stripe';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../convex/_generated/api';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -19,59 +9,96 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).send('Method Not Allowed');
   }
 
-  const webhookSecret = process.env.POLAR_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    return res.status(500).send('Missing STRIPE_WEBHOOK_SECRET');
-  }
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
+  if (!secret || !stripeSecret) return res.status(500).send('Server misconfiguration');
 
-  const sigHeader = req.headers['polar-signature'] || req.headers['stripe-signature'];
-  const sig = Array.isArray(sigHeader) ? sigHeader[0] : (sigHeader as string | undefined);
-  if (!sig) return res.status(400).send('Missing stripe-signature header');
+  const signature = Array.isArray(req.headers['stripe-signature']) ? req.headers['stripe-signature'][0] : (req.headers['stripe-signature'] as string | undefined);
+  if (!signature) return res.status(400).send('Missing stripe-signature header');
+
+  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' });
 
   type ReqWithRaw = VercelRequest & { rawBody?: string | Buffer; body?: unknown } & { text?: () => Promise<string> };
   const r = req as ReqWithRaw;
-  let raw: Buffer | undefined =
-    typeof r.rawBody === 'string' ? Buffer.from(r.rawBody) : (Buffer.isBuffer(r.rawBody) ? r.rawBody :
-    (Buffer.isBuffer(r.body) ? r.body : (typeof r.body === 'string' ? Buffer.from(r.body) : undefined)));
-  // As a last resort in some runtimes, try accessing text()
-  if (!raw && typeof r.text === 'function') {
-    try {
-      const txt = await r.text();
-      raw = Buffer.from(txt);
-    } catch {
-      // ignore
-    }
-  }
-  // When deployed on Vercel, set functions config: { api: { bodyParser: false } }
-  if (!raw) {
-    // Vercel automatically provides rawBody when bodyParser is disabled
-    // If unavailable, we can't verify the signature
-    return res.status(400).send('Raw body required');
+  const raw =
+    typeof r.rawBody === 'string' ? Buffer.from(r.rawBody) : Buffer.isBuffer(r.rawBody) ? r.rawBody : Buffer.isBuffer(r.body) ? r.body : typeof r.body === 'string' ? Buffer.from(r.body) : undefined;
+  if (!raw) return res.status(400).send('Raw body required');
+
+  let event: Stripe.Event;
+  try {
+    event = stripe.webhooks.constructEvent(raw, signature, secret);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Invalid signature';
+    return res.status(400).send(`Webhook Error: ${msg}`);
   }
 
   try {
-    // For Polar, implement signature verification accordingly when available.
-    // For now, if a secret is set, require signature header to be present.
-    if (webhookSecret && !sig) {
-      return res.status(400).send('Missing signature header');
-    }
-    const event = { type: (req.headers['polar-event'] as string) || 'unknown', payload: undefined } as { type: string; payload?: unknown };
-    // Optional: Quickly acknowledge for non-relevant events
-    if (!allowedEvents.includes(event.type)) {
-      return res.status(200).json({ received: true, ignored: true, type: event.type });
-    }
+    switch (event.type) {
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object as Stripe.Subscription;
+        let userId = (sub.metadata?.userId as string) || '';
+        // Fallback: try to resolve userId from the Stripe customer metadata
+        if (!userId && typeof sub.customer === 'string') {
+          try {
+            const customer = await stripe.customers.retrieve(sub.customer);
+            if (customer && !('deleted' in customer)) {
+              userId = (customer.metadata?.userId as string) || '';
+            }
+          } catch {
+            // ignore lookup failures; we'll skip Convex update if no userId
+          }
+        }
+        const priceId = sub.items.data[0]?.price?.id || '';
+        const planId = mapPriceId(priceId);
+        const status = mapStatus(sub.status);
+        const currentPeriodStart = (sub.current_period_start || 0) * 1000;
+        const currentPeriodEnd = (sub.current_period_end || 0) * 1000;
 
-    // Intentionally minimal webhook: signature verified + 200 OK
-    // Subscription state is fetched on-demand by the client/API.
+        const convexUrl = process.env.CONVEX_URL || process.env.VITE_CONVEX_URL;
+        if (convexUrl && userId) {
+          const client = new ConvexHttpClient(convexUrl);
+          await client.mutation(api.users.upsertUserSubscription, {
+            userId,
+            planId,
+            status,
+            currentPeriodStart,
+            currentPeriodEnd,
+            cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+          });
+        }
+        break;
+      }
+      case 'checkout.session.completed':
+      default:
+        break;
+    }
+  } catch (e) {
+    console.error('[STRIPE WEBHOOK] Handler error', e);
+  }
 
-    return res.status(200).json({ received: true, type: event.type });
-  } catch (err: unknown) {
-    const errorMessage =
-      typeof err === 'object' && err !== null && 'message' in err
-        ? (err as { message?: string }).message
-        : String(err);
-    console.error('[STRIPE WEBHOOK] Error', errorMessage);
-    return res.status(400).send(`Webhook Error: ${errorMessage || 'Unknown error'}`);
+  return res.status(200).json({ received: true });
+}
+
+function mapPriceId(id: string): 'free' | 'pro' | 'enterprise' {
+  const pro = [process.env.STRIPE_PRICE_PRO_MONTH, process.env.STRIPE_PRICE_PRO_YEAR].filter(Boolean) as string[];
+  const ent = [process.env.STRIPE_PRICE_ENTERPRISE_MONTH, process.env.STRIPE_PRICE_ENTERPRISE_YEAR].filter(Boolean) as string[];
+  if (ent.includes(id)) return 'enterprise';
+  if (pro.includes(id)) return 'pro';
+  return 'free';
+}
+
+function mapStatus(status: Stripe.Subscription.Status): 'active' | 'canceled' | 'past_due' | 'incomplete' | 'trialing' | 'none' {
+  switch (status) {
+    case 'active':
+    case 'trialing':
+    case 'incomplete':
+    case 'past_due':
+    case 'canceled':
+      return status;
+    default:
+      return 'none';
   }
 }
 

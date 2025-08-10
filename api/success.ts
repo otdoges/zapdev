@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-// Polar success redirect handler (no-op except auth and redirect)
+// Stripe success redirect handler (no-op; webhook updates state)
 import { getBearerOrSessionToken } from './_utils/auth';
 
 // token extraction centralized in ./_utils/auth
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    res.setHeader('Allow', 'POST, GET');
     return res.status(405).send('Method Not Allowed');
   }
 
@@ -29,8 +29,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const authenticatedUserId = verified.sub;
     if (!authenticatedUserId) return res.status(401).send('Unauthorized');
 
-    // With Polar hosted checkout, nothing to sync here (webhooks will update, or client fetches live)
-    return res.status(303).setHeader('Location', '/').send('');
+    // With Stripe Checkout, nothing to sync here; webhook updates state.
+    if (req.method === 'GET') {
+      return res.status(200).json({ ok: true });
+    }
+    return res.status(204).send('');
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal Server Error';
     console.error('[SUCCESS] sync error', message);

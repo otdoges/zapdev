@@ -1,12 +1,37 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
+// Stripe calls are handled in API routes with proper auth verification.
+
+type ClerkJwtPayload = {
+  sub?: string;
+  email?: string;
+};
+
+async function verifyClerkJwt(token: string): Promise<{ id: string; email?: string } | null> {
+  try {
+    const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
+    if (!issuer) throw new Error('Missing CLERK_JWT_ISSUER_DOMAIN');
+    const audience = process.env.CLERK_JWT_AUDIENCE;
+    const { verifyToken } = await import('@clerk/backend');
+    const options: { jwtKey?: string; audience?: string } = { jwtKey: issuer };
+    if (audience) options.audience = audience;
+    const verified = (await verifyToken(token, options)) as ClerkJwtPayload;
+    const sub = verified.sub;
+    const email = verified.email;
+    if (!sub) return null;
+    return { id: sub, email };
+  } catch (error) {
+    console.error('verifyClerkJwt failed', error);
+    return null;
+  }
+}
 
 // Define the context interface
 interface Context {
   authToken?: string;
   user?: {
     id: string;
-    email: string;
+    email?: string;
   };
 }
 
@@ -15,25 +40,31 @@ const t = initTRPC.context<Context>().create();
 export const router = t.router;
 export const publicProcedure = t.procedure;
 
+// Optional: allow adapter to construct context from Request headers
+export async function createContext(opts: { req: { headers: Headers } }): Promise<Context> {
+  const authHeader = opts.req.headers.get('authorization') || opts.req.headers.get('Authorization');
+  const token = typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : undefined;
+  return { authToken: token };
+}
+
 // Create a procedure that requires authentication
 export const protectedProcedure = t.procedure.use(
   t.middleware(async ({ ctx, next }) => {
     const authToken = ctx.authToken;
     if (!authToken) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'No authorization token provided',
-      });
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing bearer token' });
+    }
+    const verified = await verifyClerkJwt(authToken);
+    if (!verified) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid or expired token' });
     }
 
-    // Here you would validate the JWT token with Clerk
-    // For now, we'll assume the token is valid
-    const user = { id: 'user-id', email: 'user@example.com' }; // Mock user data
-    
     return next({
       ctx: {
         ...ctx,
-        user,
+        user: { id: verified.id, email: verified.email },
       },
     });
   })
@@ -214,113 +245,110 @@ const authRouter = router({
 
 // Billing procedures (Stripe)
 const billingRouter = router({
-  // Get user subscription status directly from API
+  // Get user subscription status (delegates to API route)
   getUserSubscription: protectedProcedure.query(async ({ ctx }) => {
     try {
       const base = process.env.PUBLIC_ORIGIN;
-      if (!base) {
-        console.error('PUBLIC_ORIGIN environment variable not set');
-        return { planId: 'free', planName: 'Free', status: 'none', features: ['10 AI conversations per month', 'Basic code execution'], currentPeriodEnd: Date.now() };
-      }
-      
-      console.log('Fetching subscription from:', `${base}/api/get-subscription`);
-      const resp = await fetch(`${base}/api/get-subscription`, {
-        headers: { 
-          Authorization: `Bearer ${ctx.authToken}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000, // 10 second timeout
+      if (!base) throw new Error('PUBLIC_ORIGIN not set');
+      const res = await fetch(`${base}/api/get-subscription`, {
+        headers: { Authorization: `Bearer ${ctx.authToken}` },
       });
-      
-      if (!resp.ok) {
-        console.error('API subscription fetch failed:', resp.status, resp.statusText);
-        return { planId: 'free', planName: 'Free', status: 'none', features: ['10 AI conversations per month', 'Basic code execution'], currentPeriodEnd: Date.now() };
-      }
-      
-      const sub = await resp.json();
-      console.log('Subscription data received:', sub);
-      
-      // Handle Polar subscription format
-      const planId = sub?.planId || 'free';
-      const status = sub?.status || 'none';
-      const features = planId === 'enterprise' 
-        ? ['Everything in Pro', 'Dedicated support', 'SLA guarantee', 'Custom deployment', 'Advanced analytics', 'Custom billing']
-        : planId === 'pro' 
-        ? ['Unlimited AI conversations', 'Advanced code execution', 'Priority support', 'Fast response time', 'Custom integrations', 'Team collaboration']
-        : ['10 AI conversations per month', 'Basic code execution', 'Community support', 'Standard response time'];
-        
+      if (!res.ok) throw new Error('Failed to fetch subscription');
+      const sub = await res.json();
+      const planId = (sub?.planId as 'free' | 'pro' | 'enterprise') || 'free';
+      const features = planId === 'enterprise' ? ENTERPRISE_FEATURES : planId === 'pro' ? PRO_FEATURES : FREE_FEATURES;
       return {
         planId,
         planName: planId.charAt(0).toUpperCase() + planId.slice(1),
-        status,
+        status: sub?.status || 'none',
         features,
-        currentPeriodEnd: sub?.currentPeriodEnd || Date.now(),
         currentPeriodStart: sub?.currentPeriodStart || Date.now(),
-        cancelAtPeriodEnd: sub?.cancelAtPeriodEnd || false,
+        currentPeriodEnd: sub?.currentPeriodEnd || Date.now(),
+        cancelAtPeriodEnd: !!sub?.cancelAtPeriodEnd,
       };
     } catch (error) {
       console.error('getUserSubscription error:', error);
-      return { 
-        planId: 'free', 
-        planName: 'Free', 
-        status: 'none', 
-        features: ['10 AI conversations per month', 'Basic code execution', 'Community support', 'Standard response time'], 
-        currentPeriodEnd: Date.now() 
+      return {
+        planId: 'free' as const,
+        planName: 'Free',
+        status: 'none' as const,
+        features: FREE_FEATURES,
+        currentPeriodStart: Date.now(),
+        currentPeriodEnd: Date.now(),
+        cancelAtPeriodEnd: false,
       };
     }
   }),
 
-    // Create Polar checkout session via API route
+  // Create Stripe checkout session (delegates to API route)
   createCheckoutSession: protectedProcedure
-    .input(z.object({ planId: z.string(), period: z.enum(['month', 'year']).optional().default('month') }))
+    .input(z.object({ planId: z.enum(['free', 'pro', 'enterprise']), period: z.enum(['month', 'year']).optional().default('month') }))
     .mutation(async ({ input, ctx }) => {
       try {
-        const base = process.env.PUBLIC_ORIGIN;
-        if (!base) {
-          console.error('PUBLIC_ORIGIN environment variable not set');
-          throw new TRPCError({ 
-            code: 'INTERNAL_SERVER_ERROR', 
-            message: 'Configuration error: PUBLIC_ORIGIN not set' 
-          });
+        if (input.planId === 'free') {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Free plan does not require checkout' });
         }
-        
-        console.log('Creating checkout session for:', input);
+        const base = process.env.PUBLIC_ORIGIN;
+        if (!base) throw new Error('PUBLIC_ORIGIN not set');
         const res = await fetch(`${base}/api/create-checkout-session`, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ctx.authToken}`,
-          },
-          body: JSON.stringify({ 
-            planId: input.planId, 
-            period: input.period || 'month'
-          }),
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ctx.authToken}` },
+          body: JSON.stringify({ planId: input.planId, period: input.period }),
         });
-        
-        if (!res.ok) {
-          const errorText = await res.text().catch(() => 'Unknown error');
-          console.error('Checkout session creation failed:', res.status, res.statusText, errorText);
-          throw new TRPCError({ 
-            code: 'INTERNAL_SERVER_ERROR', 
-            message: `Failed to create checkout session: ${res.status} ${res.statusText}` 
-          });
-        }
-        
+        if (!res.ok) throw new Error('Failed to create checkout session');
         const data = await res.json();
-        console.log('Checkout session created:', data);
         return { url: data.url as string };
       } catch (error) {
         console.error('createCheckoutSession error:', error);
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        throw new TRPCError({ 
-          code: 'INTERNAL_SERVER_ERROR', 
-          message: 'Failed to create checkout session' 
-        });
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create checkout session' });
       }
     }),
+
+  // Create Stripe billing portal session (delegates to API route)
+  createCustomerPortalSession: protectedProcedure.mutation(async ({ ctx }) => {
+    try {
+      const base = process.env.PUBLIC_ORIGIN;
+      if (!base) throw new Error('PUBLIC_ORIGIN not set');
+      const res = await fetch(`${base}/api/create-portal-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ctx.authToken}` },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error('Failed to create portal session');
+      const data = await res.json();
+      return { url: data.url as string };
+    } catch (error) {
+      console.error('createCustomerPortalSession error:', error);
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create billing portal session' });
+    }
+  }),
 });
+
+// Helper constants and functions for Stripe plan mapping
+const PRO_FEATURES = [
+  'Unlimited AI conversations',
+  'Advanced code execution',
+  'Priority support',
+  'Fast response time',
+  'Custom integrations',
+  'Team collaboration',
+];
+const ENTERPRISE_FEATURES = [
+  'Everything in Pro',
+  'Dedicated support',
+  'SLA guarantee',
+  'Custom deployment',
+  'Advanced analytics',
+  'Custom billing',
+];
+const FREE_FEATURES = [
+  '10 AI conversations per month',
+  'Basic code execution',
+  'Community support',
+  'Standard response time',
+];
+
+// Local feature sets used to describe plans in return payload
 
 // Main app router
 export const appRouter = router({

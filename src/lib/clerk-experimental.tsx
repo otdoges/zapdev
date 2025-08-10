@@ -1,5 +1,5 @@
 import React from "react";
-import { BILLING_PLANS, createCheckoutSession } from "@/lib/polar-billing";
+import { STRIPE_PLANS as BILLING_PLANS, createStripeCheckout as createCheckoutSession } from "@/lib/stripe-billing";
 import { useUser } from "@clerk/clerk-react";
 
 type CheckoutStatus =
@@ -47,7 +47,7 @@ export const CheckoutProvider: React.FC<{
     try {
       setFetchStatus("fetching");
       setError(null);
-      const { url } = await createCheckoutSession(resolvedPlan.id, { userId: user?.id || undefined, email: user?.primaryEmailAddress?.emailAddress || undefined });
+      const { url } = await createCheckoutSession((resolvedPlan.id as 'pro' | 'enterprise'), 'month');
       window.location.href = url;
     } catch (e) {
       console.error("Checkout start failed", e);

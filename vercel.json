@@ -5,12 +5,19 @@
   "framework": null,
   "headers": [
     {
-      "source": "/api/webhook/polar",
+      "source": "/api/stripe-webhook",
       "headers": [
         { "key": "x-vercel-disable-binary", "value": "true" }
       ]
     }
   ],
+  "functions": {
+    "api/stripe-webhook.ts": {
+      "runtime": "nodejs20.x",
+      "memory": 256,
+      "maxDuration": 10
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",

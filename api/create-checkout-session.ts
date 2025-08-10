@@ -1,8 +1,9 @@
-import { resolveCheckoutUrl } from './_utils/polar';
 import { getBearerOrSessionToken } from './_utils/auth';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifyClerkToken, type VerifiedClerkToken } from './_utils/auth';
 import { z } from 'zod';
+import Stripe from 'stripe';
+import { ensureStripeCustomer } from './_utils/stripe';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -47,28 +48,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const { planId, period } = parsed.data;
-    console.log('Creating checkout session for plan:', planId, 'period:', period);
+    console.log('Creating Stripe checkout for plan:', planId, 'period:', period);
 
-    const authenticatedUserId = verified?.sub;
-    const authenticatedEmail = verified?.email as string | undefined;
-
-    const url = resolveCheckoutUrl(planId, period, {
-      userId: authenticatedUserId,
-      email: authenticatedEmail,
-    });
-    
-    if (!url || url === '#/billing') {
-      console.error(`No checkout URL configured for plan ${planId} period ${period}`);
-      console.error('Available env vars:', Object.keys(process.env).filter(k => k.startsWith('POLAR_CHECKOUT')));
-      return res.status(400).json({ 
-        error: 'Checkout not configured for this plan',
-        plan: planId,
-        period: period 
-      });
+    const stripeSecret = process.env.STRIPE_SECRET_KEY;
+    const origin = process.env.PUBLIC_ORIGIN;
+    if (!stripeSecret || !origin) {
+      return res.status(500).json({ error: 'Server misconfiguration' });
     }
-    
-    console.log('Checkout URL resolved:', url);
-    return res.status(200).json({ url });
+    if (planId === 'free') {
+      return res.status(400).json({ error: 'Free plan does not require checkout' });
+    }
+
+    const priceId = resolvePlanPriceId(planId as 'pro' | 'enterprise', period);
+    const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' });
+
+    const customer = await ensureStripeCustomer(stripe, verified?.email, verified?.sub);
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: customer,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/pricing?canceled=true`,
+      client_reference_id: verified?.sub,
+      subscription_data: { metadata: { userId: verified?.sub || '' } },
+      metadata: { userId: verified?.sub || '' },
+    });
+    return res.status(200).json({ url: session.url });
   } catch (err) {
     console.error('Checkout error', err);
     const message = err instanceof Error ? err.message : 'Internal Server Error';
@@ -77,3 +82,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 
+function resolvePlanPriceId(planId: 'pro' | 'enterprise', period: 'month' | 'year'): string {
+  const key = planId === 'pro'
+    ? period === 'month' ? 'STRIPE_PRICE_PRO_MONTH' : 'STRIPE_PRICE_PRO_YEAR'
+    : period === 'month' ? 'STRIPE_PRICE_ENTERPRISE_MONTH' : 'STRIPE_PRICE_ENTERPRISE_YEAR';
+  const id = process.env[key];
+  if (!id) throw new Error(`Missing ${key}`);
+  return id;
+}

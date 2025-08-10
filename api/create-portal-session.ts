@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { resolvePortalUrl } from './_utils/polar';
 import { getBearerOrSessionToken, verifyClerkToken, type VerifiedClerkToken } from './_utils/auth';
+import Stripe from 'stripe';
+import { ensureStripeCustomer } from './_utils/stripe';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -32,22 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const xfHost = (Array.isArray(req.headers['x-forwarded-host'])
-      ? req.headers['x-forwarded-host'][0]
-      : req.headers['x-forwarded-host']) as string | undefined;
-    const host = xfHost
-      || (Array.isArray(req.headers['host'])
-        ? req.headers['host'][0]
-        : (req.headers['host'] as string | undefined));
-
-    const xfProto = (Array.isArray(req.headers['x-forwarded-proto'])
-      ? req.headers['x-forwarded-proto'][0]
-      : req.headers['x-forwarded-proto']) as string | undefined;
-
-    const origin = host
-      ? `${xfProto || 'https'}://${host}`
-      : (process.env.PUBLIC_ORIGIN || 'https://zapdev.link');
-
+    const origin = process.env.PUBLIC_ORIGIN || 'https://zapdev.link';
     let safeReturn = `${origin}/settings`;
     if (returnUrl) {
       try {
@@ -59,14 +45,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ignore invalid URL, keep default
       }
     }
-
-    const url = resolvePortalUrl(safeReturn);
-    return res.status(200).json({ url });
+    const stripeSecret = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecret) return res.status(500).send('Server misconfiguration');
+    const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' });
+    const customer = await ensureStripeCustomer(stripe, verified?.email as string | undefined, verified?.sub);
+    if (!customer) return res.status(400).send('No customer');
+    const session = await stripe.billingPortal.sessions.create({ customer, return_url: safeReturn });
+    return res.status(200).json({ url: session.url });
   } catch (err) {
     console.error('Polar portal error', err);
     const message = err instanceof Error ? err.message : 'Internal Server Error';
     return res.status(500).send(message);
   }
 }
-
- 

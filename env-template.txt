@@ -3,6 +3,8 @@
 
 # === REQUIRED: Clerk Authentication ===
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+CLERK_JWT_ISSUER_DOMAIN=https://clerk.example.com
+CLERK_JWT_AUDIENCE=https://zapdev.link
 
 # === REQUIRED: Convex Backend ===
 VITE_CONVEX_URL=https://xxxxx.convex.cloud
@@ -34,20 +36,7 @@ STRIPE_PRICE_PRO_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 STRIPE_PRICE_ENTERPRISE_MONTH=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 STRIPE_PRICE_ENTERPRISE_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# Billing (Polar)
-POLAR_ACCESS_TOKEN=
-POLAR_WEBHOOK_SECRET=
-POLAR_API_BASE=https://api.polar.sh
-# Comma-separated Polar product/price IDs mapping
-POLAR_PLAN_PRO_IDS=prod_xxx,price_xxx
-POLAR_PLAN_ENTERPRISE_IDS=prod_yyy,price_yyy
-
-# Hosted Checkout/Portal URLs (configure in Polar dashboard)
-POLAR_CHECKOUT_PRO_MONTH=
-POLAR_CHECKOUT_PRO_YEAR=
-POLAR_CHECKOUT_ENTERPRISE_MONTH=
-POLAR_CHECKOUT_ENTERPRISE_YEAR=
-POLAR_PORTAL_URL=
+# Removed Polar billing configuration
 
 # === REQUIRED for server-side fetches to own APIs ===
 PUBLIC_ORIGIN=http://localhost:5173

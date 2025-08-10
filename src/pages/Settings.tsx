@@ -183,8 +183,8 @@ const Settings = () => {
 
     setIsLoadingBilling(true);
     try {
-      const { createCustomerPortalSession } = await import('@/lib/polar-billing');
-      const { url } = await createCustomerPortalSession();
+      const { createStripePortal } = await import('@/lib/stripe-billing');
+      const { url } = await createStripePortal();
       window.location.href = url;
     } catch (error) {
       console.error('Error opening customer portal:', error);

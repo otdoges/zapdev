@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-// Polar invoices placeholder
 import { z } from 'zod';
 import { getBearerOrSessionToken } from './_utils/auth';
+import Stripe from 'stripe';
+import { ensureStripeCustomerByUser } from './_utils/stripe';
 
 // token extraction centralized in ./_utils/auth
 
@@ -40,8 +41,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const authenticatedUserId = verified.sub;
     if (!authenticatedUserId) return res.status(401).send('Unauthorized');
 
-    // TODO: Query Polar invoices for this user/org
-    return res.status(200).json({ invoices: [] });
+    const stripeSecret = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecret) return res.status(500).json({ error: 'Stripe configuration missing' });
+    const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' });
+    const customer = await ensureStripeCustomerByUser(stripe, authenticatedUserId);
+    if (!customer) return res.status(200).json({ invoices: [] });
+    const invs = await stripe.invoices.list({ customer, limit: limitValue });
+    return res.status(200).json({
+      invoices: invs.data.map(i => ({
+        id: i.id,
+        amount_paid: i.amount_paid,
+        currency: i.currency,
+        hosted_invoice_url: i.hosted_invoice_url,
+        invoice_pdf: i.invoice_pdf,
+        period_start: i.period_start ? i.period_start * 1000 : null,
+        period_end: i.period_end ? i.period_end * 1000 : null,
+      })),
+    });
   } catch (err) {
     console.error('List invoices error', err);
     return res.status(500).send('Internal Server Error');

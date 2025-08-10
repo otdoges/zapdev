@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getUserSubscriptionFromPolar } from './_utils/polar';
-import { getBearerOrSessionToken, verifyClerkToken, type VerifiedClerkToken } from './_utils/auth';
+import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
+import Stripe from 'stripe';
+import { ensureStripeCustomer, mapPriceId } from './_utils/stripe';
 
 function freePlan() {
   const now = Date.now();
@@ -46,14 +47,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(freePlan());
     }
 
-    console.log('Fetching subscription for user:', authenticatedUserId);
-    const sub = await getUserSubscriptionFromPolar(authenticatedUserId, email);
-    return res.status(200).json(sub);
+    console.log('Fetching Stripe subscription for user:', authenticatedUserId);
+    const stripeSecret = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecret) {
+      return res.status(200).json(freePlan());
+    }
+    const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' });
+    if (!email) {
+      console.error('Missing email for authenticated user when fetching subscription', { authenticatedUserId });
+      return res.status(200).json(freePlan());
+    }
+    const customerId = await ensureStripeCustomer(stripe, email, authenticatedUserId);
+    if (!customerId) return res.status(200).json(freePlan());
+    const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 });
+    const sub = subs.data.find((s) => s.status === 'active' || s.status === 'trialing') || subs.data[0];
+    if (!sub) return res.status(200).json(freePlan());
+    const priceId = sub.items.data[0]?.price?.id || '';
+    const planId = mapPriceId(priceId);
+    return res.status(200).json({
+      planId,
+      status: sub.status,
+      currentPeriodStart: (sub.current_period_start || 0) * 1000,
+      currentPeriodEnd: (sub.current_period_end || 0) * 1000,
+      cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+    });
   } catch (err) {
     console.error('get-subscription error', err);
     // Always return 200 with free plan as fallback to prevent frontend errors
     return res.status(200).json(freePlan());
   }
 }
-
-
