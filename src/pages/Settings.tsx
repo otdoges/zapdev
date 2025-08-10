@@ -183,7 +183,7 @@ const Settings = () => {
 
     setIsLoadingBilling(true);
     try {
-      const { createCustomerPortalSession } = await import('@/lib/clerk-billing');
+      const { createCustomerPortalSession } = await import('@/lib/polar-billing');
       const { url } = await createCustomerPortalSession();
       window.location.href = url;
     } catch (error) {

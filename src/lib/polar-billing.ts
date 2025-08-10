@@ -1,9 +1,11 @@
 /**
  * Polar Billing Integration (UI helpers)
+ * Uses server API endpoints backed by Polar hosted checkout/portal and REST.
  */
 
 import { useUser } from "@clerk/clerk-react";
 import React from "react";
+
 export type NormalizedSubscription = {
   planId: 'free' | 'pro' | 'enterprise';
   status: 'active' | 'canceled' | 'past_due' | 'incomplete' | 'trialing' | 'none';
@@ -12,8 +14,7 @@ export type NormalizedSubscription = {
   cancelAtPeriodEnd: boolean;
 };
 
-// Clerk billing configuration
-export const CLERK_BILLING_CONFIG = {} as const;
+export const POLAR_BILLING_CONFIG = {} as const;
 
 // Billing plan types
 export interface ClerkPlan {
@@ -36,7 +37,7 @@ export interface ClerkSubscription {
   cancelAtPeriodEnd: boolean;
 }
 
-// Mock plans - replace with actual Clerk billing plans
+// Mock plans for display
 export const BILLING_PLANS: ClerkPlan[] = [
   {
     id: 'free',
@@ -87,10 +88,7 @@ export const BILLING_PLANS: ClerkPlan[] = [
   }
 ];
 
-/**
- * Resolve incoming plan identifiers (aliases, case-insensitive) to a known plan id.
- * Falls back to 'pro' if unknown.
- */
+// Resolve plan id aliases
 export function resolvePlanId(raw: string): string {
   const normalized = (raw || '').toLowerCase();
   const aliases: Record<string, string> = {
@@ -106,9 +104,7 @@ export function resolvePlanId(raw: string): string {
   return exists ? mapped : 'pro';
 }
 
-/**
- * Get user's current subscription status via our Polar-backed API
- */
+// Current subscription via our Polar-backed API
 export const useUserSubscription = (): {
   subscription: ClerkSubscription | null;
   loading: boolean;
@@ -128,7 +124,6 @@ export const useUserSubscription = (): {
           setLoading(true);
           return;
         }
-        // Prefer Convex user id stored by app during auth
         const convexUserId = localStorage.getItem('convexUserId');
         if (!convexUserId) {
           setSubscription({
@@ -141,7 +136,6 @@ export const useUserSubscription = (): {
           setLoading(false);
           return;
         }
-        // Load subscription directly from API (requires auth token)
         const token = localStorage.getItem('authToken') || '';
         const subRes = await fetch(`/api/get-subscription`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -174,17 +168,13 @@ export const useUserSubscription = (): {
       }
     }
     run();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isLoaded, user?.id]);
 
   return { subscription, loading, error };
 };
 
-/**
- * Create a checkout session using Polar hosted checkout URLs
- */
+// Create a checkout session using Polar hosted checkout URLs
 export const createCheckoutSession = async (
   planId: string,
   options?: { userId?: string; email?: string; period?: 'month' | 'year' }
@@ -205,7 +195,7 @@ export const createCheckoutSession = async (
   return { url: data.url };
 };
 
-// Polar-normalized subscription mapping mirroring server shape
+// Normalize API subscription payload to UI shape
 function normalizePolarSubscription(input: unknown): NormalizedSubscription {
   if (!input || typeof input !== 'object') {
     return {
@@ -232,85 +222,58 @@ function normalizePolarSubscription(input: unknown): NormalizedSubscription {
   };
 }
 
-/**
- * Open Polar portal (hosted) via API
- */
+// Open Polar portal (hosted) via API
 export const createCustomerPortalSession = async (): Promise<{ url: string }> => {
-  try {
-    const convexUserId = localStorage.getItem('convexUserId');
-    const res = await fetch('/api/create-portal-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: convexUserId || undefined, returnUrl: `${window.location.origin}/settings` }),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(text || 'Failed to create portal session');
-    }
-    const data = await res.json();
-    if (!data?.url) throw new Error('Invalid response from portal session API');
-    return { url: data.url };
-  } catch (error) {
-    console.error('Error creating customer portal session:', error);
-    throw error;
+  const convexUserId = localStorage.getItem('convexUserId');
+  const res = await fetch('/api/create-portal-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: convexUserId || undefined, returnUrl: `${window.location.origin}/settings` }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || 'Failed to create portal session');
   }
+  const data = await res.json();
+  if (!data?.url) throw new Error('Invalid response from portal session API');
+  return { url: data.url };
 };
 
-/**
- * Cancel user's subscription
- */
 export const cancelSubscription = async (): Promise<void> => {
   console.warn('cancelSubscription not implemented for Polar hosted billing');
 };
 
-/**
- * Reactivate user's subscription
- */
 export const reactivateSubscription = async (): Promise<void> => {
   console.warn('reactivateSubscription not implemented for Polar hosted billing');
 };
 
-/**
- * Get user's usage for billing purposes
- */
+// Usage helpers (mocked)
 export const getUserUsage = async (): Promise<{
   conversations: number;
   codeExecutions: number;
   resetDate: number;
 }> => {
-  try {
-    // In a real implementation, this would query your usage tracking system
-    return {
-      conversations: 5, // Mock data
-      codeExecutions: 12,
-      resetDate: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days from now
-    };
-  } catch (error) {
-    console.error('Error fetching user usage:', error);
-    throw error;
-  }
+  return {
+    conversations: 5,
+    codeExecutions: 12,
+    resetDate: Date.now() + (30 * 24 * 60 * 60 * 1000),
+  };
 };
 
-/**
- * Check if user can perform an action based on their subscription
- */
 export const canUserPerformAction = (
   subscription: ClerkSubscription | null,
   action: 'create_conversation' | 'execute_code' | 'use_advanced_features'
 ): boolean => {
   if (!subscription || subscription.status !== 'active') {
-    // Free tier limitations
-    return action === 'create_conversation'; // Allow basic conversations only
+    return action === 'create_conversation';
   }
-
   const plan = BILLING_PLANS.find(p => p.id === subscription.planId);
   if (!plan) return false;
-
   switch (action) {
     case 'create_conversation':
-      return true; // All plans allow conversations
+      return true;
     case 'execute_code':
-      return plan.id !== 'free'; // Free plan has limited code execution
+      return plan.id !== 'free';
     case 'use_advanced_features':
       return plan.id === 'pro' || plan.id === 'enterprise';
     default:
@@ -318,30 +281,23 @@ export const canUserPerformAction = (
   }
 };
 
-/**
- * Format price for display
- */
 export const formatPrice = (plan: ClerkPlan): string => {
   if (plan.price === 0) {
     return 'Free';
   }
-  
   const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: plan.currency,
     minimumFractionDigits: 0,
   });
-  
   return `${formatter.format(plan.price)}/${plan.interval}`;
 };
 
-/**
- * Get plan display name with interval
- */
 export const getPlanDisplayName = (plan: ClerkPlan): string => {
   if (plan.price === 0) {
     return plan.name;
   }
-  
   return `${plan.name} - ${formatPrice(plan)}`;
 };
+
+

@@ -21,23 +21,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const token = getBearerOrSessionToken(req);
-    if (!token) return res.status(200).json(freePlan());
-
     const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
-    if (!issuer) return res.status(200).json(freePlan());
 
-    let verified: VerifiedClerkToken | undefined;
-    try {
-      const audience = process.env.CLERK_JWT_AUDIENCE;
-      verified = await verifyClerkToken(token, issuer, audience);
-    } catch {
-      return res.status(200).json(freePlan());
+    let authenticatedUserId: string | undefined;
+    let email: string | undefined;
+    if (token && issuer) {
+      try {
+        const audience = process.env.CLERK_JWT_AUDIENCE;
+        const verified = await verifyClerkToken(token, issuer, audience);
+        authenticatedUserId = verified?.sub;
+        email = verified?.email as string | undefined;
+      } catch {
+        // ignore; fall back to free plan below
+      }
     }
 
-    const authenticatedUserId = verified?.sub;
     if (!authenticatedUserId) return res.status(200).json(freePlan());
 
-    const sub = await getUserSubscriptionFromPolar(authenticatedUserId, verified?.email as string | undefined);
+    const sub = await getUserSubscriptionFromPolar(authenticatedUserId, email);
     return res.status(200).json(sub);
   } catch (err) {
     console.error('get-subscription error', err);

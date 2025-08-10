@@ -1,5 +1,5 @@
 import React from "react";
-import { BILLING_PLANS, createCheckoutSession } from "@/lib/clerk-billing";
+import { BILLING_PLANS, createCheckoutSession } from "@/lib/polar-billing";
 import { useUser } from "@clerk/clerk-react";
 
 type CheckoutStatus =

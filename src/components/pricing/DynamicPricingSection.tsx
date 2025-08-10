@@ -10,7 +10,7 @@ import {
   canUserPerformAction,
   formatPrice,
   type ClerkPlan 
-} from "@/lib/clerk-billing";
+} from "@/lib/polar-billing";
 
 const PricingTier = ({
   plan,
@@ -203,7 +203,7 @@ export const DynamicPricingSection = () => {
     // If selecting free plan and user has a paid plan, redirect to billing portal
     if (planId === 'free' && subscription?.planId !== 'free') {
       try {
-        const { createCustomerPortalSession } = await import('@/lib/clerk-billing');
+        const { createCustomerPortalSession } = await import('@/lib/polar-billing');
         const { url } = await createCustomerPortalSession();
         window.location.href = url;
       } catch (error) {
@@ -215,7 +215,7 @@ export const DynamicPricingSection = () => {
 
     setIsLoading(true);
     try {
-      const { createCheckoutSession } = await import('@/lib/clerk-billing');
+      const { createCheckoutSession } = await import('@/lib/polar-billing');
       const { url } = await createCheckoutSession(planId, {
         userId: user?._id,
         email: user?.email,
@@ -279,7 +279,7 @@ export const DynamicPricingSection = () => {
           transition={{ duration: 0.6, delay: 1.0 }}
           className="text-lg text-gray-400"
         >
-          Select the perfect plan for your AI-powered development needs with secure Clerk billing
+          Select the perfect plan for your AI-powered development needs with secure Polar billing
         </motion.p>
       </motion.div>
 

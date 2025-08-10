@@ -1,30 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { resolvePortalUrl } from './_utils/polar';
-
-function getBearerOrSessionToken(req: VercelRequest): string | null {
-  const authHeader = (Array.isArray(req.headers['authorization'])
-    ? req.headers['authorization'][0]
-    : req.headers['authorization']) as string | undefined;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.slice(7).trim();
-  }
-  const cookieHeader = req.headers.cookie as string | undefined;
-  if (cookieHeader) {
-    const tokenCookie = cookieHeader
-      .split(';')
-      .map((c) => c.trim())
-      .find((c) => c.startsWith('__session='));
-    if (tokenCookie) {
-      const val = tokenCookie.split('=')[1] || '';
-      try {
-        return decodeURIComponent(val);
-      } catch {
-        return val;
-      }
-    }
-  }
-  return null;
-}
+import { getBearerOrSessionToken, verifyClerkToken, type VerifiedClerkToken } from './_utils/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -33,19 +9,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { customerId: providedCustomerId, returnUrl } = (req.body || {}) as {
-      customerId?: string;
-      returnUrl?: string;
-    };
+    // Parse body safely
+    const rawBody = req.body;
+    let body: { customerId?: string; returnUrl?: string } = {};
+    if (typeof rawBody === 'string') {
+      try { body = JSON.parse(rawBody); } catch { body = {}; }
+    } else if (rawBody && typeof rawBody === 'object') {
+      body = rawBody as typeof body;
+    }
+    const { customerId: providedCustomerId, returnUrl } = body;
 
+    // Token is optional; verify when available
     const token = getBearerOrSessionToken(req);
-    if (!token) return res.status(401).send('Unauthorized');
     const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
-    if (!issuer) return res.status(500).send('Missing CLERK_JWT_ISSUER_DOMAIN');
-    const { verifyToken } = await import('@clerk/backend');
-    const verified = await verifyToken(token, { jwtKey: issuer });
-    const authenticatedUserId = verified.sub;
-    if (!authenticatedUserId) return res.status(401).send('Unauthorized');
+    let verified: VerifiedClerkToken | undefined;
+    if (token && issuer) {
+      try {
+        const audience = process.env.CLERK_JWT_AUDIENCE;
+        verified = await verifyClerkToken(token, issuer, audience);
+      } catch {
+        // ignore token errors for portal link generation
+      }
+    }
 
     const xfHost = (Array.isArray(req.headers['x-forwarded-host'])
       ? req.headers['x-forwarded-host'][0]
@@ -78,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const url = resolvePortalUrl(safeReturn);
     return res.status(200).json({ url });
   } catch (err) {
-    console.error('Stripe portal error', err);
+    console.error('Polar portal error', err);
     const message = err instanceof Error ? err.message : 'Internal Server Error';
     return res.status(500).send(message);
   }
