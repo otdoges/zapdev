@@ -1,6 +1,8 @@
 import type { VercelRequest } from '@vercel/node';
 import { parse as parseCookie } from 'cookie';
 
+export type VerifiedClerkToken = { sub?: string; email?: string };
+
 export function getBearerOrSessionToken(req: VercelRequest): string | null {
   const authorizationHeader = Array.isArray(req.headers['authorization'])
     ? req.headers['authorization'][0]
@@ -28,6 +30,18 @@ export function getBearerOrSessionToken(req: VercelRequest): string | null {
   }
 
   return null;
+}
+
+export async function verifyClerkToken(
+  token: string,
+  issuer: string,
+  audience?: string
+): Promise<VerifiedClerkToken> {
+  const { verifyToken } = await import('@clerk/backend');
+  const options: { jwtKey?: string; audience?: string } = { jwtKey: issuer };
+  if (audience) options.audience = audience;
+  const verified = await verifyToken(token, options);
+  return verified as VerifiedClerkToken;
 }
 
 

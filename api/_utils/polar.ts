@@ -63,6 +63,10 @@ function toMs(value: unknown): number {
 interface PolarListResponse<T> { items?: T[]; data?: T[] }
 
 async function polarRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!POLAR_ACCESS_TOKEN) {
+    throw new Error('POLAR_ACCESS_TOKEN not configured');
+  }
+  
   const url = `${POLAR_API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
   const res = await fetch(url, {
     method: 'GET',
@@ -73,7 +77,7 @@ async function polarRequest<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
-    throw new Error(`Polar API ${res.status}`);
+    throw new Error(`Polar API ${res.status}: ${res.statusText}`);
   }
   return (await res.json()) as T;
 }

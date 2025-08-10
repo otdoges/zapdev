@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getUserSubscriptionFromPolar } from './_utils/polar';
-import { getBearerOrSessionToken } from './_utils/auth';
+import { getBearerOrSessionToken, verifyClerkToken, type VerifiedClerkToken } from './_utils/auth';
 
 function freePlan() {
   const now = Date.now();
@@ -26,13 +26,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
     if (!issuer) return res.status(200).json(freePlan());
 
-    const { verifyToken } = await import('@clerk/backend');
-    let verified: { sub?: string; email?: string } | undefined;
+    let verified: VerifiedClerkToken | undefined;
     try {
       const audience = process.env.CLERK_JWT_AUDIENCE;
-      const options: { jwtKey?: string; audience?: string } = { jwtKey: issuer };
-      if (audience) options.audience = audience;
-      verified = (await verifyToken(token, options)) as unknown as { sub?: string; email?: string };
+      verified = await verifyClerkToken(token, issuer, audience);
     } catch {
       return res.status(200).json(freePlan());
     }
@@ -44,6 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(sub);
   } catch (err) {
     console.error('get-subscription error', err);
+    // Always return 200 with free plan as fallback to prevent frontend errors
     return res.status(200).json(freePlan());
   }
 }
