@@ -4,11 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-- `pnpm run dev` - Start development server with hot reloading on port 8080
+- `pnpm run dev` - Start Vite development server with hot reloading on port 8080
+- `pnpm run dev:api` - Start Vercel development server for API endpoints on port 3000
+- `pnpm run dev:full` - Start both frontend (port 8080) and API (port 3000) servers
 - `pnpm run build` - Build for production 
 - `pnpm run build:dev` - Build in development mode
 - `pnpm run lint` - Run ESLint to check code quality
 - `pnpm run preview` - Preview production build locally
+
+### Development Setup
+
+For full functionality including Stripe subscription and API endpoints:
+1. Install dependencies: `pnpm install`
+2. Ensure Vercel CLI is installed: `npm i -g vercel`
+3. Use `pnpm run dev:full` to start both frontend and API servers
+4. Access the app at `http://localhost:8080`
+
+Note: The frontend (`pnpm run dev`) uses Vite with proxy configuration to forward `/api/*` requests to the Vercel dev server on port 3000.
 
 ## Project Architecture
 

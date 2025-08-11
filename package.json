@@ -10,6 +10,8 @@
   "packageManager": "bun@1.2.18",
   "scripts": {
     "dev": "vite",
+    "dev:api": "vercel dev --listen 3000",
+    "dev:full": "concurrently \"npm run dev:api\" \"npm run dev\"",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -119,6 +121,7 @@
     "@vite-pwa/assets-generator": "^1.0.0",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.0",
     "eslint": "^9.31.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
