@@ -1,5 +1,5 @@
 import React from "react";
-import { STRIPE_PLANS as BILLING_PLANS, createStripeCheckout as createCheckoutSession } from "@/lib/stripe-billing";
+import { AUTUMN_PLANS as BILLING_PLANS, createAutumnCheckout as createCheckoutSession } from "@/lib/autumn-billing";
 import { useUser } from "@clerk/clerk-react";
 
 type CheckoutStatus =

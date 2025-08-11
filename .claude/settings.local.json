@@ -55,7 +55,9 @@
       "WebFetch(domain:clerk.com)",
       "WebFetch(domain:docs.polar.sh)",
       "Bash(VERCEL_DEV_COMMAND=\"echo ''Starting API only''\" vercel dev --listen 3000)",
-      "Bash(tsx:*)"
+      "Bash(tsx:*)",
+      "Bash(mv:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

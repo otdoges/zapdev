@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { PostHogProvider } from 'posthog-js/react'
 import { ClerkProvider, useAuth } from '@clerk/clerk-react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
+import { AutumnProvider } from 'autumn-js/react'
 import * as Sentry from '@sentry/react'
 import { convex } from './lib/convex'
 import { initializeApiKeySecurity } from './lib/api-key-validator'
@@ -68,20 +69,28 @@ root.render(
       }}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-{import.meta.env.VITE_PUBLIC_POSTHOG_KEY ? (
-          <PostHogProvider
-            apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
-            options={{
-              api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-              capture_exceptions: true,
-              debug: import.meta.env.MODE === 'development',
-            }}
-          >
+        <AutumnProvider 
+          backendUrl={
+            import.meta.env.MODE === 'development' 
+              ? 'http://localhost:3000' 
+              : undefined
+          }
+        >
+          {import.meta.env.VITE_PUBLIC_POSTHOG_KEY ? (
+            <PostHogProvider
+              apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
+              options={{
+                api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+                capture_exceptions: true,
+                debug: import.meta.env.MODE === 'development',
+              }}
+            >
+              <App />
+            </PostHogProvider>
+          ) : (
             <App />
-          </PostHogProvider>
-        ) : (
-          <App />
-        )}
+          )}
+        </AutumnProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   </StrictMode>

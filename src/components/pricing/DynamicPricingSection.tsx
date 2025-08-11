@@ -1,164 +1,13 @@
 import { motion } from "framer-motion";
-import { Check, Loader2, Star } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { CardSpotlight } from "./CardSpotlight";
-import { useEffect, useState } from "react";
+import { PricingTable } from "autumn-js/react";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  STRIPE_PLANS as BILLING_PLANS,
-  useStripeSubscription as useUserSubscription,
-  canUserPerformStripeAction as canUserPerformAction,
-  formatStripePrice as formatPrice,
-  type StripePlan as ClerkPlan,
-} from '@/lib/stripe-billing';
+import { useEffect } from "react";
 
-const PricingTier = ({
-  plan,
-  isPopular,
-  index,
-  onSelectPlan,
-  isLoading,
-  currentPlanId,
-}: {
-  plan: ClerkPlan;
-  isPopular?: boolean;
-  index: number;
-  onSelectPlan: (planId: string) => void;
-  isLoading: boolean;
-  currentPlanId?: string;
-}) => {
-  const isCurrentPlan = currentPlanId === plan.id;
-  
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.6, delay: index * 0.2 }}
-      whileHover={{ 
-        scale: 1.05, 
-        y: -10,
-        transition: { duration: 0.3 }
-      }}
-      className="h-full"
-    >
-      <CardSpotlight className={`h-full ${isPopular ? "border-primary" : "border-white/10"} border-2`}>
-        <div className="relative h-full p-6 flex flex-col">
-          {isPopular && (
-            <motion.span 
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: 0.5 + index * 0.2 }}
-              className="flex items-center gap-1 text-xs font-medium bg-primary/10 text-primary rounded-full px-3 py-1 w-fit mb-4"
-            >
-              <Star className="w-3 h-3" />
-              Most Popular
-            </motion.span>
-          )}
-          
-          {isCurrentPlan && (
-            <motion.span 
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: 0.5 + index * 0.2 }}
-              className="text-xs font-medium bg-green-500/10 text-green-500 rounded-full px-3 py-1 w-fit mb-4"
-            >
-              Current Plan
-            </motion.span>
-          )}
-          
-          <motion.h3 
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.3 + index * 0.2 }}
-            className="text-xl font-medium mb-2"
-          >
-            {plan.name}
-          </motion.h3>
-          
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.8 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.4 + index * 0.2 }}
-            className="mb-4"
-          >
-            <span className="text-4xl font-bold">
-              {formatPrice(plan)}
-            </span>
-          </motion.div>
-          
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.5 + index * 0.2 }}
-            className="text-gray-400 mb-6"
-          >
-            {plan.description}
-          </motion.p>
-          
-          <ul className="space-y-3 mb-8 flex-grow">
-            {plan.features.map((feature, featureIndex) => (
-              <motion.li 
-                key={featureIndex}
-                initial={{ opacity: 0, x: -10 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: 0.6 + index * 0.2 + featureIndex * 0.1 }}
-                className="flex items-center gap-2"
-              >
-                <Check className="w-5 h-5 text-primary flex-shrink-0" />
-                <span className="text-sm text-gray-300">{feature}</span>
-              </motion.li>
-            ))}
-          </ul>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.8 + index * 0.2 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Button 
-              className={`w-full ${
-                isCurrentPlan 
-                  ? "bg-green-500/20 text-green-500 border-green-500/30" 
-                  : "button-gradient"
-              }`}
-              onClick={() => onSelectPlan(plan.id)}
-              disabled={isLoading || isCurrentPlan}
-              variant={isCurrentPlan ? "outline" : "default"}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Loading...
-                </>
-              ) : isCurrentPlan ? (
-                'Current Plan'
-              ) : plan.price === 0 ? (
-                'Get Started Free'
-              ) : (
-                `Upgrade to ${plan.name}`
-              )}
-            </Button>
-          </motion.div>
-        </div>
-      </CardSpotlight>
-    </motion.div>
-  );
-};
+// PricingTier component is replaced by Autumn's PricingTable
 
 export const DynamicPricingSection = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
   const { user } = useAuth();
+  
   // Persist convex user id for success redirect sync
   useEffect(() => {
     if (user?._id) {
@@ -169,107 +18,6 @@ export const DynamicPricingSection = () => {
       }
     }
   }, [user?._id]);
-
-  const { subscription, loading: subscriptionLoading } = useUserSubscription();
-
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('canceled') === 'true') {
-        setBannerMessage('Checkout was canceled. No charges were made.');
-        // clean URL
-        const url = new URL(window.location.href);
-        url.searchParams.delete('canceled');
-        window.history.replaceState({}, '', url.toString());
-      }
-    } catch {
-      // no-op
-    }
-  }, []);
-
-  const handleSelectPlan = async (planId: string) => {
-    if (!user) {
-      // Redirect to login with return URL to continue checkout
-      const returnUrl = encodeURIComponent(`/pricing?planId=${planId}`);
-      window.location.href = `/auth/sign-in?redirect_url=${returnUrl}`;
-      return;
-    }
-
-    // If user is trying to select their current plan, do nothing
-    if (subscription?.planId === planId) {
-      return;
-    }
-
-    // If selecting free plan and user has a paid plan, redirect to billing portal
-    if (planId === 'free' && subscription?.planId !== 'free') {
-      try {
-        setIsLoading(true);
-        const { createStripePortal } = await import('@/lib/stripe-billing');
-        const { url } = await createStripePortal();
-        window.location.href = url;
-      } catch (error) {
-        console.error('Error opening customer portal:', error);
-        setBannerMessage('Failed to open billing portal. Please contact support if this persists.');
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
-
-    // For enterprise plan, show contact message
-    if (planId === 'enterprise') {
-      setBannerMessage('For Enterprise pricing, please contact us at enterprise@zapdev.link');
-      return;
-    }
-
-    setIsLoading(true);
-    setBannerMessage(null); // Clear any existing messages
-    
-    try {
-      const { createStripeCheckout } = await import('@/lib/stripe-billing');
-      const result = await createStripeCheckout(planId as 'pro' | 'enterprise');
-      
-      // Store checkout info for success page
-      if (result.sessionId && result.customerId) {
-        try {
-          localStorage.setItem('checkout-info', JSON.stringify({
-            sessionId: result.sessionId,
-            customerId: result.customerId,
-            planId,
-            timestamp: Date.now(),
-          }));
-        } catch (storageError) {
-          console.warn('Failed to store checkout info:', storageError);
-        }
-      }
-      
-      // Redirect to Stripe checkout
-      window.location.href = result.url;
-      
-    } catch (err) {
-      console.error('Failed to start checkout:', err);
-      
-      if (err instanceof Error) {
-        // Show user-friendly error messages
-        if (err.message.includes('sign in') || err.message.includes('Authentication')) {
-          setBannerMessage('Please sign in to continue with your subscription. Refreshing the page may help.');
-        } else if (err.message.includes('Invalid')) {
-          setBannerMessage('Invalid plan selection. Please refresh the page and try again.');
-        } else if (err.message.includes('Server configuration')) {
-          setBannerMessage('Service temporarily unavailable. Please try again in a few minutes.');
-        } else {
-          setBannerMessage(`Checkout failed: ${err.message}`);
-        }
-      } else {
-        setBannerMessage('Failed to start checkout. Please try again or contact support.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const currentPlanId = subscription?.planId || 'free';
-  const popularPlanId = BILLING_PLANS.find(p => p.popular)?.id || 'pro';
 
   return (
     <motion.section 
@@ -318,58 +66,14 @@ export const DynamicPricingSection = () => {
           transition={{ duration: 0.6, delay: 1.0 }}
           className="text-lg text-gray-400"
         >
-            Select the perfect plan for your AI-powered development needs with secure Stripe billing
+            Select the perfect plan for your AI-powered development needs with secure Autumn billing
         </motion.p>
       </motion.div>
 
-      {bannerMessage && (
-        <div className="max-w-6xl mx-auto mb-6">
-          <div className="rounded-md border border-yellow-600/30 bg-yellow-500/10 text-yellow-300 px-4 py-3 text-sm">
-            {bannerMessage}
-          </div>
-        </div>
-      )}
-
-      {subscriptionLoading ? (
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <span className="ml-2 text-gray-400">Loading your subscription...</span>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {BILLING_PLANS.map((plan, index) => (
-            <PricingTier
-              key={plan.id}
-              plan={plan}
-              isPopular={plan.id === popularPlanId}
-              index={index}
-              onSelectPlan={handleSelectPlan}
-              isLoading={isLoading}
-              currentPlanId={currentPlanId}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Usage Information for Current Users */}
-      {user && subscription && (
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 1.2 }}
-          className="mt-12 text-center"
-        >
-          <p className="text-sm text-gray-400">
-            Current Plan: <span className="text-white font-medium">{BILLING_PLANS.find(p => p.id === currentPlanId)?.name}</span>
-            {subscription.status === 'active' && subscription.planId !== 'free' && (
-              <span className="ml-2">
-                • Next billing: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-              </span>
-            )}
-          </p>
-        </motion.div>
-      )}
+      {/* Autumn PricingTable handles all billing logic internally */}
+      <div className="w-full max-w-6xl mx-auto">
+        <PricingTable />
+      </div>
     </motion.section>
   );
 };

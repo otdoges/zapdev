@@ -1,19 +1,19 @@
 /**
- * Deprecated: Clerk billing shim. Forward to Stripe billing.
+ * Deprecated: Clerk billing shim. Forward to Autumn billing.
  */
-import type { StripeSubscription, StripePlan } from './stripe-billing';
+import type { AutumnSubscription, AutumnPlan } from './autumn-billing';
 
-export type NormalizedSubscription = StripeSubscription;
-export type ClerkSubscription = StripeSubscription;
-export type ClerkPlan = StripePlan;
+export type NormalizedSubscription = AutumnSubscription;
+export type ClerkSubscription = AutumnSubscription;
+export type ClerkPlan = AutumnPlan;
 export const BILLING_PLANS: ClerkPlan[] = [];
 export const CLERK_BILLING_CONFIG = {} as const;
 export { 
-  useStripeSubscription as useUserSubscription, 
-  createStripeCheckout as createCheckoutSession, 
-  createStripePortal as createCustomerPortalSession, 
-  canUserPerformStripeAction as canUserPerformAction, 
-  formatStripePrice as formatPrice, 
-  getStripePlanDisplayName as getPlanDisplayName, 
-  resolveStripePlanId as resolvePlanId 
-} from './stripe-billing';
+  useAutumnSubscription as useUserSubscription, 
+  createAutumnCheckout as createCheckoutSession, 
+  createAutumnPortal as createCustomerPortalSession, 
+  canUserPerformAutumnAction as canUserPerformAction, 
+  formatAutumnPrice as formatPrice, 
+  getAutumnPlanDisplayName as getPlanDisplayName, 
+  resolveAutumnPlanId as resolvePlanId 
+} from './autumn-billing';

@@ -183,8 +183,8 @@ const Settings = () => {
 
     setIsLoadingBilling(true);
     try {
-      const { createStripePortal } = await import('@/lib/stripe-billing');
-      const { url } = await createStripePortal();
+      const { createAutumnPortal } = await import('@/lib/autumn-billing');
+      const { url } = await createAutumnPortal();
       window.location.href = url;
     } catch (error) {
       console.error('Error opening customer portal:', error);
