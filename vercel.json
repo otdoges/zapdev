@@ -8,14 +8,7 @@
     { "src": "package.json", "use": "@vercel/static-build@2.7.17", "config": { "distDir": "dist", "buildCommand": "bun run build", "installCommand": "bun install" } }
   ],
 
-  "headers": [
-    {
-      "source": "/api/stripe-webhook",
-      "headers": [
-        { "key": "x-vercel-disable-binary", "value": "true" }
-      ]
-    }
-  ],
+  "headers": [],
   
   "rewrites": [
     {

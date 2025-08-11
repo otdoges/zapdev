@@ -183,43 +183,116 @@ export const useStripeSubscription = (): {
   return { subscription, loading, error };
 };
 
+async function getAuthHeaders(): Promise<HeadersInit> {
+  try {
+    // Try to get token from Clerk session (client-side)
+    if (typeof window !== 'undefined' && window.__clerk_session) {
+      const token = await window.__clerk_session.getToken();
+      if (token) {
+        return { 'Authorization': `Bearer ${token}` };
+      }
+    }
+    
+    // Fallback: look for token in common storage locations
+    if (typeof window !== 'undefined') {
+      const clerkToken = window.localStorage?.getItem('clerk-db-jwt') ||
+                        document.cookie.split(';').find(c => c.trim().startsWith('__session='))?.split('=')[1];
+      
+      if (clerkToken) {
+        return { 'Authorization': `Bearer ${clerkToken}` };
+      }
+    }
+  } catch (error) {
+    console.warn('[AUTH] Failed to get token:', error);
+  }
+  
+  return {};
+}
+
 export async function createStripeCheckout(planId: 'pro' | 'enterprise', period: 'month' | 'year' = 'month'): Promise<{ url: string }> {
   const validPlanIds = ['pro', 'enterprise'] as const;
   const validPeriods = ['month', 'year'] as const;
   if (!validPlanIds.includes(planId) || !validPeriods.includes(period)) {
     throw new Error('Invalid checkout parameters');
   }
+
   const origins = buildApiOriginCandidates();
   let lastError: Error | null = null;
+  
+  // Get auth headers
+  const authHeaders = await getAuthHeaders();
+
   for (const origin of origins) {
     try {
       const base = origin ? origin : '';
-      const url = `${base}/api/create-checkout-session`;
+      // Use the new generate-stripe-checkout endpoint that ensures customer exists first
+      const url = `${base}/api/generate-stripe-checkout`;
+      
       let res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...authHeaders,
+        },
         credentials: 'same-origin',
         body: JSON.stringify({ planId, period }),
       });
+
+      // Fallback to GET with query parameters if POST not supported
       if (res.status === 405) {
         const params = new URLSearchParams({ planId, period });
         res = await fetch(`${url}?${params.toString()}`, {
           method: 'GET',
           credentials: 'same-origin',
+          headers: authHeaders,
         });
       }
+
       if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(text || `HTTP ${res.status}`);
+        const errorData = await res.json().catch(() => ({}));
+        
+        // Handle authentication errors
+        if (res.status === 401) {
+          if (errorData.redirectToLogin) {
+            throw new Error('Please sign in to continue with your subscription.');
+          } else {
+            throw new Error('Authentication required. Please refresh the page and try again.');
+          }
+        }
+        
+        // Use user-friendly error message if available
+        const message = errorData.error || errorData.message || `Request failed with status ${res.status}`;
+        throw new Error(message);
       }
+
       const data = await res.json();
-      return { url: data.url as string };
+      
+      if (!data.url) {
+        throw new Error('Invalid response from checkout service');
+      }
+
+      return { 
+        url: data.url as string,
+        sessionId: data.sessionId,
+        customerId: data.customerId,
+      };
+
     } catch (err) {
       lastError = err instanceof Error ? err : new Error('Failed to create checkout');
+      
+      // Don't try other origins if this is an auth error
+      if (err instanceof Error && (
+        err.message.includes('sign in') || 
+        err.message.includes('Authentication required')
+      )) {
+        throw err;
+      }
+      
       continue;
     }
   }
-  throw lastError ?? new Error('Failed to create checkout');
+  
+  throw lastError ?? new Error('Failed to create checkout session. Please try again.');
 }
 
 export async function createStripePortal(): Promise<{ url: string }> {

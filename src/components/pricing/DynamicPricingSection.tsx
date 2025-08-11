@@ -203,24 +203,66 @@ export const DynamicPricingSection = () => {
     // If selecting free plan and user has a paid plan, redirect to billing portal
     if (planId === 'free' && subscription?.planId !== 'free') {
       try {
+        setIsLoading(true);
         const { createStripePortal } = await import('@/lib/stripe-billing');
         const { url } = await createStripePortal();
         window.location.href = url;
       } catch (error) {
         console.error('Error opening customer portal:', error);
-        alert('Failed to open billing portal. Please try again.');
+        setBannerMessage('Failed to open billing portal. Please contact support if this persists.');
+      } finally {
+        setIsLoading(false);
       }
       return;
     }
 
+    // For enterprise plan, show contact message
+    if (planId === 'enterprise') {
+      setBannerMessage('For Enterprise pricing, please contact us at enterprise@zapdev.link');
+      return;
+    }
+
     setIsLoading(true);
+    setBannerMessage(null); // Clear any existing messages
+    
     try {
       const { createStripeCheckout } = await import('@/lib/stripe-billing');
-      const { url } = await createStripeCheckout(planId as 'pro' | 'enterprise');
-      window.location.href = url;
+      const result = await createStripeCheckout(planId as 'pro' | 'enterprise');
+      
+      // Store checkout info for success page
+      if (result.sessionId && result.customerId) {
+        try {
+          localStorage.setItem('checkout-info', JSON.stringify({
+            sessionId: result.sessionId,
+            customerId: result.customerId,
+            planId,
+            timestamp: Date.now(),
+          }));
+        } catch (storageError) {
+          console.warn('Failed to store checkout info:', storageError);
+        }
+      }
+      
+      // Redirect to Stripe checkout
+      window.location.href = result.url;
+      
     } catch (err) {
-      console.error('Failed to start checkout', err);
-      alert(err instanceof Error ? err.message : 'Failed to start checkout. Please try again.');
+      console.error('Failed to start checkout:', err);
+      
+      if (err instanceof Error) {
+        // Show user-friendly error messages
+        if (err.message.includes('sign in') || err.message.includes('Authentication')) {
+          setBannerMessage('Please sign in to continue with your subscription. Refreshing the page may help.');
+        } else if (err.message.includes('Invalid')) {
+          setBannerMessage('Invalid plan selection. Please refresh the page and try again.');
+        } else if (err.message.includes('Server configuration')) {
+          setBannerMessage('Service temporarily unavailable. Please try again in a few minutes.');
+        } else {
+          setBannerMessage(`Checkout failed: ${err.message}`);
+        }
+      } else {
+        setBannerMessage('Failed to start checkout. Please try again or contact support.');
+      }
     } finally {
       setIsLoading(false);
     }

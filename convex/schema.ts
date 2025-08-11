@@ -194,6 +194,59 @@ export default defineSchema({
     .index("by_user_id", ["userId"])
     .index("by_plan_type", ["planType"])
     .index("by_status", ["status"]),
+
+  // Stripe customer mapping - stores the relationship between app users and Stripe customers
+  stripeCustomers: defineTable({
+    userId: v.string(), // Our app's user ID (from Clerk)
+    stripeCustomerId: v.string(), // Stripe's customer ID
+    email: v.string(), // Customer email for validation
+    metadata: v.optional(v.object({
+      createdViaCheckout: v.optional(v.boolean()),
+      originalPlanId: v.optional(v.string()),
+    })),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_stripe_customer_id", ["stripeCustomerId"])
+    .index("by_email", ["email"]),
+
+  // Enhanced subscription cache - complete Stripe subscription state
+  stripeSubscriptionCache: defineTable({
+    userId: v.string(),
+    stripeCustomerId: v.string(),
+    subscriptionId: v.optional(v.string()),
+    status: v.union(
+      v.literal("incomplete"),
+      v.literal("incomplete_expired"), 
+      v.literal("trialing"),
+      v.literal("active"),
+      v.literal("past_due"),
+      v.literal("canceled"),
+      v.literal("unpaid"),
+      v.literal("paused"),
+      v.literal("none")
+    ),
+    priceId: v.optional(v.string()),
+    planId: v.union(v.literal("free"), v.literal("pro"), v.literal("enterprise")),
+    currentPeriodStart: v.optional(v.number()), // seconds since epoch
+    currentPeriodEnd: v.optional(v.number()),   // seconds since epoch
+    cancelAtPeriodEnd: v.boolean(),
+    paymentMethod: v.optional(v.object({
+      brand: v.optional(v.string()),
+      last4: v.optional(v.string()),
+    })),
+    // Metadata for debugging and tracking
+    lastSyncAt: v.number(),
+    syncSource: v.union(v.literal("webhook"), v.literal("success"), v.literal("manual")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_stripe_customer_id", ["stripeCustomerId"])
+    .index("by_subscription_id", ["subscriptionId"])
+    .index("by_plan_id", ["planId"])
+    .index("by_status", ["status"]),
     
   aiRateLimits: defineTable({
   /**
