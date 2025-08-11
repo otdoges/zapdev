@@ -25,19 +25,27 @@ const VERCEL_URL = (import.meta.env.VITE_VERCEL_URL as string | undefined)?.trim
 
 function buildApiOriginCandidates(): string[] {
   const candidates: string[] = [];
+  
+  // Always try same-origin first to avoid CORS issues
   candidates.push('');
-  if (PUBLIC_API_ORIGIN) candidates.push(PUBLIC_API_ORIGIN);
-  if (typeof window !== 'undefined') {
+  
+  // Only add PUBLIC_API_ORIGIN if it matches current origin to avoid cross-origin issues
+  if (PUBLIC_API_ORIGIN && typeof window !== 'undefined') {
     const current = window.location.origin;
-    const toggled = current.includes('://www.')
-      ? current.replace('://www.', '://')
-      : current.replace('://', '://www.');
-    if (!candidates.includes(toggled)) candidates.push(toggled);
+    if (PUBLIC_API_ORIGIN === current) {
+      candidates.push(PUBLIC_API_ORIGIN);
+    }
   }
-  if (VERCEL_URL) {
+  
+  // Add VERCEL_URL only if it matches current origin
+  if (VERCEL_URL && typeof window !== 'undefined') {
+    const current = window.location.origin;
     const absolute = VERCEL_URL.startsWith('http') ? VERCEL_URL : `https://${VERCEL_URL}`;
-    if (!candidates.includes(absolute)) candidates.push(absolute);
+    if (absolute === current) {
+      candidates.push(absolute);
+    }
   }
+  
   return candidates;
 }
 
