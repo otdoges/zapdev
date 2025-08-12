@@ -28,6 +28,7 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         injectRegister: 'auto',
         workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           navigateFallbackDenylist: [/^\/api\//, /^\/convex\//, /^\/_/],
           runtimeCaching: [{
             urlPattern: /^https:\/\/api\./,
@@ -90,6 +91,43 @@ export default defineConfig(({ mode }) => {
       'process.env': Object.fromEntries(
         Object.entries(env).filter(([key]) => key.startsWith('VITE_'))
       ),
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id || !id.includes('node_modules')) return;
+            const normalized = id.replace(/\\/g, '/');
+            const lastIndex = normalized.lastIndexOf('node_modules');
+            if (lastIndex === -1) return;
+
+            let start = lastIndex + 'node_modules'.length;
+            if (normalized[start] === '/') start += 1;
+
+            const after = normalized.slice(start);
+            if (!after) return;
+
+            const segments = after.split('/');
+            if (segments.length === 0 || !segments[0]) return;
+
+            const isScoped = segments[0].startsWith('@');
+            let pkg = '';
+            if (isScoped && segments.length > 1) {
+              pkg = `${segments[0]}/${segments[1]}`;
+            } else if (!isScoped) {
+              pkg = segments[0];
+            }
+
+            if (!pkg) return;
+
+            const safe = pkg.replace(/@/g, '').replace(/\//g, '-');
+            if (!safe) return;
+
+            return `vendor-${safe}`;
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1600,
     },
   };
 });
