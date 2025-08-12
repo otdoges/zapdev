@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { authTokenManager } from '@/lib/auth-token';
+import { useAuthToken } from '@/lib/auth-token';
 
 interface PricingPlan {
   id: 'free' | 'starter' | 'pro' | 'enterprise';
@@ -86,6 +86,7 @@ const PRICING_PLANS: PricingPlan[] = [
 
 const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
   const { isAuthenticated } = useAuth();
+  const { getValidToken } = useAuthToken();
   const [isLoading, setIsLoading] = useState(false);
 
   const enterpriseContactEmail = import.meta.env.VITE_ENTERPRISE_CONTACT_EMAIL || 'enterprise@zapdev.link';
@@ -110,8 +111,8 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
     try {
       setIsLoading(true);
 
-      // Get auth token
-      const token = authTokenManager.getToken();
+      // Get valid auth token from Clerk
+      const token = await getValidToken();
       if (!token) {
         toast.error('Please sign in to continue');
         return;
