@@ -1,4 +1,23 @@
 import * as Sentry from '@sentry/react';
+import { createTokenBucketRateLimiter } from './rate-limiter';
+
+// Simple client-side token-bucket rate limiter for AI calls
+const AI_BURST = 5;
+const AI_REFILL_MS = 5_000; // refill every 5s
+export const enforceClientAIRate = createTokenBucketRateLimiter(
+  AI_BURST,
+  AI_REFILL_MS,
+  'Too many AI requests. Please slow down.'
+);
+
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('Request timed out')), timeoutMs);
+    promise
+      .then((v) => { clearTimeout(t); resolve(v); })
+      .catch((e) => { clearTimeout(t); reject(e); });
+  });
+}
 
 type SentryWithMetrics = typeof Sentry & {
   metrics?: {

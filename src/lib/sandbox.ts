@@ -9,14 +9,11 @@ let sandboxInstance: Sandbox | null = null
  */
 export async function initializeSandbox(): Promise<Sandbox> {
   try {
-    // Return existing instance if available
     if (sandboxInstance) {
       console.log('🔄 Using existing E2B sandbox instance')
       return sandboxInstance
     }
     
-    
-    // Validate API key
     const apiKey = import.meta.env.VITE_E2B_API_KEY
     if (!apiKey) {
       throw new Error(
@@ -36,13 +33,9 @@ export async function initializeSandbox(): Promise<Sandbox> {
     
     console.log('🚀 Creating E2B sandbox...')
     
-    // Create sandbox with proper configuration
     sandboxInstance = await Sandbox.create({
       apiKey,
-      // Optional: specify template (defaults to 'base')
-      // template: 'python', // or 'node', 'base', etc.
-      // Optional: set timeout (defaults to 5 minutes)
-      timeoutMs: 5 * 60 * 1000, // 5 minutes
+      timeoutMs: 5 * 60 * 1000, // hard upper bound for sandbox lifetime
     })
     
     console.log('✅ E2B sandbox created successfully')
@@ -51,29 +44,7 @@ export async function initializeSandbox(): Promise<Sandbox> {
     return sandboxInstance
   } catch (error: unknown) {
     const err = error as Error;
-    console.error('❌ E2B sandbox initialization failed:', err.message)
-    
-    // Provide specific error guidance based on E2B documentation
-    if (err.message.includes('Invalid API key') || err.message.includes('401')) {
-      console.error('🔑 Your E2B API key is invalid or expired')
-      console.error('📝 Get a new key: https://e2b.dev/dashboard')
-    } else if (err.message.includes('authorization header is missing')) {
-      console.error('🔧 E2B API key is missing from environment variables')
-      console.error('📝 Add to .env.local: VITE_E2B_API_KEY=e2b_your_key_here')
-    } else if (err.message.includes('insufficient funds') || err.message.includes('402')) {
-      console.error('💳 Your E2B account has insufficient credits')
-      console.error('📝 Add credits: https://e2b.dev/dashboard')
-    } else if (err.message.includes('rate limit') || err.message.includes('429')) {
-      console.error('⏰ E2B rate limit exceeded')
-      console.error('📝 Wait a moment and try again')
-    } else if (err.message.includes('timeout')) {
-      console.error('⏰ E2B sandbox creation timed out')
-      console.error('📝 This might be a temporary service issue')
-    } else {
-      console.error('🌐 E2B service might be experiencing issues')
-      console.error('📝 Check service status: https://status.e2b.dev')
-    }
-    
+    console.error('Failed to initialize E2B sandbox:', err.message)
     throw err
   }
 }
@@ -92,19 +63,28 @@ export async function executeCode(
   error?: unknown;
   success: boolean;
 }> {
+  const maxCodeLength = 50_000
+  const timeoutPerExecMs = 30_000
   try {
     console.log(`🔄 Executing ${language} code in E2B sandbox...`)
     console.log(`📝 Code length: ${code.length} characters`)
-    
+
+    const clamped = String(code).slice(0, maxCodeLength)
     const sandbox = await initializeSandbox()
-    
-    // Execute code using E2B's runCode method
-    // This method handles both Python and JavaScript
-    const execution = await sandbox.runCode(code)
-    
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), timeoutPerExecMs)
+
+    let execution: Awaited<ReturnType<Sandbox['runCode']>>
+    try {
+      execution = await sandbox.runCode(clamped, { signal: controller.signal as unknown as AbortSignal })
+    } finally {
+      clearTimeout(timeout)
+    }
+
     const result = {
-      stdout: execution.logs.stdout.join('\n'),
-      stderr: execution.logs.stderr.join('\n'),
+      stdout: (execution.logs?.stdout || []).join('\n'),
+      stderr: (execution.logs?.stderr || []).join('\n'),
       results: execution.results || [],
       error: execution.error,
       success: !execution.error,
@@ -127,7 +107,16 @@ export async function executeCode(
     const err = error as Error;
     console.error('❌ Code execution failed:', err.message)
     
-    // Provide helpful error context
+    if (err.name === 'AbortError') {
+      return {
+        stdout: '',
+        stderr: 'Execution timed out',
+        results: [],
+        error: 'timeout',
+        success: false,
+      }
+    }
+
     if (err.message.includes('sandbox')) {
       console.error('🔧 Sandbox communication issue - try reinitializing')
     } else if (err.message.includes('timeout')) {
@@ -136,7 +125,6 @@ export async function executeCode(
       console.error('💾 Sandbox ran out of memory - try optimizing your code')
     } else if (err.message.includes('killed') || err.message.includes('terminated')) {
       console.error('🛑 Sandbox was terminated - reinitializing...')
-      // Reset sandbox instance to force recreation
       sandboxInstance = null
     }
     

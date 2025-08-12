@@ -239,7 +239,6 @@ const ChatInterface: React.FC = () => {
     let hasChanges = false;
     
     for (const message of messages) {
-      // Skip if message is not encrypted or already decrypted
       if (!message.isEncrypted || decryptedMessages.has(message._id)) {
         continue;
       }
@@ -260,13 +259,13 @@ const ChatInterface: React.FC = () => {
             newDecryptedMessages.set(message._id, result.content);
             hasChanges = true;
           } else {
-            console.warn(`Failed to decrypt message ${message._id} - integrity check failed`);
+            logger.warn('Failed to decrypt message - integrity check failed');
             newDecryptedMessages.set(message._id, '[Decryption Failed - Content may be corrupted]');
             hasChanges = true;
           }
         }
       } catch (error) {
-        console.error(`Error decrypting message ${message._id}:`, error);
+        logger.error('Error decrypting message', { error: error instanceof Error ? error.message : String(error) });
         newDecryptedMessages.set(message._id, '[Decryption Failed]');
         hasChanges = true;
       }
@@ -289,26 +288,39 @@ const ChatInterface: React.FC = () => {
   };
 
   const extractCodeBlocks = (content: string): CodeBlock[] => {
-    // Improved regex to be more secure and specific
-    const codeBlockRegex = /```(python|javascript|js)\n([\s\S]*?)```/g;
+    const source = (content || '').slice(0, 60000);
     const blocks: CodeBlock[] = [];
-    let match;
-    let count = 0;
+    const maxBlocks = 10;
+    const maxScanTimeMs = 50;
+    const startAt = Date.now();
 
-    while ((match = codeBlockRegex.exec(content)) !== null && count < 10) { // Limit to 10 code blocks
-      const language = match[1] === 'js' ? 'javascript' : match[1] as 'python' | 'javascript';
-      const code = match[2].trim();
-      
-      // Validate code block content
-      if (code.length > 0 && code.length < 10000) { // Reasonable size limit
+    let scanIndex = 0;
+    while (scanIndex < source.length && blocks.length < maxBlocks) {
+      if (Date.now() - startAt > maxScanTimeMs) {
+        break;
+      }
+      const fenceStart = source.indexOf('```', scanIndex);
+      if (fenceStart === -1) break;
+      const langLineEnd = source.indexOf('\n', fenceStart + 3);
+      if (langLineEnd === -1) break;
+      const langRaw = source.slice(fenceStart + 3, langLineEnd).trim().toLowerCase();
+      const lang = langRaw === 'js' ? 'javascript' : langRaw;
+      if (lang !== 'javascript' && lang !== 'python') {
+        scanIndex = langLineEnd + 1;
+        continue;
+      }
+      const fenceEnd = source.indexOf('```', langLineEnd + 1);
+      if (fenceEnd === -1) break;
+      const code = source.slice(langLineEnd + 1, fenceEnd).trim();
+      if (code.length > 0 && code.length < 10000) {
         blocks.push({
-          id: `code-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          language,
+          id: `code-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          language: lang as 'python' | 'javascript',
           code,
           executed: false,
         });
       }
-      count++;
+      scanIndex = fenceEnd + 3;
     }
 
     return blocks;
@@ -516,19 +528,22 @@ const ChatInterface: React.FC = () => {
             `\n\nWebsite Context: ${websiteAnalysis.url}\nTitle: ${websiteAnalysis.title || ''}\nTech: ${(websiteAnalysis.technologies||[]).join(', ')}`
           ) : '';
           const combined = userContent + searchContext + websiteContext;
-          const streamResult = await streamAIResponse(combined);
-          let assistantContent = '';
+          const streamResult = await streamAIResponse(combined) as { textStream: AsyncIterable<string> };
+          const chunks: string[] = [];
+          let totalLength = 0;
 
           for await (const delta of streamResult.textStream) {
-            assistantContent += delta;
-            // Prevent extremely long responses
-            if (assistantContent.length > 50000) {
+            const piece = String(delta);
+            chunks.push(piece);
+            totalLength += piece.length;
+            if (totalLength > 50000) {
               break;
             }
           }
 
-          // Sanitize AI response (though it should be safe from reputable AI providers)
-          const sanitizedResponse = assistantContent.substring(0, 50000); // Hard limit
+          const assistantContent = chunks.join('').slice(0, 50000);
+
+          const sanitizedResponse = assistantContent; // already clamped above
           span.setAttribute("response_length", sanitizedResponse.length);
 
           // Extract assistant code blocks for preview

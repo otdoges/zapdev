@@ -5,7 +5,6 @@ import * as Sentry from '@sentry/react'
 import { recordAIConversation } from './usage-service'
 import { SYSTEM_PROMPT } from './systemprompt'
 import { DECISION_PROMPT_NEXT } from './decisionPrompt'
-import { getSecureApiKey, getApiKeySource } from './secure-storage'
 import { 
   withRetry, 
   monitorAIOperation, 
@@ -13,9 +12,12 @@ import {
   AIResponseCache,
   parseAIError,
   AIRateLimitError,
-  AIQuotaExceededError
+  AIQuotaExceededError,
+  enforceClientAIRate,
+  withTimeout
 } from './ai-utils'
 import { aiMonitoring } from './ai-monitoring'
+import { getSecureApiKey, getApiKeySource } from './secure-storage'
 
 const { logger } = Sentry;
 
@@ -126,25 +128,25 @@ async function getGemmaModel() {
 const fallbackModel = openrouter.chat('qwen/qwen3-coder:free')
 
 export async function generateAIResponse(prompt: string, options?: { skipCache?: boolean }) {
+  // Rate limit client-side bursts
+  enforceClientAIRate();
+
   // Check cache first
   if (!options?.skipCache) {
     const cacheKey = responseCache.generateKey(prompt, { type: 'generate' });
     const cached = responseCache.get(cacheKey);
     if (cached) {
       logger.info('Using cached AI response');
-      
-      // Record cache hit
       aiMonitoring.recordOperation({
         operation: 'generateText',
         model: 'openai/gpt-oss-120b',
-        duration: 0, // Instant from cache
+        duration: 0,
         success: true,
         inputTokens: 0,
         outputTokens: 0,
         cost: 0,
         cacheHit: true
       });
-      
       return cached as string;
     }
   }
@@ -170,12 +172,10 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           throw error;
         }
 
-        // Estimate cost for input tokens (rough estimate: 1 token ≈ 4 chars)
         const estimatedInputTokens = Math.ceil(prompt.length / 4);
-        const estimatedOutputTokens = 8000; // Max tokens we might use
+        const estimatedOutputTokens = 8000;
         const estimatedCost = calculateCost('openai/gpt-oss-120b', estimatedInputTokens, estimatedOutputTokens);
         
-        // Check cost limit before making request
         checkCostLimit(estimatedCost);
 
         logger.info("Starting AI text generation", { 
@@ -184,20 +184,18 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           apiKeySource
         });
 
-        // Get current model before callback chain
         const currentModel = await getCurrentModel();
         span.setAttribute("model", "openai/gpt-oss-120b");
         
-        // Execute with circuit breaker and retry logic
         const { text, usage } = await circuitBreaker.execute(
           () => withRetry(
             () => monitorAIOperation(
-              () => generateText({
+              () => withTimeout(generateText({
                 model: currentModel,
                 prompt,
-                maxTokens: 8000, // using openai/gpt-oss-120b
+                maxTokens: 8000,
                 temperature: 0.7,
-              }),
+              }), 60_000),
               'generateText',
               { model: 'openai/gpt-oss-120b', promptLength: prompt.length }
             ),
@@ -206,11 +204,9 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           'generateAIResponse'
         )
         
-        // Calculate actual cost based on usage
         const actualCost = usage ? calculateCost('openai/gpt-oss-120b', usage.promptTokens, usage.completionTokens) : estimatedCost;
         addTodayCost(actualCost);
 
-        // Record usage event
         await recordAIConversation({
           model: 'openai/gpt-oss-120b',
           inputTokens: usage?.promptTokens || 0,
@@ -232,7 +228,6 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           dailyCost: getTodayCost().toFixed(4)
         });
         
-        // Record monitoring metrics
         aiMonitoring.recordOperation({
           operation: 'generateText',
           model: 'openai/gpt-oss-120b',
@@ -244,7 +239,6 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           cacheHit: false
         });
         
-        // Cache the response
         if (!options?.skipCache) {
           const cacheKey = responseCache.generateKey(prompt, { type: 'generate' });
           responseCache.set(cacheKey, text);
@@ -260,7 +254,6 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         });
         Sentry.captureException(aiError);
         
-        // Record failed operation
         aiMonitoring.recordOperation({
           operation: 'generateText',
           model: 'openai/gpt-oss-120b',
@@ -271,16 +264,6 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           cacheHit: false
         });
         
-        // Handle specific error types
-        if (aiError instanceof AIRateLimitError) {
-          // Could implement backoff based on retryAfter
-          logger.warn('Rate limit hit, using fallback provider');
-        } else if (aiError instanceof AIQuotaExceededError) {
-          // Alert user about quota
-          logger.error('Quota exceeded, fallback to free tier');
-        }
-        
-        // Try OpenRouter as failsafe
         try {
           if (!import.meta.env.VITE_OPENROUTER_API_KEY) {
             logger.warn("OpenRouter API key not configured, cannot use failsafe");
@@ -291,12 +274,12 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           span.setAttribute("failsafe_used", true);
           span.setAttribute("failsafe_model", "qwen/qwen3-coder:free");
           
-          const { text } = await generateText({
+          const { text } = await withTimeout(generateText({
             model: fallbackModel,
             prompt,
             maxTokens: 4000,
             temperature: 0.7,
-          })
+          }), 30_000)
           
           logger.info("OpenRouter failsafe succeeded", { responseLength: text.length });
           span.setAttribute("response_length", text.length);
@@ -315,8 +298,9 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
 }
 
 export async function streamAIResponse(prompt: string, options?: { skipCache?: boolean }) {
-  // Note: Streaming responses are not cached
-  
+  // Rate limit client-side bursts
+  enforceClientAIRate();
+
   return Sentry.startSpan(
     {
       op: "ai.stream",
@@ -338,15 +322,12 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
           throw error;
         }
 
-        // Use full development-focused system prompt
         const systemPrompt = SYSTEM_PROMPT;
-
         const fullPrompt = systemPrompt + "\n\n" + prompt;
         const estimatedInputTokens = Math.ceil(fullPrompt.length / 4);
-        const estimatedOutputTokens = 8000; // Max tokens we might use
+        const estimatedOutputTokens = 8000;
         const estimatedCost = calculateCost('openai/gpt-oss-120b', estimatedInputTokens, estimatedOutputTokens);
         
-        // Check cost limit before making request
         checkCostLimit(estimatedCost);
 
         logger.info("Starting AI text streaming", { 
@@ -367,7 +348,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
                   { role: 'system', content: systemPrompt },
                   { role: 'user', content: prompt }
                 ],
-                maxTokens: 8000, // using openai/gpt-oss-120b
+                maxTokens: 8000,
                 temperature: 0.7,
               }),
               'streamText',
@@ -378,10 +359,8 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
           'streamAIResponse'
         )
         
-        // Add cost tracking for streaming (estimate since we don't get exact tokens upfront)
         addTodayCost(estimatedCost);
 
-        // Record usage event (estimated for streaming)
         await recordAIConversation({
           model: 'openai/gpt-oss-120b',
           inputTokens: estimatedInputTokens,
@@ -395,7 +374,6 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
           dailyCost: getTodayCost().toFixed(4)
         });
         
-        // Record streaming operation (with estimates)
         aiMonitoring.recordOperation({
           operation: 'streamText',
           model: 'openai/gpt-oss-120b',
@@ -417,7 +395,6 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
         });
         Sentry.captureException(aiError);
         
-        // Try OpenRouter as failsafe
         try {
           if (!import.meta.env.VITE_OPENROUTER_API_KEY) {
             logger.warn("OpenRouter API key not configured, cannot use failsafe");
@@ -436,7 +413,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
               { role: 'system', content: systemPrompt },
               { role: 'user', content: prompt }
             ],
-            maxTokens: 4000, // Keep lower limit for fallback model
+            maxTokens: 4000,
             temperature: 0.7,
           })
           
@@ -461,7 +438,7 @@ export const costTracker = {
   getDailyLimit: () => DAILY_COST_LIMIT,
   getRemainingBudget: () => DAILY_COST_LIMIT - getTodayCost(),
   getCostPercentage: () => (getTodayCost() / DAILY_COST_LIMIT) * 100,
-  isNearLimit: () => getTodayCost() > (DAILY_COST_LIMIT * 0.8), // 80% threshold
+  isNearLimit: () => getTodayCost() > (DAILY_COST_LIMIT * 0.8),
 };
 
 export async function generateChatTitleFromMessages(messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {

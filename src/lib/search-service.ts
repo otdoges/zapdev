@@ -1,6 +1,19 @@
 import * as Sentry from '@sentry/react';
+import { withTimeout } from './ai-utils';
+import { createTokenBucketRateLimiter } from './rate-limiter';
 
 const { logger } = Sentry;
+
+// Simple in-memory rate limiter per session (client-side)
+const SEARCH_BURST = 10;
+const SEARCH_REFILL_MS = 60_000; // refill per minute
+const enforceSearchRateLimit = createTokenBucketRateLimiter(
+  SEARCH_BURST,
+  SEARCH_REFILL_MS,
+  'Search rate limit exceeded. Please wait and try again.'
+);
+
+// withTimeout is imported from './ai-utils'
 
 // Brave Search API types
 export interface BraveSearchResult {
@@ -91,6 +104,8 @@ export class BraveSearchService {
     query: string, 
     options: SearchOptions = {}
   ): Promise<BraveSearchResult[]> {
+    enforceSearchRateLimit();
+
     const validation = validateSearchQuery(query);
     if (!validation.isValid) {
       throw new Error(validation.error);
@@ -118,16 +133,19 @@ export class BraveSearchService {
         options: { ...options, count: options.count || 10 } 
       });
 
-      const response = await fetch(
-        `${this.baseUrl}/web/search?${searchParams}`, 
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Accept-Encoding': 'gzip',
-            'X-Subscription-Token': this.apiKey,
-          },
-        }
+      const response = await withTimeout(
+        fetch(
+          `${this.baseUrl}/web/search?${searchParams}`, 
+          {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Accept-Encoding': 'gzip',
+              'X-Subscription-Token': this.apiKey,
+            },
+          }
+        ),
+        15_000
       );
 
       if (!response.ok) {
@@ -179,7 +197,6 @@ export class BraveSearchService {
   }
 
   async analyzeWebsite(url: string): Promise<WebsiteAnalysis> {
-    // Validate URL
     try {
       const urlObj = new URL(url);
       if (!['http:', 'https:'].includes(urlObj.protocol)) {
@@ -192,14 +209,16 @@ export class BraveSearchService {
     try {
       logger.info('Analyzing website', { url });
 
-      // Fetch website content
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'ZapDev Website Analyzer/1.0',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-      });
+      const response = await withTimeout(
+        fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'ZapDev Website Analyzer/1.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+        }),
+        15_000
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to fetch website: ${response.status} ${response.statusText}`);
@@ -207,7 +226,6 @@ export class BraveSearchService {
 
       const html = await response.text();
       
-      // Parse HTML content (basic analysis)
       const analysis: WebsiteAnalysis = {
         url,
         title: this.extractTitle(html),
@@ -216,7 +234,7 @@ export class BraveSearchService {
         layout: this.analyzeLayout(html),
         colorScheme: this.extractColors(html),
         components: this.identifyComponents(html),
-        content: this.extractTextContent(html).substring(0, 2000), // Limit content
+        content: this.extractTextContent(html).substring(0, 2000),
       };
 
       logger.info('Website analysis completed', { 
@@ -253,8 +271,6 @@ export class BraveSearchService {
 
   private detectTechnologies(html: string): string[] {
     const technologies: string[] = [];
-    
-    // Check for common frameworks and libraries
     if (html.includes('react')) technologies.push('React');
     if (html.includes('vue')) technologies.push('Vue.js');
     if (html.includes('angular')) technologies.push('Angular');
@@ -264,19 +280,13 @@ export class BraveSearchService {
     if (html.includes('next.js') || html.includes('__NEXT_DATA__')) technologies.push('Next.js');
     if (html.includes('nuxt')) technologies.push('Nuxt.js');
     if (html.includes('gatsby')) technologies.push('Gatsby');
-    
     return technologies;
   }
 
   private analyzeLayout(html: string): string {
-    // Simple layout analysis
-    if (html.includes('grid') || html.includes('display: grid')) {
-      return 'CSS Grid';
-    } else if (html.includes('flex') || html.includes('display: flex')) {
-      return 'Flexbox';
-    } else if (html.includes('container') || html.includes('row') || html.includes('col')) {
-      return 'Bootstrap Grid';
-    }
+    if (html.includes('grid') || html.includes('display: grid')) return 'CSS Grid';
+    if (html.includes('flex') || html.includes('display: flex')) return 'Flexbox';
+    if (html.includes('container') || html.includes('row') || html.includes('col')) return 'Bootstrap Grid';
     return 'Traditional Layout';
   }
 
@@ -284,19 +294,14 @@ export class BraveSearchService {
     const colors: string[] = [];
     const colorRegex = /#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})\b/g;
     const matches = html.match(colorRegex);
-    
     if (matches) {
-      // Remove duplicates and limit to 10 colors
       return [...new Set(matches)].slice(0, 10);
     }
-    
     return colors;
   }
 
   private identifyComponents(html: string): string[] {
     const components: string[] = [];
-    
-    // Check for common UI components
     if (html.includes('navbar') || html.includes('navigation')) components.push('Navigation');
     if (html.includes('header')) components.push('Header');
     if (html.includes('footer')) components.push('Footer');
@@ -307,12 +312,10 @@ export class BraveSearchService {
     if (html.includes('button')) components.push('Buttons');
     if (html.includes('card')) components.push('Cards');
     if (html.includes('table')) components.push('Tables');
-    
     return components;
   }
 
   private extractTextContent(html: string): string {
-    // Remove HTML tags and get text content
     return html
       .replace(/<script[^>]*>.*?<\/script>/gi, '')
       .replace(/<style[^>]*>.*?<\/style>/gi, '')
@@ -322,5 +325,4 @@ export class BraveSearchService {
   }
 }
 
-// Export singleton instance
 export const braveSearchService = new BraveSearchService();
