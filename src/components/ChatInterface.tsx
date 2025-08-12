@@ -49,6 +49,7 @@ import * as Sentry from '@sentry/react';
 import WebContainerFailsafe from './WebContainerFailsafe';
 import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
 
+
 const { logger } = Sentry;
 
 // Security constants for input validation
@@ -148,6 +149,8 @@ const ChatInterface: React.FC = () => {
   const [previewCode, setPreviewCode] = useState<string>('');
   const [previewLanguage, setPreviewLanguage] = useState<string>('javascript');
   const [showPreview, setShowPreview] = useState<boolean>(false);
+
+  const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
   // Team Lead planning
   const [teamLeadPlan, setTeamLeadPlan] = useState<string | null>(null);
   const [isPlanning, setIsPlanning] = useState<boolean>(false);
@@ -204,6 +207,8 @@ const ChatInterface: React.FC = () => {
       // Ignore; E2B errors will be surfaced by execution components
     });
   }, []);
+
+
 
   // Initialize message encryption when user is available
   useEffect(() => {
@@ -1178,91 +1183,101 @@ const ChatInterface: React.FC = () => {
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
-            className="w-80 border-r border-gray-800/60 bg-[#1A1A1A]/90 backdrop-blur-xl flex flex-col"
+            onMouseEnter={() => setSidebarExpanded(true)}
+            onMouseLeave={() => setSidebarExpanded(false)}
+            className={`${sidebarExpanded ? 'w-80' : 'w-3'} border-r border-gray-800/60 bg-[#1A1A1A]/90 backdrop-blur-xl flex flex-col transition-[width] duration-300`}
           >
-            {/* Sidebar Header */}
-            <div className="p-6 border-b border-gray-800/60">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold flex items-center text-gray-100">
-                  <MessageSquare className="w-5 h-5 mr-2 text-purple-400" />
-                  Conversations
-                </h2>
-                <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 border-0 shadow-lg shadow-purple-500/25 transition-all duration-200">
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Start a new chat</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 pt-2 text-sm text-muted-foreground">
-                      <p>Well auto-generate a great title based on your first message.</p>
-                      <div className="flex justify-end space-x-2">
-                        <Button variant="outline" onClick={() => setIsNewChatOpen(false)}>
-                          Cancel
+            {sidebarExpanded ? (
+              <>
+                {/* Sidebar Header */}
+                <div className="p-6 border-b border-gray-800/60">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold flex items-center text-gray-100">
+                      <MessageSquare className="w-5 h-5 mr-2 text-purple-400" />
+                      Conversations
+                    </h2>
+                    <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 border-0 shadow-lg shadow-purple-500/25 transition-all duration-200">
+                          <Plus className="w-4 h-4" />
                         </Button>
-                        <Button onClick={handleCreateChat}>
-                          Create Chat
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-
-            {/* Chat List */}
-            <ScrollArea className="flex-1">
-              <div className="p-3 space-y-2">
-                {chats?.map((chat) => (
-                  <motion.div
-                    key={chat._id}
-                    layout
-                    whileHover={{ scale: 1.01, x: 4 }}
-                    whileTap={{ scale: 0.99 }}
-                    className={`group relative p-4 rounded-lg cursor-pointer transition-all duration-300 ${
-                      selectedChatId === chat._id 
-                        ? 'bg-gradient-to-r from-purple-500/20 to-violet-500/20 border border-purple-500/30 shadow-lg shadow-purple-500/10' 
-                        : 'hover:bg-gray-800/50 border border-transparent hover:border-gray-700/50'
-                    }`}
-                    onClick={() => setSelectedChatId(chat._id)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-sm truncate mb-1">
-                          <SafeText>{chat.title}</SafeText>
-                        </h3>
-                        <p className="text-xs text-gray-400 flex items-center">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {formatTimestamp(chat.updatedAt)}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="opacity-0 group-hover:opacity-100 transition-all duration-200 h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400 rounded-md"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteChat(chat._id);
-                        }}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </motion.div>
-                ))}
-
-                {chats?.length === 0 && (
-                  <div className="text-center py-12">
-                    <MessageSquare className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
-                    <p className="text-sm text-muted-foreground">No chats yet</p>
-                    <p className="text-xs text-muted-foreground/70 mt-1">Create your first chat to get started</p>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Start a new chat</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 pt-2 text-sm text-muted-foreground">
+                          <p>Well auto-generate a great title based on your first message.</p>
+                          <div className="flex justify-end space-x-2">
+                            <Button variant="outline" onClick={() => setIsNewChatOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button onClick={handleCreateChat}>
+                              Create Chat
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                )}
+                </div>
+
+                {/* Chat List */}
+                <ScrollArea className="flex-1">
+                  <div className="p-3 space-y-2">
+                    {chats?.map((chat) => (
+                      <motion.div
+                        key={chat._id}
+                        layout
+                        whileHover={{ scale: 1.01, x: 4 }}
+                        whileTap={{ scale: 0.99 }}
+                        className={`group relative p-4 rounded-lg cursor-pointer transition-all duration-300 ${
+                          selectedChatId === chat._id 
+                            ? 'bg-gradient-to-r from-purple-500/20 to-violet-500/20 border border-purple-500/30 shadow-lg shadow-purple-500/10' 
+                            : 'hover:bg-gray-800/50 border border-transparent hover:border-gray-700/50'
+                        }`}
+                        onClick={() => setSelectedChatId(chat._id)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-sm truncate mb-1">
+                              <SafeText>{chat.title}</SafeText>
+                            </h3>
+                            <p className="text-xs text-gray-400 flex items-center">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {formatTimestamp(chat.updatedAt)}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="opacity-0 group-hover:opacity-100 transition-all duration-200 h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400 rounded-md"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteChat(chat._id);
+                            }}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </motion.div>
+                    ))}
+
+                    {chats?.length === 0 && (
+                      <div className="text-center py-12">
+                        <MessageSquare className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+                        <p className="text-sm text-muted-foreground">No chats yet</p>
+                        <p className="text-xs text-muted-foreground/70 mt-1">Create your first chat to get started</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="-rotate-90 text-[10px] tracking-widest text-gray-500">History</div>
               </div>
-            </ScrollArea>
+            )}
           </motion.div>
 
           {/* Right Panel - Chat Interface */}
@@ -1628,22 +1643,37 @@ const ChatInterface: React.FC = () => {
           </div>
 
           {/* Right column: Persistent live preview */}
-          <div className="hidden xl:flex w-[36%] min-w-[360px] max-w-[520px] border-l border-gray-800/60 bg-[#111] flex-col">
+          <div className="hidden xl:flex w-[45%] min-w-[480px] max-w-[780px] border-l border-gray-800/60 bg-[#111] flex-col">
             <div className="p-4 border-b border-gray-800/60 flex items-center justify-between">
               <div className="text-sm font-medium text-gray-200 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-purple-400" /> Live Preview
+                <Zap className="w-4 h-4 text-purple-400" /> E2B Live Preview
               </div>
               <div className="text-xs text-gray-400">{previewLanguage.toUpperCase()}</div>
             </div>
             <div className="flex-1 overflow-hidden p-4">
-              {showPreview ? (
-                <WebContainerFailsafe
-                  code={previewCode}
-                  language={previewLanguage}
-                  isVisible={true}
-                  autoRun={true}
-                  onFallback={() => toast.info('WebContainer failsafe preview running')}
-                />
+                               {showPreview && previewCode ? (
+                   <E2BCodeExecution
+                     code={previewCode}
+                     language={previewLanguage}
+                     autoRun={true}
+                     showNextJsHint={false}
+                     onExecute={async (code, language) => {
+                       try {
+                         const res = await executeCode(code, 'javascript');
+                         return {
+                           success: res.success,
+                           output: res.stdout,
+                           error: res.error as string | undefined,
+                           logs: res.stderr ? [res.stderr] : [],
+                           artifacts: [],
+                           executionTime: Date.now() % 1000,
+                           memoryUsage: 0,
+                         };
+                       } catch (err) {
+                         return { success: false, error: String(err), logs: [] };
+                       }
+                     }}
+                   />
               ) : (
                 <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
                   Paste or generate JS code to preview here
