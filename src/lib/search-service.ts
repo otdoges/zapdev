@@ -1,3 +1,4 @@
+import sanitizeHtml from 'sanitize-html';
 import * as Sentry from '@sentry/react';
 import { withTimeout } from './ai-utils';
 import { createTokenBucketRateLimiter } from './rate-limiter';
@@ -316,9 +317,16 @@ export class BraveSearchService {
   }
 
   private extractTextContent(html: string): string {
-    return html
-      .replace(/<script[^>]*>.*?<\/script>/gi, '')
-      .replace(/<style[^>]*>.*?<\/style>/gi, '')
+    // Use sanitize-html to remove <script> and <style> tags and their content
+    const sanitized = sanitizeHtml(html, {
+      allowedTags: false, // remove all tags, but we want to keep text content
+      disallowedTagsMode: 'discard',
+      exclusiveFilter: (frame) => {
+        // Remove the content of script and style tags
+        return frame.tag === 'script' || frame.tag === 'style';
+      }
+    });
+    return sanitized
       .replace(/<[^>]*>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
