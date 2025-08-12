@@ -66,6 +66,28 @@ http.route({
   handler: trpcHandler,
 });
 
+// Simple in-memory rate limiter per token (limits Autumn identify calls)
+const identifyRateBuckets = new Map<string, { tokens: number; lastRefill: number }>();
+const IDENTIFY_LIMIT = 30; // 30 req/min per token
+const IDENTIFY_REFILL_MS = 60_000;
+
+function allowIdentify(tokenKey: string | undefined): boolean {
+  const key = tokenKey || 'anon';
+  const now = Date.now();
+  const bucket = identifyRateBuckets.get(key) || { tokens: IDENTIFY_LIMIT, lastRefill: now };
+  if (now - bucket.lastRefill >= IDENTIFY_REFILL_MS) {
+    bucket.tokens = IDENTIFY_LIMIT;
+    bucket.lastRefill = now;
+  }
+  if (bucket.tokens <= 0) {
+    identifyRateBuckets.set(key, bucket);
+    return false;
+  }
+  bucket.tokens -= 1;
+  identifyRateBuckets.set(key, bucket);
+  return true;
+}
+
 // Initialize Autumn handler for Convex HTTP routes
 const autumn = autumnHandler({
   httpAction,
@@ -74,6 +96,10 @@ const autumn = autumnHandler({
     const token = typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')
       ? authHeader.slice(7).trim()
       : undefined;
+
+    if (!allowIdentify(token)) {
+      return { customerId: undefined, customerData: {} };
+    }
 
     let customerId: string | undefined;
     let email: string | undefined;

@@ -178,6 +178,9 @@ const ChatInterface: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { check: checkFeature, checkout, refetch: refetchCustomer } = useCustomer();
+  // TTL cache for feature checks to avoid frequent recomputation
+  const featureCacheRef = React.useRef<Map<string, { allowed: boolean; ts: number }>>(new Map());
+  const FEATURE_TTL_MS = 30_000; // 30s
 
   // Convex queries and mutations
   const chatsData = useQuery(api.chats.getUserChats, {});
@@ -411,15 +414,33 @@ const ChatInterface: React.FC = () => {
 
     // Client-side feature gate using Autumn state
     try {
-      const { data } = checkFeature({ featureId: 'messages' });
-      if (!data?.allowed) {
+      const cacheKey = 'messages';
+      const cached = featureCacheRef.current.get(cacheKey);
+      if (!cached || Date.now() - cached.ts > FEATURE_TTL_MS) {
+        const { data } = checkFeature({ featureId: cacheKey });
+        const allowed = !!data?.allowed;
+        featureCacheRef.current.set(cacheKey, { allowed, ts: Date.now() });
+        if (!allowed) {
+          toast.error("You're out of messages");
+          try {
+            await checkout({ productId: 'pro', dialog: CheckoutDialog });
+          } catch (err) {
+            console.error('Autumn checkout failed:', err);
+          }
+          return;
+        }
+      } else if (!cached.allowed) {
         toast.error("You're out of messages");
         try {
           await checkout({ productId: 'pro', dialog: CheckoutDialog });
-        } catch {}
+        } catch (err) {
+          console.error('Autumn checkout failed:', err);
+        }
         return;
       }
-    } catch {}
+    } catch (err) {
+      console.error('Feature check failed:', err);
+    }
 
     Sentry.startSpan(
       {

@@ -41,6 +41,8 @@ STRIPE_PRICE_ENTERPRISE_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 AUTUMN_SECRET_KEY=am_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # Frontend provider backend URL for Autumn endpoints (use your Convex URL)
 VITE_AUTUMN_BACKEND_URL=https://xxxxx.convex.cloud
+# Optional: Override product ids used on the frontend
+VITE_AUTUMN_PRODUCT_PRO_ID=pro
 
 # Removed Polar billing configuration
 
