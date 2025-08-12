@@ -156,9 +156,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       console.error(`Error handling ${endpoint}:`, error);
       res.writeHead(500);
       res.end(JSON.stringify({ 
-        error: 'Internal Server Error',
-        message: error.message,
-        stack: error.stack
+        error: 'Internal Server Error'
       }));
     }
   });
