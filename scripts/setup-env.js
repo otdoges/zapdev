@@ -289,8 +289,8 @@ async function checkEnvironmentVariables() {
   const e2bKey = process.env.VITE_E2B_API_KEY;
   
   logInfo(`Runtime check:`);
-  logInfo(`VITE_GROQ_API_KEY: ${groqKey ? `Set (${groqKey.substring(0, 8)}...)` : 'Not set'}`);
-  logInfo(`VITE_E2B_API_KEY: ${e2bKey ? `Set (${e2bKey.substring(0, 8)}...)` : 'Not set'}`);
+  logInfo(`VITE_GROQ_API_KEY: ${groqKey ? 'Set' : 'Not set'}`);
+  logInfo(`VITE_E2B_API_KEY: ${e2bKey ? 'Set' : 'Not set'}`);
   
   // Check all existing env files
   const envFiles = ['.env.local', '.env'];
@@ -303,8 +303,8 @@ async function checkEnvironmentVariables() {
       const fileGroqKey = env.VITE_GROQ_API_KEY;
       const fileE2bKey = env.VITE_E2B_API_KEY;
       
-      logInfo(`  VITE_GROQ_API_KEY: ${fileGroqKey ? `Set (${fileGroqKey.substring(0, 8)}...)` : 'Not set'}`);
-      logInfo(`  VITE_E2B_API_KEY: ${fileE2bKey ? `Set (${fileE2bKey.substring(0, 8)}...)` : 'Not set'}`);
+      logInfo(`  VITE_GROQ_API_KEY: ${fileGroqKey ? 'Set' : 'Not set'}`);
+      logInfo(`  VITE_E2B_API_KEY: ${fileE2bKey ? 'Set' : 'Not set'}`);
     }
   }
   
