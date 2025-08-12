@@ -323,16 +323,16 @@ export class BraveSearchService {
     } else {
       // Fallback: improved regex-based approach (repeat until no matches)
       let sanitized = html;
-      let previous;
+      let previous: string;
       // Remove <script>...</script> blocks repeatedly
       do {
         previous = sanitized;
-        sanitized = sanitized.replace(/<script[\s\S]*?>[\s\S]*?<\/script[\s\S]*?>/gi, '');
+        sanitized = sanitized.replace(/<script\b[\s\S]*?>[\s\S]*?<\/script\s*>/gi, '');
       } while (sanitized !== previous);
       // Remove <style>...</style> blocks repeatedly
       do {
         previous = sanitized;
-        sanitized = sanitized.replace(/<style[\s\S]*?>[\s\S]*?<\/style[\s\S]*?>/gi, '');
+        sanitized = sanitized.replace(/<style\b[\s\S]*?>[\s\S]*?<\/style\s*>/gi, '');
       } while (sanitized !== previous);
       return sanitized
         .replace(/<[^>]*>/g, ' ')
