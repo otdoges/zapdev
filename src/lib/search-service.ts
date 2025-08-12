@@ -1,4 +1,3 @@
-import sanitizeHtml from 'sanitize-html';
 import * as Sentry from '@sentry/react';
 import { withTimeout } from './ai-utils';
 import { createTokenBucketRateLimiter } from './rate-limiter';
@@ -317,19 +316,29 @@ export class BraveSearchService {
   }
 
   private extractTextContent(html: string): string {
-    // Use sanitize-html to remove <script> and <style> tags and their content
-    const sanitized = sanitizeHtml(html, {
-      allowedTags: false, // remove all tags, but we want to keep text content
-      disallowedTagsMode: 'discard',
-      exclusiveFilter: (frame) => {
-        // Remove the content of script and style tags
-        return frame.tag === 'script' || frame.tag === 'style';
-      }
-    });
-    return sanitized
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    if (typeof window !== 'undefined' && typeof window.DOMParser !== 'undefined') {
+      const parser = new window.DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      return doc.body.textContent?.replace(/\s+/g, ' ').trim() || '';
+    } else {
+      // Fallback: improved regex-based approach (repeat until no matches)
+      let sanitized = html;
+      let previous;
+      // Remove <script>...</script> blocks repeatedly
+      do {
+        previous = sanitized;
+        sanitized = sanitized.replace(/<script[\s\S]*?>[\s\S]*?<\/script[\s\S]*?>/gi, '');
+      } while (sanitized !== previous);
+      // Remove <style>...</style> blocks repeatedly
+      do {
+        previous = sanitized;
+        sanitized = sanitized.replace(/<style[\s\S]*?>[\s\S]*?<\/style[\s\S]*?>/gi, '');
+      } while (sanitized !== previous);
+      return sanitized
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
   }
 }
 
