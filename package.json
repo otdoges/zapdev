@@ -73,7 +73,6 @@
     "@vercel/node": "^5.3.11",
     "@webcontainer/api": "^1.6.1",
     "ai": "^4.3.19",
-    "autumn-js": "^0.1.11",
     "axios": "^1.10.0",
     "brace-expansion": "^4.0.1",
     "class-variance-authority": "^0.7.1",

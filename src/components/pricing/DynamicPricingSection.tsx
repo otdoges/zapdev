@@ -3,7 +3,7 @@ import { CustomPricingTable } from "./CustomPricingTable";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 
-// PricingTier component is replaced by Autumn's PricingTable
+// Uses custom pricing table with direct Stripe integration
 
 export const DynamicPricingSection = () => {
   const { user } = useAuth();

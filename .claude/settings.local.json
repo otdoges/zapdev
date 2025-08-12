@@ -57,7 +57,10 @@
       "Bash(VERCEL_DEV_COMMAND=\"echo ''Starting API only''\" vercel dev --listen 3000)",
       "Bash(tsx:*)",
       "Bash(mv:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "WebFetch(domain:docs.useautumn.com)",
+      "WebFetch(domain:docs.useautumn.com)",
+      "Bash(bun install:*)"
     ],
     "deny": []
   }
