@@ -398,9 +398,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error) {
     console.error('Stripe webhook error:', error);
-    return withCors(res, allowedOrigin).status(500).json({ 
+    return withCors(res, allowedOrigin).status(500).json({
       error: 'Webhook Error',
-      message: error instanceof Error ? error.message : 'Unknown error occurred' 
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 }

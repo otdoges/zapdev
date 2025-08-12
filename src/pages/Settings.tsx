@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
-import { SignInButton, useClerk } from "@clerk/clerk-react";
+import { SignInButton, useClerk, useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -129,6 +129,7 @@ const InfoCard = ({ title, children }: { title: string; children: React.ReactNod
 const Settings = () => {
   const { user, isAuthenticated } = useAuth();
   const { signOut } = useClerk();
+  const { getToken } = useClerkAuth();
   const { getPendingEvents } = useUsageTracking();
   const navigate = useNavigate();
   
@@ -183,21 +184,32 @@ const Settings = () => {
 
     setIsLoadingBilling(true);
     try {
+      // Get auth token
+      const token = await getToken();
+      if (!token) {
+        toast.error('Please sign in to continue');
+        return;
+      }
+
       // Call the API endpoint directly for billing portal
       const response = await fetch('/api/create-portal-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create portal session');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create portal session');
       }
 
       const { url } = await response.json();
       window.location.href = url;
     } catch (error) {
       console.error('Error opening customer portal:', error);
-      toast.error('Failed to open billing portal. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to open billing portal. Please try again.');
     } finally {
       setIsLoadingBilling(false);
     }

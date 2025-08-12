@@ -135,7 +135,22 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
         return;
       }
 
+      // First test if API is reachable
+      console.log('Testing API health...');
+      try {
+        const healthResponse = await fetch('/api/health');
+        console.log('Health check status:', healthResponse.status);
+        if (!healthResponse.ok) {
+          console.error('Health check failed');
+        }
+      } catch (e) {
+        console.error('Health check error:', e);
+      }
+
       // Call the API endpoint directly
+      console.log('Creating checkout session for plan:', plan.id);
+      console.log('Using token:', token ? 'Token present' : 'No token');
+
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -148,9 +163,25 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
         }),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response URL:', response.url);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        const errorData = await response.json();
-        const error = new Error(errorData.message || 'Failed to create checkout session');
+        let errorMessage = 'Failed to create checkout session';
+        let errorData: any = null;
+
+        try {
+          errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON, get text
+          const errorText = await response.text();
+          console.error('Non-JSON error response:', errorText);
+          errorMessage = `Server error: ${response.status} - ${errorText.substring(0, 100)}`;
+        }
+
+        const error = new Error(errorMessage);
         Sentry.captureException(error, {
           tags: { feature: 'pricing', action: 'checkout_api_error' },
           extra: { planId: plan.id, status: response.status, errorData }

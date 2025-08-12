@@ -202,9 +202,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error) {
     console.error('Create checkout session API error:', error);
-    return withCors(res, allowedOrigin).status(500).json({ 
+    return withCors(res, allowedOrigin).status(500).json({
       error: 'Internal Server Error',
-      message: error instanceof Error ? error.message : 'Unknown error occurred' 
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
     });
   }
 }
+
+export default handler;
