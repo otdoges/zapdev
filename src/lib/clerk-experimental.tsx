@@ -1,6 +1,27 @@
 import React from "react";
-import { AUTUMN_PLANS as BILLING_PLANS, createAutumnCheckout as createCheckoutSession } from "@/lib/autumn-billing";
 import { useUser } from "@clerk/clerk-react";
+
+// Simple billing plans for compatibility
+const BILLING_PLANS = [
+  { id: 'free', name: 'Free', price: 0 },
+  { id: 'pro', name: 'Pro', price: 29 },
+  { id: 'enterprise', name: 'Enterprise', price: 0 },
+];
+
+// Simple checkout function that redirects to API
+async function createCheckoutSession(planId: string, period: string): Promise<{ url: string }> {
+  const response = await fetch('/api/create-checkout-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ planId, period }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to create checkout session');
+  }
+
+  return response.json();
+}
 
 type CheckoutStatus =
   | "idle"

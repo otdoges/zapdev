@@ -183,8 +183,17 @@ const Settings = () => {
 
     setIsLoadingBilling(true);
     try {
-      const { createAutumnPortal } = await import('@/lib/autumn-billing');
-      const { url } = await createAutumnPortal();
+      // Call the API endpoint directly for billing portal
+      const response = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create portal session');
+      }
+
+      const { url } = await response.json();
       window.location.href = url;
     } catch (error) {
       console.error('Error opening customer portal:', error);

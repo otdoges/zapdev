@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
-import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import { authTokenManager } from '@/lib/auth-token';
 
 interface PricingPlan {
   id: 'free' | 'starter' | 'pro' | 'enterprise';
@@ -87,7 +87,6 @@ const PRICING_PLANS: PricingPlan[] = [
 const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
   const { isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const createCheckoutSession = trpc.billing.createCheckoutSession.useMutation();
 
   const enterpriseContactEmail = import.meta.env.VITE_ENTERPRISE_CONTACT_EMAIL || 'enterprise@zapdev.link';
 
@@ -110,13 +109,39 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
 
     try {
       setIsLoading(true);
-      const result = await createCheckoutSession.mutateAsync({ planId: plan.id as 'pro' | 'starter', period: 'month' });
+
+      // Get auth token
+      const token = authTokenManager.getToken();
+      if (!token) {
+        toast.error('Please sign in to continue');
+        return;
+      }
+
+      // Call the API endpoint directly
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          planId: plan.id,
+          period: 'month',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create checkout session');
+      }
+
+      const result = await response.json();
       if (result.url) {
         window.location.href = result.url;
       }
     } catch (error) {
       console.error('Checkout error:', error);
-      toast.error('Failed to start checkout. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to start checkout. Please try again.');
     } finally {
       setIsLoading(false);
     }
