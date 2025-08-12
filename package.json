@@ -10,20 +10,20 @@
   "packageManager": "bun@1.2.18",
   "scripts": {
     "dev": "vite",
-    "dev:api": "bunx tsx api-dev-server.ts",
+    "dev:api": "tsx api-dev-server.ts",
     "dev:full": "concurrently \"npm run dev:api\" \"npm run dev\"",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
     "generate-pwa-assets": "pwa-assets-generator",
-    "setup-env": "bun scripts/setup-env.js",
-    "create-env": "bun scripts/create-env-local.js",
-    "test-ai": "bun src/test-ai-implementation.ts",
-    "test-ai-only": "bun scripts/test-ai-only.js",
-    "validate": "bun src/validate-ai.ts",
-    "validate:production": "bun scripts/validate-ai-production.js",
-    "validate:prod": "bun scripts/validate-ai-production.js"
+    "setup-env": "node scripts/setup-env.js",
+    "create-env": "node scripts/create-env-local.js",
+    "test-ai": "node src/test-ai-implementation.ts",
+    "test-ai-only": "node scripts/test-ai-only.js",
+    "validate": "node src/validate-ai.ts",
+    "validate:production": "node scripts/validate-ai-production.js",
+    "validate:prod": "node scripts/validate-ai-production.js"
   },
   "dependencies": {
     "@ai-sdk/groq": "^2.0.5",
