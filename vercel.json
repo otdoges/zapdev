@@ -5,7 +5,7 @@
     { "src": "api/*.js", "use": "@vercel/node@5.3.11", "config": { "runtime": "nodejs20.x", "memory": 256, "maxDuration": 10 } },
     { "src": "api/**/*.ts", "use": "@vercel/node@5.3.11", "config": { "runtime": "nodejs20.x", "memory": 256, "maxDuration": 10 } },
     { "src": "api/**/*.js", "use": "@vercel/node@5.3.11", "config": { "runtime": "nodejs20.x", "memory": 256, "maxDuration": 10 } },
-    { "src": "package.json", "use": "@vercel/static-build@2.7.17", "config": { "distDir": "dist", "buildCommand": "bun run build", "installCommand": "bun install" } }
+    { "src": "package.json", "use": "@vercel/static-build@2.7.17", "config": { "distDir": "dist", "buildCommand": "npm run build", "installCommand": "npm install --no-audit --no-fund --legacy-peer-deps" } }
   ],
 
   "headers": [],
