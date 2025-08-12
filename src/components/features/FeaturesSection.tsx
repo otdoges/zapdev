@@ -32,14 +32,14 @@ export const FeaturesSection = () => {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.3 }}
         transition={{ duration: 0.8, delay: 0.2 }}
-        className="max-w-2xl mb-20 mx-auto text-center relative z-10"
+        className="max-w-2xl mb-20 relative z-10"
       >
         <motion.h2 
           initial={{ opacity: 0, x: -50 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-5xl md:text-6xl font-normal mb-6 tracking-tight text-center"
+          className="text-5xl md:text-6xl font-normal mb-6 tracking-tight text-left"
         >
           <motion.span
             initial={{ opacity: 0, y: 20 }}
@@ -65,7 +65,7 @@ export const FeaturesSection = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 1.0 }}
-          className="text-lg md:text-xl text-gray-400 text-center"
+          className="text-lg md:text-xl text-gray-400 text-left"
         >
           Experience professional website creation with AI-powered tools and templates designed for tech founders and startups.
         </motion.p>
