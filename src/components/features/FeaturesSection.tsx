@@ -11,20 +11,18 @@ export const FeaturesSection = () => {
       whileInView={{ opacity: 1 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.8 }}
-      className="container px-4 py-24 relative"
+      className="container mx-auto px-4 py-24 relative"
     >
-      {/* Gradient blur element */}
+      {/* Centered glow */}
       <motion.div 
-        initial={{ scale: 0.8, opacity: 0 }}
-        whileInView={{ scale: 1, opacity: 0.1 }}
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 1.2, delay: 0.3 }}
-        className="absolute bottom-0 left-0 w-full h-full rounded-full"
+        className="absolute inset-0 -z-10 pointer-events-none"
         style={{
-          background: '#377AFB',
-          boxShadow: '300px 300px 300px',
-          filter: 'blur(150px)',
-          zIndex: 1
+          background:
+            'radial-gradient(60% 50% at 50% 20%, rgba(55, 122, 251, 0.18) 0%, rgba(55, 122, 251, 0) 70%)'
         }}
       />
       
@@ -34,14 +32,14 @@ export const FeaturesSection = () => {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.3 }}
         transition={{ duration: 0.8, delay: 0.2 }}
-        className="max-w-2xl mb-20 relative z-10"
+        className="max-w-2xl mb-20 mx-auto text-center relative z-10"
       >
         <motion.h2 
           initial={{ opacity: 0, x: -50 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-5xl md:text-6xl font-normal mb-6 tracking-tight text-left"
+          className="text-5xl md:text-6xl font-normal mb-6 tracking-tight text-center"
         >
           <motion.span
             initial={{ opacity: 0, y: 20 }}
@@ -67,7 +65,7 @@ export const FeaturesSection = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 1.0 }}
-          className="text-lg md:text-xl text-gray-400 text-left"
+          className="text-lg md:text-xl text-gray-400 text-center"
         >
           Experience professional website creation with AI-powered tools and templates designed for tech founders and startups.
         </motion.p>
@@ -79,7 +77,7 @@ export const FeaturesSection = () => {
         viewport={{ once: true, amount: 0.1 }}
         transition={{ duration: 0.8, delay: 0.4 }}
       >
-        <Tabs defaultValue={features[0].title} className="w-full relative z-10">
+        <Tabs defaultValue={features[0].title} className="w-full relative z-10 max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
             {/* Left side - Tab triggers */}
             <motion.div 

@@ -25,7 +25,7 @@ export const DynamicPricingSection = () => {
       whileInView={{ opacity: 1 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.8 }}
-      className="container px-4 py-24"
+      className="container mx-auto px-4 py-24"
     >
       <motion.div 
         initial={{ opacity: 0, y: 50 }}
