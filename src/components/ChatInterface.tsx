@@ -48,6 +48,7 @@ import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
 import WebContainerFailsafe from './WebContainerFailsafe';
 import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
+import { useCustomer, CheckoutDialog } from 'autumn-js/react';
 
 
 const { logger } = Sentry;
@@ -175,6 +176,8 @@ const ChatInterface: React.FC = () => {
   const [decryptedMessages, setDecryptedMessages] = useState<Map<string, string>>(new Map());
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { check: checkFeature, checkout, refetch: refetchCustomer } = useCustomer();
 
   // Convex queries and mutations
   const chatsData = useQuery(api.chats.getUserChats, {});
@@ -406,6 +409,18 @@ const ChatInterface: React.FC = () => {
     e.preventDefault();
     if (!input.trim() || isTyping || !selectedChatId) return;
 
+    // Client-side feature gate using Autumn state
+    try {
+      const { data } = checkFeature({ featureId: 'messages' });
+      if (!data?.allowed) {
+        toast.error("You're out of messages");
+        try {
+          await checkout({ productId: 'pro', dialog: CheckoutDialog });
+        } catch {}
+        return;
+      }
+    } catch {}
+
     Sentry.startSpan(
       {
         op: "ui.submit",
@@ -472,6 +487,8 @@ const ChatInterface: React.FC = () => {
           
           // Create user message
           await createMessage(messageData);
+
+          await refetchCustomer();
 
           // Auto-run user code blocks via E2B (JS/TS only per project preference)
           const userBlocks = extractCodeBlocks(userContent);
@@ -601,6 +618,8 @@ const ChatInterface: React.FC = () => {
 
           // Create assistant message
           await createMessage(assistantMessageData);
+
+          await refetchCustomer();
 
           // Try AI title refinement after first exchange
           try {

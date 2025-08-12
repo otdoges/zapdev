@@ -36,6 +36,12 @@ STRIPE_PRICE_PRO_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 STRIPE_PRICE_ENTERPRISE_MONTH=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 STRIPE_PRICE_ENTERPRISE_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
+# === Autumn Billing (Autumn.js) ===
+# Secret server key for Autumn API (backend-only)
+AUTUMN_SECRET_KEY=am_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Frontend provider backend URL for Autumn endpoints (use your Convex URL)
+VITE_AUTUMN_BACKEND_URL=https://xxxxx.convex.cloud
+
 # Removed Polar billing configuration
 
 # === REQUIRED for server-side fetches to own APIs ===
