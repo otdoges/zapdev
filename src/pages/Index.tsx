@@ -44,15 +44,12 @@ const Index = () => {
         {/* Background */}
         <div className="absolute inset-0 -z-10 bg-[#0A0A0A]" />
         
-        {/* Gradient blur element */}
-        <div 
-          className="absolute left-0 top-0 w-full h-full rounded-full"
+        {/* Centered background glow */}
+        <div
+          className="pointer-events-none absolute inset-0 -z-10"
           style={{
-            background: '#377AFB',
-            opacity: 0.1,
-            boxShadow: '300px 300px 300px',
-            filter: 'blur(150px)',
-            zIndex: 1
+            background:
+              'radial-gradient(60% 50% at 50% 20%, rgba(55, 122, 251, 0.25) 0%, rgba(55, 122, 251, 0) 70%)'
           }}
         />
         
@@ -77,7 +74,7 @@ const Index = () => {
             </span>
           </motion.div>
           
-          <div className="max-w-4xl relative z-10">
+          <div className="max-w-4xl mx-auto relative z-10">
             {/* Heading and Description */}
             <motion.h1 
               initial={{ opacity: 0, x: -100 }}
