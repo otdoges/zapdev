@@ -282,11 +282,17 @@ const billingRouter = router({
 
   // Create Stripe checkout session (delegates to API route)
   createCheckoutSession: protectedProcedure
-    .input(z.object({ planId: z.enum(['free', 'pro', 'enterprise']), period: z.enum(['month', 'year']).optional().default('month') }))
+    .input(z.object({ planId: z.enum(['free', 'starter', 'pro', 'enterprise']), period: z.enum(['month', 'year']).optional().default('month') }))
     .mutation(async ({ input, ctx }) => {
       try {
         if (input.planId === 'free') {
           throw new TRPCError({ code: 'BAD_REQUEST', message: 'Free plan does not require checkout' });
+        }
+        if (input.planId === 'enterprise') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Enterprise plan is not available for direct purchase. Please contact our sales team.'
+          });
         }
         const base = process.env.PUBLIC_ORIGIN;
         if (!base) throw new Error('PUBLIC_ORIGIN not set');

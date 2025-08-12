@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { PricingTable } from "autumn-js/react";
+import { CustomPricingTable } from "./CustomPricingTable";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 
@@ -66,13 +66,13 @@ export const DynamicPricingSection = () => {
           transition={{ duration: 0.6, delay: 1.0 }}
           className="text-lg text-gray-400"
         >
-            Select the perfect plan for your AI-powered development needs with secure Autumn billing
+            Select the perfect plan for your AI-powered development needs with secure Stripe billing
         </motion.p>
       </motion.div>
 
-      {/* Autumn PricingTable handles all billing logic internally */}
+      {/* Custom PricingTable with enterprise restrictions */}
       <div className="w-full max-w-6xl mx-auto">
-        <PricingTable />
+        <CustomPricingTable />
       </div>
     </motion.section>
   );

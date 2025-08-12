@@ -304,7 +304,7 @@ export const syncStripeDataToConvex = mutation({
 
     // Dynamic import of Stripe to avoid bundle issues
     const { default: Stripe } = await import('stripe');
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' });
+    const stripe = new Stripe(stripeSecret, { apiVersion: '2025-07-30.basil' });
 
     try {
       // Get customer info first
@@ -412,8 +412,8 @@ export const syncStripeDataToConvex = mutation({
           status: mappedStatus,
           priceId,
           planId,
-          currentPeriodStart: subscription.current_period_start,
-          currentPeriodEnd: subscription.current_period_end,
+          currentPeriodStart: (subscription as any).current_period_start,
+          currentPeriodEnd: (subscription as any).current_period_end,
           cancelAtPeriodEnd: !!subscription.cancel_at_period_end,
           paymentMethod,
           lastSyncAt: now,
@@ -461,7 +461,7 @@ export const syncStripeDataToConvex = mutation({
           planId: mapPlanIdToString(syncData.planId),
           planName: planType.charAt(0).toUpperCase() + planType.slice(1),
           planType,
-          status: syncData.status === 'none' ? 'none' : syncData.status,
+          status: mapStripeStatusToUserStatus(syncData.status),
           features,
           usageLimits,
           currentUsage: existingSubscription.currentUsage ?? { conversationsUsed: 0, codeExecutionsUsed: 0 },
@@ -476,7 +476,7 @@ export const syncStripeDataToConvex = mutation({
           planId: mapPlanIdToString(syncData.planId),
           planName: planType.charAt(0).toUpperCase() + planType.slice(1),
           planType,
-          status: syncData.status === 'none' ? 'none' : syncData.status,
+          status: mapStripeStatusToUserStatus(syncData.status),
           features,
           usageLimits,
           currentUsage: { conversationsUsed: 0, codeExecutionsUsed: 0 },
@@ -531,7 +531,7 @@ export const ensureStripeCustomer = mutation({
     }
 
     const { default: Stripe } = await import('stripe');
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2024-06-20' });
+    const stripe = new Stripe(stripeSecret, { apiVersion: '2025-07-30.basil' });
 
     try {
       // Create idempotency key to prevent duplicate customers
@@ -594,6 +594,32 @@ function mapPriceIdToPlan(priceId: string): 'free' | 'pro' | 'enterprise' {
 
 function mapPlanIdToString(planId: 'free' | 'pro' | 'enterprise'): string {
   return planId;
+}
+
+// Helper function to map Stripe statuses to userSubscriptions allowed statuses
+function mapStripeStatusToUserStatus(stripeStatus: string): "active" | "canceled" | "past_due" | "incomplete" | "trialing" | "none" {
+  switch (stripeStatus) {
+    case 'active':
+      return 'active';
+    case 'canceled':
+      return 'canceled';
+    case 'past_due':
+      return 'past_due';
+    case 'incomplete':
+      return 'incomplete';
+    case 'trialing':
+      return 'trialing';
+    case 'incomplete_expired':
+      return 'incomplete'; // Map to incomplete
+    case 'unpaid':
+      return 'past_due'; // Map to past_due
+    case 'paused':
+      return 'canceled'; // Map to canceled
+    case 'none':
+      return 'none';
+    default:
+      return 'none'; // Default fallback
+  }
 }
 
 // Upsert user subscription (called from webhooks)
