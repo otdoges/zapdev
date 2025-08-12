@@ -62,7 +62,10 @@
       "WebFetch(domain:docs.useautumn.com)",
       "Bash(bun install:*)",
       "Bash(bun audit:*)",
-      "Bash(bun update:*)"
+      "Bash(bun update:*)",
+      "Bash(bun list:*)",
+      "mcp__context-7__resolve-library-id",
+      "mcp__context-7__get-library-docs"
     ],
     "deny": []
   }
