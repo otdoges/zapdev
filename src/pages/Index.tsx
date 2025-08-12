@@ -39,7 +39,7 @@ const Index = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
-        className="relative container px-4 pt-40 pb-20"
+        className="relative container mx-auto px-4 py-24 min-h-[calc(100svh-80px)] flex items-center justify-center"
       >
         {/* Background */}
         <div className="absolute inset-0 -z-10 bg-[#0A0A0A]" />
@@ -49,7 +49,7 @@ const Index = () => {
           className="pointer-events-none absolute inset-0 -z-10"
           style={{
             background:
-              'radial-gradient(60% 50% at 50% 20%, rgba(55, 122, 251, 0.25) 0%, rgba(55, 122, 251, 0) 70%)'
+              'radial-gradient(60% 50% at 50% 35%, rgba(55, 122, 251, 0.25) 0%, rgba(55, 122, 251, 0) 70%)'
           }}
         />
         
