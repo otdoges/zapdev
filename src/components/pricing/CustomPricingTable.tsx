@@ -175,18 +175,35 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
           errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
         } catch (e) {
-          // If response is not JSON, get text
           const errorText = await response.text();
           console.error('Non-JSON error response:', errorText);
           errorMessage = `Server error: ${response.status} - ${errorText.substring(0, 100)}`;
         }
 
-        const error = new Error(errorMessage);
-        Sentry.captureException(error, {
+        // Autumn fallback for Pro monthly
+        try {
+          const autumnRes = await fetch('/api/autumn-checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ productId: plan.id }),
+          });
+          if (autumnRes.ok) {
+            const autumnData = await autumnRes.json();
+            if (autumnData?.url) {
+              window.location.href = autumnData.url;
+              return;
+            }
+          }
+        } catch (af) {
+          console.warn('Autumn fallback failed', af);
+        }
+
+        const err = new Error(errorMessage);
+        Sentry.captureException(err, {
           tags: { feature: 'pricing', action: 'checkout_api_error' },
           extra: { planId: plan.id, status: response.status, errorData }
         });
-        throw error;
+        throw err;
       }
 
       const result = await response.json();

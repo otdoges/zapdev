@@ -152,6 +152,12 @@ When deploying to production:
   - `STRIPE_PRICE_ENTERPRISE_MONTH`, `STRIPE_PRICE_ENTERPRISE_YEAR`,
   - `PUBLIC_ORIGIN`.
 
+## Autumn (backend-only) billing
+
+- Add `AUTUMN_SECRET_KEY` to your environment (see `env-template.txt` or `scripts/create-env-local.js`).
+- Use `/api/autumn-checkout` to initiate checkout and `/api/autumn-attach` to attach if payment method exists.
+- Server enforces feature access for chat messages via Autumn and records usage automatically.
+
 ## Development Notes
 
 - Vite runs on port 8080 (not 5173)

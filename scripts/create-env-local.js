@@ -64,6 +64,10 @@ STRIPE_PRICE_PRO_YEAR=
 STRIPE_PRICE_ENTERPRISE_MONTH=
 STRIPE_PRICE_ENTERPRISE_YEAR=
 
+# Autumn Billing Integration (optional)
+AUTUMN_SECRET_KEY=
+# AUTUMN_API_BASE=https://api.useautumn.com
+
 # Application URL
 VITE_APP_URL=http://localhost:5173
 PUBLIC_ORIGIN=http://localhost:5173

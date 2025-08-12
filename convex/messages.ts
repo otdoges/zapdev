@@ -6,6 +6,7 @@ import { enforceRateLimit } from "./rateLimit";
 import { enforceAIRateLimit } from "./aiRateLimit";
 import DOMPurify from 'dompurify';
 
+
 // Security utility functions
 const generateSecureToken = async (length: number): Promise<string> => {
   const array = new Uint8Array(length);
@@ -254,6 +255,14 @@ export const createMessage = mutation({
     // Rate limiting
     await enforceRateLimit(ctx, "sendMessage");
     
+    // Autumn feature check for user messages
+    if (args.role === 'user') {
+      const allowed = await autumnCheckMessagesAllowedDirect(identity.subject);
+      if (allowed === false) {
+        throw new Error("No more messages available on your plan");
+      }
+    }
+    
     // AI-specific rate limiting for assistant messages
     if (args.role === "assistant") {
       // Get user's subscription tier from database
@@ -329,6 +338,11 @@ export const createMessage = mutation({
     await ctx.db.patch(args.chatId, {
       updatedAt: now,
     });
+    
+    // Track usage in Autumn after successful user message creation
+    if (args.role === 'user') {
+      await autumnTrackMessageDirect(identity.subject);
+    }
     
     return messageId;
   },
@@ -979,3 +993,45 @@ export const timingSafeEqual = (a: string, b: string): boolean => {
   
   return result === 0;
 };
+
+// Autumn backend calls (server-side) directly to Autumn API
+async function autumnCheckMessagesAllowedDirect(customerId: string): Promise<boolean | null> {
+  const secret = process.env.AUTUMN_SECRET_KEY;
+  if (!secret) return null;
+  const base = process.env.AUTUMN_API_BASE || 'https://api.useautumn.com';
+  try {
+    const resp = await fetch(`${base}/v1/check`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${secret}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ customer_id: customerId, feature_id: 'messages' }),
+    });
+    if (!resp.ok) return null;
+    const json = await resp.json();
+    const payload = json?.data ?? json;
+    if (typeof payload?.allowed === 'boolean') return payload.allowed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function autumnTrackMessageDirect(customerId: string): Promise<void> {
+  const secret = process.env.AUTUMN_SECRET_KEY;
+  if (!secret) return;
+  const base = process.env.AUTUMN_API_BASE || 'https://api.useautumn.com';
+  try {
+    await fetch(`${base}/v1/track`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${secret}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ customer_id: customerId, feature_id: 'messages' }),
+    });
+  } catch {
+    // best-effort only
+  }
+}

@@ -38,5 +38,10 @@ STRIPE_PRICE_ENTERPRISE_YEAR=price_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Removed Polar billing configuration
 
+# === OPTIONAL: Autumn Billing ===
+AUTUMN_SECRET_KEY=am_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Optionally override API base (defaults to https://api.useautumn.com)
+# AUTUMN_API_BASE=https://api.useautumn.com
+
 # === REQUIRED for server-side fetches to own APIs ===
 PUBLIC_ORIGIN=http://localhost:5173

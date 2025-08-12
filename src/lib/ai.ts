@@ -459,3 +459,16 @@ export async function generateChatTitleFromMessages(messages: Array<{ role: 'use
     return 'New chat';
   }
 }
+
+export async function recordAutumnMessageUsage(): Promise<void> {
+  try {
+    await fetch('/api/autumn-track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ featureId: 'messages' }),
+      credentials: 'include',
+    });
+  } catch {
+    // ignore
+  }
+}
