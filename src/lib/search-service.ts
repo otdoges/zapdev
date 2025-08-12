@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/react';
 import { withTimeout } from './ai-utils';
 import { createTokenBucketRateLimiter } from './rate-limiter';
-
+import * as cheerio from 'cheerio';
 const { logger } = Sentry;
 
 // Simple in-memory rate limiter per session (client-side)
@@ -316,22 +316,14 @@ export class BraveSearchService {
   }
 
   private extractTextContent(html: string): string {
-    let sanitized = html;
-    let previous;
-    // Remove all <script> tags (including content) repeatedly
-    do {
-      previous = sanitized;
-      sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gis, '');
-    } while (sanitized !== previous);
-    // Remove all <style> tags (including content) repeatedly
-    do {
-      previous = sanitized;
-      sanitized = sanitized.replace(/<style[^>]*>.*?<\/style>/gis, '');
-    } while (sanitized !== previous);
-    // Remove all other HTML tags
-    sanitized = sanitized.replace(/<[^>]*>/g, ' ');
+    // Use Cheerio to parse HTML and remove <script> and <style> tags
+    const $ = cheerio.load(html);
+    $('script').remove();
+    $('style').remove();
+    // Get the text content
+    const text = $.root().text();
     // Collapse whitespace and trim
-    return sanitized.replace(/\s+/g, ' ').trim();
+    return text.replace(/\s+/g, ' ').trim();
   }
 }
 
