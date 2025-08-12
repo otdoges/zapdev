@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { enforceRateLimit } from "./rateLimit";
 import { enforceAIRateLimit } from "./aiRateLimit";
 import DOMPurify from 'dompurify';
+import { Autumn as autumn } from 'autumn-js';
 
 // Security utility functions
 const generateSecureToken = async (length: number): Promise<string> => {
@@ -250,7 +251,18 @@ export const createMessage = mutation({
     if (!chat || chat.userId !== identity.subject) {
       throw new Error("Chat not found or access denied");
     }
-    
+
+    // Autumn feature gate: limit user message sends by plan
+    if (args.role === "user") {
+      const { data } = await autumn.check({
+        customer_id: identity.subject,
+        feature_id: "messages",
+      });
+      if (!data?.allowed) {
+        throw new Error("No more messages for your current plan");
+      }
+    }
+
     // Rate limiting
     await enforceRateLimit(ctx, "sendMessage");
     
@@ -324,6 +336,14 @@ export const createMessage = mutation({
     }
     
     const messageId = await ctx.db.insert("messages", messageData);
+
+    // Track usage in Autumn after successful user message
+    if (args.role === "user") {
+      await autumn.track({
+        customer_id: identity.subject,
+        feature_id: "messages",
+      });
+    }
     
     // Update the chat's updatedAt timestamp
     await ctx.db.patch(args.chatId, {

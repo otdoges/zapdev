@@ -73,8 +73,10 @@
     "@vercel/node": "^5.3.11",
     "@webcontainer/api": "^1.6.1",
     "ai": "^5.0.10",
+    "autumn-js": "^0.1.11",
     "axios": "^1.11.0",
     "brace-expansion": "^2.0.2",
+    "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -113,8 +115,7 @@
     "undici": "^5.28.5",
     "vaul": "^1.1.2",
     "vercel": "^44.7.3",
-    "zod": "^4.0.17",
-    "cheerio": "^1.1.2"
+    "zod": "^4.0.17"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

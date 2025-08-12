@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useAuthToken } from '@/lib/auth-token';
 import * as Sentry from '@sentry/react';
+import { useCustomer, CheckoutDialog } from 'autumn-js/react';
 
 interface PricingPlan {
   id: 'free' | 'starter' | 'pro' | 'enterprise';
@@ -88,8 +89,11 @@ const PRICING_PLANS: PricingPlan[] = [
 const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
   const { isSignedIn, isLoading: authLoading, user } = useAuth();
   const { getValidToken } = useAuthToken();
+  const { checkout } = useCustomer();
   const [isLoading, setIsLoading] = useState(false);
   
+  const PRO_PRODUCT_ID = import.meta.env.VITE_AUTUMN_PRODUCT_PRO_ID || 'pro';
+
   // Better authentication check: user is considered authenticated if signed in to Clerk
   // even if Convex sync is still in progress
   const isUserAuthenticated = isSignedIn && !authLoading;
@@ -115,6 +119,36 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
         level: 'info',
         data: { planId: plan.id, isSignedIn, authLoading, hasUser: !!user }
       });
+      return;
+    }
+
+    // Use Autumn checkout for Pro plan
+    if (plan.id === 'pro') {
+      try {
+        setIsLoading(true);
+        // Basic retry on transient errors
+        const maxAttempts = 2;
+        let lastErr: unknown;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            await checkout({ productId: PRO_PRODUCT_ID, dialog: CheckoutDialog });
+            lastErr = undefined;
+            break;
+          } catch (err) {
+            lastErr = err;
+            if (attempt === maxAttempts) throw err;
+          }
+        }
+      } catch (error) {
+        console.error('Autumn checkout error:', error);
+        toast.error('Failed to start checkout. Please try again.');
+        Sentry.captureException(error, {
+          tags: { feature: 'pricing', action: 'autumn_checkout_error' },
+          extra: { planId: plan.id }
+        });
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -147,7 +181,7 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
         console.error('Health check error:', e);
       }
 
-      // Call the API endpoint directly
+      // Call the API endpoint directly (fallback for non-Autumn plans)
       console.log('Creating checkout session for plan:', plan.id);
       console.log('Using token:', token ? 'Token present' : 'No token');
 
