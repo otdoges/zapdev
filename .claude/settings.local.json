@@ -60,7 +60,9 @@
       "Bash(mkdir:*)",
       "WebFetch(domain:docs.useautumn.com)",
       "WebFetch(domain:docs.useautumn.com)",
-      "Bash(bun install:*)"
+      "Bash(bun install:*)",
+      "Bash(bun audit:*)",
+      "Bash(bun update:*)"
     ],
     "deny": []
   }
