@@ -13,10 +13,14 @@ import Footer from "@/components/Footer";
 
 import { useAuth } from "@/hooks/useAuth";
 import React, { useEffect } from "react"; // Added missing import for React
+import * as Sentry from "@sentry/react";
 
 const HeroSection = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isSignedIn, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  
+  // Better authentication check for UI display
+  const isUserSignedIn = isSignedIn && !authLoading;
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
@@ -81,7 +85,7 @@ const HeroSection = () => {
             transition={{ delay: 0.8, duration: 0.8 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            {!isAuthenticated && (
+            {!isUserSignedIn && (
               <Button 
                 size="lg" 
                 className="button-gradient px-8 py-3"
@@ -310,8 +314,11 @@ const FAQSection = () => {
 };
 
 const CTASection = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isSignedIn, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  
+  // Better authentication check for UI display
+  const isUserSignedIn = isSignedIn && !authLoading;
 
   return (
     <motion.section 
@@ -371,7 +378,7 @@ const CTASection = () => {
             className="bg-white text-blue-600 hover:bg-white/90"
             onClick={() => navigate('/chat')}
           >
-            {isAuthenticated ? 'Open Chat' : 'Get Started'}
+            {isUserSignedIn ? 'Open Chat' : 'Get Started'}
             <ArrowRight className="ml-2 w-4 h-4" />
           </Button>
         </motion.div>
@@ -386,7 +393,16 @@ const Pricing = () => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('billing') === 'success') {
       const id = localStorage.getItem('convexUserId');
-      if (id) fetch(`/api/success?userId=${encodeURIComponent(id)}`, { method: 'POST' }).catch(() => {});
+      if (id) {
+        fetch(`/api/success?userId=${encodeURIComponent(id)}`, { method: 'POST' })
+          .catch((error) => {
+            console.error('Failed to sync billing success:', error);
+            Sentry.captureException(error, {
+              tags: { feature: 'pricing', action: 'billing_success_sync' },
+              extra: { userId: id }
+            });
+          });
+      }
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
@@ -408,4 +424,16 @@ const Pricing = () => {
   );
 };
 
-export default Pricing; 
+export default Sentry.withErrorBoundary(Pricing, {
+  fallback: ({ error, resetError }) => (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
+        <p className="text-gray-400 mb-4">We're sorry, but there was an error loading the pricing page.</p>
+        <Button onClick={resetError} className="button-gradient">
+          Try Again
+        </Button>
+      </div>
+    </div>
+  ),
+}); 

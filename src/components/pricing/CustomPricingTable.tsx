@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useAuthToken } from '@/lib/auth-token';
+import * as Sentry from '@sentry/react';
 
 interface PricingPlan {
   id: 'free' | 'starter' | 'pro' | 'enterprise';
@@ -85,9 +86,13 @@ const PRICING_PLANS: PricingPlan[] = [
 ];
 
 const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isSignedIn, isLoading: authLoading, user } = useAuth();
   const { getValidToken } = useAuthToken();
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Better authentication check: user is considered authenticated if signed in to Clerk
+  // even if Convex sync is still in progress
+  const isUserAuthenticated = isSignedIn && !authLoading;
 
   const enterpriseContactEmail = import.meta.env.VITE_ENTERPRISE_CONTACT_EMAIL || 'enterprise@zapdev.link';
 
@@ -103,18 +108,30 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
       return;
     }
 
-    if (!isAuthenticated) {
+    if (!isUserAuthenticated) {
       toast.error('Please sign in to upgrade your plan');
+      Sentry.addBreadcrumb({
+        message: 'User attempted to upgrade without authentication',
+        level: 'info',
+        data: { planId: plan.id, isSignedIn, authLoading, hasUser: !!user }
+      });
       return;
     }
 
+    let token: string | null = null;
     try {
       setIsLoading(true);
 
       // Get valid auth token from Clerk
-      const token = await getValidToken();
+      token = await getValidToken();
       if (!token) {
-        toast.error('Please sign in to continue');
+        const errorMsg = 'Please sign in to continue';
+        toast.error(errorMsg);
+        Sentry.captureMessage(errorMsg, {
+          level: 'warning',
+          tags: { feature: 'pricing', action: 'checkout' },
+          extra: { planId: plan.id, isSignedIn, authLoading }
+        });
         return;
       }
 
@@ -133,7 +150,12 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create checkout session');
+        const error = new Error(errorData.message || 'Failed to create checkout session');
+        Sentry.captureException(error, {
+          tags: { feature: 'pricing', action: 'checkout_api_error' },
+          extra: { planId: plan.id, status: response.status, errorData }
+        });
+        throw error;
       }
 
       const result = await response.json();
@@ -142,7 +164,14 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
       }
     } catch (error) {
       console.error('Checkout error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to start checkout. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start checkout. Please try again.';
+      toast.error(errorMessage);
+      
+      // Capture error in Sentry
+      Sentry.captureException(error, {
+        tags: { feature: 'pricing', action: 'checkout_error' },
+        extra: { planId: plan.id, isUserAuthenticated, token: !!token }
+      });
     } finally {
       setIsLoading(false);
     }
