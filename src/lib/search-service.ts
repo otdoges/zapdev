@@ -316,12 +316,19 @@ export class BraveSearchService {
   }
 
   private extractTextContent(html: string): string {
-    return html
-      .replace(/<script[^>]*>.*?<\/script>/gi, '')
-      .replace(/<style[^>]*>.*?<\/style>/gi, '')
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    if (typeof window !== 'undefined' && typeof window.DOMParser !== 'undefined') {
+      const parser = new window.DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      return doc.body.textContent?.replace(/\s+/g, ' ').trim() || '';
+    } else {
+      // Fallback: original regex-based approach (less safe)
+      return html
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script[\s\S]*?>/gi, '')
+        .replace(/<style[\s\S]*?>[\s\S]*?<\/style[\s\S]*?>/gi, '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
   }
 }
 
