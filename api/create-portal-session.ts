@@ -85,9 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         throw new Error('STRIPE_SECRET_KEY environment variable is not set');
       }
 
-      const stripe = new Stripe(stripeSecretKey, {
-        apiVersion: '2025-07-30.basil',
-      });
+      const stripe = new Stripe(stripeSecretKey);
 
       // Find the Stripe customer by email
       const existingCustomers = await stripe.customers.list({
