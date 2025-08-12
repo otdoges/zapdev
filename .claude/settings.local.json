@@ -65,7 +65,9 @@
       "Bash(bun update:*)",
       "Bash(bun list:*)",
       "mcp__context-7__resolve-library-id",
-      "mcp__context-7__get-library-docs"
+      "mcp__context-7__get-library-docs",
+      "Bash(git merge:*)",
+      "Bash(gh pr merge:*)"
     ],
     "deny": []
   }
