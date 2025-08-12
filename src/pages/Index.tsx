@@ -203,27 +203,19 @@ const Index = () => {
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true, amount: 0.3 }}
         transition={{ duration: 0.8, delay: 0.2 }}
-        className="w-full border-t border-white"
+        className="w-full border-t border-white py-20 px-4 md:px-8 lg:px-32"
         style={{
-          paddingLeft: '120px',
-          paddingRight: '120px',
-          paddingTop: '80px',
-          paddingBottom: '80px',
-          background: '#3E6FF3',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-          gap: '40px',
-          display: 'inline-flex'
+          background: '#3E6FF3'
         }}
       >
-        <motion.div 
-          initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-center"
-        >
+        <div className="flex flex-col items-center justify-center w-full">
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="text-center max-w-4xl mx-auto"
+          >
           <motion.h2 
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -271,7 +263,8 @@ const Index = () => {
               </SignInButton>
             )}
           </motion.div>
-        </motion.div>
+          </motion.div>
+        </div>
       </motion.section>
 
       {/* Footer */}
