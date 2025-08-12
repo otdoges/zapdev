@@ -14,16 +14,7 @@ function mapPriceIdToPlanType(priceId: string): 'free' | 'pro' | 'enterprise' | 
   return priceIdMap[priceId] || 'free';
 }
 
-// Helper function to get plan features
-function getPlanFeatures(planType: 'free' | 'pro' | 'enterprise' | 'starter'): string[] {
-  const featureMap: Record<string, string[]> = {
-    free: ['basic_chat', 'limited_executions'],
-    starter: ['basic_chat', 'code_execution', 'file_upload'],
-    pro: ['unlimited_chat', 'unlimited_executions', 'advanced_models', 'priority_support'],
-    enterprise: ['unlimited_chat', 'unlimited_executions', 'advanced_models', 'priority_support', 'custom_integrations', 'dedicated_support'],
-  };
-  return featureMap[planType] || featureMap.free;
-}
+
 
 // Helper function to call Convex mutations via HTTP
 async function callConvexMutation(path: string, args: any): Promise<any> {
@@ -231,7 +222,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Ensure customer mapping exists
         const customer = await stripe.customers.retrieve(session.customer as string);
         if (!customer.deleted) {
-          await ensureCustomerMapping(userId, customer.id, customer.email || '');
+          await ensureCustomerMapping(userId, customer.id, (customer as any).email || '');
         }
 
         // Get the subscription ID from the session
@@ -257,14 +248,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           break;
         }
 
-        const userId = customer.metadata?.userId;
+        const userId = !customer.deleted ? (customer as any).metadata?.userId : null;
         if (!userId) {
           console.error('No userId found in customer metadata for subscription:', subscription.id);
           break;
         }
 
         // Ensure customer mapping exists
-        await ensureCustomerMapping(userId, customer.id, customer.email || '');
+        if (!customer.deleted) {
+          await ensureCustomerMapping(userId, customer.id, (customer as any).email || '');
+        }
 
         // Sync subscription data
         await syncSubscriptionToConvex(userId, subscription.customer as string, subscription);
@@ -283,7 +276,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           break;
         }
 
-        const userId = customer.metadata?.userId;
+        const userId = !customer.deleted ? (customer as any).metadata?.userId : null;
         if (!userId) {
           console.error('No userId found in customer metadata for subscription:', subscription.id);
           break;
@@ -305,7 +298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           break;
         }
 
-        const userId = customer.metadata?.userId;
+        const userId = !customer.deleted ? (customer as any).metadata?.userId : null;
         if (!userId) {
           console.error('No userId found in customer metadata for subscription:', subscription.id);
           break;
@@ -331,7 +324,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             break;
           }
 
-          const userId = customer.metadata?.userId;
+          const userId = !customer.deleted ? (customer as any).metadata?.userId : null;
           if (userId) {
             await syncSubscriptionToConvex(userId, subscription.customer as string, subscription);
             console.log('Successfully processed payment success for user:', userId);
@@ -354,7 +347,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             break;
           }
 
-          const userId = customer.metadata?.userId;
+          const userId = !customer.deleted ? (customer as any).metadata?.userId : null;
           if (userId) {
             // Sync the current subscription status (might be past_due)
             await syncSubscriptionToConvex(userId, subscription.customer as string, subscription);

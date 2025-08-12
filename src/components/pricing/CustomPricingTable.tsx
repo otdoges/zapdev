@@ -86,7 +86,7 @@ const PRICING_PLANS: PricingPlan[] = [
 ];
 
 const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
-  const { isAuthenticated, isSignedIn, isLoading: authLoading, user } = useAuth();
+  const { isSignedIn, isLoading: authLoading, user } = useAuth();
   const { getValidToken } = useAuthToken();
   const [isLoading, setIsLoading] = useState(false);
   
