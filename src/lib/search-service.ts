@@ -316,9 +316,16 @@ export class BraveSearchService {
   }
 
   private extractTextContent(html: string): string {
-    return html
-      .replace(/<script[^>]*>.*?<\/script>/gi, '')
-      .replace(/<style[^>]*>.*?<\/style>/gi, '')
+    // Repeatedly remove <script> and <style> tags and their content
+    let sanitized = html;
+    let previous;
+    do {
+      previous = sanitized;
+      sanitized = sanitized
+        .replace(/<script[^>]*>.*?<\/script>/gis, '')
+        .replace(/<style[^>]*>.*?<\/style>/gis, '');
+    } while (sanitized !== previous);
+    return sanitized
       .replace(/<[^>]*>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
