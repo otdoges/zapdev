@@ -321,10 +321,20 @@ export class BraveSearchService {
       const doc = parser.parseFromString(html, 'text/html');
       return doc.body.textContent?.replace(/\s+/g, ' ').trim() || '';
     } else {
-      // Fallback: original regex-based approach (less safe)
-      return html
-        .replace(/<script[\s\S]*?>[\s\S]*?<\/script[\s\S]*?>/gi, '')
-        .replace(/<style[\s\S]*?>[\s\S]*?<\/style[\s\S]*?>/gi, '')
+      // Fallback: improved regex-based approach (repeat until no matches)
+      let sanitized = html;
+      let previous;
+      // Remove <script>...</script> blocks repeatedly
+      do {
+        previous = sanitized;
+        sanitized = sanitized.replace(/<script[\s\S]*?>[\s\S]*?<\/script[\s\S]*?>/gi, '');
+      } while (sanitized !== previous);
+      // Remove <style>...</style> blocks repeatedly
+      do {
+        previous = sanitized;
+        sanitized = sanitized.replace(/<style[\s\S]*?>[\s\S]*?<\/style[\s\S]*?>/gi, '');
+      } while (sanitized !== previous);
+      return sanitized
         .replace(/<[^>]*>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
