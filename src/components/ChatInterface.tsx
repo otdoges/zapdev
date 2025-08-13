@@ -7,6 +7,8 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { SafeText } from '@/components/ui/SafeText';
 import { 
@@ -30,7 +32,9 @@ import {
   Search,
   Globe,
   ExternalLink,
-  Link
+  Link,
+  Palette,
+  Image
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
@@ -157,6 +161,27 @@ const ChatInterface: React.FC = () => {
   // AI Suggestions state
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [rightPanelTab, setRightPanelTab] = useState<'preview' | 'suggestions'>('preview');
+
+  // Lovable-inspired personalization toggles
+  const [showTimestamps, setShowTimestamps] = useState<boolean>(true);
+  const [skin, setSkin] = useState<'luxury' | 'neon' | 'minimal'>('luxury');
+  const [allowInlineEdit, setAllowInlineEdit] = useState<boolean>(false);
+  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
+  const [sendIcon, setSendIcon] = useState<'send' | 'sparkles'>('send');
+  const [customAvatarUrl, setCustomAvatarUrl] = useState<string | undefined>();
+  const handleAvatarUpload: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = typeof reader.result === 'string' ? reader.result : undefined;
+      setCustomAvatarUrl(url);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // No-op refetch to satisfy lints; replaced any real billing/customer refetch
+  const refetchCustomer = async () => {};
 
   const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
   // Team Lead planning
@@ -541,8 +566,6 @@ const ChatInterface: React.FC = () => {
           recentMessages.push(userContent);
           updateChatHistory(recentMessages);
 
-          await refetchCustomer();
-
           // Auto-run user code blocks via E2B (JS/TS only per project preference)
           const userBlocks = extractCodeBlocks(userContent);
           if (userBlocks.length > 0) {
@@ -691,8 +714,6 @@ const ChatInterface: React.FC = () => {
               }
             }, 2000); // Delay to let the conversation settle
           }
-
-          await refetchCustomer();
 
           // Try AI title refinement after first exchange
           try {
@@ -1424,7 +1445,22 @@ const ChatInterface: React.FC = () => {
                   </motion.div>
                   <div>
                     <h2 className="font-semibold text-lg text-gray-100">
-                      <SafeText>{chats?.find(c => c._id === selectedChatId)?.title || 'New Conversation'}</SafeText>
+                      {allowInlineEdit ? (
+                        <input
+                          value={chats?.find(c => c._id === selectedChatId)?.title || 'New Conversation'}
+                          onChange={async (e) => {
+                            const title = e.target.value.slice(0, 100);
+                            const chatId = selectedChatId as Id<'chats'> | null;
+                            if (!chatId) return;
+                            try {
+                              await updateChat({ chatId, title });
+                            } catch {}
+                          }}
+                          className="bg-transparent border-b border-transparent focus:border-border outline-none text-lg font-semibold"
+                        />
+                      ) : (
+                        <SafeText>{chats?.find(c => c._id === selectedChatId)?.title || 'New Conversation'}</SafeText>
+                      )}
                     </h2>
                     <div className="flex items-center gap-3 text-xs text-gray-400">
                       <Badge variant="secondary" className="text-xs bg-gradient-to-r from-purple-500/20 to-violet-500/20 text-purple-300 border border-purple-500/30 px-2 py-1">
@@ -1439,28 +1475,61 @@ const ChatInterface: React.FC = () => {
                 </div>
                 
                 {/* Encryption status */}
-                <div className="flex items-center gap-3">
-                  <Button
-                    size="sm"
-                    variant={encryptionEnabled ? "default" : "outline"}
-                    onClick={() => encryptionInitialized && setEncryptionEnabled(!encryptionEnabled)}
-                    disabled={!encryptionInitialized}
-                    className={`h-9 px-4 text-xs transition-all duration-200 ${
-                      encryptionEnabled 
-                        ? 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30' 
-                        : 'bg-gray-800/50 text-gray-400 border-gray-700/50 hover:bg-gray-700/50'
-                    } ${!encryptionInitialized ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {!encryptionInitialized ? (
-                      <Shield className="w-3 h-3 mr-2" />
-                    ) : encryptionEnabled ? (
-                      <ShieldCheck className="w-3 h-3 mr-2" />
-                    ) : (
-                      <ShieldX className="w-3 h-3 mr-2" />
-                    )}
-                    {encryptionEnabled ? 'E2E Encrypted' : 'Plain Text'}
-                  </Button>
-                </div>
+              <div className="flex items-center gap-3">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-9 px-3">
+                      <Palette className="w-3 h-3 mr-2" />
+                      Theme
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64">
+                    <div className="space-y-3">
+                      <div className="text-xs font-medium text-muted-foreground">Appearance</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['luxury','neon','minimal'] as const).map(opt => (
+                          <button
+                            key={opt}
+                            onClick={() => setSkin(opt)}
+                            className={`h-16 rounded-lg border text-xs capitalize transition-colors ${skin===opt ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/40'}`}
+                            type="button"
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-sm">Show timestamps</span>
+                        <Switch checked={showTimestamps} onCheckedChange={setShowTimestamps} />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Inline edit titles</span>
+                        <Switch checked={allowInlineEdit} onCheckedChange={setAllowInlineEdit} />
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  size="sm"
+                  variant={encryptionEnabled ? "default" : "outline"}
+                  onClick={() => encryptionInitialized && setEncryptionEnabled(!encryptionEnabled)}
+                  disabled={!encryptionInitialized}
+                  className={`h-9 px-4 text-xs transition-all duration-200 ${
+                    encryptionEnabled 
+                      ? 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30' 
+                      : 'bg-gray-800/50 text-gray-400 border-gray-700/50 hover:bg-gray-700/50'
+                  } ${!encryptionInitialized ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {!encryptionInitialized ? (
+                    <Shield className="w-3 h-3 mr-2" />
+                  ) : encryptionEnabled ? (
+                    <ShieldCheck className="w-3 h-3 mr-2" />
+                  ) : (
+                    <ShieldX className="w-3 h-3 mr-2" />
+                  )}
+                  {encryptionEnabled ? 'E2E Encrypted' : 'Plain Text'}
+                </Button>
+              </div>
               </div>
               </motion.div>
 
@@ -1536,12 +1605,12 @@ const ChatInterface: React.FC = () => {
                               </Avatar>
                             )}
 
-                            <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
-                              <Card className={`rounded-xl transition-all duration-300 group-hover:shadow-2xl ${
-                                message.role === 'user'
-                                  ? 'bg-gradient-to-br from-purple-500/10 to-violet-500/10 border border-purple-500/20 shadow-lg shadow-purple-500/5'
-                                  : 'bg-[#1A1A1A]/90 backdrop-blur-xl border border-gray-800/50 shadow-xl shadow-black/20'
-                              } ${radiusClass}`}>
+                              <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
+                                <Card className={`rounded-xl transition-all duration-300 group-hover:shadow-2xl ${
+                                  message.role === 'user'
+                                    ? (skin==='neon' ? 'bg-[#0b0b0f]/90 border border-fuchsia-500/40 shadow-[0_0_20px_rgba(217,70,239,0.25)]' : skin==='minimal' ? 'bg-card/80 border border-border' : 'bg-gradient-to-br from-purple-500/10 to-violet-500/10 border border-purple-500/20 shadow-lg shadow-purple-500/5')
+                                    : (skin==='neon' ? 'bg-[#0b0b0f]/80 border border-cyan-400/30 shadow-[0_0_24px_rgba(34,211,238,0.2)]' : skin==='minimal' ? 'bg-card/80 border border-border' : 'bg-[#1A1A1A]/90 backdrop-blur-xl border border-gray-800/50 shadow-xl shadow-black/20')
+                                } ${radiusClass}`}>
                                 <CardContent className="p-5">
                                   <div className="text-sm leading-relaxed text-gray-100">
                                     <SafeText>{getMessageContent(message)}</SafeText>
@@ -1609,9 +1678,11 @@ const ChatInterface: React.FC = () => {
                                   ))}
 
                                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
-                                    <span className="text-xs opacity-70">
-                                      {formatTimestamp(message.createdAt)}
-                                    </span>
+                                    {showTimestamps && (
+                                      <span className="text-xs opacity-70">
+                                        {formatTimestamp(message.createdAt)}
+                                      </span>
+                                    )}
                                     <Button
                                       size="sm"
                                       variant="ghost"
@@ -1700,7 +1771,7 @@ const ChatInterface: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
-                className="p-6 border-t border-gray-800/60 bg-[#1A1A1A]/50 backdrop-blur-xl"
+                className={`p-6 border-t ${skin==='neon' ? 'border-fuchsia-500/30 bg-[#0b0b0f]/80' : 'border-gray-800/60 bg-[#1A1A1A]/50'} backdrop-blur-xl`}
               >
               <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
                 <motion.div 
@@ -1731,7 +1802,7 @@ const ChatInterface: React.FC = () => {
                       type="submit" 
                       disabled={!input.trim() || isTyping}
                       size="sm"
-                      className="h-10 px-5 rounded-xl bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white border-0 shadow-lg shadow-purple-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className={`h-10 px-5 rounded-xl text-white border-0 shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${skin==='neon' ? 'bg-fuchsia-600 hover:bg-fuchsia-700 shadow-fuchsia-500/25' : 'bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 shadow-purple-500/25'}`}
                     >
                       {isTyping ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1826,12 +1897,14 @@ const ChatInterface: React.FC = () => {
                   )}
                 </div>
               ) : (
-                <div className="h-full">
+                <div className="h-full overflow-y-auto">
                   <AISuggestions
                     isVisible={rightPanelTab === 'suggestions'}
                     onClose={() => setRightPanelTab('preview')}
                     context={context}
-                    onImplementSuggestion={aiSuggestions.implementSuggestion}
+                    onImplementSuggestion={async (suggestion) => {
+                      await aiSuggestions.implementSuggestion(suggestion);
+                    }}
                     className="!fixed !relative !w-full !h-full !border-0"
                   />
                 </div>

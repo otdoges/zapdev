@@ -37,7 +37,7 @@ interface AISuggestionsProps {
   isVisible: boolean;
   onClose: () => void;
   context?: Partial<SuggestionContext>;
-  onImplementSuggestion?: (suggestion: AISuggestion) => Promise<void>;
+  onImplementSuggestion?: (suggestion: AISuggestion) => Promise<any>;
   className?: string;
 }
 
