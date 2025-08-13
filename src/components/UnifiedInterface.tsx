@@ -414,6 +414,12 @@ const UnifiedInterface: React.FC = () => {
     e.preventDefault();
     if (!input.trim() || isTyping) return;
 
+    // Check if user is authenticated before processing message
+    if (!user) {
+      toast.error('Please sign in to send messages');
+      return;
+    }
+
     // Create a chat if none exists
     if (!selectedChatId) {
       await handleCreateChat();
@@ -816,7 +822,13 @@ const UnifiedInterface: React.FC = () => {
                   <Textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value.substring(0, MAX_MESSAGE_LENGTH))}
-                    placeholder={isChatExpanded ? "Continue the conversation..." : "What would you like to build today?"}
+                    placeholder={
+                      !user && isChatExpanded 
+                        ? "Sign in to start building with AI..." 
+                        : isChatExpanded 
+                          ? "Continue the conversation..." 
+                          : "What would you like to build today?"
+                    }
                     className={`text-base bg-card/80 backdrop-blur-sm border-2 border-muted/50 focus:border-primary/50 transition-all duration-200 resize-none pr-16 rounded-xl shadow-lg ${
                       isChatExpanded ? 'min-h-[52px]' : 'min-h-[60px]'
                     }`}
@@ -833,9 +845,12 @@ const UnifiedInterface: React.FC = () => {
                     disabled={!input.trim() || isTyping}
                     size="sm"
                     className="absolute right-2 bottom-2 h-10 w-10 p-0 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
+                    title={!user ? "Sign in to send messages" : "Send message"}
                   >
                     {isTyping ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : !user ? (
+                      <User className="w-4 h-4" />
                     ) : (
                       <Send className="w-4 h-4" />
                     )}
@@ -901,7 +916,7 @@ const UnifiedInterface: React.FC = () => {
 
             {/* Expanded Chat Interface */}
             <AnimatePresence>
-              {isChatExpanded && user && (
+              {isChatExpanded && (user || location.pathname === '/chat') && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -1001,6 +1016,31 @@ const UnifiedInterface: React.FC = () => {
                     {/* Messages */}
                     <ScrollArea className="h-96 p-4">
                       <div className="space-y-4">
+                        {/* Sign-in prompt for unauthenticated users with no messages */}
+                        {!user && (!messages || messages.length === 0) && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex flex-col items-center justify-center py-8 text-center"
+                          >
+                            <div className="bg-card/80 backdrop-blur-sm border border-muted/50 rounded-lg p-6 max-w-sm">
+                              <div className="mb-4">
+                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center mx-auto mb-3">
+                                  <Bot className="w-6 h-6 text-white" />
+                                </div>
+                                <h3 className="font-semibold text-gray-100 mb-2">Ready to start building?</h3>
+                                <p className="text-sm text-gray-400 mb-4">Sign in to start chatting with ZapDev AI and build amazing applications.</p>
+                              </div>
+                              <SignInButton mode="redirect" forceRedirectUrl="/chat">
+                                <Button className="w-full button-gradient">
+                                  Sign In to Continue
+                                  <ArrowRight className="ml-2 w-4 h-4" />
+                                </Button>
+                              </SignInButton>
+                            </div>
+                          </motion.div>
+                        )}
+
                         <AnimatePresence>
                           {messages?.map((message, idx) => {
                             const prev = idx > 0 ? messages[idx - 1] : undefined;
