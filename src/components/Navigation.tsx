@@ -48,11 +48,8 @@ const Navigation = () => {
   };
 
   const navItems = [
-    { name: "Features", href: "#features", onClick: () => scrollToSection('features') },
+    { name: "Chat", href: "/chat", isLink: true },
     { name: "Pricing", href: "/pricing", isLink: true },
-    ...(isAuthenticated ? [
-      { name: "AI Chat", href: "/chat", isLink: true }
-    ] : []),
   ];
 
   return (
