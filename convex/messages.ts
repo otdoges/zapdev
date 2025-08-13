@@ -5,7 +5,6 @@ import type { Id } from "./_generated/dataModel";
 import { enforceRateLimit } from "./rateLimit";
 import { enforceAIRateLimit } from "./aiRateLimit";
 import DOMPurify from 'dompurify';
-import { Autumn as autumn } from 'autumn-js';
 
 // Security utility functions
 const generateSecureToken = async (length: number): Promise<string> => {
@@ -252,15 +251,10 @@ export const createMessage = mutation({
       throw new Error("Chat not found or access denied");
     }
 
-    // Autumn feature gate: limit user message sends by plan
+    // Simple message limit check (can be enhanced with proper subscription logic later)
     if (args.role === "user") {
-      const { data } = await autumn.check({
-        customer_id: identity.subject,
-        feature_id: "messages",
-      });
-      if (!data?.allowed) {
-        throw new Error("No more messages for your current plan");
-      }
+      // For now, allow all messages (remove this limitation or implement proper Stripe subscription check)
+      // This can be enhanced later with proper subscription status checking
     }
 
     // Rate limiting
@@ -337,12 +331,9 @@ export const createMessage = mutation({
     
     const messageId = await ctx.db.insert("messages", messageData);
 
-    // Track usage in Autumn after successful user message
+    // Usage tracking can be implemented here if needed
     if (args.role === "user") {
-      await autumn.track({
-        customer_id: identity.subject,
-        feature_id: "messages",
-      });
+      // This could track usage in your analytics system
     }
     
     // Update the chat's updatedAt timestamp

@@ -39,6 +39,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 import { streamAIResponse, generateChatTitleFromMessages, generateAIResponse } from '@/lib/ai';
 import { executeCode, startSandbox } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { E2BCodeExecution } from './E2BCodeExecution';
 import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
 import { MessageEncryption, isEncryptedMessage } from '@/lib/message-encryption';
@@ -48,7 +49,6 @@ import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
 import WebContainerFailsafe from './WebContainerFailsafe';
 import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
-import { useCustomer, CheckoutDialog } from 'autumn-js/react';
 
 
 const { logger } = Sentry;
@@ -138,6 +138,7 @@ interface CodeBlock {
 
 const ChatInterface: React.FC = () => {
   const { user, isLoading: authLoading } = useAuth();
+  const { getToken } = useClerkAuth();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -177,7 +178,29 @@ const ChatInterface: React.FC = () => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { check: checkFeature, checkout, refetch: refetchCustomer } = useCustomer();
+  // Stripe checkout function
+  const createCheckoutSession = async (planId: string) => {
+    try {
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await getToken()}`,
+        },
+        body: JSON.stringify({ planId, period: 'month' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
+      window.location.href = url;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Failed to start checkout process');
+    }
+  };
   // TTL cache for feature checks to avoid frequent recomputation
   const featureCacheRef = React.useRef<Map<string, { allowed: boolean; ts: number }>>(new Map());
   const FEATURE_TTL_MS = 30_000; // 30s
@@ -423,7 +446,7 @@ const ChatInterface: React.FC = () => {
         if (!allowed) {
           toast.error("You're out of messages");
           try {
-            await checkout({ productId: 'pro', dialog: CheckoutDialog });
+            await createCheckoutSession('pro');
           } catch (err) {
             console.error('Autumn checkout failed:', err);
           }
@@ -432,7 +455,7 @@ const ChatInterface: React.FC = () => {
       } else if (!cached.allowed) {
         toast.error("You're out of messages");
         try {
-          await checkout({ productId: 'pro', dialog: CheckoutDialog });
+          await createCheckoutSession('pro');
         } catch (err) {
           console.error('Autumn checkout failed:', err);
         }

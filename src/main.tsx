@@ -1,6 +1,5 @@
 import { createRoot } from 'react-dom/client'
 import { StrictMode } from 'react'
-import { PostHogProvider } from 'posthog-js/react'
 import { ClerkProvider, useAuth } from '@clerk/clerk-react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 import * as Sentry from '@sentry/react'
@@ -8,8 +7,6 @@ import { convex } from './lib/convex'
 import { initializeApiKeySecurity } from './lib/api-key-validator'
 import App from './App.tsx'
 import './index.css'
-import { AutumnProvider } from 'autumn-js/react'
-import { useAuthToken } from './lib/auth-token'
 
 // Initialize Sentry
 if (import.meta.env.VITE_SENTRY_DSN) {
@@ -57,38 +54,6 @@ if (!PUBLISHABLE_KEY) {
 
 const root = createRoot(document.getElementById('root')!);
 
-function AutumnWrapper({ children }: { children: React.ReactNode }) {
-  const { getValidToken } = useAuthToken();
-
-  const resolveBackendUrl = (): string | undefined => {
-    const candidates = [
-      import.meta.env.VITE_AUTUMN_BACKEND_URL,
-      import.meta.env.VITE_CONVEX_URL,
-      typeof window !== 'undefined' ? window.location.origin : undefined,
-    ].filter(Boolean) as string[];
-
-    for (const candidate of candidates) {
-      try {
-        const url = new URL(candidate);
-        if (url.protocol === 'http:' || url.protocol === 'https:') {
-          // Only return the origin; strip path/query to avoid accidental exposure
-          return url.origin;
-        }
-      } catch {
-        // ignore invalid URLs
-      }
-    }
-    return undefined;
-  };
-
-  const backendUrl = resolveBackendUrl();
-
-  return (
-    <AutumnProvider backendUrl={backendUrl} getBearerToken={getValidToken}>
-      {children}
-    </AutumnProvider>
-  );
-}
 
 root.render(
   <StrictMode>
@@ -104,24 +69,7 @@ root.render(
       }}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        {import.meta.env.VITE_PUBLIC_POSTHOG_KEY ? (
-          <PostHogProvider
-            apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
-            options={{
-              api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-              capture_exceptions: true,
-              debug: import.meta.env.MODE === 'development',
-            }}
-          >
-            <AutumnWrapper>
-              <App />
-            </AutumnWrapper>
-          </PostHogProvider>
-        ) : (
-          <AutumnWrapper>
-            <App />
-          </AutumnWrapper>
-        )}
+        <App />
       </ConvexProviderWithClerk>
     </ClerkProvider>
   </StrictMode>

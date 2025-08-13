@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useAuthToken } from '@/lib/auth-token';
 import * as Sentry from '@sentry/react';
-import { useCustomer, CheckoutDialog } from 'autumn-js/react';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 
 interface PricingPlan {
   id: 'free' | 'starter' | 'pro' | 'enterprise';
@@ -89,10 +89,9 @@ const PRICING_PLANS: PricingPlan[] = [
 const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
   const { isSignedIn, isLoading: authLoading, user } = useAuth();
   const { getValidToken } = useAuthToken();
-  const { checkout } = useCustomer();
+  const { getToken } = useClerkAuth();
   const [isLoading, setIsLoading] = useState(false);
   
-  const PRO_PRODUCT_ID = import.meta.env.VITE_AUTUMN_PRODUCT_PRO_ID || 'pro';
 
   // Better authentication check: user is considered authenticated if signed in to Clerk
   // even if Convex sync is still in progress
@@ -122,7 +121,7 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
       return;
     }
 
-    // Use Autumn checkout for Pro plan
+    // Use Stripe checkout for Pro plan
     if (plan.id === 'pro') {
       try {
         setIsLoading(true);
@@ -131,7 +130,22 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
         let lastErr: unknown;
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            await checkout({ productId: PRO_PRODUCT_ID, dialog: CheckoutDialog });
+            // Use Stripe checkout instead
+            const response = await fetch('/api/create-checkout-session', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${await getToken()}`,
+              },
+              body: JSON.stringify({ planId: 'pro', period: 'month' }),
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to create checkout session');
+            }
+
+            const { url } = await response.json();
+            window.location.href = url;
             lastErr = undefined;
             break;
           } catch (err) {
@@ -140,10 +154,10 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
           }
         }
       } catch (error) {
-        console.error('Autumn checkout error:', error);
+        console.error('Stripe checkout error:', error);
         toast.error('Failed to start checkout. Please try again.');
         Sentry.captureException(error, {
-          tags: { feature: 'pricing', action: 'autumn_checkout_error' },
+          tags: { feature: 'pricing', action: 'stripe_checkout_error' },
           extra: { planId: plan.id }
         });
       } finally {
