@@ -49,6 +49,8 @@ import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
 import WebContainerFailsafe from './WebContainerFailsafe';
 import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
+import AISuggestions from './AISuggestions';
+import { useAISuggestions, useSuggestionContext } from '@/hooks/useAISuggestions';
 
 
 const { logger } = Sentry;
@@ -151,6 +153,10 @@ const ChatInterface: React.FC = () => {
   const [previewCode, setPreviewCode] = useState<string>('');
   const [previewLanguage, setPreviewLanguage] = useState<string>('javascript');
   const [showPreview, setShowPreview] = useState<boolean>(false);
+  
+  // AI Suggestions state
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [rightPanelTab, setRightPanelTab] = useState<'preview' | 'suggestions'>('preview');
 
   const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
   // Team Lead planning
@@ -177,6 +183,13 @@ const ChatInterface: React.FC = () => {
   const [decryptedMessages, setDecryptedMessages] = useState<Map<string, string>>(new Map());
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // AI Suggestions hooks
+  const { context, updateChatHistory, updateCodeContext } = useSuggestionContext();
+  const aiSuggestions = useAISuggestions({
+    context,
+    allowColorChanges: false, // Default to false for safety
+  });
 
   // Stripe checkout function
   const createCheckoutSession = async (planId: string) => {
@@ -310,6 +323,30 @@ const ChatInterface: React.FC = () => {
   useEffect(() => {
     decryptMessages();
   }, [decryptMessages]);
+
+  // Auto-generate suggestions based on conversation patterns
+  useEffect(() => {
+    if (!messages || messages.length === 0 || aiSuggestions.isLoading) return;
+
+    const shouldAutoGenerate = 
+      messages.length >= 4 && // At least 2 exchanges
+      messages.length % 6 === 0 && // Every 3 exchanges
+      aiSuggestions.suggestions.length === 0; // Only if no suggestions exist
+
+    if (shouldAutoGenerate) {
+      // Check if recent messages suggest building/improving
+      const recentContent = messages.slice(-4).map(m => getMessageContent(m)).join(' ').toLowerCase();
+      const buildingKeywords = ['build', 'create', 'make', 'develop', 'implement', 'add', 'improve', 'fix', 'optimize'];
+      const isBuildingContext = buildingKeywords.some(keyword => recentContent.includes(keyword));
+
+      if (isBuildingContext) {
+        // Auto-generate suggestions with a slight delay
+        setTimeout(() => {
+          aiSuggestions.generateSuggestions();
+        }, 1000);
+      }
+    }
+  }, [messages, aiSuggestions.suggestions.length, aiSuggestions.isLoading, aiSuggestions.generateSuggestions]);
   // Helper function to get display content for a message
   const getMessageContent = (message: ConvexMessage): string => {
     if (message.isEncrypted) {
@@ -499,6 +536,11 @@ const ChatInterface: React.FC = () => {
           // Create user message
           await createMessage(messageData);
 
+          // Update suggestions context with latest user message
+          const recentMessages = messages.map(m => getMessageContent(m)).slice(-3);
+          recentMessages.push(userContent);
+          updateChatHistory(recentMessages);
+
           await refetchCustomer();
 
           // Auto-run user code blocks via E2B (JS/TS only per project preference)
@@ -517,6 +559,8 @@ const ChatInterface: React.FC = () => {
               setPreviewCode(first.code);
               setPreviewLanguage(first.language);
               setShowPreview(true);
+              // Update code context for suggestions
+              updateCodeContext(first.code, first.language);
             }
 
             setShowShowcase(true);
@@ -586,6 +630,8 @@ const ChatInterface: React.FC = () => {
             setPreviewCode(assistantRunnable[0].code);
             setPreviewLanguage(assistantRunnable[0].language);
             setShowPreview(true);
+            // Update code context for suggestions with AI-generated code
+            updateCodeContext(assistantRunnable[0].code, assistantRunnable[0].language);
           }
 
           // Prepare assistant message data with optional encryption
@@ -629,6 +675,22 @@ const ChatInterface: React.FC = () => {
 
           // Create assistant message
           await createMessage(assistantMessageData);
+
+          // Update chat context with assistant response
+          const updatedMessages = [...recentMessages, sanitizedResponse];
+          updateChatHistory(updatedMessages);
+          
+          // Auto-trigger suggestions if we generated code or the user is building something
+          if (assistantBlocks.length > 0 || userContent.toLowerCase().includes('build') || userContent.toLowerCase().includes('create')) {
+            setTimeout(() => {
+              if (rightPanelTab !== 'suggestions') {
+                // Auto-switch to suggestions tab and show a subtle notification
+                setRightPanelTab('suggestions');
+                setShowSuggestions(true);
+                toast.info('💡 AI suggestions ready based on your conversation!', { duration: 3000 });
+              }
+            }, 2000); // Delay to let the conversation settle
+          }
 
           await refetchCustomer();
 
@@ -1278,17 +1340,36 @@ const ChatInterface: React.FC = () => {
                               {formatTimestamp(chat.updatedAt)}
                             </p>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="opacity-0 group-hover:opacity-100 transition-all duration-200 h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400 rounded-md"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteChat(chat._id);
-                            }}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            {/* Quick suggestions button for active chat */}
+                            {selectedChatId === chat._id && messages.length >= 2 && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="opacity-0 group-hover:opacity-100 transition-all duration-200 h-7 w-7 p-0 hover:bg-purple-500/20 hover:text-purple-400 rounded-md"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  aiSuggestions.generateSuggestions();
+                                  setRightPanelTab('suggestions');
+                                  toast.info('Generating suggestions for this conversation...');
+                                }}
+                                title="Generate AI suggestions for this chat"
+                              >
+                                <Sparkles className="w-3 h-3" />
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="opacity-0 group-hover:opacity-100 transition-all duration-200 h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400 rounded-md"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteChat(chat._id);
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
                       </motion.div>
                     ))}
@@ -1672,41 +1753,87 @@ const ChatInterface: React.FC = () => {
           {/* Close left column */}
           </div>
 
-          {/* Right column: Persistent live preview */}
+          {/* Right column: Live preview and AI suggestions */}
           <div className="hidden xl:flex w-[45%] min-w-[480px] max-w-[780px] border-l border-gray-800/60 bg-[#111] flex-col">
-            <div className="p-4 border-b border-gray-800/60 flex items-center justify-between">
-              <div className="text-sm font-medium text-gray-200 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-purple-400" /> E2B Live Preview
+            {/* Tab header */}
+            <div className="p-4 border-b border-gray-800/60">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant={rightPanelTab === 'preview' ? 'default' : 'ghost'}
+                    onClick={() => setRightPanelTab('preview')}
+                    className="h-8 px-3 text-xs"
+                  >
+                    <Zap className="w-3 h-3 mr-1" />
+                    Preview
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={rightPanelTab === 'suggestions' ? 'default' : 'ghost'}
+                    onClick={() => {
+                      setRightPanelTab('suggestions');
+                      setShowSuggestions(true);
+                    }}
+                    className="h-8 px-3 text-xs"
+                  >
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    AI Ideas
+                    {aiSuggestions.suggestions.length > 0 && (
+                      <Badge className="ml-1 h-4 px-1 text-xs">
+                        {aiSuggestions.suggestions.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </div>
+                {rightPanelTab === 'preview' && (
+                  <div className="text-xs text-gray-400">{previewLanguage.toUpperCase()}</div>
+                )}
               </div>
-              <div className="text-xs text-gray-400">{previewLanguage.toUpperCase()}</div>
             </div>
-            <div className="flex-1 overflow-hidden p-4">
-                               {showPreview && previewCode ? (
-                   <E2BCodeExecution
-                     code={previewCode}
-                     language={previewLanguage}
-                     autoRun={true}
-                     showNextJsHint={false}
-                     onExecute={async (code, language) => {
-                       try {
-                         const res = await executeCode(code, 'javascript');
-                         return {
-                           success: res.success,
-                           output: res.stdout,
-                           error: res.error as string | undefined,
-                           logs: res.stderr ? [res.stderr] : [],
-                           artifacts: [],
-                           executionTime: Date.now() % 1000,
-                           memoryUsage: 0,
-                         };
-                       } catch (err) {
-                         return { success: false, error: String(err), logs: [] };
-                       }
-                     }}
-                   />
+
+            {/* Tab content */}
+            <div className="flex-1 overflow-hidden">
+              {rightPanelTab === 'preview' ? (
+                <div className="h-full p-4">
+                  {showPreview && previewCode ? (
+                    <E2BCodeExecution
+                      code={previewCode}
+                      language={previewLanguage}
+                      autoRun={true}
+                      showNextJsHint={false}
+                      onExecute={async (code, language) => {
+                        try {
+                          const res = await executeCode(code, 'javascript');
+                          return {
+                            success: res.success,
+                            output: res.stdout,
+                            error: res.error as string | undefined,
+                            logs: res.stderr ? [res.stderr] : [],
+                            artifacts: [],
+                            executionTime: Date.now() % 1000,
+                            memoryUsage: 0,
+                          };
+                        } catch (err) {
+                          return { success: false, error: String(err), logs: [] };
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                      Paste or generate JS code to preview here
+                    </div>
+                  )}
+                </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                  Paste or generate JS code to preview here
+                <div className="h-full">
+                  <AISuggestions
+                    isVisible={rightPanelTab === 'suggestions'}
+                    onClose={() => setRightPanelTab('preview')}
+                    context={context}
+                    onImplementSuggestion={aiSuggestions.implementSuggestion}
+                    className="!fixed !relative !w-full !h-full !border-0"
+                  />
                 </div>
               )}
             </div>

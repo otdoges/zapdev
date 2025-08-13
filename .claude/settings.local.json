@@ -72,7 +72,8 @@
       "Bash(bun remove:*)",
       "Bash(npm run dev:*)",
       "Bash(npm run lint)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "WebFetch(domain:createanything.com)"
     ],
     "deny": []
   }

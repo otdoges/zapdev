@@ -16,6 +16,7 @@ import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Success from "./pages/Success";
 import Chat from "./pages/Chat";
+import UnifiedInterface from "./components/UnifiedInterface";
 import AuthGuard from "./components/AuthGuard";
 import UserSync from "./components/UserSync";
 import { AuthWrapper } from "./components/AuthWrapper";
@@ -36,15 +37,11 @@ const App = () => (
               <Sonner />
               <BrowserRouter>
                 <Routes>
-                  <Route path="/" element={<Index />} />
+                  <Route path="/" element={<UnifiedInterface />} />
+                  <Route path="/chat" element={<UnifiedInterface />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/pricing" element={<Pricing />} />
                   <Route path="/checkout" element={<CheckoutPage />} />
-                  <Route path="/chat" element={
-                    <AuthGuard>
-                      <Chat />
-                    </AuthGuard>
-                  } />
                   <Route path="/settings" element={
                     <AuthGuard>
                       <Settings />
