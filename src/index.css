@@ -48,6 +48,17 @@
   }
 }
 
+/* Ensure all Tailwind `container` usages are centered and consistently padded */
+@layer utilities {
+  .container {
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    max-width: 1280px;
+  }
+}
+
 .glass {
   @apply bg-white/5 backdrop-blur-lg;
   border: 1px solid transparent;
