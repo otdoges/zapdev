@@ -31,8 +31,11 @@ const Index = () => {
   }, [user?._id]);
 
   return (
-    <div className="min-h-screen bg-black text-foreground">
+    <div className="relative min-h-screen bg-black text-foreground">
       <Navigation />
+
+      {/* Global background layer */}
+      <div className="absolute inset-0 -z-10 bg-[#0A0A0A]" />
       
       {/* Hero Section */}
       <motion.section
@@ -41,9 +44,6 @@ const Index = () => {
         transition={{ duration: 0.8 }}
         className="relative container mx-auto px-4 py-24 min-h-[calc(100svh-80px)] flex items-center justify-center"
       >
-        {/* Background */}
-        <div className="absolute inset-0 -z-10 bg-[#0A0A0A]" />
-        
         {/* Centered background glow */}
         <div
           className="pointer-events-none absolute inset-0 -z-10"
@@ -187,12 +187,12 @@ const Index = () => {
 
 
       {/* Features Section */}
-      <div id="features" className="bg-black">
+      <div id="features">
         <FeaturesSection />
       </div>
 
       {/* Pricing Section */}
-      <div id="pricing" className="bg-black">
+      <div id="pricing">
         <DynamicPricingSection />
       </div>
 
@@ -273,7 +273,7 @@ const Index = () => {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.1 }}
         transition={{ duration: 0.8, delay: 0.2 }}
-        className="bg-black"
+        className=""
       >
         <Footer />
       </motion.div>
