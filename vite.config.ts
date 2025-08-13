@@ -35,6 +35,7 @@ export default defineConfig(({ mode }) => {
         injectRegister: 'auto',
         workbox: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          navigateFallback: 'index.html',
           navigateFallbackDenylist: [/^\/api\//, /^\/convex\//, /^\/_/],
           runtimeCaching: [{
             urlPattern: /^https:\/\/api\./,

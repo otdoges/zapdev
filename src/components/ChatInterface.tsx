@@ -215,11 +215,11 @@ const ChatInterface: React.FC = () => {
     }
   };
 
-  // Convex queries and mutations
-  const chatsData = useQuery(api.chats.getUserChats, {});
+  // Convex queries and mutations - skip if user not loaded or not authenticated
+  const chatsData = useQuery(api.chats.getUserChats, user && !authLoading ? {} : "skip");
   const messagesData = useQuery<typeof api.messages.getChatMessages>(
     api.messages.getChatMessages,
-    selectedChatId
+    selectedChatId && user && !authLoading
       ? { chatId: selectedChatId as Id<"chats"> }
       : ("skip" as const)
   );
