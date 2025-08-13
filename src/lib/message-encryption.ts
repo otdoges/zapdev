@@ -191,7 +191,12 @@ export async function decryptMessage(encryptedMessage: EncryptedMessage, userId:
     };
     
   } catch (error) {
-    console.error('Message decryption failed:', error);
+    const err = error as Error;
+    if (err.name === 'OperationError') {
+      console.warn('Message decryption failed (OperationError). Likely wrong device/user key or corrupted data.');
+    } else {
+      console.error('Message decryption failed:', error);
+    }
     return {
       content: '[Decryption Failed]',
       isValid: false
