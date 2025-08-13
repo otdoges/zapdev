@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { StrictMode } from 'react'
 import { ClerkProvider, useAuth } from '@clerk/clerk-react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
+import { PostHogProvider } from 'posthog-js/react'
 import * as Sentry from '@sentry/react'
 import { convex } from './lib/convex'
 import { initializeApiKeySecurity } from './lib/api-key-validator'
@@ -54,23 +55,41 @@ if (!PUBLISHABLE_KEY) {
 
 const root = createRoot(document.getElementById('root')!);
 
+// Initialize PostHog with proper error handling
+const posthogOptions = {
+  api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST || 'https://app.posthog.com',
+  capture_pageview: false, // Disable automatic pageview capture for better control
+  disable_session_recording: import.meta.env.MODE === 'development',
+  loaded: (posthog: any) => {
+    if (import.meta.env.MODE === 'development') console.log('PostHog loaded');
+  },
+  on_xhr_error: (failedRequest: any) => {
+    // Gracefully handle blocked requests (ad blockers, etc.)
+    console.warn('PostHog request blocked (likely by ad blocker)', failedRequest);
+  }
+};
 
 root.render(
   <StrictMode>
-    <ClerkProvider 
-      publishableKey={PUBLISHABLE_KEY} 
-      afterSignOutUrl="/"
-      fallbackRedirectUrl="/chat"
-      appearance={{
-        elements: {
-          formButtonPrimary: 'bg-primary hover:bg-primary/90',
-          card: 'bg-card border border-border',
-        },
-      }}
+    <PostHogProvider 
+      apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
+      options={posthogOptions}
     >
-      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <App />
-      </ConvexProviderWithClerk>
-    </ClerkProvider>
+      <ClerkProvider 
+        publishableKey={PUBLISHABLE_KEY} 
+        afterSignOutUrl="/"
+        fallbackRedirectUrl="/chat"
+        appearance={{
+          elements: {
+            formButtonPrimary: 'bg-primary hover:bg-primary/90',
+            card: 'bg-card border border-border',
+          },
+        }}
+      >
+        <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+          <App />
+        </ConvexProviderWithClerk>
+      </ClerkProvider>
+    </PostHogProvider>
   </StrictMode>
 );

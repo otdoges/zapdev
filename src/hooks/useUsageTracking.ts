@@ -45,12 +45,19 @@ export const useUsageTracking = () => {
       existingEvents.push(localEvent);
       localStorage.setItem('pendingUsageEvents', JSON.stringify(existingEvents));
 
-      // Send event to PostHog
-      posthog?.capture(event.eventName, {
-        ...event.metadata,
-        userId: user.userId,
-        timestamp: localEvent.timestamp,
-      });
+      // Send event to PostHog with error handling
+      try {
+        if (posthog) {
+          posthog.capture(event.eventName, {
+            ...event.metadata,
+            userId: user.userId,
+            timestamp: localEvent.timestamp,
+          });
+        }
+      } catch (posthogError) {
+        // PostHog might be blocked by ad blockers - fail silently
+        console.warn('PostHog tracking failed (likely blocked by ad blocker):', posthogError);
+      }
 
       // TODO: Send to Convex database via TRPC
       // await trpc.polar.recordUsage.mutate({

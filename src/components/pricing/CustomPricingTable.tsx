@@ -195,7 +195,7 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
         console.error('Health check error:', e);
       }
 
-      // Call the API endpoint directly (fallback for non-Autumn plans)
+      // Call the API endpoint directly
       console.log('Creating checkout session for plan:', plan.id);
       console.log('Using token:', token ? 'Token present' : 'No token');
 
