@@ -1417,7 +1417,7 @@ const ChatInterface: React.FC = () => {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, type: "spring", stiffness: 100, delay: 0.1 }}
-            className="flex-1 flex relative overflow-hidden bg-[#0F0F0F]"
+          className="flex-1 flex relative overflow-hidden bg-[#0F0F0F]"
           >
             {/* Left column: Chat area */}
             <div className="flex-1 flex flex-col min-w-0">
@@ -1825,7 +1825,7 @@ const ChatInterface: React.FC = () => {
           </div>
 
           {/* Right column: Live preview and AI suggestions */}
-          <div className="hidden xl:flex w-[45%] min-w-[480px] max-w-[780px] border-l border-gray-800/60 bg-[#111] flex-col">
+            <div className="hidden 2xl:flex w-[42%] min-w-[520px] max-w-[820px] border-l border-gray-800/60 bg-[#111] flex-col">
             {/* Tab header */}
             <div className="p-4 border-b border-gray-800/60">
               <div className="flex items-center justify-between mb-3">

@@ -42,9 +42,9 @@ const Chat: React.FC = () => {
         transition={{ duration: 0.5 }}
         className="pt-24"
       >
-        <div className="px-4">
+        <div className="px-0 md:px-4">
           {/* Hero heading area */}
-          <div className="max-w-5xl mx-auto text-center mb-5">
+          <div className="w-full text-center mb-5">
             <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#60A5FA] via-[#A78BFA] to-[#34D399]">Build something real</span>
             </h1>
@@ -54,7 +54,7 @@ const Chat: React.FC = () => {
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="h-[calc(100vh-8rem)] bg-[#0F1012]/70 border border-white/10 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl max-w-7xl mx-auto"
+            className="h-[calc(100vh-8rem)] w-full bg-[#0F1012]/70 border border-white/10 rounded-none md:rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl"
           >
             <Suspense
               fallback={

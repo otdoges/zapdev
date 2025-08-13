@@ -47,7 +47,7 @@ const Navigation = () => {
     }
   };
 
-  const navItems = [
+  const navItems: Array<{ name: string; href: string; isLink?: boolean; onClick?: () => void; isNew?: boolean }> = [
     { name: "Chat", href: "/chat", isLink: true },
     { name: "Pricing", href: "/pricing", isLink: true },
   ];
@@ -60,7 +60,7 @@ const Navigation = () => {
           : "h-14 bg-[#1B1B1B] w-[95%] max-w-3xl"
       }`}
     >
-      <div className="mx-auto h-full px-6">
+      <div className="mx-auto h-full px-3 md:px-6">
         <nav className="flex items-center justify-between h-full">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
