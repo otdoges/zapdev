@@ -316,19 +316,10 @@ export class BraveSearchService {
   }
 
   private extractTextContent(html: string): string {
-    // Repeatedly remove <script> and <style> tags and their content
-    let sanitized = html;
-    let previous;
-    do {
-      previous = sanitized;
-      sanitized = sanitized
-        .replace(/<script[^>]*>.*?<\/script>/gis, '')
-        .replace(/<style[^>]*>.*?<\/style>/gis, '');
-    } while (sanitized !== previous);
-    return sanitized
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    // Use cheerio to robustly remove <script> and <style> tags and extract text
+    const $ = cheerio.load(html);
+    $('script, style').remove();
+    return $.root().text().replace(/\s+/g, ' ').trim();
   }
 }
 
