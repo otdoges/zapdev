@@ -69,7 +69,10 @@
       "Bash(git merge:*)",
       "Bash(gh pr merge:*)",
       "Bash(echo:*)",
-      "Bash(bun remove:*)"
+      "Bash(bun remove:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }

@@ -11,24 +11,30 @@ import App from './App.tsx'
 import './index.css'
 
 // Initialize Sentry
-if (import.meta.env.VITE_SENTRY_DSN) {
-  Sentry.init({
-    dsn: import.meta.env.VITE_SENTRY_DSN,
-    environment: import.meta.env.MODE,
-    enableLogs: true,
-    integrations: [
-      Sentry.browserTracingIntegration(),
-      Sentry.replayIntegration({
-        maskAllText: false,
-        blockAllMedia: false,
-      }),
-      // Send console.log, console.error, and console.warn calls as logs to Sentry
-      Sentry.consoleLoggingIntegration({ levels: ['log', 'error', 'warn'] }),
-    ],
-    tracesSampleRate: import.meta.env.MODE === 'development' ? 1.0 : 0.1,
-    replaysSessionSampleRate: import.meta.env.MODE === 'development' ? 1.0 : 0.1,
-    replaysOnErrorSampleRate: 1.0,
-  });
+if (import.meta.env.VITE_SENTRY_DSN && import.meta.env.VITE_SENTRY_DSN !== 'put_sentry_shi') {
+  try {
+    Sentry.init({
+      dsn: import.meta.env.VITE_SENTRY_DSN,
+      environment: import.meta.env.MODE,
+      enableLogs: true,
+      integrations: [
+        Sentry.browserTracingIntegration(),
+        Sentry.replayIntegration({
+          maskAllText: false,
+          blockAllMedia: false,
+        }),
+        // Send console.log, console.error, and console.warn calls as logs to Sentry
+        Sentry.consoleLoggingIntegration({ levels: ['log', 'error', 'warn'] }),
+      ],
+      tracesSampleRate: import.meta.env.MODE === 'development' ? 1.0 : 0.1,
+      replaysSessionSampleRate: import.meta.env.MODE === 'development' ? 1.0 : 0.1,
+      replaysOnErrorSampleRate: 1.0,
+    });
+  } catch (error) {
+    console.warn('Failed to initialize Sentry:', error);
+  }
+} else if (import.meta.env.MODE === 'development') {
+  console.log('Sentry not initialized - DSN not configured');
 }
 
 // Initialize API key security monitoring (production only)
