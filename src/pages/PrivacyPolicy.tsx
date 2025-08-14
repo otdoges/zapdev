@@ -36,7 +36,7 @@ const PrivacyPolicy = () => {
                   <h3 className="text-lg font-medium text-white mb-2">2.1. Messages and Communications:</h3>
                   <ul className="list-disc pl-6 space-y-1">
                     <li>Chat messages and conversations you have with our AI platform</li>
-                    <li>All messages are encrypted and stored securely</li>
+                    <li>All messages are stored securely</li>
                     <li>Account registration information (name, email address)</li>
                     <li>Communications with our support team</li>
                   </ul>
@@ -57,7 +57,7 @@ const PrivacyPolicy = () => {
                   <h3 className="text-lg font-medium text-white mb-2">2.3. Authentication Information:</h3>
                   <ul className="list-disc pl-6 space-y-1">
                     <li>OAuth provider information when you choose to authenticate</li>
-                    <li>Session tokens and authentication credentials (encrypted)</li>
+                    <li>Session tokens and authentication credentials (secured)</li>
                   </ul>
                 </div>
               </div>
@@ -92,7 +92,7 @@ const PrivacyPolicy = () => {
                   <h3 className="text-lg font-medium text-white mb-2">4.2. Data Hosting:</h3>
                   <ul className="list-disc pl-6 space-y-1">
                     <li>All services are hosted in secure data centers in the United States</li>
-                    <li>We use industry-standard encryption and security measures</li>
+                    <li>We use industry-standard security measures</li>
                     <li>Access to your data is strictly limited to authorized personnel</li>
                   </ul>
                 </div>
@@ -104,7 +104,7 @@ const PrivacyPolicy = () => {
               <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-4 mb-6">
                 <h3 className="text-lg font-semibold text-purple-300 mb-2">Our Data Commitment</h3>
                 <p className="text-gray-300">
-                  <strong>We do not sell your personal information or data to third parties.</strong> Your privacy is fundamental to our service, and we are committed to protecting your encrypted messages and personal information.
+                  <strong>We do not sell your personal information or data to third parties.</strong> Your privacy is fundamental to our service, and we are committed to protecting your messages and personal information.
                 </p>
               </div>
               <p className="mb-4">We may share your information only in these strictly limited circumstances:</p>
@@ -115,7 +115,7 @@ const PrivacyPolicy = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-white">5.2. Essential Service Providers:</h3>
-                  <p>With trusted third-party providers who assist in operating our platform (secure hosting, payment processing) under strict confidentiality agreements. These providers cannot access your encrypted messages.</p>
+                  <p>With trusted third-party providers who assist in operating our platform (secure hosting, payment processing) under strict confidentiality agreements. These providers cannot access your messages.</p>
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-white">5.3. Analytics Partners:</h3>
@@ -163,15 +163,15 @@ const PrivacyPolicy = () => {
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">8. SECURITY MEASURES</h2>
               <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4 mb-4">
-                <h3 className="text-lg font-semibold text-green-300 mb-2">Message Encryption</h3>
+                <h3 className="text-lg font-semibold text-green-300 mb-2">Message Security</h3>
                 <p className="text-gray-300">
-                  All messages and conversations are encrypted both in transit and at rest. This means your conversations are protected and unreadable even if unauthorized access occurs.
+                  All messages and conversations are stored securely with access controls and protection measures to ensure unauthorized access cannot occur.
                 </p>
               </div>
               <p className="mb-3">We implement comprehensive security measures including:</p>
               <ul className="list-disc pl-6 space-y-2">
-                <li><strong>End-to-end encryption</strong> for all messages and sensitive data</li>
-                <li>Encryption in transit (TLS/SSL) and at rest (AES-256)</li>
+                <li><strong>Secure data storage</strong> for all messages and sensitive data</li>
+                <li>Secure transmission (TLS/SSL) and protected storage</li>
                 <li>Regular security audits and penetration testing</li>
                 <li>Multi-factor authentication and access controls</li>
                 <li>24/7 monitoring and incident response procedures</li>
