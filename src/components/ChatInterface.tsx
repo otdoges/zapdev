@@ -49,6 +49,18 @@ import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
 
 const { logger } = Sentry;
 
+// Helper to sanitize URLs for use in href attributes
+function getSafeUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') {
+      return urlObj.toString();
+    }
+  } catch {
+    // Invalid URL
+  }
+  return '#';
+}
 // Security constants for input validation
 const MAX_MESSAGE_LENGTH = 10000;
 const MAX_TITLE_LENGTH = 100;
@@ -907,8 +919,8 @@ const ChatInterface: React.FC = () => {
                             <div className="space-y-3 text-sm">
                               <div>
                                 <span className="font-medium">URL:</span> 
-                                <a href={websiteAnalysis.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">
-                                  {websiteAnalysis.url}
+                                <a href={getSafeUrl(websiteAnalysis.url)} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">
+                                  <SafeText text={websiteAnalysis.url} />
                                 </a>
                               </div>
                               {websiteAnalysis.title && (
