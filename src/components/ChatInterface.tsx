@@ -37,6 +37,7 @@ import { streamAIResponse, generateChatTitleFromMessages, generateAIResponse } f
 import { executeCode, startSandbox } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { useUsageTracking } from '@/hooks/useUsageTracking';
 import { E2BCodeExecution } from './E2BCodeExecution';
 import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
 import { braveSearchService, type BraveSearchResult, type WebsiteAnalysis } from '@/lib/search-service';
@@ -129,6 +130,7 @@ interface CodeBlock {
 const ChatInterface: React.FC = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { getToken } = useClerkAuth();
+  const { getSubscription } = useUsageTracking();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -384,7 +386,12 @@ const ChatInterface: React.FC = () => {
           // Create user message
           await createMessage(messageData);
 
-          await refetchCustomer();
+          // Refresh user subscription data after usage
+          try {
+            await getSubscription();
+          } catch (error) {
+            console.debug('Failed to refresh subscription data:', error);
+          }
 
           // Auto-run user code blocks via E2B (JS/TS only per project preference)
           const userBlocks = extractCodeBlocks(userContent);
@@ -487,7 +494,12 @@ const ChatInterface: React.FC = () => {
           // Create assistant message
           await createMessage(assistantMessageData);
 
-          await refetchCustomer();
+          // Refresh user subscription data after usage  
+          try {
+            await getSubscription();
+          } catch (error) {
+            console.debug('Failed to refresh subscription data:', error);
+          }
 
           // Try AI title refinement after first exchange
           try {
