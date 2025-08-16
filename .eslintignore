@@ -1,2 +1,0 @@
-# Ignore generated large template file that causes parsing issues
-src/lib/webcontainer-templates.ts

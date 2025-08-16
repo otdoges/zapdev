@@ -1,0 +1,2097 @@
+{
+  "version": "2.1.0",
+  "$schema": "http://json.schemastore.org/sarif-2.1.0-rtm.5",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "ESLint",
+          "informationUri": "https://eslint.org",
+          "rules": [
+            {
+              "id": "@typescript-eslint/no-explicit-any",
+              "helpUri": "https://typescript-eslint.io/rules/no-explicit-any",
+              "properties": {},
+              "shortDescription": {
+                "text": "Disallow the `any` type"
+              }
+            },
+            {
+              "id": "react-refresh/only-export-components",
+              "helpUri": "Please see details in message",
+              "properties": {
+                "category": "No category provided"
+              }
+            },
+            {
+              "id": "react-hooks/exhaustive-deps",
+              "helpUri": "https://github.com/facebook/react/issues/14920",
+              "properties": {},
+              "shortDescription": {
+                "text": "verifies the list of dependencies for Hooks like useEffect and similar"
+              }
+            },
+            {
+              "id": "@typescript-eslint/ban-ts-comment",
+              "helpUri": "https://typescript-eslint.io/rules/ban-ts-comment",
+              "properties": {},
+              "shortDescription": {
+                "text": "Disallow `@ts-<directive>` comments or require descriptions after directives"
+              }
+            },
+            {
+              "id": "@typescript-eslint/no-require-imports",
+              "helpUri": "https://typescript-eslint.io/rules/no-require-imports",
+              "properties": {},
+              "shortDescription": {
+                "text": "Disallow invocation of `require()`"
+              }
+            }
+          ],
+          "version": "9.33.0"
+        }
+      },
+      "artifacts": [
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/api-dev-server.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/api/_utils/auth.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/api/_utils/kv-constants.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/api/_utils/kv.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/api/create-checkout-session.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/api/create-portal-session.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/api/get-subscription.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/api/health.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/api/kv-proxy.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/_generated/api.d.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/_generated/api.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/_generated/dataModel.d.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/_generated/server.d.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/_generated/server.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/aiRateLimit.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/auth.config.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/chats.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/http.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/messages.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/rateLimit.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/schema.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/trpc/router.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/usageTracking.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/convex/users.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/eslint.config.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/postcss.config.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/pwa-assets.config.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/scripts/create-env-local.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/scripts/setup-env.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/scripts/test-ai-only.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/scripts/validate-ai-production.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/setup-ai.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/App.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/AnimatedResultShowcase.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/AuthErrorBoundary.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/AuthGuard.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/AuthProvider.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/AuthWrapper.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ChatInterface.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ClerkAuthHeader.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/CodeExecutionDisplay.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/E2BCodeExecution.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/Footer.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/LogoCarousel.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/Navigation.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/PromptModeSelector.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/SandboxStatus.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/TestimonialsSection.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/UserSync.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/WebContainerFailsafe.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/features/FeatureContent.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/features/FeatureTab.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/features/FeaturesSection.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/pricing/CardSpotlight.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/pricing/CustomPricingTable.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/pricing/DynamicPricingSection.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/pricing/PricingSection.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/pricing/PricingTestimonials.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/SafeText.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/accordion.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/alert-dialog.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/alert.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/aspect-ratio.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/avatar.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/badge.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/breadcrumb.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/button.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/calendar.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/card.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/carousel.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/chart.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/checkbox.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/collapsible.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/command.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/context-menu.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/dialog.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/drawer.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/dropdown-menu.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/form.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/hover-card.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/input-otp.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/input.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/label.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/menubar.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/navigation-menu.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/pagination.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/popover.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/progress.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/radio-group.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/resizable.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/scroll-area.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/select.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/separator.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/sheet.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/skeleton.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/slider.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/sonner.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/switch.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/table.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/tabs.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/text-generate-effect.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/textarea.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/toast.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/toaster.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/toggle-group.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/toggle.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/tooltip.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/components/ui/use-toast.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/config/features.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/hooks/use-toast.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/hooks/useAuth.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/hooks/useUsageTracking.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/__tests__/ai-production.test.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/ai-monitoring.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/ai-tools.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/ai-utils.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/ai.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/api-key-validator.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/auth-provider.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/auth-token.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/clerk-experimental.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/convex.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/decisionPrompt.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/device-fingerprint.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/e2b-service.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/firecrawl.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/rate-limiter.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/sandbox.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/search-service.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/secure-storage.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/security.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/stripe.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/supabase.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/systemprompt.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/trpc.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/usage-service.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/lib/utils.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/main.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/pages/AuthCallback.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/pages/Chat.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/pages/Checkout.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/pages/Index.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/pages/Pricing.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/pages/PrivacyPolicy.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/pages/Settings.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/pages/Success.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/pages/TermsOfService.tsx"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/test-ai-implementation.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/test-ai-implementation.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/types/vitest-stub.d.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/validate-ai.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/src/vite-env.d.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/tailwind.config.ts"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/test-runner.js"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///home/jackson/zapdev/vite.config.ts"
+          }
+        }
+      ],
+      "results": [
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api-dev-server.ts",
+                  "index": 0
+                },
+                "region": {
+                  "startLine": 17,
+                  "startColumn": 9,
+                  "endLine": 17,
+                  "endColumn": 12
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api-dev-server.ts",
+                  "index": 0
+                },
+                "region": {
+                  "startLine": 64,
+                  "startColumn": 14,
+                  "endLine": 64,
+                  "endColumn": 17
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api-dev-server.ts",
+                  "index": 0
+                },
+                "region": {
+                  "startLine": 70,
+                  "startColumn": 14,
+                  "endLine": 70,
+                  "endColumn": 17
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api-dev-server.ts",
+                  "index": 0
+                },
+                "region": {
+                  "startLine": 155,
+                  "startColumn": 21,
+                  "endLine": 155,
+                  "endColumn": 24
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/get-subscription.ts",
+                  "index": 6
+                },
+                "region": {
+                  "startLine": 150,
+                  "startColumn": 46,
+                  "endLine": 150,
+                  "endColumn": 49
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/get-subscription.ts",
+                  "index": 6
+                },
+                "region": {
+                  "startLine": 151,
+                  "startColumn": 44,
+                  "endLine": 151,
+                  "endColumn": 47
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 21,
+                  "startColumn": 57,
+                  "endLine": 21,
+                  "endColumn": 60
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 63,
+                  "startColumn": 44,
+                  "endLine": 63,
+                  "endColumn": 47
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 64,
+                  "startColumn": 42,
+                  "endLine": 64,
+                  "endColumn": 45
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 202,
+                  "startColumn": 73,
+                  "endLine": 202,
+                  "endColumn": 76
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 228,
+                  "startColumn": 57,
+                  "endLine": 228,
+                  "endColumn": 60
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 236,
+                  "startColumn": 73,
+                  "endLine": 236,
+                  "endColumn": 76
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 256,
+                  "startColumn": 57,
+                  "endLine": 256,
+                  "endColumn": 60
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 278,
+                  "startColumn": 57,
+                  "endLine": 278,
+                  "endColumn": 60
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 295,
+                  "startColumn": 25,
+                  "endLine": 295,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 296,
+                  "startColumn": 80,
+                  "endLine": 296,
+                  "endColumn": 83
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 304,
+                  "startColumn": 59,
+                  "endLine": 304,
+                  "endColumn": 62
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 318,
+                  "startColumn": 25,
+                  "endLine": 318,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 319,
+                  "startColumn": 80,
+                  "endLine": 319,
+                  "endColumn": 83
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/api/stripe-webhook.ts",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 327,
+                  "startColumn": 59,
+                  "endLine": 327,
+                  "endColumn": 62
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/convex/_generated/api.d.ts",
+                  "index": 10
+                },
+                "region": {
+                  "startLine": 43,
+                  "startColumn": 21,
+                  "endLine": 43,
+                  "endColumn": 24
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0,
+          "suppressions": [
+            {
+              "kind": "inSource",
+              "justification": ""
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/convex/_generated/api.d.ts",
+                  "index": 10
+                },
+                "region": {
+                  "startLine": 47,
+                  "startColumn": 21,
+                  "endLine": 47,
+                  "endColumn": 24
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0,
+          "suppressions": [
+            {
+              "kind": "inSource",
+              "justification": ""
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/convex/users.ts",
+                  "index": 24
+                },
+                "region": {
+                  "startLine": 415,
+                  "startColumn": 48,
+                  "endLine": 415,
+                  "endColumn": 51
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/convex/users.ts",
+                  "index": 24
+                },
+                "region": {
+                  "startLine": 416,
+                  "startColumn": 46,
+                  "endLine": 416,
+                  "endColumn": 49
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/components/AuthProvider.tsx",
+                  "index": 37
+                },
+                "region": {
+                  "startLine": 78,
+                  "startColumn": 14,
+                  "endLine": 78,
+                  "endColumn": 28
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "React Hook useEffect has a missing dependency: 'handleExecute'. Either include it or remove the dependency array."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/components/E2BCodeExecution.tsx",
+                  "index": 42
+                },
+                "region": {
+                  "startLine": 70,
+                  "startColumn": 6,
+                  "endLine": 70,
+                  "endColumn": 15
+                }
+              }
+            }
+          ],
+          "ruleId": "react-hooks/exhaustive-deps",
+          "ruleIndex": 2,
+          "suppressions": [
+            {
+              "kind": "inSource",
+              "justification": ""
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "React Hook useEffect has missing dependencies: 'initializeWebContainer', 'runProject', 'status', and 'webcontainer'. Either include them or remove the dependency array."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/components/WebContainerFailsafe.tsx",
+                  "index": 50
+                },
+                "region": {
+                  "startLine": 171,
+                  "startColumn": 6,
+                  "endLine": 171,
+                  "endColumn": 65
+                }
+              }
+            }
+          ],
+          "ruleId": "react-hooks/exhaustive-deps",
+          "ruleIndex": 2,
+          "suppressions": [
+            {
+              "kind": "inSource",
+              "justification": ""
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "React Hook useEffect has missing dependencies: 'autoRun', 'isVisible', 'runProject', 'status', and 'supportInfo.supported'. Either include them or remove the dependency array."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/components/WebContainerFailsafe.tsx",
+                  "index": 50
+                },
+                "region": {
+                  "startLine": 184,
+                  "startColumn": 6,
+                  "endLine": 184,
+                  "endColumn": 20
+                }
+              }
+            }
+          ],
+          "ruleId": "react-hooks/exhaustive-deps",
+          "ruleIndex": 2,
+          "suppressions": [
+            {
+              "kind": "inSource",
+              "justification": ""
+            }
+          ]
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/components/pricing/CustomPricingTable.tsx",
+                  "index": 55
+                },
+                "region": {
+                  "startLine": 220,
+                  "startColumn": 24,
+                  "endLine": 220,
+                  "endColumn": 27
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/components/ui/badge.tsx",
+                  "index": 65
+                },
+                "region": {
+                  "startLine": 36,
+                  "startColumn": 17,
+                  "endLine": 36,
+                  "endColumn": 30
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/components/ui/button.tsx",
+                  "index": 67
+                },
+                "region": {
+                  "startLine": 56,
+                  "startColumn": 18,
+                  "endLine": 56,
+                  "endColumn": 32
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/components/ui/form.tsx",
+                  "index": 79
+                },
+                "region": {
+                  "startLine": 168,
+                  "startColumn": 3,
+                  "endLine": 168,
+                  "endColumn": 15
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/components/ui/navigation-menu.tsx",
+                  "index": 85
+                },
+                "region": {
+                  "startLine": 119,
+                  "startColumn": 3,
+                  "endLine": 119,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/components/ui/toggle.tsx",
+                  "index": 106
+                },
+                "region": {
+                  "startLine": 43,
+                  "startColumn": 18,
+                  "endLine": 43,
+                  "endColumn": 32
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "React Hook React.useCallback has unnecessary dependencies: 'user.id' and 'user.primaryEmailAddress.emailAddress'. Either exclude them or remove the dependency array."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/lib/clerk-experimental.tsx",
+                  "index": 121
+                },
+                "region": {
+                  "startLine": 79,
+                  "startColumn": 6,
+                  "endLine": 79,
+                  "endColumn": 74
+                }
+              }
+            }
+          ],
+          "ruleId": "react-hooks/exhaustive-deps",
+          "ruleIndex": 2
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/lib/clerk-experimental.tsx",
+                  "index": 121
+                },
+                "region": {
+                  "startLine": 107,
+                  "startColumn": 14,
+                  "endLine": 107,
+                  "endColumn": 25
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/lib/clerk-experimental.tsx",
+                  "index": 121
+                },
+                "region": {
+                  "startLine": 135,
+                  "startColumn": 14,
+                  "endLine": 135,
+                  "endColumn": 31
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Move your component(s) to a separate file."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/pages/Pricing.tsx",
+                  "index": 143
+                },
+                "region": {
+                  "startLine": 18,
+                  "startColumn": 7,
+                  "endLine": 18,
+                  "endColumn": 18
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Move your component(s) to a separate file."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/pages/Pricing.tsx",
+                  "index": 143
+                },
+                "region": {
+                  "startLine": 113,
+                  "startColumn": 7,
+                  "endLine": 113,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Move your component(s) to a separate file."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/pages/Pricing.tsx",
+                  "index": 143
+                },
+                "region": {
+                  "startLine": 223,
+                  "startColumn": 7,
+                  "endLine": 223,
+                  "endColumn": 17
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Move your component(s) to a separate file."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/pages/Pricing.tsx",
+                  "index": 143
+                },
+                "region": {
+                  "startLine": 316,
+                  "startColumn": 7,
+                  "endLine": 316,
+                  "endColumn": 17
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh only works when a file only exports components. Move your component(s) to a separate file."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/pages/Pricing.tsx",
+                  "index": 143
+                },
+                "region": {
+                  "startLine": 390,
+                  "startColumn": 7,
+                  "endLine": 390,
+                  "endColumn": 14
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Fast refresh can't handle anonymous components. Add a name to your export."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/pages/Pricing.tsx",
+                  "index": 143
+                },
+                "region": {
+                  "startLine": 427,
+                  "startColumn": 16,
+                  "endLine": 439,
+                  "endColumn": 3
+                }
+              }
+            }
+          ],
+          "ruleId": "react-refresh/only-export-components",
+          "ruleIndex": 1
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/src/pages/Settings.tsx",
+                  "index": 145
+                },
+                "region": {
+                  "startLine": 395,
+                  "startColumn": 6,
+                  "endLine": 395,
+                  "endColumn": 17
+                }
+              }
+            }
+          ],
+          "ruleId": "react-hooks/exhaustive-deps",
+          "ruleIndex": 2
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Unexpected any. Specify a different type."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/vite.config.ts",
+                  "index": 155
+                },
+                "region": {
+                  "startLine": 4,
+                  "startColumn": 29,
+                  "endLine": 4,
+                  "endColumn": 32
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "ruleIndex": 0
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "Use \"@ts-expect-error\" instead of \"@ts-ignore\", as \"@ts-ignore\" will do nothing if the following line is error-free."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/vite.config.ts",
+                  "index": 155
+                },
+                "region": {
+                  "startLine": 6,
+                  "startColumn": 3,
+                  "endLine": 6,
+                  "endColumn": 47
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/ban-ts-comment",
+          "ruleIndex": 3
+        },
+        {
+          "level": "error",
+          "message": {
+            "text": "A `require()` style import is forbidden."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "file:///home/jackson/zapdev/vite.config.ts",
+                  "index": 155
+                },
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 21,
+                  "endLine": 7,
+                  "endColumn": 46
+                }
+              }
+            }
+          ],
+          "ruleId": "@typescript-eslint/no-require-imports",
+          "ruleIndex": 4
+        }
+      ],
+      "invocations": [
+        {
+          "toolConfigurationNotifications": [
+            {
+              "level": "warning",
+              "message": {
+                "text": "Unused eslint-disable directive (no problems were reported)."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "file:///home/jackson/zapdev/convex/_generated/api.js",
+                      "index": 11
+                    },
+                    "region": {
+                      "startLine": 1,
+                      "startColumn": 1
+                    }
+                  }
+                }
+              ],
+              "descriptor": {
+                "id": "ESL0999"
+              }
+            },
+            {
+              "level": "warning",
+              "message": {
+                "text": "Unused eslint-disable directive (no problems were reported)."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "file:///home/jackson/zapdev/convex/_generated/dataModel.d.ts",
+                      "index": 12
+                    },
+                    "region": {
+                      "startLine": 1,
+                      "startColumn": 1
+                    }
+                  }
+                }
+              ],
+              "descriptor": {
+                "id": "ESL0999"
+              }
+            },
+            {
+              "level": "warning",
+              "message": {
+                "text": "Unused eslint-disable directive (no problems were reported)."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "file:///home/jackson/zapdev/convex/_generated/server.d.ts",
+                      "index": 13
+                    },
+                    "region": {
+                      "startLine": 1,
+                      "startColumn": 1
+                    }
+                  }
+                }
+              ],
+              "descriptor": {
+                "id": "ESL0999"
+              }
+            },
+            {
+              "level": "warning",
+              "message": {
+                "text": "Unused eslint-disable directive (no problems were reported)."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "file:///home/jackson/zapdev/convex/_generated/server.js",
+                      "index": 14
+                    },
+                    "region": {
+                      "startLine": 1,
+                      "startColumn": 1
+                    }
+                  }
+                }
+              ],
+              "descriptor": {
+                "id": "ESL0999"
+              }
+            }
+          ],
+          "executionSuccessful": true
+        }
+      ]
+    }
+  ]
+}
