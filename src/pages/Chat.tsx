@@ -1,40 +1,97 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import Navigation from '@/components/Navigation';
-import ChatInterface from '@/components/ChatInterface';
+import EnhancedChatInterface from '@/components/EnhancedChatInterface';
 
-// Full page chat that visually matches the home page theme
+// Enhanced full page chat with stunning visuals
 const Chat: React.FC = () => {
   return (
-    <div className="min-h-screen bg-black text-foreground">
+    <div className="min-h-screen bg-[var(--color-chat-bg)] text-foreground">
       <Navigation />
 
-      {/* Background layer for home-page look */}
-      <div className="absolute inset-0 -z-10 bg-[#0A0A0A]" />
-      <div 
-        className="absolute left-0 top-0 w-full h-full -z-10 rounded-full"
-        style={{
-          background: '#377AFB',
-          opacity: 0.1,
-          boxShadow: '300px 300px 300px',
-          filter: 'blur(150px)'
-        }}
-      />
+      {/* Enhanced background with multiple gradients */}
+      <div className="absolute inset-0 -z-10">
+        {/* Base background */}
+        <div className="absolute inset-0 bg-[var(--color-chat-bg)]" />
+        
+        {/* Animated gradient orbs */}
+        <motion.div 
+          className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-10"
+          animate={{
+            background: [
+              "radial-gradient(circle, hsl(262 83% 58%) 0%, transparent 70%)",
+              "radial-gradient(circle, hsl(224 82% 60%) 0%, transparent 70%)",
+              "radial-gradient(circle, hsl(280 90% 65%) 0%, transparent 70%)",
+              "radial-gradient(circle, hsl(262 83% 58%) 0%, transparent 70%)",
+            ],
+            scale: [1, 1.2, 0.8, 1],
+            x: [0, 50, -30, 0],
+            y: [0, -40, 60, 0],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          style={{ filter: 'blur(100px)' }}
+        />
+        
+        <motion.div 
+          className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full opacity-10"
+          animate={{
+            background: [
+              "radial-gradient(circle, hsl(224 82% 60%) 0%, transparent 70%)",
+              "radial-gradient(circle, hsl(280 90% 65%) 0%, transparent 70%)",
+              "radial-gradient(circle, hsl(262 83% 58%) 0%, transparent 70%)",
+              "radial-gradient(circle, hsl(224 82% 60%) 0%, transparent 70%)",
+            ],
+            scale: [0.8, 1.3, 1, 0.8],
+            x: [0, -60, 40, 0],
+            y: [0, 50, -30, 0],
+          }}
+          transition={{
+            duration: 18,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2
+          }}
+          style={{ filter: 'blur(120px)' }}
+        />
+        
+        {/* Subtle noise texture overlay */}
+        <div 
+          className="absolute inset-0 opacity-[0.02] mix-blend-overlay"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+          }}
+        />
+      </div>
 
       <motion.main
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
         className="pt-20"
       >
         <div className="px-4">
           <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="h-[calc(100vh-6rem)] bg-[#0F1012]/70 border border-white/10 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl"
+            transition={{ 
+              duration: 0.6, 
+              delay: 0.2,
+              ease: "easeOut",
+              type: "spring",
+              stiffness: 100
+            }}
+            className="h-[calc(100vh-6rem)] glass-elevated rounded-2xl overflow-hidden relative"
           >
-            <ChatInterface />
+            {/* Enhanced border glow effect */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 via-purple-600/20 to-primary/20 rounded-2xl blur opacity-50 animate-pulse-glow" />
+            
+            <div className="relative h-full bg-[var(--color-chat-bg)]/95 backdrop-blur-xl rounded-2xl border border-white/10">
+              <EnhancedChatInterface />
+            </div>
           </motion.div>
         </div>
       </motion.main>

@@ -18,6 +18,8 @@ import {
 } from './ai-utils'
 import { aiMonitoring } from './ai-monitoring'
 import { getSecureApiKey, getApiKeySource } from './secure-storage'
+import { apiKeyManager } from './api-key-manager'
+import { toast } from 'sonner'
 
 const { logger } = Sentry;
 
@@ -85,26 +87,55 @@ function checkCostLimit(estimatedCost: number): void {
   }
 }
 
-// Get user's API key securely
+// Get user's API key securely with validation
 async function getUserApiKey(): Promise<string | null> {
-  return await getSecureApiKey();
+  try {
+    const userKey = await getSecureApiKey();
+    if (userKey && userKey.startsWith('gsk_') && userKey.length > 20) {
+      return userKey;
+    }
+    return null;
+  } catch (error) {
+    logger.warn('Error retrieving user API key:', error);
+    return null;
+  }
 }
 
-// Create Groq instance with user key or fallback to env key
+// Create Groq instance with enhanced validation and error handling
 async function createGroqInstance() {
   const userApiKey = await getUserApiKey();
-  const apiKey = userApiKey || import.meta.env.VITE_GROQ_API_KEY || '';
+  const envApiKey = import.meta.env.VITE_GROQ_API_KEY;
+  const apiKey = userApiKey || envApiKey || '';
   
-  // Security: Never log API key information in production
-  if (import.meta.env.MODE === 'development') {
-    if (userApiKey) {
-      console.log('🔑 Using user-provided Groq API key');
-    } else if (import.meta.env.VITE_GROQ_API_KEY) {
-      console.log('🔑 Using environment Groq API key');
-    }
+  // Validate API key before creating instance
+  if (!apiKey || apiKey.length < 20) {
+    const error = new Error('Invalid or missing Groq API key. Please check your configuration.');
+    logger.error('Groq API key validation failed', { hasUserKey: !!userApiKey, hasEnvKey: !!envApiKey });
+    toast.error('AI service configuration error. Please check your API keys.');
+    throw error;
   }
   
-  return createGroq({ apiKey, baseURL: 'https://api.groq.com/openai/v1' });
+  // Validate key format
+  if (!apiKey.startsWith('gsk_')) {
+    const error = new Error('Invalid Groq API key format. Key should start with "gsk_".');
+    logger.error('Groq API key format validation failed');
+    toast.error('Invalid Groq API key format. Please check your key.');
+    throw error;
+  }
+  
+  // Security: No API key logging to prevent accidental exposure
+  
+  return createGroq({ 
+    apiKey, 
+    baseURL: 'https://api.groq.com/openai/v1',
+    // Add timeout and retry configuration
+    fetch: (input, init) => {
+      return fetch(input, {
+        ...init,
+        signal: AbortSignal.timeout(60000), // 60 second timeout
+      });
+    }
+  });
 }
 
 // OpenRouter as failsafe provider
@@ -309,7 +340,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
     async (span) => {
       const startTime = Date.now();
       try {
-        const userApiKey = getUserApiKey();
+        const userApiKey = await getUserApiKey();
         const envApiKey = import.meta.env.VITE_GROQ_API_KEY;
         const apiKeySource = getApiKeySource();
         
