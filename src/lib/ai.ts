@@ -123,14 +123,7 @@ async function createGroqInstance() {
     throw error;
   }
   
-  // Security: Never log API key information in production
-  if (import.meta.env.MODE === 'development') {
-    if (userApiKey) {
-      console.log('🔑 Using user-provided Groq API key');
-    } else if (envApiKey) {
-      console.log('🔑 Using environment Groq API key');
-    }
-  }
+  // Security: No API key logging to prevent accidental exposure
   
   return createGroq({ 
     apiKey, 
@@ -347,7 +340,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
     async (span) => {
       const startTime = Date.now();
       try {
-        const userApiKey = getUserApiKey();
+        const userApiKey = await getUserApiKey();
         const envApiKey = import.meta.env.VITE_GROQ_API_KEY;
         const apiKeySource = getApiKeySource();
         

@@ -41,12 +41,11 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { streamAIResponse, generateChatTitleFromMessages, generateAIResponse } from '@/lib/ai';
-import { executeCode, startSandbox } from '@/lib/sandbox.ts';
+import { executeCode, startSandbox } from '@/lib/sandbox';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useUsageTracking } from '@/hooks/useUsageTracking';
-import { E2BCodeExecution } from './E2BCodeExecution';
-import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
+import AnimatedResultShowcase from './AnimatedResultShowcase';
 import { braveSearchService, type BraveSearchResult, type WebsiteAnalysis } from '@/lib/search-service';
 import { crawlSite } from '@/lib/firecrawl';
 import { toast } from 'sonner';
@@ -141,14 +140,7 @@ const EnhancedChatInterface: React.FC = () => {
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
-  const [showShowcase, setShowShowcase] = useState(false);
-  const [showcaseExecutions, setShowcaseExecutions] = useState<ShowcaseExecutionResult[]>([]);
-  const [previewCode, setPreviewCode] = useState<string>('');
-  const [previewLanguage, setPreviewLanguage] = useState<string>('javascript');
-  const [showPreview, setShowPreview] = useState<boolean>(false);
   const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
-  const [teamLeadPlan, setTeamLeadPlan] = useState<string | null>(null);
-  const [isPlanning, setIsPlanning] = useState<boolean>(false);
 
   // Enhanced UI state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -173,6 +165,7 @@ const EnhancedChatInterface: React.FC = () => {
   
   const createChatMutation = useMutation(api.chats.createChat);
   const addMessageMutation = useMutation(api.messages.addMessage);
+  const updateMessageMutation = useMutation(api.messages.updateMessage);
   const deleteChatMutation = useMutation(api.chats.deleteChat);
   const updateChatTitleMutation = useMutation(api.chats.updateChatTitle);
 
@@ -255,14 +248,20 @@ const EnhancedChatInterface: React.FC = () => {
           metadata: {}
         });
 
-        // Process stream
+        // Process stream with real-time updates
         for await (const delta of stream.textStream) {
           assistantResponse += delta;
-          // Update message in real-time (this would need custom mutation)
+          // Update message in real-time
+          try {
+            await updateMessageMutation({
+              messageId: assistantMessageId,
+              content: assistantResponse
+            });
+          } catch (error) {
+            // Continue streaming even if update fails
+            console.warn('Failed to update message during streaming:', error);
+          }
         }
-
-        // Final update with complete response
-        // Note: This would need a custom mutation to update existing messages
         
         // Auto-generate title if this is the first exchange
         if (messages?.length === 0) {
@@ -943,11 +942,12 @@ const EnhancedChatInterface: React.FC = () => {
                                 {/* Message content */}
                                 <div className="space-y-3">
                                   <SafeText 
-                                    text={message.content}
                                     className={`text-sm leading-relaxed ${
                                       isUser ? 'text-foreground' : 'text-foreground/90'
                                     }`}
-                                  />
+                                  >
+                                    {message.content}
+                                  </SafeText>
                                   
                                   {/* Message metadata */}
                                   {message.metadata?.model && (
