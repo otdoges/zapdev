@@ -197,3 +197,8 @@ export const withErrorBoundary = <P extends object>(
   
   return WrappedComponent;
 };
+
+// Page-specific error boundary with simplified UI
+export const PageErrorBoundary = ({ children }: { children: ReactNode }) => (
+  <ErrorBoundary>{children}</ErrorBoundary>
+);

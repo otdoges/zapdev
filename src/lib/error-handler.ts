@@ -464,6 +464,31 @@ class ErrorHandler {
 // Export singleton instance
 export const errorHandler = new ErrorHandler();
 
+// Logger interface for simple console logging with error handling
+export const logger = {
+  error: (message: string, error?: any) => {
+    console.error(message, error);
+    if (error instanceof Error) {
+      errorHandler.handleError(error, { 
+        context: { action: 'logger.error', additionalData: { message } },
+        showToast: false,
+        reportToSentry: true
+      });
+    }
+  },
+  warn: (message: string, data?: any) => {
+    console.warn(message, data);
+  },
+  info: (message: string, data?: any) => {
+    console.info(message, data);
+  },
+  debug: (message: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(message, data);
+    }
+  }
+};
+
 // Utility functions for easy usage
 export const handleError = (error: Error | AppError, options?: Parameters<typeof errorHandler.handleError>[1]) => {
   errorHandler.handleError(error, options);

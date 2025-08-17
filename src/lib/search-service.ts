@@ -324,3 +324,8 @@ export class BraveSearchService {
 }
 
 export const braveSearchService = new BraveSearchService();
+
+// Convenience function for direct search
+export const searchWithBrave = (query: string, options?: SearchOptions): Promise<BraveSearchResult[]> => {
+  return braveSearchService.search(query, options);
+};
