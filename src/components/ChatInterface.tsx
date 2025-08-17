@@ -198,8 +198,14 @@ const ChatInterface: React.FC = () => {
   );
 
   // Memoize normalized results to prevent useEffect dependencies from changing on every render
-  const chats = React.useMemo(() => chatsData?.chats ?? [], [chatsData?.chats]);
-  const messages = React.useMemo(() => messagesData?.messages ?? [], [messagesData?.messages]);
+  const chats = React.useMemo(() => {
+    const chatsArray = chatsData?.chats;
+    return Array.isArray(chatsArray) ? chatsArray : [];
+  }, [chatsData?.chats]);
+  const messages = React.useMemo(() => {
+    const messagesArray = messagesData?.messages;
+    return Array.isArray(messagesArray) ? messagesArray : [];
+  }, [messagesData?.messages]);
   const createChat = useMutation(api.chats.createChat);
   const updateChat = useMutation(api.chats.updateChat);
   const createMessage = useMutation(api.messages.createMessage);
@@ -325,8 +331,18 @@ const ChatInterface: React.FC = () => {
             error: error instanceof Error ? error.message : String(error),
             title: 'New chat'
           });
-          Sentry.captureException(error);
-          toast.error('Failed to create chat');
+          
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          // Handle specific error types with helpful messages
+          if (errorMessage.includes('Free plan limit reached')) {
+            toast.error('Free plan limit reached! You can create up to 5 chats. Upgrade to Pro for unlimited chats.');
+          } else if (errorMessage.includes('Rate limit exceeded')) {
+            toast.error('Please wait a moment before creating another chat.');
+          } else {
+            Sentry.captureException(error);
+            toast.error('Failed to create chat');
+          }
         }
       }
     );
