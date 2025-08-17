@@ -688,7 +688,7 @@ export default function Home() {
   const [isHovered, setIsHovered] = useState(false)
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900">
+    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-blue-900">
       <div className="container mx-auto px-4 py-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -701,12 +701,12 @@ export default function Home() {
             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
             className="inline-block mb-8"
           >
-            <Code2 className="w-20 h-20 text-purple-400" />
+            <Code2 className="w-20 h-20 text-blue-400" />
           </motion.div>
           
           <h1 className="text-6xl font-bold text-white mb-4">
             Welcome to{' '}
-            <span className="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
               ZapDev
             </span>
           </h1>
@@ -720,7 +720,7 @@ export default function Home() {
             whileTap={{ scale: 0.95 }}
             onHoverStart={() => setIsHovered(true)}
             onHoverEnd={() => setIsHovered(false)}
-            className="relative px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+            className="relative px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
           >
             <span className="relative z-10 flex items-center gap-2">
               Get Started
@@ -735,7 +735,7 @@ export default function Home() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="absolute inset-0 bg-gradient-to-r from-purple-700 to-pink-700 rounded-lg"
+                className="absolute inset-0 bg-gradient-to-r from-blue-700 to-blue-700 rounded-lg"
               />
             )}
           </motion.button>
@@ -770,7 +770,7 @@ export default function Home() {
               <motion.div
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.5 }}
-                className="text-purple-400 mb-4"
+                className="text-blue-400 mb-4"
               >
                 {feature.icon}
               </motion.div>
@@ -839,9 +839,9 @@ interface ButtonProps {
 
 export function Button({ children, onClick, variant = 'primary', className }: ButtonProps) {
   const variants = {
-    primary: 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700',
+    primary: 'bg-gradient-to-r from-blue-600 to-blue-600 text-white hover:from-blue-700 hover:to-blue-700',
     secondary: 'bg-gray-700 text-white hover:bg-gray-600',
-    outline: 'border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white'
+    outline: 'border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
   }
 
   return (

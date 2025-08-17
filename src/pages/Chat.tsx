@@ -87,7 +87,7 @@ const Chat: React.FC = () => {
             className="h-[calc(100vh-6rem)] glass-elevated rounded-2xl overflow-hidden relative"
           >
             {/* Enhanced border glow effect */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 via-purple-600/20 to-primary/20 rounded-2xl blur opacity-50 animate-pulse-glow" />
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 via-blue-600/20 to-primary/20 rounded-2xl blur opacity-50 animate-pulse-glow" />
             
             <div className="relative h-full bg-[var(--color-chat-bg)]/95 backdrop-blur-xl rounded-2xl border border-white/10">
               <EnhancedChatInterface />

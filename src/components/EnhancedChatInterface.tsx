@@ -158,17 +158,17 @@ const EnhancedChatInterface: React.FC = () => {
   const inputContainerRef = useRef<HTMLDivElement>(null);
 
   // Convex queries and mutations
-  const chats = useQuery(api.chats.getChats);
+  const chats = useQuery(api.chats.getUserChats);
   const messages = useQuery(
-    api.messages.getMessages, 
+    api.messages.getChatMessages, 
     selectedChatId ? { chatId: selectedChatId as Id<'chats'> } : "skip"
   );
   
   const createChatMutation = useMutation(api.chats.createChat);
-  const addMessageMutation = useMutation(api.messages.addMessage);
+  const addMessageMutation = useMutation(api.messages.createMessage);
   const updateMessageMutation = useMutation(api.messages.updateMessage);
   const deleteChatMutation = useMutation(api.chats.deleteChat);
-  const updateChatTitleMutation = useMutation(api.chats.updateChatTitle);
+  const updateChatTitleMutation = useMutation(api.chats.updateChat);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -553,7 +553,7 @@ const EnhancedChatInterface: React.FC = () => {
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                      className="absolute -inset-4 rounded-full bg-gradient-to-r from-primary/20 to-purple-600/20 blur-xl"
+                      className="absolute -inset-4 rounded-full bg-gradient-to-r from-primary/20 to-blue-600/20 blur-xl"
                     />
                     <motion.div
                       whileHover={{ scale: 1.1, rotate: 5 }}
@@ -622,7 +622,7 @@ const EnhancedChatInterface: React.FC = () => {
                   <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Enhanced input container */}
                     <div className="relative">
-                      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/50 to-purple-600/50 rounded-2xl blur opacity-20"></div>
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/50 to-blue-600/50 rounded-2xl blur opacity-20"></div>
                       <div className="relative glass-elevated rounded-2xl p-2">
                         <Textarea
                           ref={textareaRef}

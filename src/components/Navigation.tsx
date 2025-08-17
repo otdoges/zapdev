@@ -68,7 +68,7 @@ const Navigation = () => {
       }`}
     >
       {/* Enhanced glow effect */}
-      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-purple-600/20 rounded-full blur opacity-20 animate-pulse-glow" />
+      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-blue-600/20 rounded-full blur opacity-20 animate-pulse-glow" />
       
       <div className="relative mx-auto h-full px-6">
         <nav className="flex items-center justify-between h-full">
@@ -82,7 +82,7 @@ const Navigation = () => {
               transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
               className="relative"
             >
-              <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-full blur opacity-30" />
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-600 rounded-full blur opacity-30" />
               <div className="relative glass-elevated w-8 h-8 rounded-full flex items-center justify-center">
                 <Zap className="w-4 h-4 text-gradient" />
               </div>
@@ -116,7 +116,7 @@ const Navigation = () => {
                     )}
                     {/* Hover indicator */}
                     <motion.div
-                      className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity"
                       layoutId="navHover"
                     />
                   </Link>
@@ -135,7 +135,7 @@ const Navigation = () => {
                   >
                     <span className="relative z-10">{item.name}</span>
                     <motion.div
-                      className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity"
                       layoutId="navHover"
                     />
                   </motion.a>

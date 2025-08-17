@@ -22,7 +22,7 @@ const buttonVariants = cva(
         glass: "glass text-foreground glass-hover border border-white/10",
         glassElevated: "glass-elevated text-foreground glass-hover border border-white/20",
         gradient: "button-gradient text-white font-semibold",
-        gradientOutline: "bg-transparent border-2 border-transparent bg-gradient-to-r from-primary to-purple-600 bg-clip-padding hover:shadow-glow",
+        gradientOutline: "bg-transparent border-2 border-transparent bg-gradient-to-r from-primary to-blue-600 bg-clip-padding hover:shadow-glow",
       },
       size: {
         default: "h-10 px-4 py-2 rounded-lg",
@@ -126,7 +126,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             {/* Shine effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full hover:translate-x-full transition-transform duration-700" />
             {/* Glow effect */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-xl blur opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-600 rounded-xl blur opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
           </>
         )}
         

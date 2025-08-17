@@ -42,15 +42,15 @@
   --color-chat-surface: hsl(0 0% 6%);
   --color-chat-surface-elevated: hsl(0 0% 8%);
   --color-chat-border: hsl(0 0% 15%);
-  --color-chat-user-bg: hsl(262 83% 58% / 0.1);
-  --color-chat-user-border: hsl(262 83% 58% / 0.2);
+  --color-chat-user-bg: hsl(214 100% 50% / 0.1);
+  --color-chat-user-border: hsl(214 100% 50% / 0.2);
   --color-chat-assistant-bg: hsl(0 0% 8% / 0.8);
   --color-chat-assistant-border: hsl(0 0% 20% / 0.5);
   
   /* Gradient tokens */
-  --gradient-primary: linear-gradient(135deg, #3E6FF3 0%, #5577FF 50%, #7C3AED 100%);
+  --gradient-primary: linear-gradient(135deg, #3E6FF3 0%, #5577FF 50%, #1E40AF 100%);
   --gradient-surface: linear-gradient(135deg, hsl(0 0% 8% / 0.9) 0%, hsl(0 0% 6% / 0.9) 100%);
-  --gradient-glow: radial-gradient(circle at center, hsl(262 83% 58% / 0.15) 0%, transparent 70%);
+  --gradient-glow: radial-gradient(circle at center, hsl(214 100% 50% / 0.15) 0%, transparent 70%);
   
   /* Animation tokens */
   --duration-fast: 150ms;
@@ -61,7 +61,7 @@
   --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.1);
   --shadow-medium: 0 4px 16px -4px hsl(0 0% 0% / 0.15);
   --shadow-strong: 0 8px 32px -8px hsl(0 0% 0% / 0.2);
-  --shadow-glow: 0 0 32px hsl(262 83% 58% / 0.3);
+  --shadow-glow: 0 0 32px hsl(214 100% 50% / 0.3);
 }
 
 
@@ -216,8 +216,8 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px hsl(262 83% 58% / 0.3); }
-  50% { box-shadow: 0 0 40px hsl(262 83% 58% / 0.5); }
+  0%, 100% { box-shadow: 0 0 20px hsl(214 100% 50% / 0.3); }
+  50% { box-shadow: 0 0 40px hsl(214 100% 50% / 0.5); }
 }
 
 @keyframes float {

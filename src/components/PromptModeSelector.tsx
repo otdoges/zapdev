@@ -16,7 +16,7 @@ const promptModes = {
     name: 'Advanced AI',
     icon: Sparkles,
     description: 'Full zapdev AI capabilities with comprehensive system prompt',
-    color: 'bg-gradient-to-r from-blue-500 to-purple-500',
+    color: 'bg-gradient-to-r from-blue-500 to-blue-600',
     badge: 'Recommended'
   },
   simple: {

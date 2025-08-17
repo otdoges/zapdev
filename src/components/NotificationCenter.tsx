@@ -231,7 +231,7 @@ const getNotificationIcon = (type: NotificationType) => {
     case NotificationType.SYSTEM:
       return <Settings className="w-5 h-5 text-blue-500" />;
     case NotificationType.BILLING:
-      return <CreditCard className="w-5 h-5 text-purple-500" />;
+      return <CreditCard className="w-5 h-5 text-blue-500" />;
     case NotificationType.SECURITY:
       return <Shield className="w-5 h-5 text-red-500" />;
     case NotificationType.FEATURE:

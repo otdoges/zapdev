@@ -56,7 +56,7 @@ const TestimonialCard = ({ testimonial, index }: { testimonial: Testimonial; ind
           ))}
         </div>
         
-        <Quote className="w-8 h-8 text-purple-400 mb-4" />
+        <Quote className="w-8 h-8 text-blue-400 mb-4" />
         
         <p className="text-gray-300 mb-6 flex-grow leading-relaxed">
           "{testimonial.content}"
@@ -67,7 +67,7 @@ const TestimonialCard = ({ testimonial, index }: { testimonial: Testimonial; ind
             <h4 className="font-semibold text-white">{testimonial.name}</h4>
             <p className="text-sm text-gray-400">{testimonial.role} at {testimonial.company}</p>
           </div>
-          <Badge variant="outline" className="border-purple-500/50 text-purple-300">
+          <Badge variant="outline" className="border-blue-500/50 text-blue-300">
             {testimonial.plan}
           </Badge>
         </div>

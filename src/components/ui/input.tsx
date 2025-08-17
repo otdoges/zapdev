@@ -12,7 +12,7 @@ const inputVariants = cva(
         default: "border border-input bg-background rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         glass: "glass border border-white/20 bg-transparent backdrop-blur-xl focus:border-primary/50 focus:bg-white/5 focus:ring-2 focus:ring-primary/20 rounded-lg",
         glassElevated: "glass-elevated border border-white/30 bg-transparent backdrop-blur-xl focus:border-primary/70 focus:bg-white/10 focus:ring-2 focus:ring-primary/30 rounded-lg",
-        gradient: "bg-transparent border-2 border-transparent bg-gradient-to-r from-primary/20 to-purple-600/20 focus:from-primary/40 focus:to-purple-600/40 rounded-lg",
+        gradient: "bg-transparent border-2 border-transparent bg-gradient-to-r from-primary/20 to-blue-600/20 focus:from-primary/40 focus:to-blue-600/40 rounded-lg",
         minimal: "bg-transparent border-0 border-b-2 border-white/20 focus:border-primary rounded-none px-0",
       },
       size: {
@@ -66,7 +66,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <div className="relative group">
         {/* Background glow effect */}
         {(variant === 'glass' || variant === 'glassElevated') && isFocused && (
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-purple-600/20 rounded-lg blur opacity-50 animate-pulse" />
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-blue-600/20 rounded-lg blur opacity-50 animate-pulse" />
         )}
         
         <div className="relative flex items-center">
@@ -121,7 +121,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {/* Enhanced focus indicator for glass variants */}
         {(variant === 'glass' || variant === 'glassElevated') && (
           <motion.div
-            className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/5 to-purple-600/5 opacity-0 pointer-events-none"
+            className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/5 to-blue-600/5 opacity-0 pointer-events-none"
             animate={{ opacity: isFocused ? 1 : 0 }}
             transition={{ duration: 0.2 }}
           />

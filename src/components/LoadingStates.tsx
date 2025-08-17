@@ -126,7 +126,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     return (
       <motion.div
         className={cn(
-          'relative rounded-full bg-gradient-to-r from-primary to-purple-600',
+          'relative rounded-full bg-gradient-to-r from-primary to-blue-600',
           sizeClasses[size],
           className
         )}
@@ -152,7 +152,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
         }}
       >
         <div className={cn(
-          'absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-full blur opacity-50',
+          'absolute -inset-1 bg-gradient-to-r from-primary to-blue-600 rounded-full blur opacity-50',
           sizeClasses[size]
         )} />
         <motion.div
@@ -573,7 +573,7 @@ export const PageLoadingOverlay: React.FC<{
           {progress !== undefined && (
             <div className="w-64 h-1 bg-white/20 rounded-full overflow-hidden">
               <motion.div
-                className="h-full bg-gradient-to-r from-primary to-purple-600"
+                className="h-full bg-gradient-to-r from-primary to-blue-600"
                 initial={{ width: 0 }}
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.3 }}

@@ -711,14 +711,14 @@ const ChatInterface: React.FC = () => {
                       rotate: { duration: 20, repeat: Infinity, ease: "linear" },
                       scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
                     }}
-                    className="w-full h-full bg-gradient-to-br from-purple-600 via-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-purple-500/20"
+                    className="w-full h-full bg-gradient-to-br from-blue-600 via-blue-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20"
                   >
                     <Zap className="w-10 h-10 text-white" />
                   </motion.div>
                   <motion.div
                     animate={{ rotate: [360, 0] }}
                     transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                    className="absolute -inset-2 bg-gradient-to-r from-purple-600/20 via-transparent to-blue-600/20 rounded-3xl blur-xl"
+                    className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 via-transparent to-blue-600/20 rounded-3xl blur-xl"
                   />
                 </div>
               </motion.div>
@@ -728,7 +728,7 @@ const ChatInterface: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.3 }}
-                className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight"
+                className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 via-blue-600 to-blue-600 bg-clip-text text-transparent leading-tight"
               >
                 ZapDev AI
               </motion.h1>
@@ -771,7 +771,7 @@ const ChatInterface: React.FC = () => {
                       type="submit" 
                       disabled={!input.trim() || isTyping}
                       size="sm"
-                      className="absolute right-2 bottom-2 h-10 w-10 p-0 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
+                      className="absolute right-2 bottom-2 h-10 w-10 p-0 bg-gradient-to-r from-blue-600 to-blue-600 hover:from-blue-700 hover:to-blue-700 shadow-lg"
                     >
                       {isTyping ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1057,7 +1057,7 @@ const ChatInterface: React.FC = () => {
                   <p className="text-xs text-muted-foreground">Search the web with Brave Search API integration</p>
                 </div>
                 <div className="space-y-2">
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mx-auto shadow-lg">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto shadow-lg">
                     <Globe className="w-5 h-5 text-white" />
                   </div>
                   <h3 className="font-semibold text-sm">Website Cloning</h3>
@@ -1092,12 +1092,12 @@ const ChatInterface: React.FC = () => {
                 <div className="p-6 border-b border-gray-800/60">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold flex items-center text-gray-100">
-                      <MessageSquare className="w-5 h-5 mr-2 text-purple-400" />
+                      <MessageSquare className="w-5 h-5 mr-2 text-blue-400" />
                       Conversations
                     </h2>
                     <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
                       <DialogTrigger asChild>
-                        <Button size="sm" className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 border-0 shadow-lg shadow-purple-500/25 transition-all duration-200">
+                        <Button size="sm" className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 border-0 shadow-lg shadow-blue-500/25 transition-all duration-200">
                           <Plus className="w-4 h-4" />
                         </Button>
                       </DialogTrigger>
@@ -1132,7 +1132,7 @@ const ChatInterface: React.FC = () => {
                         whileTap={{ scale: 0.99 }}
                         className={`group relative p-4 rounded-lg cursor-pointer transition-all duration-300 ${
                           selectedChatId === chat._id 
-                            ? 'bg-gradient-to-r from-purple-500/20 to-violet-500/20 border border-purple-500/30 shadow-lg shadow-purple-500/10' 
+                            ? 'bg-gradient-to-r from-blue-500/20 to-blue-500/20 border border-blue-500/30 shadow-lg shadow-blue-500/10' 
                             : 'hover:bg-gray-800/50 border border-transparent hover:border-gray-700/50'
                         }`}
                         onClick={() => setSelectedChatId(chat._id)}
@@ -1198,12 +1198,12 @@ const ChatInterface: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <motion.div 
-                    className="w-10 h-10 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25"
+                    className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25"
                     animate={{ 
                       boxShadow: [
-                        "0 10px 25px rgba(168, 85, 247, 0.25)",
-                        "0 10px 25px rgba(139, 92, 246, 0.35)",
-                        "0 10px 25px rgba(168, 85, 247, 0.25)"
+                        "0 10px 25px rgba(59, 130, 246, 0.25)",
+                        "0 10px 25px rgba(37, 99, 235, 0.35)",
+                        "0 10px 25px rgba(59, 130, 246, 0.25)"
                       ]
                     }}
                     transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
@@ -1215,7 +1215,7 @@ const ChatInterface: React.FC = () => {
                       <SafeText>{chats?.find(c => c._id === selectedChatId)?.title || 'New Conversation'}</SafeText>
                     </h2>
                     <div className="flex items-center gap-3 text-xs text-gray-400">
-                      <Badge variant="secondary" className="text-xs bg-gradient-to-r from-purple-500/20 to-violet-500/20 text-purple-300 border border-purple-500/30 px-2 py-1">
+                      <Badge variant="secondary" className="text-xs bg-gradient-to-r from-blue-500/20 to-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-1">
                         ZapDev AI
                       </Badge>
                       <span className="flex items-center gap-1">
@@ -1252,9 +1252,9 @@ const ChatInterface: React.FC = () => {
                 {/* Team Lead Plan */}
                 {teamLeadPlan && (
                   <div className="px-6 pt-4">
-                    <Card className="bg-[#1A1A1A]/90 border border-purple-500/30">
+                    <Card className="bg-[#1A1A1A]/90 border border-blue-500/30">
                       <CardContent className="p-4">
-                        <div className="text-xs uppercase tracking-wide text-purple-300 mb-2">Team Lead Plan</div>
+                        <div className="text-xs uppercase tracking-wide text-blue-300 mb-2">Team Lead Plan</div>
                         <div className="prose prose-invert max-w-none text-sm whitespace-pre-wrap">
                           <SafeText>{teamLeadPlan}</SafeText>
                         </div>
@@ -1295,7 +1295,7 @@ const ChatInterface: React.FC = () => {
                           >
                             {message.role === 'assistant' && lastInGroup && (
                               <Avatar className="w-8 h-8 border border-primary/20 shadow-sm self-end">
-                                <AvatarFallback className="bg-gradient-to-br from-purple-600 to-blue-600">
+                                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-600">
                                   <Bot className="w-4 h-4 text-white" />
                                 </AvatarFallback>
                               </Avatar>
@@ -1304,7 +1304,7 @@ const ChatInterface: React.FC = () => {
                             <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
                               <Card className={`rounded-xl transition-all duration-300 group-hover:shadow-2xl ${
                                 message.role === 'user'
-                                  ? 'bg-gradient-to-br from-purple-500/10 to-violet-500/10 border border-purple-500/20 shadow-lg shadow-purple-500/5'
+                                  ? 'bg-gradient-to-br from-blue-500/10 to-blue-500/10 border border-blue-500/20 shadow-lg shadow-blue-500/5'
                                   : 'bg-[#1A1A1A]/90 backdrop-blur-xl border border-gray-800/50 shadow-xl shadow-black/20'
                               } ${radiusClass}`}>
                                 <CardContent className="p-5">
@@ -1414,8 +1414,8 @@ const ChatInterface: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className="flex gap-4"
                     >
-                      <Avatar className="w-8 h-8 border border-purple-500/20 shadow-lg shadow-purple-500/25">
-                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-violet-600">
+                      <Avatar className="w-8 h-8 border border-blue-500/20 shadow-lg shadow-blue-500/25">
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600">
                           <motion.div
                             animate={{ rotate: 360 }}
                             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -1435,7 +1435,7 @@ const ChatInterface: React.FC = () => {
                               {[0, 1, 2].map((i) => (
                                 <motion.div
                                   key={i}
-                                  className="w-2 h-2 bg-purple-400 rounded-full"
+                                  className="w-2 h-2 bg-blue-400 rounded-full"
                                   animate={{
                                     scale: [1, 1.4, 1],
                                     opacity: [0.4, 1, 0.4]
@@ -1471,7 +1471,7 @@ const ChatInterface: React.FC = () => {
                 <motion.div 
                   initial={{ opacity: 0.95 }}
                   whileFocus={{ opacity: 1 }}
-                  className="rounded-xl bg-[#0A0A0A]/90 backdrop-blur-xl border border-gray-700/50 shadow-2xl px-5 py-3 flex items-end gap-3 transition-all duration-200 focus-within:border-purple-500/50 focus-within:shadow-purple-500/20"
+                  className="rounded-xl bg-[#0A0A0A]/90 backdrop-blur-xl border border-gray-700/50 shadow-2xl px-5 py-3 flex items-end gap-3 transition-all duration-200 focus-within:border-blue-500/50 focus-within:shadow-blue-500/20"
                 >
                   <div className="flex-1">
                     <Textarea
@@ -1496,7 +1496,7 @@ const ChatInterface: React.FC = () => {
                       type="submit" 
                       disabled={!input.trim() || isTyping}
                       size="sm"
-                      className="h-10 px-5 rounded-xl bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white border-0 shadow-lg shadow-purple-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="h-10 px-5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 shadow-lg shadow-blue-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isTyping ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1522,7 +1522,7 @@ const ChatInterface: React.FC = () => {
           <div className="hidden xl:flex w-[45%] min-w-[480px] max-w-[780px] border-l border-gray-800/60 bg-[#111] flex-col">
             <div className="p-4 border-b border-gray-800/60 flex items-center justify-between">
               <div className="text-sm font-medium text-gray-200 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-purple-400" /> E2B Live Preview
+                <Zap className="w-4 h-4 text-blue-400" /> E2B Live Preview
               </div>
               <div className="text-xs text-gray-400">{previewLanguage.toUpperCase()}</div>
             </div>

@@ -15,7 +15,7 @@ const PrivacyPolicy = () => {
           className="prose prose-invert max-w-none"
         >
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-400 bg-clip-text text-transparent mb-4">
               Privacy Policy
             </h1>
             <p className="text-gray-400 text-lg">Last updated: 7/18/2025</p>
@@ -101,8 +101,8 @@ const PrivacyPolicy = () => {
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-4">5. INFORMATION SHARING AND DISCLOSURE</h2>
-              <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-4 mb-6">
-                <h3 className="text-lg font-semibold text-purple-300 mb-2">Our Data Commitment</h3>
+              <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-blue-300 mb-2">Our Data Commitment</h3>
                 <p className="text-gray-300">
                   <strong>We do not sell your personal information or data to third parties.</strong> Your privacy is fundamental to our service, and we are committed to protecting your messages and personal information.
                 </p>
@@ -154,7 +154,7 @@ const PrivacyPolicy = () => {
               </ul>
               <p className="mt-4">
                 To exercise these rights, contact us at{" "}
-                <a href="mailto:privacy@zapdev.ai" className="text-purple-400 hover:text-purple-300 transition-colors">
+                <a href="mailto:privacy@zapdev.ai" className="text-blue-400 hover:text-blue-300 transition-colors">
                   privacy@zapdev.ai
                 </a>.
               </p>
@@ -240,7 +240,7 @@ const PrivacyPolicy = () => {
               </p>
               <p className="mt-2">
                 Email:{" "}
-                <a href="mailto:support@zapdev.link" className="text-purple-400 hover:text-purple-300 transition-colors">
+                <a href="mailto:support@zapdev.link" className="text-blue-400 hover:text-blue-300 transition-colors">
                   support@zapdev.link
                 </a>
               </p>

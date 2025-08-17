@@ -145,15 +145,15 @@ export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = t
       transition={{ duration: 0.5 }}
       className="w-full"
     >
-      <Card className="overflow-hidden border-purple-200 dark:border-purple-800 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
+      <Card className="overflow-hidden border-blue-200 dark:border-blue-800 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-50 dark:from-blue-950 dark:to-blue-950">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <motion.div
                 animate={{ rotate: isExecuting ? 360 : 0 }}
                 transition={{ duration: 2, repeat: isExecuting ? Infinity : 0, ease: "linear" }}
               >
-                <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </motion.div>
               <CardTitle className="text-lg font-semibold">E2B Code Execution</CardTitle>
               <Badge variant="secondary" className="flex items-center gap-1">
@@ -224,7 +224,7 @@ export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = t
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
-              className="mt-2 text-sm text-purple-700 dark:text-purple-300 flex items-center gap-2"
+              className="mt-2 text-sm text-blue-700 dark:text-blue-300 flex items-center gap-2"
             >
               <Sparkles className="w-3 h-3" />
               This code will run in a Next.js environment with full TypeScript support
@@ -252,7 +252,7 @@ export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = t
           
           {/* Code Summary when hidden */}
           {!showCode && (
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 p-4 border-b">
+            <div className="bg-gradient-to-r from-blue-50 to-blue-50 dark:from-blue-950/20 dark:to-blue-950/20 p-4 border-b">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">

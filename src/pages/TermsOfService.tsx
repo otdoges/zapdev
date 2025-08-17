@@ -15,7 +15,7 @@ const TermsOfService = () => {
           className="prose prose-invert max-w-none"
         >
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-400 bg-clip-text text-transparent mb-4">
               Terms of Service
             </h1>
             <p className="text-gray-400 text-lg">Last updated: 7/18/2025</p>
@@ -146,7 +146,7 @@ const TermsOfService = () => {
               <h2 className="text-2xl font-semibold text-white mb-4">14. CONTACT INFORMATION</h2>
               <p>
                 For questions about these Terms of Service, please contact us at:{" "}
-                <a href="mailto:support@zapdev.link" className="text-purple-400 hover:text-purple-300 transition-colors">
+                <a href="mailto:support@zapdev.link" className="text-blue-400 hover:text-blue-300 transition-colors">
                   support@zapdev.link
                 </a>
               </p>

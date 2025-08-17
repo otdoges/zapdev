@@ -328,7 +328,7 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
                 plan.popular 
                   ? 'bg-blue-500 hover:bg-blue-600 text-white' 
                   : plan.contactOnly
-                  ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
                   : 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700'
               }`}
               variant={plan.popular ? 'default' : 'outline'}
