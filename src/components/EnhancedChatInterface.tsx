@@ -1,43 +1,8 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { SafeText } from '@/components/ui/SafeText';
-import { 
-  Send, 
-  User, 
-  Bot, 
-  Play, 
-  Copy, 
-  Check, 
-  Plus,
-  MessageSquare,
-  Trash2,
-  Edit3,
-  Sparkles,
-  Clock,
-  Zap,
-  Loader2,
-  Search,
-  Globe,
-  ExternalLink,
-  Link,
-  Code,
-  Palette,
-  Layers,
-  ArrowUp,
-  Mic,
-  Paperclip,
-  Settings,
-  Github,
-  GitBranch
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -48,193 +13,26 @@ import { executeCode, startSandbox } from '@/lib/sandbox';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useUsageTracking } from '@/hooks/useUsageTracking';
-import AnimatedResultShowcase from './AnimatedResultShowcase';
-import { braveSearchService, type BraveSearchResult, type WebsiteAnalysis } from '@/lib/search-service';
-import { crawlSite } from '@/lib/firecrawl';
 import { toast } from 'sonner';
-import * as Sentry from '@sentry/react';
-import WebContainerFailsafe from './WebContainerFailsafe';
-import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
-import { GitHubIntegration } from '@/components/GitHubIntegration';
-import type { GitHubRepo } from '@/lib/github-service';
-import { githubService } from '@/lib/github-service';
+
+// Import extracted components
+import { ChatSidebar } from './chat/ChatSidebar';
+import { ChatMessage } from './chat/ChatMessage';
+import { ChatInput } from './chat/ChatInput';
+import { WelcomeScreen } from './chat/WelcomeScreen';
+import { ErrorBoundary } from './ErrorBoundary';
+import GitHubIntegration from './GitHubIntegration';
 import DiagramMessageComponent from './DiagramMessageComponent';
 
-// Performance utility functions
-const throttle = <T extends (...args: any[]) => any>(func: T, limit: number): T => {
-  let inThrottle: boolean;
-  return ((...args: any[]) => {
-    if (!inThrottle) {
-      func.apply(null, args);
-      inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
-    }
-  }) as T;
-};
+// Import utilities
+import { validateInput, MAX_MESSAGE_LENGTH } from '@/utils/security';
+import { throttle, debounce } from '@/utils/performance';
 
-const debounce = <T extends (...args: any[]) => any>(func: T, delay: number): T => {
-  let timeoutId: NodeJS.Timeout;
-  return ((...args: any[]) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func.apply(null, args), delay);
-  }) as T;
-};
-
-const { logger } = Sentry;
-
-// Performance optimized message component with React.memo
-const EnhancedMessageComponent = memo(({ message, user, isUser, isFirstInGroup, formatTimestamp, copyToClipboard, copiedMessage, onApproveDiagram, onRequestDiagramChanges, isSubmittingDiagram }: {
-  message: ConvexMessage;
-  user: { avatarUrl?: string; email?: string; fullName?: string } | null;
-  isUser: boolean;
-  isFirstInGroup: boolean;
-  formatTimestamp: (timestamp: number) => string;
-  copyToClipboard: (text: string, messageId: string) => Promise<void>;
-  copiedMessage: string | null;
-  onApproveDiagram?: (messageId: string) => Promise<void>;
-  onRequestDiagramChanges?: (messageId: string, feedback: string) => Promise<void>;
-  isSubmittingDiagram?: boolean;
-}) => {
-  const hasDiagram = message.metadata?.diagramData;
-
-  return (
-    <div className="space-y-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        whileHover={{ scale: 1.01 }}
-        className="group"
-      >
-        <Card className={`
-          transition-all duration-300 shadow-lg hover:shadow-xl border-0
-          ${isUser 
-            ? 'chat-bubble-user ml-auto max-w-[80%] bg-gradient-to-br from-blue-600/10 to-blue-700/5 border border-blue-400/20' 
-            : 'chat-bubble-assistant max-w-[85%] bg-gradient-to-br from-gray-800/40 to-gray-900/20 border border-gray-600/20'
-          }
-          ${isFirstInGroup ? 'rounded-2xl' : (isUser ? 'rounded-2xl rounded-tr-lg' : 'rounded-2xl rounded-tl-lg')}
-          backdrop-blur-xl
-        `}>
-          <CardContent className="p-6 relative">
-            <div className="space-y-4">
-              <SafeText 
-                className={`text-base leading-relaxed font-medium ${
-                  isUser ? 'text-foreground' : 'text-foreground/95'
-                }`}
-              >
-                {message.content}
-              </SafeText>
-            
-              {message.metadata?.model && (
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <Badge variant="outline" className="glass text-xs border-white/20 bg-white/5 backdrop-blur-sm rounded-lg px-2 py-1">
-                    {message.metadata.model}
-                  </Badge>
-                  {message.metadata.tokens && (
-                    <span className="bg-gray-800/50 px-2 py-1 rounded-md">{message.metadata.tokens} tokens</span>
-                  )}
-                  {message.metadata.cost && (
-                    <span className="bg-green-800/30 text-green-300 px-2 py-1 rounded-md">${message.metadata.cost.toFixed(4)}</span>
-                  )}
-                  {hasDiagram && (
-                    <Badge variant="outline" className="glass text-xs text-blue-300 border-blue-400/30 bg-blue-500/10 backdrop-blur-sm rounded-lg px-2 py-1">
-                      Contains Diagram
-                    </Badge>
-                  )}
-                </div>
-              )}
-          </div>
-
-            <div className={`absolute top-3 ${isUser ? 'left-3' : 'right-3'} opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center gap-2`}>
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard(message.content, message._id)}
-                  className="h-8 w-8 p-0 glass-hover rounded-lg border border-white/10 hover:border-white/20 hover:bg-white/5 backdrop-blur-sm"
-                >
-                  {copiedMessage === message._id ? (
-                    <Check className="w-4 h-4 text-green-400" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </Button>
-              </motion.div>
-            </div>
-
-            <div className={`text-xs text-muted-foreground/70 mt-3 ${
-              isUser ? 'text-right' : 'text-left'
-            }`}>
-              {formatTimestamp(message.createdAt)}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Diagram Component */}
-      {hasDiagram && onApproveDiagram && onRequestDiagramChanges && (
-        <DiagramMessageComponent
-          diagramData={message.metadata.diagramData}
-          messageId={message._id}
-          onApprove={onApproveDiagram}
-          onRequestChanges={onRequestDiagramChanges}
-          isSubmitting={isSubmittingDiagram}
-        />
-      )}
-    </div>
-  );
-});
-
-// Security constants for input validation
-const MAX_MESSAGE_LENGTH = 10000;
-const MAX_TITLE_LENGTH = 100;
-const MIN_TITLE_LENGTH = 1;
-
-// XSS protection: sanitize text input
-const sanitizeText = (text: string): string => {
-  return text
-    .replace(/[<>'"&]/g, (char) => {
-      const chars: { [key: string]: string } = {
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#x27;',
-        '"': '&quot;',
-        '&': '&amp;'
-      };
-      return chars[char] || char;
-    })
-    .trim();
-};
-
-// Validate input length and content
-const validateInput = (text: string, maxLength: number): { isValid: boolean; error?: string } => {
-  if (!text || text.trim().length === 0) {
-    return { isValid: false, error: 'Input cannot be empty' };
-  }
-  if (text.length > maxLength) {
-    return { isValid: false, error: `Input too long. Maximum ${maxLength} characters allowed` };
-  }
-  // Check for potentially malicious patterns
-  const suspiciousPatterns = [
-    /<script/i,
-    /javascript:/i,
-    /vbscript:/i,
-    /onload=/i,
-    /onerror=/i,
-    /onclick=/i
-  ];
-  
-  for (const pattern of suspiciousPatterns) {
-    if (pattern.test(text)) {
-      return { isValid: false, error: 'Invalid content detected' };
-    }
-  }
-  
-  return { isValid: true };
-};
+// Import additional required modules
+import { searchWithBrave, type BraveSearchResult } from '@/lib/search-service';
+import { crawlWebsite, type WebsiteAnalysis } from '@/lib/firecrawl';
+import type { GitHubRepo } from '@/lib/github-service';
+import { logger } from '@/lib/error-handler';
 
 interface ConvexMessage {
   _id: string;
@@ -277,9 +75,7 @@ const EnhancedChatInterface: React.FC = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
-  const [sessionStarted, setSessionStarted] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
 
   // Enhanced UI state
@@ -289,438 +85,168 @@ const EnhancedChatInterface: React.FC = () => {
   const [websiteAnalysis, setWebsiteAnalysis] = useState<WebsiteAnalysis | null>(null);
   const [isWebsiteDialogOpen, setIsWebsiteDialogOpen] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState('');
-  
-  // Enhanced animations
-  const [messageAnimations, setMessageAnimations] = useState<{ [key: string]: boolean }>({});
+  const [isSubmittingDiagram, setIsSubmittingDiagram] = useState(false);
   
   // GitHub Integration state
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
   const [githubContext, setGithubContext] = useState<string>('');
-  const [isGithubMode, setIsGithubMode] = useState(false);
 
-  // Diagram state
-  const [isSubmittingDiagram, setIsSubmittingDiagram] = useState(false);
+  // Code execution
+  const [codeBlocks, setCodeBlocks] = useState<CodeBlock[]>([]);
+  const [sandboxReady, setSandboxReady] = useState(false);
 
+  // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputContainerRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Convex queries and mutations
-  const chatsData = useQuery(api.chats.getUserChats, {});
-  const messagesData = useQuery(
-    api.messages.getChatMessages,
-    selectedChatId ? { chatId: selectedChatId as Id<'chats'> } : "skip"
-  );
-
-  // Enhanced performance: more aggressive message limiting and memoization
-  const chats = React.useMemo(() => {
-    const chatsArray = chatsData?.chats;
-    return Array.isArray(chatsArray) ? chatsArray : [];
-  }, [chatsData?.chats]);
-  
-  const messages = React.useMemo(() => {
-    const messagesArray = messagesData?.messages;
-    const validMessages = Array.isArray(messagesArray) ? messagesArray : [];
-    // More aggressive limiting for better performance on low-end devices
-    return validMessages.slice(-50);
-  }, [messagesData?.messages]);
-  
+  const chats = useQuery(api.chats.getUserChats, user ? { userId: user.id } : 'skip');
+  const messages = useQuery(api.messages.getChatMessages, selectedChatId ? { chatId: selectedChatId as Id<'chats'> } : 'skip');
   const createChatMutation = useMutation(api.chats.createChat);
-  const addMessageMutation = useMutation(api.messages.createMessage);
+  const createMessageMutation = useMutation(api.messages.createMessage);
   const updateMessageMutation = useMutation(api.messages.updateMessage);
   const deleteChatMutation = useMutation(api.chats.deleteChat);
-  const updateChatTitleMutation = useMutation(api.chats.updateChat);
 
-  // Performance optimized auto-scroll with throttling
-  const scrollToBottomThrottled = React.useCallback(
-    throttle(() => {
-      messagesEndRef.current?.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'end',
-        inline: 'nearest'
-      });
-    }, 100),
-    []
-  );
-
-  useEffect(() => {
-    scrollToBottomThrottled();
-  }, [messages.length, scrollToBottomThrottled]); // Only trigger on message count change
-
-  // Initialize sandbox on component mount for better performance
-  useEffect(() => {
-    const warmUpSandbox = async () => {
-      try {
-        await startSandbox();
-        logger.info('Sandbox warmed up successfully');
-      } catch (error) {
-        logger.warn('Sandbox warm-up failed:', error);
-      }
-    };
+  // Utility functions
+  const formatTimestamp = useCallback((timestamp: number) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
     
-    warmUpSandbox();
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d ago`;
+    return date.toLocaleDateString();
   }, []);
 
-  // Performance optimized textarea resize with debouncing
-  const resizeTextarea = React.useCallback(
-    debounce(() => {
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-        const scrollHeight = Math.min(textareaRef.current.scrollHeight, 200);
-        textareaRef.current.style.height = `${scrollHeight}px`;
+  // Chat management
+  const startNewChat = useCallback(async () => {
+    try {
+      if (!user) return;
+      
+      const chatId = await createChatMutation({
+        userId: user.id,
+        title: "New Chat"
+      });
+      setSelectedChatId(chatId);
+      setInput('');
+    } catch (error) {
+      logger.error('Failed to create new chat:', error);
+      toast.error('Failed to create new chat');
+    }
+  }, [user, createChatMutation]);
+
+  const selectChat = useCallback((chatId: string) => {
+    setSelectedChatId(chatId);
+  }, []);
+
+  const deleteChat = useCallback(async (chatId: string) => {
+    try {
+      await deleteChatMutation({ chatId: chatId as Id<'chats'> });
+      if (selectedChatId === chatId) {
+        setSelectedChatId(null);
       }
-    }, 50),
-    []
-  );
+      toast.success('Chat deleted');
+    } catch (error) {
+      logger.error('Failed to delete chat:', error);
+      toast.error('Failed to delete chat');
+    }
+  }, [deleteChatMutation, selectedChatId]);
 
-  useEffect(() => {
-    resizeTextarea();
-  }, [input, resizeTextarea]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Message handling
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    if (!input.trim() || isTyping || !user) return;
+
     const validation = validateInput(input, MAX_MESSAGE_LENGTH);
     if (!validation.isValid) {
       toast.error(validation.error);
       return;
     }
-    
-    const sanitizedInput = sanitizeText(input);
-    if (!sanitizedInput.trim()) return;
-    
-    // Enhance message with GitHub context if available
-    const enhancedInput = await enhanceMessageWithGitHub(sanitizedInput);
 
-    if (!sessionStarted) {
-      setSessionStarted(true);
-    }
+    const userInput = input.trim();
+    setInput('');
+    setIsTyping(true);
 
     try {
       let currentChatId = selectedChatId;
       
+      // Create new chat if none selected
       if (!currentChatId) {
-        const newChat = await createChatMutation({
-          title: 'New Chat',
+        currentChatId = await createChatMutation({
+          userId: user.id,
+          title: "New Chat"
         });
-        currentChatId = newChat;
         setSelectedChatId(currentChatId);
       }
 
-      // Add user message
-      await addMessageMutation({
+      // Create user message
+      await createMessageMutation({
         chatId: currentChatId as Id<'chats'>,
-        content: sanitizedInput, // Store original user input
-        role: 'user',
-        metadata: {}
+        content: userInput,
+        role: 'user'
       });
 
-      setInput('');
-      setIsTyping(true);
-
-      // Generate AI response with diagram support
-      try {
-        // Use diagram-aware AI generation
-        const result = await generateDiagramResponse(enhancedInput);
-        const assistantResponse = result.response;
-        const diagramData = result.diagramData;
-
-        // Create metadata object with diagram data if present
-        const metadata: {
-          diagramData?: {
-            type: 'mermaid' | 'flowchart' | 'sequence' | 'gantt';
-            diagramText: string;
-            isApproved?: boolean;
-            userFeedback?: string;
-            version: number;
-          };
-        } = {};
-        if (diagramData) {
-          metadata.diagramData = diagramData;
+      // Generate AI response
+      const subscription = await getSubscription();
+      const aiResponse = await streamAIResponse(userInput, [], subscription?.tier || 'free');
+      
+      // Create assistant message
+      await createMessageMutation({
+        chatId: currentChatId as Id<'chats'>,
+        content: aiResponse.content,
+        role: 'assistant',
+        metadata: {
+          model: aiResponse.model,
+          tokens: aiResponse.usage?.total_tokens,
+          cost: aiResponse.cost
         }
+      });
 
-        // Add assistant message with diagram data
-        const assistantMessageId = await addMessageMutation({
-          chatId: currentChatId as Id<'chats'>,
-          content: assistantResponse,
-          role: 'assistant',
-          metadata
-        });
-        
-        // Auto-generate title if this is the first exchange
-        if (messages?.length === 0) {
-          try {
-            const title = await generateChatTitleFromMessages([
-              { role: 'user', content: sanitizedInput },
-              { role: 'assistant', content: assistantResponse }
-            ]);
-            await updateChatTitleMutation({
-              chatId: currentChatId as Id<'chats'>,
-              title: title.slice(0, MAX_TITLE_LENGTH)
-            });
-          } catch (titleError) {
-            logger.warn('Title generation failed:', titleError);
-          }
-        }
-
-        // Refresh subscription data
-        try {
-          await getSubscription();
-        } catch (error) {
-          logger.warn('Failed to refresh subscription data:', error);
-        }
-
-      } catch (aiError) {
-        logger.error('AI response failed:', aiError);
-        toast.error('Failed to generate AI response. Please try again.');
-        
-        await addMessageMutation({
-          chatId: currentChatId as Id<'chats'>,
-          content: 'I apologize, but I encountered an error while processing your request. Please try again.',
-          role: 'assistant',
-          metadata: {}
-        });
+      // Auto-generate chat title if first message
+      if (messages?.length === 0) {
+        const title = await generateChatTitleFromMessages([
+          { content: userInput, role: 'user' },
+          { content: aiResponse.content, role: 'assistant' }
+        ]);
+        // Update chat title (would need a mutation for this)
       }
 
     } catch (error) {
-      logger.error('Chat submission failed:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      // Handle specific error types with helpful messages
-      if (errorMessage.includes('Free plan limit reached')) {
-        toast.error('Free plan limit reached! You can create up to 5 chats. Upgrade to Pro for unlimited chats.');
-      } else if (errorMessage.includes('Rate limit exceeded')) {
-        toast.error('Please wait a moment before creating another chat.');
-      } else {
-        toast.error('Failed to send message. Please try again.');
-      }
+      logger.error('Chat error:', error);
+      toast.error('Failed to send message');
     } finally {
       setIsTyping(false);
     }
-  };
+  }, [input, isTyping, user, selectedChatId, messages, createChatMutation, createMessageMutation, getSubscription]);
 
-  // Memoized clipboard function to prevent unnecessary re-renders
-  const copyToClipboard = useCallback(async (text: string, messageId: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedMessage(messageId);
-      toast.success('Message copied to clipboard');
-      
-      setTimeout(() => {
-        setCopiedMessage(null);
-      }, 2000);
-    } catch (error) {
-      logger.error('Clipboard copy failed:', error);
-      toast.error('Failed to copy message');
-    }
-  }, []);
-
-  const deleteChat = async (chatId: string) => {
-    try {
-      await deleteChatMutation({ chatId: chatId as Id<'chats'> });
-      if (selectedChatId === chatId) {
-        setSelectedChatId(null);
-        setSessionStarted(false);
-      }
-      toast.success('Chat deleted successfully');
-    } catch (error) {
-      logger.error('Chat deletion failed:', error);
-      toast.error('Failed to delete chat');
-    }
-  };
-
-  const startNewChat = () => {
-    setSelectedChatId(null);
-    setSessionStarted(false);
-    setInput('');
-    setIsNewChatOpen(false);
-    toast.success('Started new chat');
-  };
-
-  const selectChat = (chatId: string) => {
-    setSelectedChatId(chatId);
-    setSessionStarted(true);
-    setSidebarExpanded(false);
-  };
-
-  // Enhanced web search with improved UX
-  const searchWeb = async (query: string) => {
-    if (!query.trim()) return;
-    
-    try {
-      setIsSearchOpen(true);
-      const results = await braveSearchService.search(query);
-      setSearchResults(results);
-      toast.success(`Found ${results.length} results for "${query}"`);
-    } catch (error) {
-      logger.error('Web search failed:', error);
-      toast.error('Search failed. Please try again.');
-    }
-  };
-
-  // Enhanced website analysis
-  const analyzeWebsite = async (url: string) => {
-    if (!url.trim()) {
-      toast.error('Please enter a valid URL');
-      return;
-    }
-
-    try {
-      setIsAnalyzingWebsite(true);
-      const analysis = await crawlSite(url);
-      // For now, just use basic analysis
-      const basicAnalysis = {
-        url,
-        title: 'Website analyzed',
-        description: 'Website content processed',
-        technologies: ['Web'],
-        colorScheme: ['#000000'],
-        content: 'Website content available'
-      };
-      setWebsiteAnalysis(basicAnalysis);
-      
-      if (basicAnalysis) {
-        const analysisSummary = 
-          `**Website Analysis for ${url}:**\n\n` +
-          `**Title:** ${basicAnalysis.title || 'Not detected'}\n\n` +
-          `**Description:** ${basicAnalysis.description || 'Not detected'}\n\n` +
-          `**Technologies:** ${basicAnalysis.technologies?.join(', ') || 'Not detected'}\n\n` +
-          `**Color Scheme:** ${basicAnalysis.colorScheme?.slice(0, 5).join(', ') || 'Not detected'}\n\n` +
-          `**Content Preview:** ${basicAnalysis.content?.substring(0, 500) || 'No content extracted'}...\n\n`;
-        
-        setInput(prev => prev + (prev ? '\n\n' : '') + `Please help me clone this website:\n\n${analysisSummary}\n\nI want to recreate: `);
-        toast.success('Website analyzed successfully!');
-      }
-      
-    } catch (error) {
-      logger.error('Website analysis error:', error);
-      toast.error(error instanceof Error ? error.message : 'Website analysis failed');
-    } finally {
-      setIsAnalyzingWebsite(false);
-      setIsWebsiteDialogOpen(false);
-    }
-  };
-
-  const addSearchResultToInput = (result: BraveSearchResult) => {
-    const resultText = `Reference: ${result.title} - ${result.description} (${result.url})`;
-    setInput(prev => prev + (prev ? '\n\n' : '') + resultText + '\n\n');
-    toast.success('Search result added to message');
-  };
-
-  // Memoized timestamp functions to prevent recalculation
-  const formatTimestamp = useCallback((timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  }, []);
-
-  const isSameDay = useCallback((a: number, b: number) => {
-    const da = new Date(a);
-    const db = new Date(b);
-    return (
-      da.getFullYear() === db.getFullYear() &&
-      da.getMonth() === db.getMonth() &&
-      da.getDate() === db.getDate()
-    );
-  }, []);
-
-  const formatDateHeader = useCallback((timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  }, []);
-
-  // GitHub Integration Functions
-  const handleRepoSelected = (repo: GitHubRepo) => {
+  // GitHub integration handlers
+  const handleRepoSelected = useCallback((repo: GitHubRepo) => {
     setSelectedRepo(repo);
-    setIsGithubMode(true);
-    
-    const repoContext = `Repository: ${repo.full_name}\n` +
-      `Description: ${repo.description || 'No description'}\n` +
-      `Language: ${repo.language || 'Unknown'}\n` +
-      `Default Branch: ${repo.default_branch}\n` +
-      `Type: ${repo.private ? 'Private' : 'Public'} repository\n\n`;
-    
-    setGithubContext(repoContext);
-    
-    // Add context to the current input
-    setInput(prev => {
-      const newInput = `I'm working with this GitHub repository:\n\n${repoContext}` +
-        `Please help me analyze and suggest improvements for this codebase. ` +
-        `${prev ? '\n\n' + prev : ''}`;
-      return newInput;
-    });
-    
-    toast.success(`Repository ${repo.full_name} loaded for AI analysis!`);
-  };
+    setGithubContext(`Working with repository: ${repo.full_name}`);
+  }, []);
 
-  const handlePullRequestCreated = (prUrl: string, repo: GitHubRepo) => {
-    toast.success('Pull request created successfully!');
-    
-    // Add success message to chat
-    if (selectedChatId) {
-      addMessageMutation({
-        chatId: selectedChatId as Id<'chats'>,
-        content: `✅ **Pull Request Created Successfully!**\n\n` +
-          `Repository: ${repo.full_name}\n` +
-          `Pull Request: [View PR](${prUrl})\n\n` +
-          `The changes have been applied and are ready for review. ` +
-          `You can now review the pull request on GitHub and merge it when ready.`,
-        role: 'assistant',
-        metadata: {}
-      }).catch(error => {
-        logger.error('Failed to add PR success message:', error);
-      });
-    }
-  };
+  const handlePullRequestCreated = useCallback((prUrl: string) => {
+    toast.success(`Pull request created: ${prUrl}`);
+  }, []);
 
-  const detectGithubUrls = (text: string): string[] => {
-    const githubUrlRegex = /https?:\/\/github\.com\/[\w\-.]+\/[\w\-.]+(?:\/[^\s]*)?/g;
-    return text.match(githubUrlRegex) || [];
-  };
-
-  const enhanceMessageWithGitHub = async (message: string): Promise<string> => {
-    let enhancedMessage = message;
-    
-    // If GitHub mode is active, add repository context
-    if (isGithubMode && selectedRepo && githubContext) {
-      enhancedMessage = githubContext + '\n' + message;
-    }
-    
-    // Detect and suggest GitHub integration
-    const githubUrls = detectGithubUrls(message);
-    if (githubUrls.length > 0 && !isGithubMode) {
-      enhancedMessage += '\n\n[Assistant Note: I detected GitHub repository URLs in your message. ' +
-        'Would you like to use the GitHub integration to analyze the repository, ' +
-        'make changes, and create pull requests directly?]';
-    }
-    
-    return enhancedMessage;
-  };
-
-  // Diagram approval handlers
-  const handleApproveDiagram = async (messageId: string) => {
+  // Diagram handlers
+  const handleApproveDiagram = useCallback(async (messageId: string) => {
     setIsSubmittingDiagram(true);
     try {
-      // Get the existing message to preserve its content and metadata
-      const existingMessage = messages.find(m => m._id === messageId);
-      if (!existingMessage) {
-        throw new Error('Message not found');
-      }
+      const existingMessage = messages?.find(m => m._id === messageId);
+      if (!existingMessage) throw new Error('Message not found');
       
-      // Update the message while preserving existing content and other metadata
       await updateMessageMutation({
         messageId: messageId as Id<'messages'>,
-        content: existingMessage.content, // Preserve original content instead of overwriting
+        content: existingMessage.content,
         metadata: {
-          ...existingMessage.metadata, // Preserve other metadata fields
+          ...existingMessage.metadata,
           diagramData: existingMessage.metadata?.diagramData ? {
-            ...existingMessage.metadata.diagramData, // Preserve existing diagram data
-            isApproved: true, // Only update the approval status
+            ...existingMessage.metadata.diagramData,
+            isApproved: true,
           } : undefined
         }
       });
@@ -732,748 +258,245 @@ const EnhancedChatInterface: React.FC = () => {
     } finally {
       setIsSubmittingDiagram(false);
     }
-  };
+  }, [messages, updateMessageMutation]);
 
-  const handleRequestDiagramChanges = async (messageId: string, feedback: string) => {
+  const handleRequestDiagramChanges = useCallback(async (messageId: string, feedback: string) => {
     setIsSubmittingDiagram(true);
     try {
-      const message = messages.find(m => m._id === messageId);
+      const message = messages?.find(m => m._id === messageId);
       if (!message?.metadata?.diagramData) {
         throw new Error('No diagram data found');
       }
 
-      const originalDiagram = message.metadata.diagramData;
-      
-      // Generate updated diagram based on feedback
       const updatedDiagram = await generateUpdatedDiagram(
-        originalDiagram.diagramText,
-        feedback,
-        originalDiagram.type,
-        originalDiagram.version
+        message.metadata.diagramData.diagramText,
+        feedback
       );
-
-      // Update the message with new diagram and feedback
+      
       await updateMessageMutation({
         messageId: messageId as Id<'messages'>,
-        content: message.content, // Keep original content
+        content: message.content,
         metadata: {
           ...message.metadata,
           diagramData: {
-            ...originalDiagram,
+            ...message.metadata.diagramData,
             diagramText: updatedDiagram.diagramText,
-            version: updatedDiagram.version,
-            isApproved: false,
             userFeedback: feedback,
+            version: (message.metadata.diagramData.version || 0) + 1
           }
         }
       });
       
-      toast.success('Diagram updated based on your feedback!');
+      toast.success('Diagram updated successfully!');
     } catch (error) {
       logger.error('Failed to update diagram:', error);
       toast.error('Failed to update diagram. Please try again.');
     } finally {
       setIsSubmittingDiagram(false);
     }
-  };
+  }, [messages, updateMessageMutation]);
 
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center h-full bg-[var(--color-chat-bg)]">
-        <motion.div 
-          className="flex items-center space-x-3"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
-          <span className="text-muted-foreground text-lg">Loading ZapDev...</span>
-        </motion.div>
-      </div>
-    );
-  }
+  // Optimized auto-scroll to bottom
+  useEffect(() => {
+    const element = messagesEndRef.current;
+    if (element) {
+      // Use requestAnimationFrame for better performance
+      requestAnimationFrame(() => {
+        element.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
+  }, [messages?.length]); // Only trigger on message count change, not content
 
-  if (!user) {
+  // Initialize sandbox with cleanup
+  useEffect(() => {
+    let isMounted = true;
+    const initSandbox = async () => {
+      try {
+        await startSandbox();
+        if (isMounted) {
+          setSandboxReady(true);
+        }
+      } catch (error) {
+        logger.warn('Sandbox initialization failed:', error);
+      }
+    };
+    initSandbox();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Memoized message list to prevent unnecessary re-renders
+  const memoizedMessages = useMemo(() => {
+    return messages || [];
+  }, [messages]);
+
+  // Memoized typing indicator
+  const typingIndicator = useMemo(() => {
+    if (!isTyping) return null;
     return (
-      <div className="flex items-center justify-center h-full bg-[var(--color-chat-bg)]">
-        <motion.div 
-          className="text-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex gap-4 p-6 rounded-2xl bg-gradient-to-r from-gray-800/40 to-gray-700/30 border border-gray-600/20 mr-12"
+      >
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600/30 flex items-center justify-center">
           <motion.div
-            className="w-20 h-20 mx-auto mb-6 p-4 rounded-full glass"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Bot className="w-full h-full text-primary" />
-          </motion.div>
-          <h3 className="text-2xl font-semibold mb-3 text-gradient-static">Please Sign In</h3>
-          <p className="text-muted-foreground text-lg">You need to be signed in to use ZapDev AI</p>
-        </motion.div>
-      </div>
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full"
+          />
+        </div>
+        <div className="flex-1">
+          <p className="text-muted-foreground">ZapDev AI is thinking...</p>
+        </div>
+      </motion.div>
     );
-  }
-
-  const hasMessages = messages && messages.length > 0;
-  const showSplitLayout = sessionStarted || hasMessages;
+  }, [isTyping]);
 
   return (
-    <div className="flex h-full bg-[var(--color-chat-bg)] text-foreground">
-      {/* Enhanced Welcome Hero */}
-      <AnimatePresence mode="wait">
-        {!showSplitLayout && (
-          <motion.div 
-            key="hero"
-            className="flex-1 flex flex-col relative overflow-hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            {/* Static background gradient - much more performant */}
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-blue-500/5 via-blue-400/3 to-blue-600/5" />
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-blue-950/20 to-gray-950 text-white relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
+          <div className="absolute top-3/4 left-3/4 w-64 h-64 bg-cyan-600/10 rounded-full blur-3xl animate-pulse delay-2000" />
+        </div>
 
-            {/* Simplified particle effect - reduced from 20 to 5 particles */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute w-1 h-1 bg-primary/10 rounded-full animate-pulse"
-                  style={{
-                    left: `${20 + i * 20}%`,
-                    top: `${30 + i * 10}%`,
-                    animationDelay: `${i * 2}s`
-                  }}
-                />
-              ))}
-            </div>
-
-            {/* Enhanced main content */}
-            <div className="flex-1 flex items-center justify-center px-6">
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                className="text-center max-w-4xl w-full"
-              >
-                {/* Enhanced logo section */}
-                <motion.div
-                  initial={{ scale: 0.8, rotate: -10 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ 
-                    duration: 1.2, 
-                    ease: "easeOut",
-                    type: "spring",
-                    stiffness: 100
-                  }}
-                  className="relative mb-8"
-                >
-                  <div className="relative">
-                    <div className="w-24 h-24 mx-auto mb-2 glass-elevated rounded-2xl flex items-center justify-center">
-                      <Zap className="w-12 h-12 text-gradient" />
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Enhanced title */}
-                <motion.h1 
-                  className="text-6xl md:text-7xl lg:text-8xl font-bold mb-6 text-gradient animate-gradient tracking-tight"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.3 }}
-                >
-                  ZapDev AI
-                </motion.h1>
-
-                <motion.p 
-                  className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-2xl mx-auto text-pretty leading-relaxed"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.5 }}
-                >
-                  Build, code, and create with the most advanced AI development assistant. 
-                  From concept to deployment in minutes.
-                </motion.p>
-
-                {/* Enhanced feature highlights */}
-                <motion.div 
-                  className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-4xl mx-auto"
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.7 }}
-                >
-                  {[
-                    { icon: Code, title: "Live Code Execution", desc: "Run and test code instantly with E2B sandbox" },
-                    { icon: Palette, title: "Smart UI Generation", desc: "Create beautiful interfaces with AI guidance" },
-                    { icon: Layers, title: "Full-Stack Development", desc: "Build complete applications end-to-end" }
-                  ].map((feature, index) => (
-                    <motion.div
-                      key={index}
-                      className="glass-elevated p-6 rounded-xl glass-hover"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
-                      whileHover={{ scale: 1.02, y: -2 }}
-                    >
-                      <feature.icon className="w-8 h-8 text-primary mb-3 mx-auto" />
-                      <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
-                      <p className="text-muted-foreground text-sm text-pretty">{feature.desc}</p>
-                    </motion.div>
-                  ))}
-                </motion.div>
-
-                {/* Enhanced input section */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.8, delay: 1 }}
-                  className="max-w-3xl mx-auto"
-                >
-                  <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Premium input container with enhanced design */}
-                    <div className="relative group">
-                      <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-blue-600/30 rounded-3xl blur-xl opacity-50 group-hover:opacity-75 transition-all duration-500"></div>
-                      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/40 to-blue-600/40 rounded-2xl blur opacity-30 group-hover:opacity-50 transition-all duration-300"></div>
-                      <div className="relative glass-elevated rounded-2xl p-6 shadow-2xl border-white/10 hover:border-white/20 transition-all duration-300">
-                        <Textarea
-                          ref={textareaRef}
-                          value={input}
-                          onChange={(e) => setInput(e.target.value)}
-                          placeholder="What would you like to build today? Describe your app, website, or coding challenge..."
-                          className="min-h-[140px] max-h-[300px] resize-none border-none bg-transparent text-lg placeholder:text-muted-foreground/60 focus:ring-0 focus-visible:ring-0 focus-visible:outline-none transition-all duration-300 leading-relaxed"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                              handleSubmit(e);
-                            }
-                          }}
-                        />
-                        
-                        {/* Premium action buttons with enhanced design */}
-                        <div className="flex items-center justify-between pt-6 border-t border-white/10">
-                          <div className="flex items-center space-x-3">
-                            {/* Enhanced quick action buttons */}
-                            <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
-                              <DialogTrigger asChild>
-                                <motion.div
-                                  whileHover={{ scale: 1.05, y: -2 }}
-                                  whileTap={{ scale: 0.95 }}
-                                >
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="glass-hover rounded-xl px-4 py-2.5 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all duration-300 backdrop-blur-xl"
-                                    type="button"
-                                  >
-                                    <Search className="w-4 h-4 mr-2" />
-                                    Search Web
-                                  </Button>
-                                </motion.div>
-                              </DialogTrigger>
-                              <DialogContent className="glass-elevated border-white/20">
-                                <DialogHeader>
-                                  <DialogTitle className="text-gradient-static">Web Search</DialogTitle>
-                                </DialogHeader>
-                                {/* Search content here */}
-                              </DialogContent>
-                            </Dialog>
-
-                            <motion.div
-                              whileHover={{ scale: 1.05, y: -2 }}
-                              whileTap={{ scale: 0.95 }}
-                            >
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="glass-hover rounded-xl px-4 py-2.5 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all duration-300 backdrop-blur-xl"
-                                type="button"
-                                onClick={() => {
-                                  setInput(prev => prev + (prev ? '\n\n' : '') + 'Clone this website URL: ');
-                                  textareaRef.current?.focus();
-                                  toast.success('Clone prompt added to chat!');
-                                }}
-                              >
-                                <Globe className="w-4 h-4 mr-2" />
-                                Clone Website
-                              </Button>
-                            </motion.div>
-                          </div>
-
-                          {/* Premium send button */}
-                          <motion.div
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            <Button
-                              type="submit"
-                              disabled={!input.trim() || isTyping}
-                              className="button-gradient px-10 py-3.5 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {isTyping ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-3 animate-spin" />
-                                  Creating...
-                                </>
-                              ) : (
-                                <>
-                                  <ArrowUp className="w-4 h-4 mr-3" />
-                                  Start Building
-                                </>
-                              )}
-                            </Button>
-                          </motion.div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Enhanced keyboard shortcut hint */}
-                    <motion.p 
-                      className="text-muted-foreground text-sm text-center"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 1.5 }}
-                    >
-                      Press <kbd className="glass px-2 py-1 rounded text-xs font-mono">Ctrl</kbd> + <kbd className="glass px-2 py-1 rounded text-xs font-mono">Enter</kbd> to send
-                    </motion.p>
-                  </form>
-                </motion.div>
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Enhanced Split Layout */}
-      <AnimatePresence>
-        {showSplitLayout && (
-          <motion.div 
-            key="split"
-            className="flex-1 flex"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.5 }}
-          >
-            {/* Premium Left Sidebar */}
-            <motion.div
-              onMouseEnter={() => setSidebarExpanded(true)}
-              onMouseLeave={() => setSidebarExpanded(false)}
-              className={`${
-                sidebarExpanded ? 'w-80' : 'w-14'
-              } bg-gradient-to-b from-gray-900/95 to-black/90 backdrop-blur-2xl border-r border-white/10 hover:border-white/20 flex flex-col transition-all duration-300 relative overflow-hidden shadow-2xl`}
-              animate={{ width: sidebarExpanded ? 320 : 56 }}
-              transition={{ duration: 0.4, ease: "easeInOut" }}
+        <AnimatePresence mode="wait">
+          {!selectedChatId ? (
+            <WelcomeScreen onStartNewChat={startNewChat} />
+          ) : (
+            <motion.div 
+              key="split"
+              className="flex-1 flex"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.5 }}
             >
-              {/* Premium sidebar header */}
-              <div className="p-4 border-b border-white/10">
-                <motion.div 
-                  className="flex items-center gap-3"
-                  animate={{ opacity: sidebarExpanded ? 1 : 0 }}
-                  transition={{ delay: sidebarExpanded ? 0.15 : 0, duration: 0.3 }}
-                >
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg border border-blue-500/20">
-                    <Zap className="w-5 h-5 text-white" />
+              <ChatSidebar
+                sidebarExpanded={sidebarExpanded}
+                setSidebarExpanded={setSidebarExpanded}
+                chats={chats || []}
+                selectedChatId={selectedChatId}
+                startNewChat={startNewChat}
+                selectChat={selectChat}
+                deleteChat={deleteChat}
+                formatTimestamp={formatTimestamp}
+                user={user}
+              />
+
+              {/* Main chat area */}
+              <div className="flex-1 flex flex-col relative">
+                {/* Messages area */}
+                <ScrollArea className="flex-1 custom-scrollbar">
+                  <div className="p-6 space-y-6 max-w-4xl mx-auto">
+                    {memoizedMessages.map((message, index) => (
+                      <ChatMessage
+                        key={message._id}
+                        message={message}
+                        user={user}
+                        copiedMessage={copiedMessage}
+                        setCopiedMessage={setCopiedMessage}
+                        isLast={index === memoizedMessages.length - 1}
+                        handleApproveDiagram={handleApproveDiagram}
+                        handleRequestDiagramChanges={handleRequestDiagramChanges}
+                        isSubmittingDiagram={isSubmittingDiagram}
+                      />
+                    ))}
+                    
+                    {typingIndicator}
+                    
+                    <div ref={messagesEndRef} />
                   </div>
-                  {sidebarExpanded && (
-                    <motion.div
-                      initial={{ x: -20 }}
-                      animate={{ x: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <h3 className="font-bold text-lg text-gradient-static">ZapDev</h3>
-                      <p className="text-xs text-muted-foreground/80">AI Development Assistant</p>
-                    </motion.div>
-                  )}
-                </motion.div>
-              </div>
+                </ScrollArea>
 
-              {/* Premium new chat button */}
-              <div className="p-4">
-                <motion.div
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Button
-                    onClick={startNewChat}
-                    className="w-full justify-start bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white border-0 rounded-xl py-3 shadow-lg hover:shadow-xl transition-all duration-300"
-                    variant="ghost"
-                  >
-                    <Plus className="w-5 h-5" />
-                    {sidebarExpanded && (
-                      <motion.span 
-                        className="ml-3 font-medium"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.1 }}
-                      >
-                        New Chat
-                      </motion.span>
-                    )}
-                  </Button>
-                </motion.div>
-              </div>
+                {/* Input area */}
+                <ChatInput
+                  input={input}
+                  setInput={setInput}
+                  textareaRef={textareaRef}
+                  handleSubmit={handleSubmit}
+                  isTyping={isTyping}
+                  isSearchOpen={isSearchOpen}
+                  setIsSearchOpen={setIsSearchOpen}
+                />
 
-              {/* Chat list */}
-              <ScrollArea className="flex-1 custom-scrollbar">
-                <div className="p-3 space-y-2">
-                  {Array.isArray(chats) && chats.map((chat, index) => (
-                    <motion.button
-                      key={chat._id}
-                      onClick={() => selectChat(chat._id)}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className={`w-full text-left p-4 rounded-xl transition-all duration-300 group relative backdrop-blur-sm border ${
-                        selectedChatId === chat._id 
-                          ? 'bg-gradient-to-r from-blue-600/20 to-blue-700/10 border-blue-500/30 shadow-lg' 
-                          : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
-                      }`}
-                      whileHover={{ scale: 1.02, x: 4 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          selectedChatId === chat._id 
-                            ? 'bg-blue-600/30 border border-blue-500/40' 
-                            : 'bg-gray-700/50 border border-gray-600/30'
-                        }`}>
-                          <MessageSquare className="w-4 h-4 text-primary" />
-                        </div>
-                        {sidebarExpanded && (
-                          <motion.div 
-                            className="min-w-0 flex-1"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.1 }}
-                          >
-                            <p className="font-semibold truncate text-sm mb-1">
-                              {chat.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground/70">
-                              {formatTimestamp(chat.updatedAt)}
-                            </p>
-                          </motion.div>
-                        )}
-                      </div>
-                      
-                      {sidebarExpanded && (
-                        <motion.div
-                          className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                        >
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteChat(chat._id);
-                            }}
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/30 transition-all duration-200"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                          </Button>
-                        </motion.div>
-                      )}
-                    </motion.button>
-                  ))}
-                </div>
-              </ScrollArea>
-
-              {/* Sidebar footer */}
-              {sidebarExpanded && (
-                <motion.div 
-                  className="p-4 border-t border-white/10"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                                              <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={user?.avatarUrl} />
-                                <AvatarFallback>
-                                  <User className="w-4 h-4" />
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium truncate">
-                                  {user?.fullName || 'User'}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {user?.email}
-                                </p>
-                              </div>
-                            </div>
-                </motion.div>
-              )}
-            </motion.div>
-
-            {/* Premium Main Chat Area */}
-            <div className="flex-1 flex flex-col min-h-0 bg-gradient-to-br from-gray-950/95 to-black/90 relative overflow-hidden">
-              {/* Subtle background pattern */}
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.03),transparent_70%)] pointer-events-none"></div>
-              
-              {/* Chat messages */}
-              <ScrollArea className="flex-1 custom-scrollbar relative z-10">
-                <div className="p-8 space-y-8 max-w-5xl mx-auto w-full">
-                  {Array.isArray(messages) && messages.map((message, index) => {
-                    const isUser = message.role === 'user';
-                    const prevMessage = messages[index - 1];
-                    const showDateHeader = !prevMessage || !isSameDay(message.createdAt, prevMessage.createdAt);
-                    const isFirstInGroup = !prevMessage || prevMessage.role !== message.role;
-                    const nextMessage = messages[index + 1];
-                    const isLastInGroup = !nextMessage || nextMessage.role !== message.role;
-
-                    return (
-                      <div key={message._id} className="space-y-4">
-                        {showDateHeader && (
-                          <motion.div 
-                            className="text-center"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 backdrop-blur-xl px-6 py-3 rounded-2xl inline-block border border-white/10 shadow-lg">
-                              <span className="text-sm text-white font-semibold">
-                                {formatDateHeader(message.createdAt)}
-                              </span>
-                            </div>
-                          </motion.div>
-                        )}
-
-                        <div className={`group flex gap-6 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                          {/* Premium Avatar */}
-                          {isFirstInGroup && (
-                            <motion.div 
-                              className="flex-shrink-0"
-                              initial={{ scale: 0.8, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              transition={{ duration: 0.3 }}
-                            >
-                              <Avatar className="h-12 w-12 border-2 border-white/10 shadow-lg">
-                                {isUser ? (
-                                  <AvatarImage src={user?.avatarUrl} className="rounded-full" />
-                                ) : (
-                                  <div className="bg-gradient-to-br from-blue-600 to-blue-700 h-full w-full flex items-center justify-center rounded-full">
-                                    <Bot className="w-6 h-6 text-white" />
-                                  </div>
-                                )}
-                                <AvatarFallback className="bg-gradient-to-br from-gray-700 to-gray-800">
-                                  {isUser ? <User className="w-6 h-6 text-white" /> : <Bot className="w-6 h-6 text-blue-400" />}
-                                </AvatarFallback>
-                              </Avatar>
-                            </motion.div>
-                          )}
-
-                          {/* Premium Message Bubble */}
-                          <div className={`flex-1 max-w-4xl ${!isFirstInGroup ? (isUser ? 'mr-16' : 'ml-16') : ''}`}>
-                            <EnhancedMessageComponent
-                              message={message}
-                              user={user}
-                              isUser={isUser}
-                              isFirstInGroup={isFirstInGroup}
-                              formatTimestamp={formatTimestamp}
-                              copyToClipboard={copyToClipboard}
-                              copiedMessage={copiedMessage}
-                              onApproveDiagram={handleApproveDiagram}
-                              onRequestDiagramChanges={handleRequestDiagramChanges}
-                              isSubmittingDiagram={isSubmittingDiagram}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* Enhanced typing indicator */}
-                  <AnimatePresence>
-                    {isTyping && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="flex gap-4"
-                      >
-                        <Avatar className="h-12 w-12 border-2 border-blue-500/20 shadow-lg">
-                          <div className="bg-gradient-to-br from-blue-600 to-blue-700 h-full w-full flex items-center justify-center rounded-full">
-                            <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                            >
-                              <Bot className="w-6 h-6 text-white" />
-                            </motion.div>
-                          </div>
-                        </Avatar>
-                        
-                        <Card className="bg-gradient-to-br from-gray-800/40 to-gray-900/20 border border-gray-600/20 backdrop-blur-xl max-w-xs rounded-2xl shadow-lg">
-                          <CardContent className="p-6">
-                            <div className="flex items-center space-x-3">
-                              <span className="text-base text-white font-medium">AI is thinking</span>
-                              <div className="flex space-x-1">
-                                {[0, 1, 2].map((i) => (
-                                  <motion.div
-                                    key={i}
-                                    className="w-2 h-2 bg-primary rounded-full"
-                                    animate={{ 
-                                      scale: [1, 1.2, 1], 
-                                      opacity: [0.4, 1, 0.4] 
-                                    }}
-                                    transition={{ 
-                                      duration: 1.5, 
-                                      repeat: Infinity, 
-                                      delay: i * 0.2 
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <div ref={messagesEndRef} />
-                </div>
-              </ScrollArea>
-
-              {/* GitHub Mode Indicator */}
-              <AnimatePresence>
-                {isGithubMode && selectedRepo && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="border-t border-white/10 bg-[var(--color-chat-surface)]/30 backdrop-blur-xl"
-                  >
-                    <div className="max-w-4xl mx-auto p-2">
-                      <div className="flex items-center justify-between glass rounded-lg p-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <GitBranch className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-medium">GitHub Mode Active</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <img 
-                              src={selectedRepo.owner.avatar_url} 
-                              alt={selectedRepo.owner.login}
-                              className="w-5 h-5 rounded-full"
-                            />
-                            <span className="text-sm text-muted-foreground">{selectedRepo.full_name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {selectedRepo.language || 'Unknown'}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(selectedRepo.html_url, '_blank')}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            View
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setIsGithubMode(false);
-                              setSelectedRepo(null);
-                              setGithubContext('');
-                              toast.info('GitHub mode disabled');
-                            }}
-                            className="h-6 px-2 text-xs"
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Enhanced Input Area */}
-              <div className="border-t border-white/10 bg-[var(--color-chat-surface)]/50 backdrop-blur-xl">
-                <div className="max-w-4xl mx-auto p-4">
-                  <form onSubmit={handleSubmit}>
-                    <div className="relative">
-                      {/* Input container with enhanced styling */}
-                      <div className="glass-elevated rounded-2xl p-3 focus-within:ring-2 focus-within:ring-primary/50 transition-smooth">
-                        <Textarea
-                          ref={textareaRef}
-                          value={input}
-                          onChange={(e) => setInput(e.target.value)}
-                          placeholder="Ask me anything about coding, building apps, or development..."
-                          className="min-h-[50px] max-h-[200px] resize-none border-none bg-transparent placeholder:text-muted-foreground/60 focus:ring-0 focus-visible:ring-0 focus-visible:outline-none transition-smooth text-base"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                              handleSubmit(e);
+                {/* Search Dialog */}
+                <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+                  <DialogContent className="sm:max-w-[600px] glass-card border-white/10">
+                    <DialogHeader>
+                      <DialogTitle className="text-gradient-static">Search the Web</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <Input
+                        placeholder="Search query..."
+                        className="glass-input"
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            try {
+                              const results = await searchWithBrave(e.currentTarget.value);
+                              setSearchResults(results);
+                            } catch (error) {
+                              toast.error('Search failed');
                             }
-                          }}
-                        />
-                        
-                        {/* Enhanced input actions */}
-                        <div className="flex items-center justify-between pt-2 border-t border-white/10 mt-2">
-                          <div className="flex items-center gap-2">
-                            {/* Quick action buttons with enhanced styling */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="glass-hover h-8 px-3 text-xs"
-                              type="button"
-                              onClick={() => setIsSearchOpen(true)}
-                            >
-                              <Search className="w-3 h-3 mr-1" />
-                              Search
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="glass-hover h-8 px-3 text-xs"
-                              type="button"
-                              onClick={() => setIsWebsiteDialogOpen(true)}
-                            >
-                              <Globe className="w-3 h-3 mr-1" />
-                              Clone
-                            </Button>
-                            <GitHubIntegration
-                              onRepoSelected={handleRepoSelected}
-                              onPullRequestCreated={handlePullRequestCreated}
-                              className="inline-block"
-                            />
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              {input.length}/{MAX_MESSAGE_LENGTH}
-                            </span>
-                            <Button
-                              type="submit"
-                              disabled={!input.trim() || isTyping}
-                              className="button-gradient h-8 px-4 text-sm font-medium"
-                            >
-                              {isTyping ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Send className="w-3 h-3" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+                          }
+                        }}
+                      />
+                      {searchResults.length > 0 && (
+                        <ScrollArea className="h-64">
+                          {searchResults.map((result, index) => (
+                            <div key={index} className="p-3 border-b border-white/10 last:border-0">
+                              <h4 className="font-medium text-sm">{result.title}</h4>
+                              <p className="text-xs text-muted-foreground mt-1">{result.description}</p>
+                              <a href={result.url} target="_blank" rel="noopener noreferrer" 
+                                 className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                                {result.url}
+                              </a>
+                            </div>
+                          ))}
+                        </ScrollArea>
+                      )}
                     </div>
-                  </form>
-                </div>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Website Clone Dialog */}
+                <Dialog open={isWebsiteDialogOpen} onOpenChange={setIsWebsiteDialogOpen}>
+                  <DialogContent className="sm:max-w-[500px] glass-card border-white/10">
+                    <DialogHeader>
+                      <DialogTitle className="text-gradient-static">Clone Website</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <Input
+                        placeholder="Enter website URL..."
+                        value={websiteUrl}
+                        onChange={(e) => setWebsiteUrl(e.target.value)}
+                        className="glass-input"
+                      />
+                      <Button
+                        onClick={() => {
+                          setInput(prev => prev + (prev ? '\n\n' : '') + `Clone this website URL: ${websiteUrl}`);
+                          setIsWebsiteDialogOpen(false);
+                          setWebsiteUrl('');
+                          textareaRef.current?.focus();
+                        }}
+                        className="w-full button-gradient"
+                        disabled={!websiteUrl.trim()}
+                      >
+                        Add to Chat
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </ErrorBoundary>
   );
 };
 

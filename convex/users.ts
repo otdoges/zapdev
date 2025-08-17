@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { enforceRateLimit } from "./rateLimit";
 import { api } from "./_generated/api";
+import { getSubscriptionPeriod } from "../src/types/stripe";
 
 // Helper function to get authenticated user
 const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
@@ -72,6 +73,65 @@ export const getCurrentUser = query({
 });
 
 // Create or update user profile
+// Helper function to validate username availability
+const validateUsernameAvailability = async (ctx: QueryCtx | MutationCtx, username: string | undefined, currentUserId: string) => {
+  if (!username) return;
+  
+  const existingUserWithUsername = await ctx.db
+    .query("users")
+    .withIndex("by_username", (q) => q.eq("username", username))
+    .first();
+  
+  if (existingUserWithUsername && existingUserWithUsername.userId !== currentUserId) {
+    throw new Error("Username is already taken");
+  }
+};
+
+// Helper function to handle email conflicts and merging
+const handleEmailConflict = async (ctx: MutationCtx, email: string, currentUserId: string, sanitizedData: any, now: number) => {
+  const existingUserWithEmail = await ctx.db
+    .query("users")
+    .withIndex("by_email", (q) => q.eq("email", email))
+    .first();
+
+  if (existingUserWithEmail && existingUserWithEmail.userId !== currentUserId) {
+    // Merge account by re-assigning the stored userId to the currently authenticated identity
+    await ctx.db.patch(existingUserWithEmail._id, {
+      userId: currentUserId,
+      ...sanitizedData,
+      updatedAt: now,
+    });
+    return existingUserWithEmail._id;
+  }
+  
+  return null; // No conflict found
+};
+
+// Helper function to upsert user record
+const upsertUserRecord = async (ctx: MutationCtx, userId: string, sanitizedData: any, now: number) => {
+  const existingUser = await ctx.db
+    .query("users")
+    .withIndex("by_user_id", (q) => q.eq("userId", userId))
+    .first();
+
+  if (existingUser) {
+    // Update existing user
+    await ctx.db.patch(existingUser._id, {
+      ...sanitizedData,
+      updatedAt: now,
+    });
+    return existingUser._id;
+  } else {
+    // Create new user
+    return await ctx.db.insert("users", {
+      userId,
+      ...sanitizedData,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+};
+
 export const upsertUser = mutation({
   args: {
     email: v.string(),
@@ -82,13 +142,9 @@ export const upsertUser = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await getAuthenticatedUser(ctx);
-    
-    // Enforce rate limiting
     await enforceRateLimit(ctx, "upsertUser");
     
     const now = Date.now();
-
-    // Sanitize and validate inputs
     const sanitizedData = {
       email: sanitizeEmail(args.email),
       fullName: sanitizeString(args.fullName, 100),
@@ -97,62 +153,17 @@ export const upsertUser = mutation({
       bio: sanitizeString(args.bio, 500),
     };
 
-    // Check if username is taken by another user
-    if (sanitizedData.username) {
-      const existingUserWithUsername = await ctx.db
-        .query("users")
-        .withIndex("by_username", (q) => q.eq("username", sanitizedData.username))
-        .first();
-      
-      if (existingUserWithUsername && existingUserWithUsername.userId !== identity.subject) {
-        throw new Error("Username is already taken");
-      }
+    // Validate username availability
+    await validateUsernameAvailability(ctx, sanitizedData.username, identity.subject);
+
+    // Handle email conflicts and potential account merging
+    const mergedUserId = await handleEmailConflict(ctx, sanitizedData.email, identity.subject, sanitizedData, now);
+    if (mergedUserId) {
+      return mergedUserId;
     }
 
-    // Check if email is taken by another user and merge if necessary
-    const existingUserWithEmail = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", sanitizedData.email))
-      .first();
-
-    if (existingUserWithEmail && existingUserWithEmail.userId !== identity.subject) {
-      // We found a record with the same email but a different userId. Instead of throwing
-      // an error (which breaks login flows when a user accidentally creates a new Clerk
-      // account with the same email), we transparently merge the account by re-assigning
-      // the stored `userId` to the currently authenticated identity.
-
-      await ctx.db.patch(existingUserWithEmail._id, {
-        userId: identity.subject,
-        ...sanitizedData,
-        updatedAt: now,
-      });
-
-      return existingUserWithEmail._id;
-    }
-
-    // Use proper index query instead of filter
-    const existingUser = await ctx.db
-      .query("users")
-      .withIndex("by_user_id", (q) => q.eq("userId", identity.subject))
-      .first();
-
-    if (existingUser) {
-      // Update existing user
-      await ctx.db.patch(existingUser._id, {
-        ...sanitizedData,
-        updatedAt: now,
-      });
-      return existingUser._id;
-    } else {
-      // Create new user
-      const userId = await ctx.db.insert("users", {
-        userId: identity.subject,
-        ...sanitizedData,
-        createdAt: now,
-        updatedAt: now,
-      });
-      return userId;
-    }
+    // Upsert user record
+    return await upsertUserRecord(ctx, identity.subject, sanitizedData, now);
   },
 });
 
@@ -423,8 +434,16 @@ export const syncStripeDataToConvex = mutation({
           status: mappedStatus,
           priceId,
           planId,
-          currentPeriodStart: (subscription as any).current_period_start,
-          currentPeriodEnd: (subscription as any).current_period_end,
+          ...(() => {
+            const period = getSubscriptionPeriod(subscription);
+            return period ? {
+              currentPeriodStart: Math.floor(period.currentPeriodStart / 1000), // Convert back to seconds for Convex
+              currentPeriodEnd: Math.floor(period.currentPeriodEnd / 1000),
+            } : {
+              currentPeriodStart: 0,
+              currentPeriodEnd: 0,
+            };
+          })(),
           cancelAtPeriodEnd: !!subscription.cancel_at_period_end,
           paymentMethod,
           lastSyncAt: now,

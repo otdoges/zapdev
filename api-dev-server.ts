@@ -14,7 +14,7 @@ class MockVercelRequest implements VercelRequest {
   url: string;
   method: string;
   headers: IncomingMessage['headers'];
-  body: any;
+  body: unknown;
   query: { [key: string]: string | string[] };
   cookies: { [key: string]: string };
 
@@ -61,13 +61,13 @@ class MockVercelResponse implements VercelResponse {
     return this;
   }
   
-  json(data: any): void {
+  json(data: unknown): void {
     this.setHeader('Content-Type', 'application/json');
     this.res.writeHead(this.statusCode, this.headers);
     this.res.end(JSON.stringify(data));
   }
   
-  send(data: any): void {
+  send(data: string | Buffer): void {
     this.res.writeHead(this.statusCode, this.headers);
     this.res.end(data);
   }
@@ -152,8 +152,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         res.writeHead(500);
         res.end(JSON.stringify({ error: 'Invalid API handler export' }));
       }
-    } catch (error: any) {
-      console.error(`Error handling ${endpoint}:`, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`Error handling ${endpoint}:`, errorMessage);
       res.writeHead(500);
       res.end(JSON.stringify({ 
         error: 'Internal Server Error'

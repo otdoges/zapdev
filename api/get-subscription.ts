@@ -1,6 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
 import Stripe from 'stripe';
+import { 
+  StripeSubscription, 
+  StripeCustomer, 
+  SubscriptionData,
+  PlanType,
+  getSubscriptionPeriod,
+  isStripeSubscription,
+  isStripeCustomer 
+} from '../src/types/stripe';
 
 function withCors(res: VercelResponse, allowOrigin?: string) {
   const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
@@ -144,14 +153,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const planId = planIdMap[priceId] || 'free';
 
-      const subscriptionData = {
-        planId: planId,
+      // Type-safe period extraction
+      const subscriptionPeriod = getSubscriptionPeriod(subscription);
+      if (!subscriptionPeriod) {
+        console.error('Invalid subscription object structure');
+        return withCors(res, allowedOrigin).status(500).json({
+          error: 'Invalid subscription data'
+        });
+      }
+
+      const subscriptionData: SubscriptionData = {
+        planId: planId as PlanType,
         status: subscription.status,
-        currentPeriodStart: (subscription as any).current_period_start * 1000, // Convert to milliseconds
-        currentPeriodEnd: (subscription as any).current_period_end * 1000, // Convert to milliseconds
+        currentPeriodStart: subscriptionPeriod.currentPeriodStart,
+        currentPeriodEnd: subscriptionPeriod.currentPeriodEnd,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         stripeSubscriptionId: subscription.id,
-        stripeCustomerId: customer.id,
+        stripeCustomerId: typeof customer === 'string' ? customer : customer.id,
       };
 
       console.log('Retrieved subscription data for user:', authenticatedUserId, 'plan:', planId);
