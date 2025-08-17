@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, RefreshCw, Home, Bug, Copy, Check } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home, Bug, Copy, Check, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -102,6 +102,47 @@ class ErrorBoundary extends Component<Props, State> {
     window.location.href = '/';
   };
 
+  handleReportIssue = () => {
+    const errorDetails = {
+      errorId: this.state.errorId,
+      message: this.state.error?.message,
+      stack: this.state.error?.stack?.split('\n').slice(0, 5).join('\n'), // First 5 lines only
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+    };
+
+    const issueTitle = encodeURIComponent(`Error Report: ${this.state.error?.message || 'Unknown Error'}`);
+    const issueBody = encodeURIComponent(`
+**Error Report**
+
+**Error ID:** ${this.state.errorId || 'N/A'}
+**Timestamp:** ${errorDetails.timestamp}
+**URL:** ${errorDetails.url}
+
+**Error Message:**
+\`\`\`
+${this.state.error?.message || 'No error message available'}
+\`\`\`
+
+**Stack Trace (first 5 lines):**
+\`\`\`
+${errorDetails.stack || 'No stack trace available'}
+\`\`\`
+
+**User Agent:**
+\`\`\`
+${errorDetails.userAgent}
+\`\`\`
+
+**Additional Context:**
+Please describe what you were doing when this error occurred.
+    `);
+
+    const githubUrl = `https://github.com/anthropics/claude-code/issues/new?title=${issueTitle}&body=${issueBody}&labels=bug`;
+    window.open(githubUrl, '_blank');
+  };
+
   copyErrorDetails = async () => {
     const errorDetails = {
       errorId: this.state.errorId,
@@ -166,7 +207,7 @@ class ErrorBoundary extends Component<Props, State> {
                 <p className="text-muted-foreground">
                   {isCritical 
                     ? 'A critical error occurred that requires immediate attention.'
-                    : 'We encountered an unexpected error. This has been logged and our team has been notified.'
+                    : 'Our team is working on this error. This has been logged and we\'ve been notified.'
                   }
                 </p>
                 
@@ -212,6 +253,15 @@ class ErrorBoundary extends Component<Props, State> {
                     Try Again ({this.maxRetries - this.retryCount} left)
                   </Button>
                 )}
+
+                <Button
+                  onClick={this.handleReportIssue}
+                  variant="destructive"
+                  className="flex-1"
+                  leftIcon={<ExternalLink className="w-4 h-4" />}
+                >
+                  Report Issue on GitHub
+                </Button>
 
                 {isPageLevel && (
                   <Button
