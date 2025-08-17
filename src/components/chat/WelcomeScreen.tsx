@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Zap, Code, Palette, Layers, Bot } from 'lucide-react';
+import { ChatInput } from './ChatInput';
 
 interface Feature {
   icon: React.ComponentType<{ className?: string }>;
@@ -41,9 +42,29 @@ const features: Feature[] = [
   }
 ];
 
-export const WelcomeScreen: React.FC = () => {
+interface WelcomeScreenProps {
+  onStartNewChat: () => void;
+  input: string;
+  setInput: (input: string) => void;
+  textareaRef: React.RefObject<HTMLTextAreaElement>;
+  handleSubmit: (e: React.FormEvent) => void;
+  isTyping: boolean;
+  isSearchOpen: boolean;
+  setIsSearchOpen: (open: boolean) => void;
+}
+
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+  onStartNewChat,
+  input,
+  setInput,
+  textareaRef,
+  handleSubmit,
+  isTyping,
+  isSearchOpen,
+  setIsSearchOpen
+}) => {
   return (
-    <div className="flex-1 flex items-center justify-center p-8">
+    <div className="flex-1 flex flex-col justify-between p-8">
       <div className="text-center max-w-4xl mx-auto">
         {/* Enhanced welcome header */}
         <motion.div
@@ -144,6 +165,24 @@ export const WelcomeScreen: React.FC = () => {
           ))}
         </motion.div>
       </div>
+      
+      {/* Message Input Bar */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 2.0 }}
+        className="mt-8"
+      >
+        <ChatInput
+          input={input}
+          setInput={setInput}
+          textareaRef={textareaRef}
+          handleSubmit={handleSubmit}
+          isTyping={isTyping}
+          isSearchOpen={isSearchOpen}
+          setIsSearchOpen={setIsSearchOpen}
+        />
+      </motion.div>
     </div>
   );
 };

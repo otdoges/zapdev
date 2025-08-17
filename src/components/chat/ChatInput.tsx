@@ -1,10 +1,12 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Search, Globe, ArrowUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import WebsiteCloneDialog from '@/components/WebsiteCloneDialog';
+import type { WebsiteAnalysis } from '@/lib/firecrawl';
 
 interface ChatInputProps {
   input: string;
@@ -25,10 +27,16 @@ export const ChatInput: React.FC<ChatInputProps> = memo(({
   isSearchOpen,
   setIsSearchOpen
 }) => {
+  const [isCloneDialogOpen, setIsCloneDialogOpen] = useState(false);
+
   const handleCloneWebsiteClick = () => {
-    setInput(prev => prev + (prev ? '\n\n' : '') + 'Clone this website URL: ');
+    setIsCloneDialogOpen(true);
+  };
+
+  const handleCloneRequest = (analysis: WebsiteAnalysis, clonePrompt: string) => {
+    setInput(prev => prev + (prev ? '\n\n' : '') + clonePrompt);
     textareaRef.current?.focus();
-    toast.success('Clone prompt added to chat!');
+    toast.success('Website analysis added to chat! Ready to start cloning.');
   };
 
   return (
@@ -142,6 +150,13 @@ export const ChatInput: React.FC<ChatInputProps> = memo(({
           </p>
         </motion.div>
       </form>
+
+      {/* Website Clone Dialog */}
+      <WebsiteCloneDialog
+        isOpen={isCloneDialogOpen}
+        onOpenChange={setIsCloneDialogOpen}
+        onCloneRequest={handleCloneRequest}
+      />
     </motion.div>
   );
 });

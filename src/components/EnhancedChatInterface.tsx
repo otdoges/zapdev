@@ -30,7 +30,7 @@ import { throttle, debounce } from '@/utils/performance';
 
 // Import additional required modules
 import { searchWithBrave, type BraveSearchResult } from '@/lib/search-service';
-import { crawlWebsite, type WebsiteAnalysis } from '@/lib/firecrawl';
+import type { WebsiteAnalysis } from '@/lib/firecrawl';
 import type { GitHubRepo } from '@/lib/github-service';
 import { logger } from '@/lib/error-handler';
 
@@ -81,10 +81,6 @@ const EnhancedChatInterface: React.FC = () => {
   // Enhanced UI state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<BraveSearchResult[]>([]);
-  const [isAnalyzingWebsite, setIsAnalyzingWebsite] = useState(false);
-  const [websiteAnalysis, setWebsiteAnalysis] = useState<WebsiteAnalysis | null>(null);
-  const [isWebsiteDialogOpen, setIsWebsiteDialogOpen] = useState(false);
-  const [websiteUrl, setWebsiteUrl] = useState('');
   const [isSubmittingDiagram, setIsSubmittingDiagram] = useState(false);
   
   // GitHub Integration state
@@ -366,7 +362,16 @@ const EnhancedChatInterface: React.FC = () => {
 
         <AnimatePresence mode="wait">
           {!selectedChatId ? (
-            <WelcomeScreen onStartNewChat={startNewChat} />
+            <WelcomeScreen 
+              onStartNewChat={startNewChat}
+              input={input}
+              setInput={setInput}
+              textareaRef={textareaRef}
+              handleSubmit={handleSubmit}
+              isTyping={isTyping}
+              isSearchOpen={isSearchOpen}
+              setIsSearchOpen={setIsSearchOpen}
+            />
           ) : (
             <motion.div 
               key="split"
@@ -463,34 +468,6 @@ const EnhancedChatInterface: React.FC = () => {
                   </DialogContent>
                 </Dialog>
 
-                {/* Website Clone Dialog */}
-                <Dialog open={isWebsiteDialogOpen} onOpenChange={setIsWebsiteDialogOpen}>
-                  <DialogContent className="sm:max-w-[500px] glass-card border-white/10">
-                    <DialogHeader>
-                      <DialogTitle className="text-gradient-static">Clone Website</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <Input
-                        placeholder="Enter website URL..."
-                        value={websiteUrl}
-                        onChange={(e) => setWebsiteUrl(e.target.value)}
-                        className="glass-input"
-                      />
-                      <Button
-                        onClick={() => {
-                          setInput(prev => prev + (prev ? '\n\n' : '') + `Clone this website URL: ${websiteUrl}`);
-                          setIsWebsiteDialogOpen(false);
-                          setWebsiteUrl('');
-                          textareaRef.current?.focus();
-                        }}
-                        className="w-full button-gradient"
-                        disabled={!websiteUrl.trim()}
-                      >
-                        Add to Chat
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
               </div>
             </motion.div>
           )}

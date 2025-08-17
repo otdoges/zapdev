@@ -86,7 +86,8 @@
       "WebFetch(domain:headlessui.com)",
       "Bash(gh pr:*)",
       "Bash(git stash:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm run lint:*)"
     ],
     "deny": []
   }
