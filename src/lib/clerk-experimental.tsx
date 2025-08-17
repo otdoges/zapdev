@@ -6,15 +6,45 @@ import { authTokenManager } from '@/lib/auth-token';
 // Simple billing plans for compatibility
 const BILLING_PLANS = [
   { id: 'free', name: 'Free', price: 0 },
+  { id: 'starter', name: 'Starter', price: 9 },
   { id: 'pro', name: 'Pro', price: 29 },
   { id: 'enterprise', name: 'Enterprise', price: 0 },
 ];
 
 // Simple checkout via tRPC to avoid API route dependency
-async function createCheckoutSession(planId: string, period: string): Promise<{ url: string }> {
-  const result = await trpcClient.mutation('billing.createCheckoutSession', { planId: planId as 'pro' | 'starter' | 'enterprise', period: period as 'month' | 'year' });
-  if (!result?.url) throw new Error('Failed to create checkout session');
-  return { url: result.url };
+async function createCheckoutSession(
+  planId: 'pro' | 'starter' | 'enterprise',
+  period: 'month' | 'year'
+): Promise<{ url: string }> {
+  // Input validation
+  const validPlanIds = ['pro', 'starter', 'enterprise'] as const;
+  const validPeriods = ['month', 'year'] as const;
+  
+  if (!validPlanIds.includes(planId)) {
+    throw new Error(`Invalid planId: ${planId}. Must be one of: ${validPlanIds.join(', ')}`);
+  }
+  
+  if (!validPeriods.includes(period)) {
+    throw new Error(`Invalid period: ${period}. Must be one of: ${validPeriods.join(', ')}`);
+  }
+  
+  try {
+    // No type assertion needed because inputs are already validated & typed
+    const result = await trpcClient.mutation('billing.createCheckoutSession', {
+      planId,
+      period,
+    });
+    
+    if (!result?.url) {
+      throw new Error('Checkout session created but no URL returned');
+    }
+    
+    return { url: result.url };
+  } catch (error) {
+    // Enhanced error handling with context
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    throw new Error(`Failed to create checkout session: ${errorMessage}`);
+  }
 }
 
 type CheckoutStatus =
@@ -66,9 +96,23 @@ export const CheckoutProvider: React.FC<{
       try {
         const fresh = await getToken();
         if (fresh) authTokenManager.setToken(fresh);
-      } catch {}
-      const { url } = await createCheckoutSession((resolvedPlan.id as 'pro' | 'enterprise'), 'month');
-      window.location.href = url;
+      } catch (tokenError) {
+        console.error('Failed to refresh authentication token:', tokenError);
+        // Clear stored token if refresh failed to prevent stale token issues
+        authTokenManager.clearToken();
+      }
+      // Proceed only for paid plans; free plans do not require checkout
+      if (resolvedPlan.id === 'pro' || resolvedPlan.id === 'starter' || resolvedPlan.id === 'enterprise') {
+        const { url } = await createCheckoutSession(
+          resolvedPlan.id as 'pro' | 'starter' | 'enterprise',
+          (planPeriod || 'month') as 'month' | 'year'
+        );
+        window.location.href = url;
+      } else {
+        // Handle free plan – nothing to do, but could redirect or show a message
+        console.info('Selected plan is free; no checkout required.');
+        return;
+      }
     } catch (e) {
       console.error("Checkout start failed", e);
       setError({ message: "Failed to start checkout. Please try again." });

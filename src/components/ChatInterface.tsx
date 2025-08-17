@@ -280,7 +280,16 @@ const ChatInterface: React.FC = () => {
       } catch {
         // ignore token refresh errors; tRPC will reject if truly unauthenticated
       }
-      const result = await checkoutMutation.mutateAsync({ planId: planId as 'pro' | 'starter' | 'enterprise', period: 'month' });
+      
+      // Runtime validation for planId before calling mutateAsync
+      const allowedPlanIds = new Set(['pro', 'starter', 'enterprise']);
+      if (!allowedPlanIds.has(planId)) {
+        throw new Error(`Invalid plan ID: ${planId}. Allowed values are: ${Array.from(allowedPlanIds).join(', ')}`);
+      }
+      
+      // Now safely cast planId since we've validated it
+      const validatedPlanId = planId as 'pro' | 'starter' | 'enterprise';
+      const result = await checkoutMutation.mutateAsync({ planId: validatedPlanId, period: 'month' });
       if (!result?.url) throw new Error('Failed to create checkout session');
       window.location.href = result.url;
     } catch (error) {

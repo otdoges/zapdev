@@ -103,20 +103,107 @@ const sanitizeMetadata = (metadata: unknown) => {
     sanitized.cost = Math.round(meta.cost * 100) / 100; // Round to 2 decimal places
   }
 
-  // Sanitize diagram data
+  // Sanitize diagram data with proper validation
   if (meta.diagramData && typeof meta.diagramData === 'object') {
-    const diagramData = meta.diagramData as any;
+    // Replace unsafe "as any" with proper type checking
+    const diagramData = meta.diagramData as unknown;
+    
+    // Define DiagramData interface for type safety
+    interface DiagramData {
+      type: string;
+      diagramText: string;
+      version: number;
+      isApproved?: boolean;
+      userFeedback?: string;
+    }
+    
+    // Runtime type validation function
+    const isDiagramData = (data: unknown): data is DiagramData => {
+      return data !== null && 
+             typeof data === 'object' && 
+             'type' in data && 
+             'diagramText' in data && 
+             'version' in data &&
+             typeof (data as Record<string, unknown>).type === 'string' &&
+             typeof (data as Record<string, unknown>).diagramText === 'string' &&
+             typeof (data as Record<string, unknown>).version === 'number';
+    };
+    
+    if (!isDiagramData(diagramData)) {
+      throw new Error('Invalid diagram data structure');
+    }
+    
     const validTypes = ['mermaid', 'flowchart', 'sequence', 'gantt'];
     
-    if (validTypes.includes(diagramData.type) && 
-        typeof diagramData.diagramText === 'string' &&
-        typeof diagramData.version === 'number') {
-      
-      sanitized.diagramData = {
-        type: diagramData.type,
-        diagramText: diagramData.diagramText.substring(0, 10000), // Limit diagram text size
-        version: Math.floor(diagramData.version),
+    if (validTypes.includes(diagramData.type)) {
+      // Server-side validation and sanitization for diagramText
+      const sanitizeDiagramText = (text: string): string => {
+        // First normalize and trim input
+        const normalized = text.trim();
+        
+        // Enforce minimum and maximum length
+        if (normalized.length < 10) {
+          throw new Error('Diagram text too short (minimum 10 characters)');
+        }
+        if (normalized.length > 10000) {
+          throw new Error('Diagram text too long (maximum 10,000 characters)');
+        }
+        
+        // Reject disallowed patterns
+        const disallowedPatterns = [
+          /<script[\s\S]*?<\/script>/gi,      // Script tags
+          /<[^>]*on\w+\s*=/gi,               // Event handlers (onclick, etc.)
+          /data:\s*[^;]*;base64/gi,          // Data URLs
+          /https?:\/\/[^\s]+/gi,             // HTTP(S) URLs
+          /javascript:/gi,                   // JavaScript protocol
+          /vbscript:/gi,                     // VBScript protocol
+          /<embed[\s\S]*?>/gi,               // Embed tags
+          /<object[\s\S]*?>/gi,              // Object tags
+          /<iframe[\s\S]*?>/gi,              // Iframe tags
+          /@@\w+/gi,                         // Potential template injection
+          /\$\{\w+\}/gi,                     // Template literals
+        ];
+        
+        for (const pattern of disallowedPatterns) {
+          if (pattern.test(normalized)) {
+            throw new Error('Diagram text contains disallowed content patterns');
+          }
+        }
+        
+        // Apply whitelist of allowed Mermaid tokens/keywords
+        const allowedMermaidTokens = [
+          'flowchart', 'graph', 'sequenceDiagram', 'gantt', 'stateDiagram',
+          'TD', 'LR', 'TB', 'RL', 'BT', 'participant', 'note', 'loop', 'alt',
+          'opt', 'section', 'title', 'dateFormat', 'axisFormat', 'includes',
+          'excludes', 'click', 'class', 'classDef', 'style', 'linkStyle',
+          'subgraph', 'end', 'direction', '-->', '--->', '-.->', '==>', 
+          '--', '-.', '==', '||', '&&', '|', '&', '-', '+', 'over', 'right',
+          'left', 'of', 'activate', 'deactivate', 'rect', 'rgba', 'rgb'
+        ];
+        
+        // Check if text contains at least some valid Mermaid syntax
+        const hasValidMermaidSyntax = allowedMermaidTokens.some(token => 
+          normalized.toLowerCase().includes(token.toLowerCase())
+        );
+        
+        if (!hasValidMermaidSyntax) {
+          throw new Error('Diagram text does not contain valid Mermaid syntax');
+        }
+        
+        return normalized;
       };
+      
+      try {
+        const sanitizedText = sanitizeDiagramText(diagramData.diagramText);
+        
+        sanitized.diagramData = {
+          type: diagramData.type as "mermaid" | "flowchart" | "sequence" | "gantt",
+          diagramText: sanitizedText,
+          version: Math.floor(Math.max(1, diagramData.version)), // Ensure version is at least 1
+        };
+      } catch (error) {
+        throw new Error(`Diagram validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
 
       if (typeof diagramData.isApproved === 'boolean') {
         sanitized.diagramData.isApproved = diagramData.isApproved;

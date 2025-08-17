@@ -88,11 +88,8 @@ export const DiagramRenderer: React.FC<DiagramRendererProps> = ({
         // Clear previous content
         diagramRef.current.innerHTML = '';
 
-        // Validate the diagram syntax
-        const isValid = await mermaid.parse(diagramText);
-        if (!isValid) {
-          throw new Error('Invalid diagram syntax');
-        }
+        // Validate the diagram syntax - mermaid.parse throws on failure, resolves to void on success
+        await mermaid.parse(diagramText);
 
         // Render the diagram
         const { svg } = await mermaid.render(diagramId, diagramText);
@@ -110,7 +107,9 @@ export const DiagramRenderer: React.FC<DiagramRendererProps> = ({
         }
       } catch (error) {
         console.error('Mermaid rendering error:', error);
-        setError(error instanceof Error ? error.message : 'Failed to render diagram');
+        // Include original error message for context
+        const originalMessage = error instanceof Error ? error.message : 'Unknown error';
+        setError(`Invalid diagram syntax: ${originalMessage}`);
       } finally {
         setIsRendering(false);
       }

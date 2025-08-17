@@ -296,12 +296,50 @@ const billingRouter = router({
         }
 
         const stripeSecret = process.env.STRIPE_SECRET_KEY;
-        if (!stripeSecret) {
-          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Stripe configuration missing' });
-        }
+        if (!stripeSecret || stripeSecret.trim() === '') {
+           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Stripe configuration missing' });
+         }
 
-        const { default: Stripe } = await import('stripe');
-        const stripe = new Stripe(stripeSecret);
+         // Get server-side secret for HMAC generation
+         const hmacSecret = process.env.USER_ID_HMAC_SECRET;
+         if (!hmacSecret || hmacSecret.trim() === '') {
+           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'HMAC secret not configured' });
+         }
+
+         const { default: Stripe } = await import('stripe');
+         const stripe = new Stripe(stripeSecret);
+
+         // Generate hashed user reference instead of exposing raw user ID
+         const generateUserReference = async (userId: string): Promise<string> => {
+           const encoder = new TextEncoder();
+           const data = encoder.encode(userId);
+           const keyData = encoder.encode(hmacSecret);
+           
+           // Import key for HMAC-SHA256
+           const key = await crypto.subtle.importKey(
+             'raw', 
+             keyData, 
+             { name: 'HMAC', hash: 'SHA-256' }, 
+             false, 
+             ['sign']
+           );
+           
+           // Generate HMAC
+           const signature = await crypto.subtle.sign('HMAC', key, data);
+           const hashArray = Array.from(new Uint8Array(signature));
+           const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+           
+           // Return truncated hash for metadata (first 32 chars for readability)
+           return `usr_${hashHex.substring(0, 32)}`;
+         };
+
+         const hashedUserId = await generateUserReference(ctx.user!.id);
+
+         // Note: To resolve user ID from Stripe webhook metadata, use:
+         // 1. Extract userRef from Stripe webhook metadata
+         // 2. Query your database for users where HMAC(userId, secret) matches userRef
+         // 3. Alternatively, store userRef -> userId mapping in a separate secure table
+         // This ensures the original user ID is never exposed in Stripe metadata
 
         // Resolve price ID using existing env naming used across the app
         const resolvePriceId = (planId: 'starter' | 'pro', period: 'month' | 'year'): string | null => {
@@ -339,8 +377,9 @@ const billingRouter = router({
           success_url: `${publicOrigin}/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${publicOrigin}/pricing`,
           metadata: {
-            userId: ctx.user!.id,
+            userRef: hashedUserId, // Use hashed reference instead of raw user ID
             planId: input.planId,
+            originalUserId: '', // Don't store original - use lookup by hash instead
           },
         });
 

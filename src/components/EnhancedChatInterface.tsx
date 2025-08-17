@@ -654,15 +654,22 @@ const EnhancedChatInterface: React.FC = () => {
   const handleApproveDiagram = async (messageId: string) => {
     setIsSubmittingDiagram(true);
     try {
-      // Update the message to mark diagram as approved
+      // Get the existing message to preserve its content and metadata
+      const existingMessage = messages.find(m => m._id === messageId);
+      if (!existingMessage) {
+        throw new Error('Message not found');
+      }
+      
+      // Update the message while preserving existing content and other metadata
       await updateMessageMutation({
         messageId: messageId as Id<'messages'>,
-        content: '', // Keep original content
+        content: existingMessage.content, // Preserve original content instead of overwriting
         metadata: {
-          diagramData: {
-            ...(messages.find(m => m._id === messageId)?.metadata?.diagramData || {}),
-            isApproved: true,
-          }
+          ...existingMessage.metadata, // Preserve other metadata fields
+          diagramData: existingMessage.metadata?.diagramData ? {
+            ...existingMessage.metadata.diagramData, // Preserve existing diagram data
+            isApproved: true, // Only update the approval status
+          } : undefined
         }
       });
       

@@ -48,14 +48,31 @@ export const DiagramApprovalControls: React.FC<DiagramApprovalControlsProps> = (
   };
 
   const handleRequestChanges = async () => {
-    if (!feedback.trim()) return;
+    // Enhanced input validation
+    const trimmed = feedback.trim();
+    
+    // Return early if feedback is empty
+    if (!trimmed) {
+      return; // Don't submit empty feedback
+    }
+    
+    // Enforce maximum length (1000 chars) and show user-facing error
+    if (trimmed.length > 1000) {
+      // Note: You might want to show this via a toast or error state instead of alert
+      alert('Feedback is too long. Please keep it under 1000 characters.');
+      return;
+    }
+    
+    // Optional: Normalize whitespace before submitting
+    const normalizedFeedback = trimmed.replace(/\s+/g, ' ');
     
     try {
-      await onRequestChanges(feedback.trim());
+      await onRequestChanges(normalizedFeedback);
       setFeedback('');
       setShowFeedback(false);
     } catch (error) {
       console.error('Failed to submit feedback:', error);
+      // Note: You might want to show user feedback here via toast or error state
     }
   };
 

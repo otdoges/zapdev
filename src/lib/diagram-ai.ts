@@ -159,6 +159,26 @@ export function parseDiagramFromResponse(response: string): {
   
   const diagramText = match[1].trim();
   
+  // Validation: Check if diagramText is empty and return null with warning
+  if (!diagramText || diagramText.length === 0) {
+    console.warn('parseDiagramFromResponse: Empty diagram text extracted from response');
+    return null;
+  }
+  
+  // Basic validation using whitelist of allowed Mermaid tokens
+  const allowedMermaidTokens = [
+    'flowchart', 'graph', 'sequenceDiagram', 'gantt', 'stateDiagram'
+  ];
+  
+  const hasValidMermaidSyntax = allowedMermaidTokens.some(token => 
+    diagramText.toLowerCase().includes(token.toLowerCase())
+  );
+  
+  if (!hasValidMermaidSyntax) {
+    console.warn('parseDiagramFromResponse: Diagram text does not contain valid Mermaid syntax markers');
+    return null;
+  }
+  
   // Detect diagram type from the content
   let type: 'mermaid' | 'flowchart' | 'sequence' | 'gantt' = 'mermaid';
   
@@ -256,9 +276,19 @@ Requirements:
     };
   }
   
-  // Fallback: return original with incremented version
-  return {
-    diagramText: originalDiagram,
-    version: version + 1,
-  };
+  // Detect AI failure and return explicit error instead of silent fallback
+  console.error('generateUpdatedDiagram: AI failed to generate valid diagram', {
+    originalDiagram: originalDiagram.substring(0, 100) + '...',
+    feedback,
+    response: response.substring(0, 200) + '...',
+    diagramType,
+    version
+  });
+  
+  // Throw explicit error instead of silently returning original diagram
+  throw new Error(
+    'AI failed to generate an updated diagram based on your feedback. ' +
+    'The AI response did not contain valid Mermaid diagram syntax. ' +
+    'Please try rephrasing your feedback or contact support if this persists.'
+  );
 }
