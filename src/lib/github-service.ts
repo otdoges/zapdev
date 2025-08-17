@@ -114,25 +114,59 @@ class GitHubService {
 
   async parseRepoUrl(url: string): Promise<{ owner: string; repo: string } | null> {
     try {
-      // Handle various GitHub URL formats
+      // Security: Only allow GitHub.com domains
+      const allowedDomains = ['github.com', 'www.github.com'];
+      
+      // Validate URL format and domain
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const parsedUrl = new URL(url);
+        if (!allowedDomains.includes(parsedUrl.hostname.toLowerCase())) {
+          logger.warn('Rejected non-GitHub domain', { domain: parsedUrl.hostname });
+          throw new Error('Only GitHub.com repositories are supported');
+        }
+      }
+      
+      // Handle various GitHub URL formats with domain validation
       const patterns = [
-        /github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
-        /github\.com\/([^/]+)\/([^/]+)\.git$/,
+        /(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
+        /(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)\.git$/,
         /git@github\.com:([^/]+)\/([^/]+)\.git$/,
       ];
 
-      let cleanUrl = url.trim();
-      if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
-        cleanUrl = new URL(cleanUrl).pathname;
-      }
-
+      const cleanUrl = url.trim();
+      
       for (const pattern of patterns) {
-        const match = cleanUrl.match(pattern) || url.match(pattern);
+        const match = cleanUrl.match(pattern);
         if (match) {
           const [, owner, repo] = match;
+          
+          // Additional validation for owner and repo names
+          const cleanOwner = owner.trim();
+          const cleanRepo = repo.replace(/\.git$/, '').trim();
+          
+          // Validate GitHub username/org and repo name patterns separately
+          const ownerPattern = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
+          const repoPattern = /^[A-Za-z0-9._-]{1,100}$/;
+          
+          const isOwnerValid = ownerPattern.test(cleanOwner);
+          const isRepoValid = repoPattern.test(cleanRepo);
+          
+          if (!isOwnerValid || !isRepoValid) {
+            const invalidFields = [];
+            if (!isOwnerValid) invalidFields.push('owner');
+            if (!isRepoValid) invalidFields.push('repo');
+            
+            logger.warn(`Invalid GitHub ${invalidFields.join(' and ')} format`, { 
+              owner: cleanOwner, 
+              repo: cleanRepo,
+              invalidFields
+            });
+            throw new Error('Invalid GitHub repository format');
+          }
+          
           return { 
-            owner: owner.trim(), 
-            repo: repo.replace(/\.git$/, '').trim() 
+            owner: cleanOwner, 
+            repo: cleanRepo 
           };
         }
       }

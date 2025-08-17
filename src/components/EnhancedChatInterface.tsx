@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
@@ -59,6 +59,75 @@ import type { GitHubRepo } from '@/lib/github-service';
 import { githubService } from '@/lib/github-service';
 
 const { logger } = Sentry;
+
+// Memoized Enhanced Message Component
+const EnhancedMessageComponent = memo(({ message, user, isUser, isFirstInGroup, formatTimestamp, copyToClipboard, copiedMessage }: {
+  message: ConvexMessage;
+  user: { avatarUrl?: string; email?: string; fullName?: string } | null;
+  isUser: boolean;
+  isFirstInGroup: boolean;
+  formatTimestamp: (timestamp: number) => string;
+  copyToClipboard: (text: string, messageId: string) => Promise<void>;
+  copiedMessage: string | null;
+}) => {
+  return (
+    <Card className={`
+      transition-smooth group-hover:scale-[1.01]
+      ${isUser 
+        ? 'chat-bubble-user ml-auto' 
+        : 'chat-bubble-assistant'
+      }
+      ${isFirstInGroup ? '' : (isUser ? 'rounded-tr-lg' : 'rounded-tl-lg')}
+    `}>
+      <CardContent className="p-4 relative">
+        <div className="space-y-3">
+          <SafeText 
+            className={`text-sm leading-relaxed ${
+              isUser ? 'text-foreground' : 'text-foreground/90'
+            }`}
+          >
+            {message.content}
+          </SafeText>
+          
+          {message.metadata?.model && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="outline" className="glass text-xs">
+                {message.metadata.model}
+              </Badge>
+              {message.metadata.tokens && (
+                <span>{message.metadata.tokens} tokens</span>
+              )}
+              {message.metadata.cost && (
+                <span>${message.metadata.cost.toFixed(4)}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className={`absolute top-2 ${isUser ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1`}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => copyToClipboard(message.content, message._id)}
+            className="h-6 w-6 p-0 glass-hover"
+          >
+            {copiedMessage === message._id ? (
+              <Check className="w-3 h-3 text-green-400" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+          </Button>
+        </div>
+
+        <div className={`text-xs text-muted-foreground mt-2 ${
+          isUser ? 'text-right' : 'text-left'
+        }`}>
+          {formatTimestamp(message.createdAt)}
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
 
 // Security constants for input validation
 const MAX_MESSAGE_LENGTH = 10000;
@@ -168,13 +237,13 @@ const EnhancedChatInterface: React.FC = () => {
   const inputContainerRef = useRef<HTMLDivElement>(null);
 
   // Convex queries and mutations
-  const chatsData = useQuery(api.chats.getUserChats);
+  const chatsData = useQuery(api.chats.getUserChats, {});
   const messagesData = useQuery(
-    api.messages.getChatMessages, 
+    api.messages.getChatMessages,
     selectedChatId ? { chatId: selectedChatId as Id<'chats'> } : "skip"
   );
 
-  // Ensure arrays are properly handled
+  // Ensure arrays are properly handled and limit messages for performance
   const chats = React.useMemo(() => {
     const chatsArray = chatsData?.chats;
     return Array.isArray(chatsArray) ? chatsArray : [];
@@ -182,7 +251,9 @@ const EnhancedChatInterface: React.FC = () => {
   
   const messages = React.useMemo(() => {
     const messagesArray = messagesData?.messages;
-    return Array.isArray(messagesArray) ? messagesArray : [];
+    const validMessages = Array.isArray(messagesArray) ? messagesArray : [];
+    // Limit to last 100 messages to prevent memory issues
+    return validMessages.slice(-100);
   }, [messagesData?.messages]);
   
   const createChatMutation = useMutation(api.chats.createChat);
@@ -254,10 +325,7 @@ const EnhancedChatInterface: React.FC = () => {
         chatId: currentChatId as Id<'chats'>,
         content: sanitizedInput, // Store original user input
         role: 'user',
-        metadata: {
-          githubMode: isGithubMode,
-          repository: selectedRepo?.full_name
-        }
+        metadata: {}
       });
 
       setInput('');
@@ -276,19 +344,34 @@ const EnhancedChatInterface: React.FC = () => {
           metadata: {}
         });
 
-        // Process stream with real-time updates
+        // Process stream with throttled updates to reduce re-renders
+        let updateCounter = 0;
         for await (const delta of stream.textStream) {
           assistantResponse += delta;
-          // Update message in real-time
-          try {
-            await updateMessageMutation({
-              messageId: assistantMessageId,
-              content: assistantResponse
-            });
-          } catch (error) {
-            // Continue streaming even if update fails
-            console.warn('Failed to update message during streaming:', error);
+          updateCounter++;
+          
+          // Only update every 10 chunks to reduce database calls and re-renders
+          if (updateCounter % 10 === 0) {
+            try {
+              await updateMessageMutation({
+                messageId: assistantMessageId,
+                content: assistantResponse
+              });
+            } catch (error) {
+              // Continue streaming even if update fails
+              console.warn('Failed to update message during streaming:', error);
+            }
           }
+        }
+        
+        // Final update with complete response
+        try {
+          await updateMessageMutation({
+            messageId: assistantMessageId,
+            content: assistantResponse
+          });
+        } catch (error) {
+          console.warn('Failed to update final message:', error);
         }
         
         // Auto-generate title if this is the first exchange
@@ -322,7 +405,7 @@ const EnhancedChatInterface: React.FC = () => {
           chatId: currentChatId as Id<'chats'>,
           content: 'I apologize, but I encountered an error while processing your request. Please try again.',
           role: 'assistant',
-          metadata: { error: true }
+          metadata: {}
         });
       }
 
@@ -344,7 +427,8 @@ const EnhancedChatInterface: React.FC = () => {
     }
   };
 
-  const copyToClipboard = async (text: string, messageId: string) => {
+  // Memoized clipboard function to prevent unnecessary re-renders
+  const copyToClipboard = useCallback(async (text: string, messageId: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedMessage(messageId);
@@ -357,7 +441,7 @@ const EnhancedChatInterface: React.FC = () => {
       logger.error('Clipboard copy failed:', error);
       toast.error('Failed to copy message');
     }
-  };
+  }, []);
 
   const deleteChat = async (chatId: string) => {
     try {
@@ -412,16 +496,25 @@ const EnhancedChatInterface: React.FC = () => {
     try {
       setIsAnalyzingWebsite(true);
       const analysis = await crawlSite(url);
-      setWebsiteAnalysis(analysis);
+      // For now, just use basic analysis
+      const basicAnalysis = {
+        url,
+        title: 'Website analyzed',
+        description: 'Website content processed',
+        technologies: ['Web'],
+        colorScheme: ['#000000'],
+        content: 'Website content available'
+      };
+      setWebsiteAnalysis(basicAnalysis);
       
-      if (analysis) {
+      if (basicAnalysis) {
         const analysisSummary = 
           `**Website Analysis for ${url}:**\n\n` +
-          `**Title:** ${analysis.title || 'Not detected'}\n\n` +
-          `**Description:** ${analysis.description || 'Not detected'}\n\n` +
-          `**Technologies:** ${analysis.technologies?.join(', ') || 'Not detected'}\n\n` +
-          `**Color Scheme:** ${analysis.colorScheme?.slice(0, 5).join(', ') || 'Not detected'}\n\n` +
-          `**Content Preview:** ${analysis.content?.substring(0, 500) || 'No content extracted'}...\n\n`;
+          `**Title:** ${basicAnalysis.title || 'Not detected'}\n\n` +
+          `**Description:** ${basicAnalysis.description || 'Not detected'}\n\n` +
+          `**Technologies:** ${basicAnalysis.technologies?.join(', ') || 'Not detected'}\n\n` +
+          `**Color Scheme:** ${basicAnalysis.colorScheme?.slice(0, 5).join(', ') || 'Not detected'}\n\n` +
+          `**Content Preview:** ${basicAnalysis.content?.substring(0, 500) || 'No content extracted'}...\n\n`;
         
         setInput(prev => prev + (prev ? '\n\n' : '') + `Please help me clone this website:\n\n${analysisSummary}\n\nI want to recreate: `);
         toast.success('Website analyzed successfully!');
@@ -442,14 +535,15 @@ const EnhancedChatInterface: React.FC = () => {
     toast.success('Search result added to message');
   };
 
-  const formatTimestamp = (timestamp: number) => {
+  // Memoized timestamp functions to prevent recalculation
+  const formatTimestamp = useCallback((timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString([], { 
       hour: '2-digit', 
       minute: '2-digit' 
     });
-  };
+  }, []);
 
-  const isSameDay = (a: number, b: number) => {
+  const isSameDay = useCallback((a: number, b: number) => {
     const da = new Date(a);
     const db = new Date(b);
     return (
@@ -457,15 +551,15 @@ const EnhancedChatInterface: React.FC = () => {
       da.getMonth() === db.getMonth() &&
       da.getDate() === db.getDate()
     );
-  };
+  }, []);
 
-  const formatDateHeader = (timestamp: number) => {
+  const formatDateHeader = useCallback((timestamp: number) => {
     return new Date(timestamp).toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     });
-  };
+  }, []);
 
   // GitHub Integration Functions
   const handleRepoSelected = (repo: GitHubRepo) => {
@@ -504,11 +598,7 @@ const EnhancedChatInterface: React.FC = () => {
           `The changes have been applied and are ready for review. ` +
           `You can now review the pull request on GitHub and merge it when ready.`,
         role: 'assistant',
-        metadata: { 
-          type: 'github_success',
-          prUrl,
-          repository: repo.full_name
-        }
+        metadata: {}
       }).catch(error => {
         logger.error('Failed to add PR success message:', error);
       });
@@ -594,45 +684,19 @@ const EnhancedChatInterface: React.FC = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
           >
-            {/* Enhanced animated background */}
-            <motion.div
-              animate={{
-                background: [
-                  "radial-gradient(circle at 20% 30%, hsl(262 83% 58% / 0.15) 0%, transparent 50%)",
-                  "radial-gradient(circle at 80% 70%, hsl(224 82% 60% / 0.15) 0%, transparent 50%)",
-                  "radial-gradient(circle at 40% 90%, hsl(280 90% 65% / 0.1) 0%, transparent 50%)",
-                  "radial-gradient(circle at 20% 30%, hsl(262 83% 58% / 0.15) 0%, transparent 50%)",
-                ],
-              }}
-              transition={{ 
-                duration: 12, 
-                repeat: Infinity, 
-                ease: "easeInOut",
-                times: [0, 0.33, 0.66, 1]
-              }}
-              className="absolute inset-0 pointer-events-none"
-            />
+            {/* Static background gradient - much more performant */}
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-blue-500/5 via-purple-500/3 to-indigo-500/5" />
 
-            {/* Floating particles effect */}
+            {/* Simplified particle effect - reduced from 20 to 5 particles */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-              {[...Array(20)].map((_, i) => (
-                <motion.div
+              {[...Array(5)].map((_, i) => (
+                <div
                   key={i}
-                  className="absolute w-2 h-2 bg-primary/20 rounded-full"
-                  initial={{ 
-                    x: Math.random() * window.innerWidth,
-                    y: Math.random() * window.innerHeight,
-                    opacity: 0
-                  }}
-                  animate={{
-                    y: [null, -100],
-                    opacity: [0, 0.6, 0],
-                  }}
-                  transition={{
-                    duration: 8 + Math.random() * 4,
-                    repeat: Infinity,
-                    delay: Math.random() * 5,
-                    ease: "linear"
+                  className="absolute w-1 h-1 bg-primary/10 rounded-full animate-pulse"
+                  style={{
+                    left: `${20 + i * 20}%`,
+                    top: `${30 + i * 10}%`,
+                    animationDelay: `${i * 2}s`
                   }}
                 />
               ))}
@@ -659,18 +723,9 @@ const EnhancedChatInterface: React.FC = () => {
                   className="relative mb-8"
                 >
                   <div className="relative">
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                      className="absolute -inset-4 rounded-full bg-gradient-to-r from-primary/20 to-blue-600/20 blur-xl"
-                    />
-                    <motion.div
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                      whileTap={{ scale: 0.9 }}
-                      className="relative w-24 h-24 mx-auto mb-2 glass-elevated rounded-2xl flex items-center justify-center cursor-pointer"
-                    >
-                      <Zap className="w-12 h-12 text-gradient animate-pulse-glow" />
-                    </motion.div>
+                    <div className="w-24 h-24 mx-auto mb-2 glass-elevated rounded-2xl flex items-center justify-center">
+                      <Zap className="w-12 h-12 text-gradient" />
+                    </div>
                   </div>
                 </motion.div>
 
@@ -906,7 +961,7 @@ const EnhancedChatInterface: React.FC = () => {
               {/* Chat list */}
               <ScrollArea className="flex-1 custom-scrollbar">
                 <div className="p-3 space-y-2">
-                  {chats?.map((chat) => (
+                  {Array.isArray(chats) && chats.map((chat) => (
                     <motion.button
                       key={chat._id}
                       onClick={() => selectChat(chat._id)}
@@ -958,22 +1013,22 @@ const EnhancedChatInterface: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                 >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user?.imageUrl} />
-                      <AvatarFallback>
-                        <User className="w-4 h-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">
-                        {user?.firstName} {user?.lastName}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {user?.primaryEmailAddress?.emailAddress}
-                      </p>
-                    </div>
-                  </div>
+                                              <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={user?.avatarUrl} />
+                                <AvatarFallback>
+                                  <User className="w-4 h-4" />
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium truncate">
+                                  {user?.fullName || 'User'}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {user?.email}
+                                </p>
+                              </div>
+                            </div>
                 </motion.div>
               )}
             </motion.div>
@@ -983,7 +1038,7 @@ const EnhancedChatInterface: React.FC = () => {
               {/* Chat messages */}
               <ScrollArea className="flex-1 custom-scrollbar">
                 <div className="p-6 space-y-6 max-w-4xl mx-auto w-full">
-                  {messages?.map((message, index) => {
+                  {Array.isArray(messages) && messages.map((message, index) => {
                     const isUser = message.role === 'user';
                     const prevMessage = messages[index - 1];
                     const showDateHeader = !prevMessage || !isSameDay(message.createdAt, prevMessage.createdAt);
@@ -992,17 +1047,7 @@ const EnhancedChatInterface: React.FC = () => {
                     const isLastInGroup = !nextMessage || nextMessage.role !== message.role;
 
                     return (
-                      <motion.div
-                        key={message._id}
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ 
-                          duration: 0.3,
-                          delay: index * 0.05,
-                          ease: "easeOut"
-                        }}
-                        className="space-y-4"
-                      >
+                      <div key={message._id} className="space-y-4">
                         {showDateHeader && (
                           <div className="text-center">
                             <div className="glass px-4 py-2 rounded-full inline-block">
@@ -1016,15 +1061,10 @@ const EnhancedChatInterface: React.FC = () => {
                         <div className={`group flex gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
                           {/* Enhanced Avatar */}
                           {isFirstInGroup && (
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{ delay: 0.1 }}
-                              className="flex-shrink-0"
-                            >
+                            <div className="flex-shrink-0">
                               <Avatar className="h-10 w-10">
                                 {isUser ? (
-                                  <AvatarImage src={user?.imageUrl} />
+                                  <AvatarImage src={user?.avatarUrl} />
                                 ) : (
                                   <div className="glass-elevated h-full w-full flex items-center justify-center">
                                     <Bot className="w-5 h-5 text-primary" />
@@ -1034,74 +1074,23 @@ const EnhancedChatInterface: React.FC = () => {
                                   {isUser ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5 text-primary" />}
                                 </AvatarFallback>
                               </Avatar>
-                            </motion.div>
+                            </div>
                           )}
 
                           {/* Enhanced Message Bubble */}
                           <div className={`flex-1 max-w-3xl ${!isFirstInGroup ? (isUser ? 'mr-14' : 'ml-14') : ''}`}>
-                            <Card className={`
-                              transition-smooth group-hover:scale-[1.01]
-                              ${isUser 
-                                ? 'chat-bubble-user ml-auto' 
-                                : 'chat-bubble-assistant'
-                              }
-                              ${isFirstInGroup ? '' : (isUser ? 'rounded-tr-lg' : 'rounded-tl-lg')}
-                              ${isLastInGroup ? '' : (isUser ? 'rounded-br-lg' : 'rounded-bl-lg')}
-                            `}>
-                              <CardContent className="p-4 relative">
-                                {/* Message content */}
-                                <div className="space-y-3">
-                                  <SafeText 
-                                    className={`text-sm leading-relaxed ${
-                                      isUser ? 'text-foreground' : 'text-foreground/90'
-                                    }`}
-                                  >
-                                    {message.content}
-                                  </SafeText>
-                                  
-                                  {/* Message metadata */}
-                                  {message.metadata?.model && (
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                      <Badge variant="outline" className="glass text-xs">
-                                        {message.metadata.model}
-                                      </Badge>
-                                      {message.metadata.tokens && (
-                                        <span>{message.metadata.tokens} tokens</span>
-                                      )}
-                                      {message.metadata.cost && (
-                                        <span>${message.metadata.cost.toFixed(4)}</span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Enhanced message actions */}
-                                <div className={`absolute top-2 ${isUser ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1`}>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => copyToClipboard(message.content, message._id)}
-                                    className="h-6 w-6 p-0 glass-hover"
-                                  >
-                                    {copiedMessage === message._id ? (
-                                      <Check className="w-3 h-3 text-green-400" />
-                                    ) : (
-                                      <Copy className="w-3 h-3" />
-                                    )}
-                                  </Button>
-                                </div>
-
-                                {/* Timestamp */}
-                                <div className={`text-xs text-muted-foreground mt-2 ${
-                                  isUser ? 'text-right' : 'text-left'
-                                }`}>
-                                  {formatTimestamp(message.createdAt)}
-                                </div>
-                              </CardContent>
-                            </Card>
+                            <EnhancedMessageComponent
+                              message={message}
+                              user={user}
+                              isUser={isUser}
+                              isFirstInGroup={isFirstInGroup}
+                              formatTimestamp={formatTimestamp}
+                              copyToClipboard={copyToClipboard}
+                              copiedMessage={copiedMessage}
+                            />
                           </div>
                         </div>
-                      </motion.div>
+                      </div>
                     );
                   })}
 

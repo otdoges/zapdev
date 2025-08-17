@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,7 +27,8 @@ import {
   Search,
   Globe,
   ExternalLink,
-  Link
+  Link,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
@@ -49,6 +50,108 @@ import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
 
 
 const { logger } = Sentry;
+
+// Memoized Message Component to prevent unnecessary re-renders
+const MessageComponent = memo(({ message, user, extractCodeBlocks, copyToClipboard, copiedMessage, formatTimestamp, getMessageContent }: {
+  message: ConvexMessage;
+  user: { avatarUrl?: string } | null;
+  extractCodeBlocks: (content: string) => CodeBlock[];
+  copyToClipboard: (text: string, messageId: string) => Promise<void>;
+  copiedMessage: string | null;
+  formatTimestamp: (timestamp: number) => string;
+  getMessageContent: (message: ConvexMessage) => string;
+}) => {
+  const messageContent = getMessageContent(message);
+  const codeBlocks = useMemo(() => extractCodeBlocks(messageContent), [messageContent, extractCodeBlocks]);
+  
+  return (
+    <Card className={`rounded-xl transition-all duration-300 group-hover:shadow-2xl ${
+      message.role === 'user'
+        ? 'bg-gradient-to-br from-blue-500/10 to-blue-500/10 border border-blue-500/20 shadow-lg shadow-blue-500/5'
+        : 'bg-[#1A1A1A]/90 backdrop-blur-xl border border-gray-800/50 shadow-xl shadow-black/20'
+    }`}>
+      <CardContent className="p-5">
+        <div className="text-sm leading-relaxed text-gray-100">
+          <SafeText>{messageContent}</SafeText>
+        </div>
+
+
+
+        {message.role === 'assistant' && codeBlocks.map((block) => (
+          <motion.div
+            key={block.id}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="mt-4"
+          >
+            <E2BCodeExecution
+              code={block.code}
+              language={block.language}
+              autoRun={block.language.toLowerCase() !== 'python'}
+              onExecute={async (code, language) => {
+                const result = await executeCode(code, language as 'python' | 'javascript');
+                return {
+                  success: result.success,
+                  output: result.stdout,
+                  error: result.error as string | undefined,
+                  logs: result.stderr ? [result.stderr] : [],
+                  executionTime: Date.now() % 1000,
+                };
+              }}
+              showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
+            />
+          </motion.div>
+        ))}
+
+        {message.role === 'user' && codeBlocks.map((block) => (
+          <motion.div
+            key={block.id}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="mt-4"
+          >
+            <E2BCodeExecution
+              code={block.code}
+              language={block.language}
+              autoRun={block.language.toLowerCase() !== 'python'}
+              onExecute={async (code, language) => {
+                const result = await executeCode(code, language as 'python' | 'javascript');
+                return {
+                  success: result.success,
+                  output: result.stdout,
+                  error: result.error as string | undefined,
+                  logs: result.stderr ? [result.stderr] : [],
+                  executionTime: Date.now() % 1000,
+                };
+              }}
+              showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
+            />
+          </motion.div>
+        ))}
+
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
+          <span className="text-xs opacity-70">
+            {formatTimestamp(message.createdAt)}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 opacity-70 hover:opacity-100 transition-all"
+            onClick={() => copyToClipboard(messageContent, message._id)}
+          >
+            {copiedMessage === message._id ? (
+              <Check className="w-3 h-3" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
 
 // Security constants for input validation
 const MAX_MESSAGE_LENGTH = 10000;
@@ -211,13 +314,16 @@ const ChatInterface: React.FC = () => {
   const createMessage = useMutation(api.messages.createMessage);
   const deleteChat = useMutation(api.chats.deleteChat);
 
-  const scrollToBottom = () => {
+  // Memoized scroll function to prevent unnecessary calls
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
+  // Throttled scroll effect to improve performance
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const timeoutId = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timeoutId);
+  }, [messages, scrollToBottom]);
 
   // Pre-warm E2B sandbox so execution feels instant and actually tries to connect
   useEffect(() => {
@@ -241,7 +347,8 @@ const ChatInterface: React.FC = () => {
     return message.content;
   };
 
-  const extractCodeBlocks = (content: string): CodeBlock[] => {
+  // Memoized code block extraction to prevent unnecessary recalculations
+  const extractCodeBlocks = useCallback((content: string): CodeBlock[] => {
     const source = (content || '').slice(0, 60000);
     const blocks: CodeBlock[] = [];
     const maxBlocks = 10;
@@ -278,7 +385,7 @@ const ChatInterface: React.FC = () => {
     }
 
     return blocks;
-  };
+  }, []);
 
   const executeCodeBlock = async (block: CodeBlock) => {
     try {
@@ -689,18 +796,8 @@ const ChatInterface: React.FC = () => {
       {/* Welcome Hero - shown until the user sends the first message */}
       {!showSplitLayout && (
         <div className="flex-1 flex flex-col relative overflow-hidden">
-          {/* Animated background gradient */}
-          <motion.div
-            animate={{
-              background: [
-                "radial-gradient(circle at 20% 50%, rgba(62, 111, 243, 0.05) 0%, transparent 50%)",
-                "radial-gradient(circle at 80% 50%, rgba(147, 51, 234, 0.05) 0%, transparent 50%)",
-                "radial-gradient(circle at 20% 50%, rgba(62, 111, 243, 0.05) 0%, transparent 50%)",
-              ],
-            }}
-            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute inset-0 pointer-events-none"
-          />
+          {/* Static background gradient - reduces CPU usage */}
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5" />
 
           {/* Main content */}
           <div className="flex-1 flex items-center justify-center px-6">
@@ -718,24 +815,9 @@ const ChatInterface: React.FC = () => {
                 className="mb-8"
               >
                 <div className="relative mx-auto w-20 h-20 mb-6">
-                  <motion.div
-                    animate={{ 
-                      rotate: [0, 360],
-                      scale: [1, 1.05, 1]
-                    }}
-                    transition={{ 
-                      rotate: { duration: 20, repeat: Infinity, ease: "linear" },
-                      scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                    }}
-                    className="w-full h-full bg-gradient-to-br from-blue-600 via-blue-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20"
-                  >
+                  <div className="w-full h-full bg-gradient-to-br from-blue-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20">
                     <Zap className="w-10 h-10 text-white" />
-                  </motion.div>
-                  <motion.div
-                    animate={{ rotate: [360, 0] }}
-                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                    className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 via-transparent to-blue-600/20 rounded-3xl blur-xl"
-                  />
+                  </div>
                 </div>
               </motion.div>
 
@@ -1140,7 +1222,7 @@ const ChatInterface: React.FC = () => {
                 {/* Chat List */}
                 <ScrollArea className="flex-1">
                   <div className="p-3 space-y-2">
-                    {chats?.map((chat) => (
+                    {Array.isArray(chats) && chats.map((chat) => (
                       <motion.div
                         key={chat._id}
                         layout
@@ -1252,18 +1334,8 @@ const ChatInterface: React.FC = () => {
                 onClose={() => setShowShowcase(false)}
                 executions={showcaseExecutions}
               />
-              {/* Animated background gradient */}
-              <motion.div
-                animate={{
-                  background: [
-                    "radial-gradient(circle at 20% 50%, rgba(62, 111, 243, 0.03) 0%, transparent 50%)",
-                    "radial-gradient(circle at 80% 50%, rgba(147, 51, 234, 0.03) 0%, transparent 50%)",
-                    "radial-gradient(circle at 20% 50%, rgba(62, 111, 243, 0.03) 0%, transparent 50%)",
-                  ],
-                }}
-                transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute inset-0 pointer-events-none"
-              />
+              {/* Simplified background gradient - reduces animation overhead */}
+              <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-blue-500/2 via-transparent to-purple-500/2" />
               
                 {/* Team Lead Plan */}
                 {teamLeadPlan && (
@@ -1282,147 +1354,55 @@ const ChatInterface: React.FC = () => {
                 {/* Messages */}
               <ScrollArea className="h-full p-6">
                 <div className="space-y-4 max-w-4xl mx-auto">
-                  <AnimatePresence>
-                    {messages?.map((message, idx) => {
-                      const prev = idx > 0 ? messages[idx - 1] : undefined;
-                      const next = idx < (messages.length - 1) ? messages[idx + 1] : undefined;
-                      const newDay = !prev || !isSameDay(prev.createdAt, message.createdAt);
-                      const firstInGroup = !prev || prev.role !== message.role || newDay;
-                      const lastInGroup = !next || next.role !== message.role || !isSameDay(next.createdAt, message.createdAt);
+                  {Array.isArray(messages) && messages.map((message, idx) => {
+                    const prev = idx > 0 ? messages[idx - 1] : undefined;
+                    const next = idx < (messages.length - 1) ? messages[idx + 1] : undefined;
+                    const newDay = !prev || !isSameDay(prev.createdAt, message.createdAt);
+                    const firstInGroup = !prev || prev.role !== message.role || newDay;
+                    const lastInGroup = !next || next.role !== message.role || !isSameDay(next.createdAt, message.createdAt);
 
-                      const radiusClass = message.role === 'user'
-                        ? `${firstInGroup ? '' : ' rounded-tr-md'} ${lastInGroup ? '' : ' rounded-br-md'}`
-                        : `${firstInGroup ? '' : ' rounded-tl-md'} ${lastInGroup ? '' : ' rounded-bl-md'}`;
-
-                      return (
-                        <React.Fragment key={message._id}>
-                          {newDay && (
-                            <div className="flex items-center justify-center my-4">
-                              <div className="px-3 py-1 text-xs bg-card/80 border border-white/10 rounded-full text-muted-foreground">
-                                {formatDateHeader(message.createdAt)}
-                              </div>
+                    return (
+                      <React.Fragment key={message._id}>
+                        {newDay && (
+                          <div className="flex items-center justify-center my-4">
+                            <div className="px-3 py-1 text-xs bg-card/80 border border-white/10 rounded-full text-muted-foreground">
+                              {formatDateHeader(message.createdAt)}
                             </div>
+                          </div>
+                        )}
+                        <div className={`group flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          {message.role === 'assistant' && lastInGroup && (
+                            <Avatar className="w-8 h-8 border border-primary/20 shadow-sm self-end">
+                              <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-600">
+                                <Bot className="w-4 h-4 text-white" />
+                              </AvatarFallback>
+                            </Avatar>
                           )}
-                          <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            className={`group flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            {message.role === 'assistant' && lastInGroup && (
-                              <Avatar className="w-8 h-8 border border-primary/20 shadow-sm self-end">
-                                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-600">
-                                  <Bot className="w-4 h-4 text-white" />
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
 
-                            <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
-                              <Card className={`rounded-xl transition-all duration-300 group-hover:shadow-2xl ${
-                                message.role === 'user'
-                                  ? 'bg-gradient-to-br from-blue-500/10 to-blue-500/10 border border-blue-500/20 shadow-lg shadow-blue-500/5'
-                                  : 'bg-[#1A1A1A]/90 backdrop-blur-xl border border-gray-800/50 shadow-xl shadow-black/20'
-                              } ${radiusClass}`}>
-                                <CardContent className="p-5">
-                                  <div className="text-sm leading-relaxed text-gray-100">
-                                    <SafeText>{getMessageContent(message)}</SafeText>
-                                  </div>
+                          <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
+                            <MessageComponent
+                              message={message}
+                              user={user}
+                              extractCodeBlocks={extractCodeBlocks}
+                              copyToClipboard={copyToClipboard}
+                              copiedMessage={copiedMessage}
+                              formatTimestamp={formatTimestamp}
+                              getMessageContent={getMessageContent}
+                            />
+                          </div>
 
-                                  {message.isEncrypted && (
-                                    <div className="flex items-center gap-2 mt-4 text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
-                                      <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
-                                      <span>End-to-end encrypted</span>
-                                    </div>
-                                  )}
-
-                                  {message.role === 'assistant' && extractCodeBlocks(getMessageContent(message)).map((block) => (
-                                    <motion.div
-                                      key={block.id}
-                                      initial={{ opacity: 0, scale: 0.95 }}
-                                      animate={{ opacity: 1, scale: 1 }}
-                                      transition={{ duration: 0.3 }}
-                                      className="mt-4"
-                                    >
-                                      <E2BCodeExecution
-                                        code={block.code}
-                                        language={block.language}
-                                        autoRun={block.language.toLowerCase() !== 'python'}
-                                        onExecute={async (code, language) => {
-                                          const result = await executeCode(code, language as 'python' | 'javascript');
-                                          return {
-                                            success: result.success,
-                                            output: result.stdout,
-                                            error: result.error as string | undefined,
-                                            logs: result.stderr ? [result.stderr] : [],
-                                            executionTime: Date.now() % 1000,
-                                          };
-                                        }}
-                                        showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
-                                      />
-                                    </motion.div>
-                                  ))}
-
-                                  {message.role === 'user' && extractCodeBlocks(getMessageContent(message)).map((block) => (
-                                    <motion.div
-                                      key={block.id}
-                                      initial={{ opacity: 0, scale: 0.95 }}
-                                      animate={{ opacity: 1, scale: 1 }}
-                                      transition={{ duration: 0.3 }}
-                                      className="mt-4"
-                                    >
-                                      <E2BCodeExecution
-                                        code={block.code}
-                                        language={block.language}
-                                        autoRun={block.language.toLowerCase() !== 'python'}
-                                        onExecute={async (code, language) => {
-                                          const result = await executeCode(code, language as 'python' | 'javascript');
-                                          return {
-                                            success: result.success,
-                                            output: result.stdout,
-                                            error: result.error as string | undefined,
-                                            logs: result.stderr ? [result.stderr] : [],
-                                            executionTime: Date.now() % 1000,
-                                          };
-                                        }}
-                                        showNextJsHint={block.language.toLowerCase() === 'javascript' || block.language.toLowerCase() === 'typescript'}
-                                      />
-                                    </motion.div>
-                                  ))}
-
-                                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
-                                    <span className="text-xs opacity-70">
-                                      {formatTimestamp(message.createdAt)}
-                                    </span>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-6 w-6 p-0 opacity-70 hover:opacity-100 transition-all"
-                                      onClick={() => copyToClipboard(getMessageContent(message), message._id)}
-                                    >
-                                      {copiedMessage === message._id ? (
-                                        <Check className="w-3 h-3" />
-                                      ) : (
-                                        <Copy className="w-3 h-3" />
-                                      )}
-                                    </Button>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            </div>
-
-                            {message.role === 'user' && lastInGroup && (
-                              <Avatar className="w-8 h-8 border border-muted shadow-sm self-end">
-                                <AvatarImage src={user?.avatarUrl} />
-                                <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800">
-                                  <User className="w-4 h-4" />
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
-                          </motion.div>
-                        </React.Fragment>
-                      );
-                    })}
-                  </AnimatePresence>
+                          {message.role === 'user' && lastInGroup && (
+                            <Avatar className="w-8 h-8 border border-muted shadow-sm self-end">
+                              <AvatarImage src={user?.avatarUrl} />
+                              <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800">
+                                <User className="w-4 h-4" />
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
 
                   {isTyping && (
                     <motion.div

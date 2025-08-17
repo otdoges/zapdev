@@ -14,48 +14,21 @@ const Chat: React.FC = () => {
         {/* Base background */}
         <div className="absolute inset-0 bg-[var(--color-chat-bg)]" />
         
-        {/* Animated gradient orbs */}
-        <motion.div 
-          className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-10"
-          animate={{
-            background: [
-              "radial-gradient(circle, hsl(262 83% 58%) 0%, transparent 70%)",
-              "radial-gradient(circle, hsl(224 82% 60%) 0%, transparent 70%)",
-              "radial-gradient(circle, hsl(280 90% 65%) 0%, transparent 70%)",
-              "radial-gradient(circle, hsl(262 83% 58%) 0%, transparent 70%)",
-            ],
-            scale: [1, 1.2, 0.8, 1],
-            x: [0, 50, -30, 0],
-            y: [0, -40, 60, 0],
+        {/* Static gradient orbs - much more performant */}
+        <div 
+          className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-5"
+          style={{ 
+            background: "radial-gradient(circle, hsl(262 83% 58%) 0%, transparent 70%)",
+            filter: 'blur(100px)' 
           }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          style={{ filter: 'blur(100px)' }}
         />
         
-        <motion.div 
-          className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full opacity-10"
-          animate={{
-            background: [
-              "radial-gradient(circle, hsl(224 82% 60%) 0%, transparent 70%)",
-              "radial-gradient(circle, hsl(280 90% 65%) 0%, transparent 70%)",
-              "radial-gradient(circle, hsl(262 83% 58%) 0%, transparent 70%)",
-              "radial-gradient(circle, hsl(224 82% 60%) 0%, transparent 70%)",
-            ],
-            scale: [0.8, 1.3, 1, 0.8],
-            x: [0, -60, 40, 0],
-            y: [0, 50, -30, 0],
+        <div 
+          className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full opacity-5"
+          style={{ 
+            background: "radial-gradient(circle, hsl(224 82% 60%) 0%, transparent 70%)",
+            filter: 'blur(120px)' 
           }}
-          transition={{
-            duration: 18,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 2
-          }}
-          style={{ filter: 'blur(120px)' }}
         />
         
         {/* Subtle noise texture overlay */}
