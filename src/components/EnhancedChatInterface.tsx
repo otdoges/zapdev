@@ -159,9 +159,10 @@ const EnhancedChatInterface: React.FC = () => {
 
   // Convex queries and mutations
   const chats = useQuery(api.chats.getChats);
-  const messages = selectedChatId 
-    ? useQuery(api.messages.getMessages, { chatId: selectedChatId as Id<'chats'> })
-    : null;
+  const messages = useQuery(
+    api.messages.getMessages, 
+    selectedChatId ? { chatId: selectedChatId as Id<'chats'> } : "skip"
+  );
   
   const createChatMutation = useMutation(api.chats.createChat);
   const addMessageMutation = useMutation(api.messages.addMessage);

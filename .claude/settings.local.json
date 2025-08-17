@@ -72,7 +72,11 @@
       "Bash(bun remove:*)",
       "Bash(npm run dev:*)",
       "Bash(npm run lint)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "WebFetch(domain:react.dev)",
+      "Bash(bun exec eslint:*)",
+      "Bash(npx eslint:*)",
+      "Bash(git log:*)"
     ],
     "deny": []
   }
