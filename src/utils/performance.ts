@@ -4,22 +4,22 @@
  */
 
 // Performance utility functions
-export const throttle = <T extends (...args: any[]) => any>(func: T, limit: number): T => {
+export const throttle = <T extends (...args: Parameters<T>) => ReturnType<T>>(func: T, limit: number): T => {
   let inThrottle: boolean;
-  return ((...args: any[]) => {
+  return ((...args: Parameters<T>) => {
     if (!inThrottle) {
-      func.apply(null, args);
+      func(...args);
       inThrottle = true;
       setTimeout(() => inThrottle = false, limit);
     }
   }) as T;
 };
 
-export const debounce = <T extends (...args: any[]) => any>(func: T, delay: number): T => {
+export const debounce = <T extends (...args: Parameters<T>) => ReturnType<T>>(func: T, delay: number): T => {
   let timeoutId: NodeJS.Timeout;
-  return ((...args: any[]) => {
+  return ((...args: Parameters<T>) => {
     clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func.apply(null, args), delay);
+    timeoutId = setTimeout(() => func(...args), delay);
   }) as T;
 };
 
@@ -36,7 +36,7 @@ export class PerformanceMonitor {
   
   measureMemoryUsage(): number {
     if ('memory' in performance) {
-      const memory = (performance as any).memory;
+      const memory = (performance as { memory: { usedJSHeapSize: number } }).memory;
       return memory.usedJSHeapSize;
     }
     return 0;

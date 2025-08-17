@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
+import DOMPurify from 'dompurify';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle } from 'lucide-react';
@@ -95,7 +96,12 @@ export const DiagramRenderer: React.FC<DiagramRendererProps> = ({
         const { svg } = await mermaid.render(diagramId, diagramText);
         
         if (diagramRef.current) {
-          diagramRef.current.innerHTML = svg;
+          // Sanitize SVG content before inserting into DOM
+          const sanitizedSvg = DOMPurify.sanitize(svg, { 
+            USE_PROFILES: { svg: true, svgFilters: true },
+            ADD_TAGS: ['foreignObject']
+          });
+          diagramRef.current.innerHTML = sanitizedSvg;
           
           // Apply additional styling to the SVG
           const svgElement = diagramRef.current.querySelector('svg');

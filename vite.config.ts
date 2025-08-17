@@ -1,14 +1,16 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-let componentTagger: (() => any) | null = null;
+import { VitePWA } from "vite-plugin-pwa";
+
+let componentTagger: (() => unknown) | null = null;
 try {
-  // @ts-ignore - optional dev-only dependency
-  componentTagger = require("lovable-tagger").componentTagger;
-} catch (_err) {
+  // Use synchronous require for optional dev-only dependency
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  componentTagger = require("lovable-tagger").componentTagger as (() => unknown);
+} catch {
   componentTagger = null;
 }
-import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {

@@ -64,8 +64,8 @@ export interface StripeWebhookEvent {
   type: string;
   created: number;
   data: {
-    object: StripeSubscription | StripeCustomer | StripeInvoice | any;
-    previous_attributes?: any;
+    object: StripeSubscription | StripeCustomer | StripeInvoice | Record<string, unknown>;
+    previous_attributes?: Record<string, unknown>;
   };
   livemode: boolean;
   pending_webhooks: number;
@@ -76,15 +76,15 @@ export interface StripeWebhookEvent {
 }
 
 // Type guards for runtime type checking
-export function isStripeSubscription(obj: any): obj is StripeSubscription {
+export function isStripeSubscription(obj: unknown): obj is StripeSubscription {
   return obj && obj.object === 'subscription' && typeof obj.id === 'string';
 }
 
-export function isStripeCustomer(obj: any): obj is StripeCustomer {
+export function isStripeCustomer(obj: unknown): obj is StripeCustomer {
   return obj && obj.object === 'customer' && typeof obj.id === 'string';
 }
 
-export function isStripeInvoice(obj: any): obj is StripeInvoice {
+export function isStripeInvoice(obj: unknown): obj is StripeInvoice {
   return obj && obj.object === 'invoice' && typeof obj.id === 'string';
 }
 
