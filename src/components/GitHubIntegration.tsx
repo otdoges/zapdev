@@ -24,7 +24,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { githubService, initializeGitHub, type GitHubRepo, type FileChange } from '@/lib/github-service';
+import { githubService, initializeGitHub, type GitHubRepo, type FileChange, type CreatePullRequestOptions } from '@/lib/github-service';
+import { setGitHubToken, clearGitHubToken } from '@/lib/github-token-storage';
 import * as Sentry from '@sentry/react';
 
 const { logger } = Sentry;
@@ -75,7 +76,7 @@ export function GitHubIntegration({
     setIsTokenSetup(isSetup);
   };
 
-  const saveGitHubToken = () => {
+  const saveGitHubToken = async () => {
     if (!githubToken.trim()) {
       toast.error('Please enter a valid GitHub token');
       return;
@@ -86,11 +87,20 @@ export function GitHubIntegration({
       return;
     }
 
-    localStorage.setItem('github_access_token', githubToken.trim());
-    githubService.setToken(githubToken.trim());
-    setIsTokenSetup(true);
-    setShowTokenSetup(false);
-    toast.success('GitHub token saved successfully!');
+    try {
+      await setGitHubToken(githubToken.trim());
+      githubService.setToken(githubToken.trim());
+      
+      // Clear token from component state immediately after use
+      setGithubToken('');
+      
+      setIsTokenSetup(true);
+      setShowTokenSetup(false);
+      toast.success('GitHub token saved securely!');
+    } catch (error) {
+      logger.error('Failed to save GitHub token:', error);
+      toast.error('Failed to save GitHub token. Please try again.');
+    }
   };
 
   const parseAndLoadRepo = async () => {
@@ -204,16 +214,18 @@ export function GitHubIntegration({
         progress: 80
       });
 
-      // Create pull request
-      const pr = await githubService.createPullRequest(
-        originalOwner,
-        originalRepo,
-        prTitle,
-        prDescription,
-        branchName,
-        currentRepo.default_branch,
-        originalOwner
-      );
+      // Create pull request using options object pattern
+      const prOptions: CreatePullRequestOptions = {
+        owner: originalOwner,
+        repo: originalRepo,
+        title: prTitle,
+        body: prDescription,
+        headBranch: branchName,
+        baseBranch: currentRepo.default_branch,
+        originalOwner: originalOwner
+      };
+      
+      const pr = await githubService.createPullRequest(prOptions);
 
       setOperationStatus({
         stage: 'completed',
@@ -350,9 +362,21 @@ export function GitHubIntegration({
                         <p className="text-xs text-muted-foreground">
                           Required scopes: repo, workflow, write:packages
                         </p>
-                        <Button onClick={saveGitHubToken} size="sm">
-                          Save Token
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button onClick={saveGitHubToken} size="sm">
+                            Save Token
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setGithubToken('');
+                              setShowTokenSetup(false);
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </motion.div>
                     )}
                   </div>
@@ -360,13 +384,32 @@ export function GitHubIntegration({
                   <div className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-green-500" />
                     <span className="text-sm text-muted-foreground">GitHub token configured successfully</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowTokenSetup(true)}
-                    >
-                      Update
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowTokenSetup(true)}
+                      >
+                        Update
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await clearGitHubToken();
+                            setIsTokenSetup(false);
+                            toast.success('GitHub token removed');
+                          } catch (error) {
+                            logger.error('Failed to clear token:', error);
+                            toast.error('Failed to remove token');
+                          }
+                        }}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>

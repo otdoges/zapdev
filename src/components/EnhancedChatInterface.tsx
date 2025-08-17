@@ -516,7 +516,7 @@ const EnhancedChatInterface: React.FC = () => {
   };
 
   const detectGithubUrls = (text: string): string[] => {
-    const githubUrlRegex = /https?:\/\/github\.com\/[\w\-\.]+\/[\w\-\.]+(?:\/[^\s]*)?/g;
+    const githubUrlRegex = /https?:\/\/github\.com\/[\w\-.]+\/[\w\-.]+(?:\/[^\s]*)?/g;
     return text.match(githubUrlRegex) || [];
   };
 

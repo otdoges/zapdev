@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
+import { getGitHubToken as getSecureGitHubToken, validateGitHubToken as validateSecureGitHubToken, migrateFromLocalStorage } from './github-token-storage';
 
 const { logger } = Sentry;
 
@@ -51,6 +52,23 @@ export interface FileChange {
   action: 'create' | 'update' | 'delete';
 }
 
+export interface CreatePullRequestOptions {
+  owner: string;
+  repo: string;
+  title: string;
+  body: string;
+  headBranch: string;
+  baseBranch?: string;
+  originalOwner?: string;
+}
+
+export interface UpdateFilesBody {
+  message: string;
+  content: string;
+  branch: string;
+  sha?: string;
+}
+
 class GitHubService {
   private baseUrl = 'https://api.github.com';
   private token: string | null = null;
@@ -98,9 +116,9 @@ class GitHubService {
     try {
       // Handle various GitHub URL formats
       const patterns = [
-        /github\.com\/([^\/]+)\/([^\/]+)(?:\/.*)?$/,
-        /github\.com\/([^\/]+)\/([^\/]+)\.git$/,
-        /git@github\.com:([^\/]+)\/([^\/]+)\.git$/,
+        /github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
+        /github\.com\/([^/]+)\/([^/]+)\.git$/,
+        /git@github\.com:([^/]+)\/([^/]+)\.git$/,
       ];
 
       let cleanUrl = url.trim();
@@ -193,7 +211,7 @@ class GitHubService {
           });
         } else {
           // Create or update file
-          const body: any = {
+          const body: UpdateFilesBody = {
             message: `${file.action === 'create' ? 'Create' : 'Update'} ${file.path} - ${commitMessage}`,
             content: btoa(unescape(encodeURIComponent(file.content))), // Base64 encode
             branch: branch,
@@ -208,7 +226,7 @@ class GitHubService {
               body.sha = fileData.sha;
             } catch (error) {
               // File might not exist, create it instead
-              console.log(`File ${file.path} not found, creating new file`);
+              logger.info(`File ${file.path} not found, creating new file`, { filePath: file.path, action: 'create' });
             }
           }
 
@@ -224,16 +242,9 @@ class GitHubService {
     }
   }
 
-  async createPullRequest(
-    owner: string,
-    repo: string,
-    title: string,
-    body: string,
-    headBranch: string,
-    baseBranch: string = 'main',
-    originalOwner?: string
-  ): Promise<GitHubPullRequest> {
+  async createPullRequest(options: CreatePullRequestOptions): Promise<GitHubPullRequest> {
     try {
+      const { owner, repo, title, body, headBranch, baseBranch = 'main', originalOwner } = options;
       const head = originalOwner ? `${owner}:${headBranch}` : headBranch;
       const base = baseBranch;
 
@@ -310,28 +321,35 @@ class GitHubService {
   }
 
   validateGitHubToken(token: string): boolean {
-    // Basic GitHub token validation
-    return token.startsWith('ghp_') || token.startsWith('github_pat_') || token.length >= 40;
+    return validateSecureGitHubToken(token);
   }
 }
 
 export const githubService = new GitHubService();
 
-// Helper function to get GitHub token from user settings or environment
+// Helper function to get GitHub token from secure storage or environment
 export async function getGitHubToken(): Promise<string | null> {
-  // Try to get from localStorage first (user-provided token)
-  const userToken = localStorage.getItem('github_access_token');
-  if (userToken && githubService.validateGitHubToken(userToken)) {
-    return userToken;
-  }
+  try {
+    // First attempt migration from legacy localStorage
+    await migrateFromLocalStorage();
+    
+    // Try to get from secure storage first (user-provided token)
+    const secureToken = await getSecureGitHubToken();
+    if (secureToken && githubService.validateGitHubToken(secureToken)) {
+      return secureToken;
+    }
 
-  // Try environment variables as fallback
-  const envToken = process.env.VITE_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
-  if (envToken && githubService.validateGitHubToken(envToken)) {
-    return envToken;
-  }
+    // Try environment variables as fallback
+    const envToken = process.env.VITE_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
+    if (envToken && githubService.validateGitHubToken(envToken)) {
+      return envToken;
+    }
 
-  return null;
+    return null;
+  } catch (error) {
+    logger.error('Error retrieving GitHub token:', error);
+    return null;
+  }
 }
 
 export async function initializeGitHub(): Promise<boolean> {
