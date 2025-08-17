@@ -76,7 +76,8 @@
       "WebFetch(domain:react.dev)",
       "Bash(bun exec eslint:*)",
       "Bash(npx eslint:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(npm run preview:*)"
     ],
     "deny": []
   }
