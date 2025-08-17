@@ -977,167 +977,19 @@ const ChatInterface: React.FC = () => {
                   </DialogContent>
                 </Dialog>
 
-                <Dialog open={showWebsiteDialog} onOpenChange={setShowWebsiteDialog}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="lg"
-                      className="bg-card/80 backdrop-blur-sm border-2 hover:border-primary/50 transition-all duration-200"
-                    >
-                      <Globe className="w-4 h-4 mr-2" />
-                      Clone Website
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2">
-                        <Globe className="w-5 h-5 text-primary" />
-                        Website Analysis & Cloning
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 pt-4">
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Enter website URL to analyze (e.g., https://example.com)"
-                          value={websiteUrl}
-                          onChange={(e) => setWebsiteUrl(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleWebsiteAnalysis()}
-                          className="flex-1"
-                        />
-                        <Button onClick={handleWebsiteAnalysis} disabled={!websiteUrl.trim() || isAnalyzingWebsite}>
-                          {isAnalyzingWebsite ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Globe className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                      
-                      {websiteAnalysis && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="space-y-4 max-h-96 overflow-y-auto"
-                        >
-                          <h4 className="font-medium text-sm">Website Analysis:</h4>
-                          <div className="p-4 border rounded-lg bg-muted/30">
-                            <div className="space-y-3 text-sm">
-                              <div>
-                                <span className="font-medium">URL:</span> 
-                                <a href={websiteAnalysis.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">
-                                  {websiteAnalysis.url}
-                                </a>
-                              </div>
-                              {websiteAnalysis.title && (
-                                <div><span className="font-medium">Title:</span> {websiteAnalysis.title}</div>
-                              )}
-                              {websiteAnalysis.description && (
-                                <div><span className="font-medium">Description:</span> {websiteAnalysis.description}</div>
-                              )}
-                              {websiteAnalysis.technologies && websiteAnalysis.technologies.length > 0 && (
-                                <div>
-                                  <span className="font-medium">Technologies:</span>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {websiteAnalysis.technologies.map((tech, index) => (
-                                      <Badge key={index} variant="secondary" className="text-xs">{tech}</Badge>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              {websiteAnalysis.layout && (
-                                <div><span className="font-medium">Layout:</span> {websiteAnalysis.layout}</div>
-                              )}
-                              {websiteAnalysis.components && websiteAnalysis.components.length > 0 && (
-                                <div>
-                                  <span className="font-medium">Components:</span>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {websiteAnalysis.components.map((comp, index) => (
-                                      <Badge key={index} variant="outline" className="text-xs">{comp}</Badge>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              {websiteAnalysis.colorScheme && websiteAnalysis.colorScheme.length > 0 && (
-                                <div>
-                                  <span className="font-medium">Colors:</span>
-                                  <div className="flex gap-1 mt-1">
-                                    {websiteAnalysis.colorScheme.slice(0, 8).map((color, index) => (
-                                      <div 
-                                        key={index} 
-                                        className="w-6 h-6 rounded border"
-                                        style={{ backgroundColor: color }}
-                                        title={color}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 mt-4">
-                              <Button 
-                                variant="secondary"
-                                onClick={async () => {
-                                  setIsCrawling(true);
-                                  try {
-                                    const result = await crawlSite(websiteAnalysis.url, { maxPages: 12, includeSitemap: true });
-                                    setCrawlPages(result.pages.map(p => ({ url: p.url, title: p.title })));
-                                    toast.success(`Crawled ${result.pages.length} pages with Firecrawl`);
-                                  } catch (err) {
-                                    toast.error(err instanceof Error ? err.message : 'Firecrawl failed');
-                                  } finally {
-                                    setIsCrawling(false);
-                                  }
-                                }}
-                                disabled={isCrawling}
-                              >
-                                {isCrawling ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <Globe className="w-4 h-4 mr-2"/>}
-                                Crawl with Firecrawl
-                              </Button>
-                              <Button 
-                                className="w-full"
-                                onClick={() => {
-                                  handleWebsiteAnalysis();
-                                  setShowWebsiteDialog(false);
-                                }}
-                              >
-                                <Plus className="w-4 h-4 mr-2" />
-                                Add to Chat
-                              </Button>
-                            </div>
-                            {crawlPages.length > 0 && (
-                              <div className="mt-3">
-                                <h5 className="font-medium text-sm mb-2">Crawled Pages</h5>
-                                <div className="max-h-40 overflow-auto space-y-1 text-xs">
-                                  {crawlPages.slice(0, 20).map((p, i) => (
-                                    <div key={i} className="flex items-center justify-between gap-2">
-                                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-primary truncate">
-                                        {p.title || p.url}
-                                      </a>
-                                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground">
-                                        <ExternalLink className="w-3 h-3" />
-                                      </a>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            <Button 
-                              className="w-full mt-4" 
-                              onClick={() => {
-                                const summary = `Crawled ${crawlPages.length} pages from ${websiteAnalysis.url}. Key pages:\n` + crawlPages.slice(0,5).map(p=>`- ${p.title || p.url} (${p.url})`).join('\n');
-                                setInput(prev => prev + (prev ? '\n\n' : '') + summary + '\n\nUse these references to recreate the UI.');
-                                setShowWebsiteDialog(false);
-                              }}
-                            >
-                              <Plus className="w-4 h-4 mr-2" />
-                              Insert Crawl Summary
-                            </Button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                {/* Clone website feature simplified - button now directly adds prompt to chat */}
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                    className="bg-card/80 backdrop-blur-sm border-2 hover:border-primary/50 transition-all duration-200"
+                    onClick={() => {
+                      setInput(prev => prev + (prev ? '\n\n' : '') + 'Clone this website URL: ');
+                      toast.success('Clone prompt added to chat!');
+                    }}
+                  >
+                    <Globe className="w-4 h-4 mr-2" />
+                    Clone Website
+                  </Button>
               </motion.div>
 
               {/* Feature highlights */}

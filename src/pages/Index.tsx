@@ -13,12 +13,12 @@ const Index = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
 
-  // Trigger sync after Stripe redirect back if applicable
+  // Handle Stripe success redirect - using secure session-based user identification
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.pathname === '/success') {
       try {
-        const convexUserId = user?._id || localStorage.getItem('convexUserId');
+        const convexUserId = user?._id; // Only use session-based user ID for security
         if (convexUserId) {
           fetch(`/api/success?userId=${encodeURIComponent(convexUserId)}`, { method: 'POST' }).catch(() => {});
         }
@@ -131,19 +131,31 @@ const Index = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 {isAuthenticated ? (
+                  <div className="flex flex-col sm:flex-row gap-3 items-center">
+                    <Button 
+                      size="lg" 
+                      className="button-gradient"
+                      onClick={() => navigate('/chat')}
+                    >
+                      Open Chat
+                    </Button>
+                    <Button 
+                      size="lg" 
+                      variant="outline"
+                      className="border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
+                      onClick={() => navigate('/pricing')}
+                    >
+                      Upgrade Plan
+                    </Button>
+                  </div>
+                ) : (
                   <Button 
                     size="lg" 
                     className="button-gradient"
-                    onClick={() => navigate('/chat')}
+                    onClick={() => navigate('/pricing')}
                   >
-                    Open Chat
+                    Get Started
                   </Button>
-                ) : (
-                  <SignInButton mode="redirect" forceRedirectUrl="/chat">
-                    <Button size="lg" className="button-gradient">
-                      Get Started
-                    </Button>
-                  </SignInButton>
                 )}
               </motion.div>
               <motion.div

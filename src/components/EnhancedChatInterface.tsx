@@ -60,9 +60,29 @@ import type { GitHubRepo } from '@/lib/github-service';
 import { githubService } from '@/lib/github-service';
 import DiagramMessageComponent from './DiagramMessageComponent';
 
+// Performance utility functions
+const throttle = <T extends (...args: any[]) => any>(func: T, limit: number): T => {
+  let inThrottle: boolean;
+  return ((...args: any[]) => {
+    if (!inThrottle) {
+      func.apply(null, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  }) as T;
+};
+
+const debounce = <T extends (...args: any[]) => any>(func: T, delay: number): T => {
+  let timeoutId: NodeJS.Timeout;
+  return ((...args: any[]) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(null, args), delay);
+  }) as T;
+};
+
 const { logger } = Sentry;
 
-// Memoized Enhanced Message Component
+// Performance optimized message component with React.memo
 const EnhancedMessageComponent = memo(({ message, user, isUser, isFirstInGroup, formatTimestamp, copyToClipboard, copiedMessage, onApproveDiagram, onRequestDiagramChanges, isSubmittingDiagram }: {
   message: ConvexMessage;
   user: { avatarUrl?: string; email?: string; fullName?: string } | null;
@@ -79,66 +99,80 @@ const EnhancedMessageComponent = memo(({ message, user, isUser, isFirstInGroup, 
 
   return (
     <div className="space-y-4">
-      <Card className={`
-        transition-smooth group-hover:scale-[1.01]
-        ${isUser 
-          ? 'chat-bubble-user ml-auto' 
-          : 'chat-bubble-assistant'
-        }
-        ${isFirstInGroup ? '' : (isUser ? 'rounded-tr-lg' : 'rounded-tl-lg')}
-      `}>
-        <CardContent className="p-4 relative">
-          <div className="space-y-3">
-            <SafeText 
-              className={`text-sm leading-relaxed ${
-                isUser ? 'text-foreground' : 'text-foreground/90'
-              }`}
-            >
-              {message.content}
-            </SafeText>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        whileHover={{ scale: 1.01 }}
+        className="group"
+      >
+        <Card className={`
+          transition-all duration-300 shadow-lg hover:shadow-xl border-0
+          ${isUser 
+            ? 'chat-bubble-user ml-auto max-w-[80%] bg-gradient-to-br from-blue-600/10 to-blue-700/5 border border-blue-400/20' 
+            : 'chat-bubble-assistant max-w-[85%] bg-gradient-to-br from-gray-800/40 to-gray-900/20 border border-gray-600/20'
+          }
+          ${isFirstInGroup ? 'rounded-2xl' : (isUser ? 'rounded-2xl rounded-tr-lg' : 'rounded-2xl rounded-tl-lg')}
+          backdrop-blur-xl
+        `}>
+          <CardContent className="p-6 relative">
+            <div className="space-y-4">
+              <SafeText 
+                className={`text-base leading-relaxed font-medium ${
+                  isUser ? 'text-foreground' : 'text-foreground/95'
+                }`}
+              >
+                {message.content}
+              </SafeText>
             
-            {message.metadata?.model && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Badge variant="outline" className="glass text-xs">
-                  {message.metadata.model}
-                </Badge>
-                {message.metadata.tokens && (
-                  <span>{message.metadata.tokens} tokens</span>
-                )}
-                {message.metadata.cost && (
-                  <span>${message.metadata.cost.toFixed(4)}</span>
-                )}
-                {hasDiagram && (
-                  <Badge variant="outline" className="glass text-xs text-blue-300">
-                    Contains Diagram
+              {message.metadata?.model && (
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <Badge variant="outline" className="glass text-xs border-white/20 bg-white/5 backdrop-blur-sm rounded-lg px-2 py-1">
+                    {message.metadata.model}
                   </Badge>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className={`absolute top-2 ${isUser ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1`}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => copyToClipboard(message.content, message._id)}
-              className="h-6 w-6 p-0 glass-hover"
-            >
-              {copiedMessage === message._id ? (
-                <Check className="w-3 h-3 text-green-400" />
-              ) : (
-                <Copy className="w-3 h-3" />
+                  {message.metadata.tokens && (
+                    <span className="bg-gray-800/50 px-2 py-1 rounded-md">{message.metadata.tokens} tokens</span>
+                  )}
+                  {message.metadata.cost && (
+                    <span className="bg-green-800/30 text-green-300 px-2 py-1 rounded-md">${message.metadata.cost.toFixed(4)}</span>
+                  )}
+                  {hasDiagram && (
+                    <Badge variant="outline" className="glass text-xs text-blue-300 border-blue-400/30 bg-blue-500/10 backdrop-blur-sm rounded-lg px-2 py-1">
+                      Contains Diagram
+                    </Badge>
+                  )}
+                </div>
               )}
-            </Button>
           </div>
 
-          <div className={`text-xs text-muted-foreground mt-2 ${
-            isUser ? 'text-right' : 'text-left'
-          }`}>
-            {formatTimestamp(message.createdAt)}
-          </div>
-        </CardContent>
-      </Card>
+            <div className={`absolute top-3 ${isUser ? 'left-3' : 'right-3'} opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center gap-2`}>
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(message.content, message._id)}
+                  className="h-8 w-8 p-0 glass-hover rounded-lg border border-white/10 hover:border-white/20 hover:bg-white/5 backdrop-blur-sm"
+                >
+                  {copiedMessage === message._id ? (
+                    <Check className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </motion.div>
+            </div>
+
+            <div className={`text-xs text-muted-foreground/70 mt-3 ${
+              isUser ? 'text-right' : 'text-left'
+            }`}>
+              {formatTimestamp(message.createdAt)}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Diagram Component */}
       {hasDiagram && onApproveDiagram && onRequestDiagramChanges && (
@@ -278,7 +312,7 @@ const EnhancedChatInterface: React.FC = () => {
     selectedChatId ? { chatId: selectedChatId as Id<'chats'> } : "skip"
   );
 
-  // Ensure arrays are properly handled and limit messages for performance
+  // Enhanced performance: more aggressive message limiting and memoization
   const chats = React.useMemo(() => {
     const chatsArray = chatsData?.chats;
     return Array.isArray(chatsArray) ? chatsArray : [];
@@ -287,8 +321,8 @@ const EnhancedChatInterface: React.FC = () => {
   const messages = React.useMemo(() => {
     const messagesArray = messagesData?.messages;
     const validMessages = Array.isArray(messagesArray) ? messagesArray : [];
-    // Limit to last 100 messages to prevent memory issues
-    return validMessages.slice(-100);
+    // More aggressive limiting for better performance on low-end devices
+    return validMessages.slice(-50);
   }, [messagesData?.messages]);
   
   const createChatMutation = useMutation(api.chats.createChat);
@@ -297,10 +331,21 @@ const EnhancedChatInterface: React.FC = () => {
   const deleteChatMutation = useMutation(api.chats.deleteChat);
   const updateChatTitleMutation = useMutation(api.chats.updateChat);
 
-  // Auto-scroll to bottom when messages change
+  // Performance optimized auto-scroll with throttling
+  const scrollToBottomThrottled = React.useCallback(
+    throttle(() => {
+      messagesEndRef.current?.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end',
+        inline: 'nearest'
+      });
+    }, 100),
+    []
+  );
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    scrollToBottomThrottled();
+  }, [messages.length, scrollToBottomThrottled]); // Only trigger on message count change
 
   // Initialize sandbox on component mount for better performance
   useEffect(() => {
@@ -316,14 +361,21 @@ const EnhancedChatInterface: React.FC = () => {
     warmUpSandbox();
   }, []);
 
-  // Enhanced auto-resize for textarea
+  // Performance optimized textarea resize with debouncing
+  const resizeTextarea = React.useCallback(
+    debounce(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+        const scrollHeight = Math.min(textareaRef.current.scrollHeight, 200);
+        textareaRef.current.style.height = `${scrollHeight}px`;
+      }
+    }, 50),
+    []
+  );
+
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      const scrollHeight = Math.min(textareaRef.current.scrollHeight, 200);
-      textareaRef.current.style.height = `${scrollHeight}px`;
-    }
-  }, [input]);
+    resizeTextarea();
+  }, [input, resizeTextarea]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -781,7 +833,7 @@ const EnhancedChatInterface: React.FC = () => {
             transition={{ duration: 0.5 }}
           >
             {/* Static background gradient - much more performant */}
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-blue-500/5 via-purple-500/3 to-indigo-500/5" />
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-blue-500/5 via-blue-400/3 to-blue-600/5" />
 
             {/* Simplified particle effect - reduced from 20 to 5 particles */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -879,17 +931,18 @@ const EnhancedChatInterface: React.FC = () => {
                   transition={{ duration: 0.8, delay: 1 }}
                   className="max-w-3xl mx-auto"
                 >
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Enhanced input container */}
-                    <div className="relative">
-                      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/50 to-blue-600/50 rounded-2xl blur opacity-20"></div>
-                      <div className="relative glass-elevated rounded-2xl p-2">
+                  <form onSubmit={handleSubmit} className="space-y-8">
+                    {/* Premium input container with enhanced design */}
+                    <div className="relative group">
+                      <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-blue-600/30 rounded-3xl blur-xl opacity-50 group-hover:opacity-75 transition-all duration-500"></div>
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/40 to-blue-600/40 rounded-2xl blur opacity-30 group-hover:opacity-50 transition-all duration-300"></div>
+                      <div className="relative glass-elevated rounded-2xl p-6 shadow-2xl border-white/10 hover:border-white/20 transition-all duration-300">
                         <Textarea
                           ref={textareaRef}
                           value={input}
                           onChange={(e) => setInput(e.target.value)}
                           placeholder="What would you like to build today? Describe your app, website, or coding challenge..."
-                          className="min-h-[120px] max-h-[300px] resize-none border-none bg-transparent text-lg placeholder:text-muted-foreground/70 focus:ring-0 focus-visible:ring-0 focus-visible:outline-none transition-smooth"
+                          className="min-h-[140px] max-h-[300px] resize-none border-none bg-transparent text-lg placeholder:text-muted-foreground/60 focus:ring-0 focus-visible:ring-0 focus-visible:outline-none transition-all duration-300 leading-relaxed"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                               handleSubmit(e);
@@ -897,21 +950,26 @@ const EnhancedChatInterface: React.FC = () => {
                           }}
                         />
                         
-                        {/* Enhanced action buttons */}
-                        <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                          <div className="flex items-center space-x-2">
-                            {/* Quick action buttons */}
+                        {/* Premium action buttons with enhanced design */}
+                        <div className="flex items-center justify-between pt-6 border-t border-white/10">
+                          <div className="flex items-center space-x-3">
+                            {/* Enhanced quick action buttons */}
                             <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
                               <DialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="glass-hover rounded-lg"
-                                  type="button"
+                                <motion.div
+                                  whileHover={{ scale: 1.05, y: -2 }}
+                                  whileTap={{ scale: 0.95 }}
                                 >
-                                  <Search className="w-4 h-4 mr-2" />
-                                  Search Web
-                                </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="glass-hover rounded-xl px-4 py-2.5 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all duration-300 backdrop-blur-xl"
+                                    type="button"
+                                  >
+                                    <Search className="w-4 h-4 mr-2" />
+                                    Search Web
+                                  </Button>
+                                </motion.div>
                               </DialogTrigger>
                               <DialogContent className="glass-elevated border-white/20">
                                 <DialogHeader>
@@ -921,66 +979,50 @@ const EnhancedChatInterface: React.FC = () => {
                               </DialogContent>
                             </Dialog>
 
-                            <Dialog open={isWebsiteDialogOpen} onOpenChange={setIsWebsiteDialogOpen}>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="glass-hover rounded-lg"
-                                  type="button"
-                                >
-                                  <Globe className="w-4 h-4 mr-2" />
-                                  Clone Website
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="glass-elevated border-white/20">
-                                <DialogHeader>
-                                  <DialogTitle className="text-gradient-static">Analyze Website</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <Input
-                                    value={websiteUrl}
-                                    onChange={(e) => setWebsiteUrl(e.target.value)}
-                                    placeholder="Enter website URL to analyze..."
-                                    className="glass"
-                                  />
-                                  <Button
-                                    onClick={() => analyzeWebsite(websiteUrl)}
-                                    disabled={isAnalyzingWebsite}
-                                    className="button-gradient w-full"
-                                  >
-                                    {isAnalyzingWebsite ? (
-                                      <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        Analyzing...
-                                      </>
-                                    ) : (
-                                      'Analyze Website'
-                                    )}
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                            <motion.div
+                              whileHover={{ scale: 1.05, y: -2 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="glass-hover rounded-xl px-4 py-2.5 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all duration-300 backdrop-blur-xl"
+                                type="button"
+                                onClick={() => {
+                                  setInput(prev => prev + (prev ? '\n\n' : '') + 'Clone this website URL: ');
+                                  textareaRef.current?.focus();
+                                  toast.success('Clone prompt added to chat!');
+                                }}
+                              >
+                                <Globe className="w-4 h-4 mr-2" />
+                                Clone Website
+                              </Button>
+                            </motion.div>
                           </div>
 
-                          {/* Enhanced send button */}
-                          <Button
-                            type="submit"
-                            disabled={!input.trim() || isTyping}
-                            className="button-gradient px-8 py-3 text-base font-semibold transition-smooth"
+                          {/* Premium send button */}
+                          <motion.div
+                            whileHover={{ scale: 1.05, y: -2 }}
+                            whileTap={{ scale: 0.95 }}
                           >
-                            {isTyping ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Creating...
-                              </>
-                            ) : (
-                              <>
-                                <ArrowUp className="w-4 h-4 mr-2" />
-                                Start Building
-                              </>
-                            )}
-                          </Button>
+                            <Button
+                              type="submit"
+                              disabled={!input.trim() || isTyping}
+                              className="button-gradient px-10 py-3.5 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isTyping ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-3 animate-spin" />
+                                  Creating...
+                                </>
+                              ) : (
+                                <>
+                                  <ArrowUp className="w-4 h-4 mr-3" />
+                                  Start Building
+                                </>
+                              )}
+                            </Button>
+                          </motion.div>
                         </div>
                       </div>
                     </div>
@@ -1013,88 +1055,126 @@ const EnhancedChatInterface: React.FC = () => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.5 }}
           >
-            {/* Enhanced Left Sidebar */}
+            {/* Premium Left Sidebar */}
             <motion.div
               onMouseEnter={() => setSidebarExpanded(true)}
               onMouseLeave={() => setSidebarExpanded(false)}
               className={`${
-                sidebarExpanded ? 'w-80' : 'w-12'
-              } glass border-r border-white/10 flex flex-col transition-smooth relative overflow-hidden`}
-              animate={{ width: sidebarExpanded ? 320 : 48 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
+                sidebarExpanded ? 'w-80' : 'w-14'
+              } bg-gradient-to-b from-gray-900/95 to-black/90 backdrop-blur-2xl border-r border-white/10 hover:border-white/20 flex flex-col transition-all duration-300 relative overflow-hidden shadow-2xl`}
+              animate={{ width: sidebarExpanded ? 320 : 56 }}
+              transition={{ duration: 0.4, ease: "easeInOut" }}
             >
-              {/* Sidebar header */}
+              {/* Premium sidebar header */}
               <div className="p-4 border-b border-white/10">
                 <motion.div 
                   className="flex items-center gap-3"
                   animate={{ opacity: sidebarExpanded ? 1 : 0 }}
-                  transition={{ delay: sidebarExpanded ? 0.1 : 0 }}
+                  transition={{ delay: sidebarExpanded ? 0.15 : 0, duration: 0.3 }}
                 >
-                  <div className="w-8 h-8 glass-elevated rounded-lg flex items-center justify-center">
-                    <Zap className="w-4 h-4 text-primary" />
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg border border-blue-500/20">
+                    <Zap className="w-5 h-5 text-white" />
                   </div>
                   {sidebarExpanded && (
-                    <div>
-                      <h3 className="font-semibold text-gradient-static">ZapDev</h3>
-                      <p className="text-xs text-muted-foreground">AI Development Assistant</p>
-                    </div>
+                    <motion.div
+                      initial={{ x: -20 }}
+                      animate={{ x: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <h3 className="font-bold text-lg text-gradient-static">ZapDev</h3>
+                      <p className="text-xs text-muted-foreground/80">AI Development Assistant</p>
+                    </motion.div>
                   )}
                 </motion.div>
               </div>
 
-              {/* New chat button */}
-              <div className="p-3">
-                <Button
-                  onClick={startNewChat}
-                  className="w-full glass-hover justify-start"
-                  variant="ghost"
+              {/* Premium new chat button */}
+              <div className="p-4">
+                <motion.div
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  <Plus className="w-4 h-4" />
-                  {sidebarExpanded && <span className="ml-2">New Chat</span>}
-                </Button>
+                  <Button
+                    onClick={startNewChat}
+                    className="w-full justify-start bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white border-0 rounded-xl py-3 shadow-lg hover:shadow-xl transition-all duration-300"
+                    variant="ghost"
+                  >
+                    <Plus className="w-5 h-5" />
+                    {sidebarExpanded && (
+                      <motion.span 
+                        className="ml-3 font-medium"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                      >
+                        New Chat
+                      </motion.span>
+                    )}
+                  </Button>
+                </motion.div>
               </div>
 
               {/* Chat list */}
               <ScrollArea className="flex-1 custom-scrollbar">
                 <div className="p-3 space-y-2">
-                  {Array.isArray(chats) && chats.map((chat) => (
+                  {Array.isArray(chats) && chats.map((chat, index) => (
                     <motion.button
                       key={chat._id}
                       onClick={() => selectChat(chat._id)}
-                      className={`w-full text-left p-3 rounded-lg glass-hover transition-smooth group relative ${
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className={`w-full text-left p-4 rounded-xl transition-all duration-300 group relative backdrop-blur-sm border ${
                         selectedChatId === chat._id 
-                          ? 'chat-bubble-user' 
-                          : 'glass'
+                          ? 'bg-gradient-to-r from-blue-600/20 to-blue-700/10 border-blue-500/30 shadow-lg' 
+                          : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                       }`}
-                      whileHover={{ scale: 1.02, x: 2 }}
+                      whileHover={{ scale: 1.02, x: 4 }}
                       whileTap={{ scale: 0.98 }}
                     >
                       <div className="flex items-center gap-3">
-                        <MessageSquare className="w-4 h-4 text-primary flex-shrink-0" />
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          selectedChatId === chat._id 
+                            ? 'bg-blue-600/30 border border-blue-500/40' 
+                            : 'bg-gray-700/50 border border-gray-600/30'
+                        }`}>
+                          <MessageSquare className="w-4 h-4 text-primary" />
+                        </div>
                         {sidebarExpanded && (
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate text-sm">
+                          <motion.div 
+                            className="min-w-0 flex-1"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.1 }}
+                          >
+                            <p className="font-semibold truncate text-sm mb-1">
                               {chat.title}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground/70">
                               {formatTimestamp(chat.updatedAt)}
                             </p>
-                          </div>
+                          </motion.div>
                         )}
                       </div>
                       
                       {sidebarExpanded && (
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteChat(chat._id);
-                          }}
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                        <motion.div
+                          className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
                         >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteChat(chat._id);
+                            }}
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/30 transition-all duration-200"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          </Button>
+                        </motion.div>
                       )}
                     </motion.button>
                   ))}
@@ -1129,11 +1209,14 @@ const EnhancedChatInterface: React.FC = () => {
               )}
             </motion.div>
 
-            {/* Enhanced Main Chat Area */}
-            <div className="flex-1 flex flex-col min-h-0 bg-[var(--color-chat-bg)]">
+            {/* Premium Main Chat Area */}
+            <div className="flex-1 flex flex-col min-h-0 bg-gradient-to-br from-gray-950/95 to-black/90 relative overflow-hidden">
+              {/* Subtle background pattern */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.03),transparent_70%)] pointer-events-none"></div>
+              
               {/* Chat messages */}
-              <ScrollArea className="flex-1 custom-scrollbar">
-                <div className="p-6 space-y-6 max-w-4xl mx-auto w-full">
+              <ScrollArea className="flex-1 custom-scrollbar relative z-10">
+                <div className="p-8 space-y-8 max-w-5xl mx-auto w-full">
                   {Array.isArray(messages) && messages.map((message, index) => {
                     const isUser = message.role === 'user';
                     const prevMessage = messages[index - 1];
@@ -1145,36 +1228,46 @@ const EnhancedChatInterface: React.FC = () => {
                     return (
                       <div key={message._id} className="space-y-4">
                         {showDateHeader && (
-                          <div className="text-center">
-                            <div className="glass px-4 py-2 rounded-full inline-block">
-                              <span className="text-sm text-muted-foreground font-medium">
+                          <motion.div 
+                            className="text-center"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                          >
+                            <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 backdrop-blur-xl px-6 py-3 rounded-2xl inline-block border border-white/10 shadow-lg">
+                              <span className="text-sm text-white font-semibold">
                                 {formatDateHeader(message.createdAt)}
                               </span>
                             </div>
-                          </div>
+                          </motion.div>
                         )}
 
-                        <div className={`group flex gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                          {/* Enhanced Avatar */}
+                        <div className={`group flex gap-6 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                          {/* Premium Avatar */}
                           {isFirstInGroup && (
-                            <div className="flex-shrink-0">
-                              <Avatar className="h-10 w-10">
+                            <motion.div 
+                              className="flex-shrink-0"
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <Avatar className="h-12 w-12 border-2 border-white/10 shadow-lg">
                                 {isUser ? (
-                                  <AvatarImage src={user?.avatarUrl} />
+                                  <AvatarImage src={user?.avatarUrl} className="rounded-full" />
                                 ) : (
-                                  <div className="glass-elevated h-full w-full flex items-center justify-center">
-                                    <Bot className="w-5 h-5 text-primary" />
+                                  <div className="bg-gradient-to-br from-blue-600 to-blue-700 h-full w-full flex items-center justify-center rounded-full">
+                                    <Bot className="w-6 h-6 text-white" />
                                   </div>
                                 )}
-                                <AvatarFallback>
-                                  {isUser ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5 text-primary" />}
+                                <AvatarFallback className="bg-gradient-to-br from-gray-700 to-gray-800">
+                                  {isUser ? <User className="w-6 h-6 text-white" /> : <Bot className="w-6 h-6 text-blue-400" />}
                                 </AvatarFallback>
                               </Avatar>
-                            </div>
+                            </motion.div>
                           )}
 
-                          {/* Enhanced Message Bubble */}
-                          <div className={`flex-1 max-w-3xl ${!isFirstInGroup ? (isUser ? 'mr-14' : 'ml-14') : ''}`}>
+                          {/* Premium Message Bubble */}
+                          <div className={`flex-1 max-w-4xl ${!isFirstInGroup ? (isUser ? 'mr-16' : 'ml-16') : ''}`}>
                             <EnhancedMessageComponent
                               message={message}
                               user={user}
@@ -1202,21 +1295,21 @@ const EnhancedChatInterface: React.FC = () => {
                         exit={{ opacity: 0, y: -20 }}
                         className="flex gap-4"
                       >
-                        <Avatar className="h-10 w-10">
-                          <div className="glass-elevated h-full w-full flex items-center justify-center">
+                        <Avatar className="h-12 w-12 border-2 border-blue-500/20 shadow-lg">
+                          <div className="bg-gradient-to-br from-blue-600 to-blue-700 h-full w-full flex items-center justify-center rounded-full">
                             <motion.div
                               animate={{ rotate: 360 }}
                               transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                             >
-                              <Bot className="w-5 h-5 text-primary" />
+                              <Bot className="w-6 h-6 text-white" />
                             </motion.div>
                           </div>
                         </Avatar>
                         
-                        <Card className="chat-bubble-assistant max-w-xs">
-                          <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm text-muted-foreground">AI is thinking</span>
+                        <Card className="bg-gradient-to-br from-gray-800/40 to-gray-900/20 border border-gray-600/20 backdrop-blur-xl max-w-xs rounded-2xl shadow-lg">
+                          <CardContent className="p-6">
+                            <div className="flex items-center space-x-3">
+                              <span className="text-base text-white font-medium">AI is thinking</span>
                               <div className="flex space-x-1">
                                 {[0, 1, 2].map((i) => (
                                   <motion.div

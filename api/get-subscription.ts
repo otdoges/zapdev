@@ -132,14 +132,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const subscription = subscriptions.data[0];
       const priceId = subscription.items.data[0]?.price.id;
 
-      // Map Stripe price IDs back to plan IDs
+      // Map Stripe price IDs back to plan IDs (standardized naming)
       const planIdMap: Record<string, string> = {
-        [process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly']: 'pro',
-        [process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly']: 'pro',
-        [process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly']: 'enterprise',
-        [process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly']: 'enterprise',
-        [process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
-        [process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
+        [process.env.STRIPE_PRICE_PRO_MONTH || process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly']: 'pro',
+        [process.env.STRIPE_PRICE_PRO_YEAR || process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly']: 'pro',
+        [process.env.STRIPE_PRICE_ENTERPRISE_MONTH || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly']: 'enterprise',
+        [process.env.STRIPE_PRICE_ENTERPRISE_YEAR || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly']: 'enterprise',
+        [process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
+        [process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
       };
 
       const planId = planIdMap[priceId] || 'free';

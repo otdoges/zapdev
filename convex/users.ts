@@ -595,8 +595,18 @@ function mapSubscriptionStatus(stripeStatus: string): 'incomplete' | 'incomplete
 }
 
 function mapPriceIdToPlan(priceId: string): 'free' | 'pro' | 'enterprise' {
-  const pro = [process.env.STRIPE_PRICE_PRO_MONTH, process.env.STRIPE_PRICE_PRO_YEAR].filter(Boolean);
-  const enterprise = [process.env.STRIPE_PRICE_ENTERPRISE_MONTH, process.env.STRIPE_PRICE_ENTERPRISE_YEAR].filter(Boolean);
+  const pro = [
+    process.env.STRIPE_PRICE_PRO_MONTH, 
+    process.env.STRIPE_PRICE_PRO_YEAR,
+    process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
+    process.env.STRIPE_PRO_YEARLY_PRICE_ID
+  ].filter(Boolean);
+  const enterprise = [
+    process.env.STRIPE_PRICE_ENTERPRISE_MONTH, 
+    process.env.STRIPE_PRICE_ENTERPRISE_YEAR,
+    process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
+    process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID
+  ].filter(Boolean);
   
   if (enterprise.includes(priceId)) return 'enterprise';
   if (pro.includes(priceId)) return 'pro';

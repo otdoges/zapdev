@@ -8,16 +8,8 @@ import { useEffect } from "react";
 export const DynamicPricingSection = () => {
   const { user } = useAuth();
   
-  // Persist convex user id for success redirect sync
-  useEffect(() => {
-    if (user?._id) {
-      try {
-        localStorage.setItem('convexUserId', user._id);
-      } catch (error) {
-        // Optionally log error or ignore
-      }
-    }
-  }, [user?._id]);
+  // User ID persistence is now handled securely via session state
+  // No need to store sensitive user data in localStorage
 
   return (
     <motion.section 

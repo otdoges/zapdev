@@ -1,15 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 
-// Helper function to map Stripe price IDs to plan types
+// Helper function to map Stripe price IDs to plan types (standardized naming)
 function mapPriceIdToPlanType(priceId: string): 'free' | 'pro' | 'enterprise' | 'starter' {
   const priceIdMap: Record<string, 'free' | 'pro' | 'enterprise' | 'starter'> = {
-    [process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly']: 'pro',
-    [process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly']: 'pro',
-    [process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly']: 'enterprise',
-    [process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly']: 'enterprise',
-    [process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
-    [process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
+    [process.env.STRIPE_PRICE_PRO_MONTH || process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly']: 'pro',
+    [process.env.STRIPE_PRICE_PRO_YEAR || process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly']: 'pro',
+    [process.env.STRIPE_PRICE_ENTERPRISE_MONTH || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly']: 'enterprise',
+    [process.env.STRIPE_PRICE_ENTERPRISE_YEAR || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly']: 'enterprise',
+    [process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
+    [process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
   };
   return priceIdMap[priceId] || 'free';
 }

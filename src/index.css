@@ -86,14 +86,15 @@
   }
 }
 
-/* Enhanced glass morphism components */
+/* Premium glass morphism components */
 .glass {
   background: var(--gradient-surface);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid hsl(0 0% 100% / 0.1);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid hsl(0 0% 100% / 0.12);
   position: relative;
   overflow: hidden;
+  box-shadow: var(--shadow-soft);
 }
 
 .glass::before {
@@ -114,11 +115,14 @@
 }
 
 .glass-elevated {
-  background: var(--color-chat-surface-elevated);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  border: 1px solid hsl(0 0% 100% / 0.15);
-  box-shadow: var(--shadow-medium);
+  background: linear-gradient(135deg, hsl(0 0% 8% / 0.95) 0%, hsl(0 0% 6% / 0.95) 100%);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid hsl(0 0% 100% / 0.18);
+  box-shadow: 
+    0 8px 32px -8px hsl(0 0% 0% / 0.3),
+    0 0 0 1px hsl(0 0% 100% / 0.05),
+    inset 0 1px 0 hsl(0 0% 100% / 0.1);
 }
 
 .glass-hover {
@@ -126,10 +130,13 @@
 }
 
 .glass-hover:hover {
-  background: hsl(0 0% 100% / 0.08);
-  border-color: hsl(0 0% 100% / 0.2);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-strong);
+  background: linear-gradient(135deg, hsl(0 0% 100% / 0.12) 0%, hsl(0 0% 100% / 0.06) 100%);
+  border-color: hsl(0 0% 100% / 0.25);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    0 12px 40px -8px hsl(0 0% 0% / 0.4),
+    0 0 0 1px hsl(0 0% 100% / 0.08),
+    inset 0 1px 0 hsl(0 0% 100% / 0.15);
 }
 
 /* Enhanced text gradients */
@@ -149,13 +156,16 @@
   -webkit-text-fill-color: transparent;
 }
 
-/* Enhanced button components */
+/* Premium button components */
 .button-gradient {
-  background: var(--gradient-primary);
+  background: linear-gradient(135deg, #3E6FF3 0%, #5577FF 50%, #1E40AF 100%);
   border: none;
   position: relative;
   overflow: hidden;
   transition: all var(--duration-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 16px -4px hsl(214 100% 50% / 0.3),
+    inset 0 1px 0 hsl(0 0% 100% / 0.2);
 }
 
 .button-gradient::before {
@@ -172,19 +182,26 @@
 }
 
 .button-gradient:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-glow);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    0 8px 32px -8px hsl(214 100% 50% / 0.5),
+    0 0 32px hsl(214 100% 50% / 0.3),
+    inset 0 1px 0 hsl(0 0% 100% / 0.3);
+  background: linear-gradient(135deg, #4F7FFF 0%, #6688FF 50%, #2E50CF 100%);
 }
 
 .button-gradient:active {
   transform: translateY(0);
 }
 
-/* Chat-specific styling */
+/* Premium chat-specific styling */
 .chat-bubble-user {
-  background: var(--color-chat-user-bg);
-  border: 1px solid var(--color-chat-user-border);
+  background: linear-gradient(135deg, hsl(214 100% 50% / 0.15) 0%, hsl(214 100% 50% / 0.08) 100%);
+  border: 1px solid hsl(214 100% 50% / 0.25);
   position: relative;
+  box-shadow: 
+    0 4px 16px -4px hsl(214 100% 50% / 0.2),
+    inset 0 1px 0 hsl(0 0% 100% / 0.1);
 }
 
 .chat-bubble-user::before {
@@ -203,10 +220,13 @@
 }
 
 .chat-bubble-assistant {
-  background: var(--color-chat-assistant-bg);
-  border: 1px solid var(--color-chat-assistant-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: linear-gradient(135deg, hsl(0 0% 8% / 0.9) 0%, hsl(0 0% 6% / 0.8) 100%);
+  border: 1px solid hsl(0 0% 20% / 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 
+    0 4px 16px -4px hsl(0 0% 0% / 0.2),
+    inset 0 1px 0 hsl(0 0% 100% / 0.05);
 }
 
 /* Enhanced animations */
@@ -281,24 +301,26 @@
   transition: all var(--duration-slow) ease-out;
 }
 
-/* Enhanced scrollbar styling */
+/* Premium scrollbar styling */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: hsl(0 0% 8%);
-  border-radius: 3px;
+  background: hsl(0 0% 5%);
+  border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: hsl(0 0% 20%);
-  border-radius: 3px;
-  transition: background var(--duration-fast);
+  background: linear-gradient(45deg, hsl(0 0% 25%) 0%, hsl(0 0% 20%) 100%);
+  border-radius: 4px;
+  border: 1px solid hsl(0 0% 15%);
+  transition: all var(--duration-fast);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsl(0 0% 30%);
+  background: linear-gradient(45deg, hsl(214 100% 50% / 0.6) 0%, hsl(214 100% 45% / 0.4) 100%);
+  border-color: hsl(214 100% 50% / 0.3);
 }
 
 /* Enhanced focus styles */
