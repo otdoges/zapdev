@@ -15,6 +15,7 @@ import type {
 } from "convex/server";
 import type * as aiRateLimit from "../aiRateLimit.js";
 import type * as chats from "../chats.js";
+import type * as http from "../http.js";
 import type * as messages from "../messages.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as trpc_router from "../trpc/router.js";
@@ -32,6 +33,7 @@ import type * as users from "../users.js";
 declare const fullApi: ApiFromModules<{
   aiRateLimit: typeof aiRateLimit;
   chats: typeof chats;
+  http: typeof http;
   messages: typeof messages;
   rateLimit: typeof rateLimit;
   "trpc/router": typeof trpc_router;

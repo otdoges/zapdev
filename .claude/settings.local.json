@@ -77,7 +77,9 @@
       "Bash(bun exec eslint:*)",
       "Bash(npx eslint:*)",
       "Bash(git log:*)",
-      "Bash(npm run preview:*)"
+      "Bash(npm run preview:*)",
+      "Bash(npx:*)",
+      "Bash(kill:*)"
     ],
     "deny": []
   }
