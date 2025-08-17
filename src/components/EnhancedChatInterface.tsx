@@ -34,7 +34,9 @@ import {
   ArrowUp,
   Mic,
   Paperclip,
-  Settings
+  Settings,
+  Github,
+  GitBranch
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
@@ -52,6 +54,9 @@ import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
 import WebContainerFailsafe from './WebContainerFailsafe';
 import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
+import { GitHubIntegration } from '@/components/GitHubIntegration';
+import type { GitHubRepo } from '@/lib/github-service';
+import { githubService } from '@/lib/github-service';
 
 const { logger } = Sentry;
 
@@ -152,6 +157,11 @@ const EnhancedChatInterface: React.FC = () => {
   
   // Enhanced animations
   const [messageAnimations, setMessageAnimations] = useState<{ [key: string]: boolean }>({});
+  
+  // GitHub Integration state
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
+  const [githubContext, setGithubContext] = useState<string>('');
+  const [isGithubMode, setIsGithubMode] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -209,6 +219,9 @@ const EnhancedChatInterface: React.FC = () => {
     
     const sanitizedInput = sanitizeText(input);
     if (!sanitizedInput.trim()) return;
+    
+    // Enhance message with GitHub context if available
+    const enhancedInput = await enhanceMessageWithGitHub(sanitizedInput);
 
     if (!sessionStarted) {
       setSessionStarted(true);
@@ -228,9 +241,12 @@ const EnhancedChatInterface: React.FC = () => {
       // Add user message
       await addMessageMutation({
         chatId: currentChatId as Id<'chats'>,
-        content: sanitizedInput,
+        content: sanitizedInput, // Store original user input
         role: 'user',
-        metadata: {}
+        metadata: {
+          githubMode: isGithubMode,
+          repository: selectedRepo?.full_name
+        }
       });
 
       setInput('');
@@ -238,7 +254,7 @@ const EnhancedChatInterface: React.FC = () => {
 
       // Generate AI response with enhanced error handling
       try {
-        const stream = await streamAIResponse(sanitizedInput);
+        const stream = await streamAIResponse(enhancedInput); // Use enhanced input for AI
         let assistantResponse = '';
 
         // Add assistant message placeholder
@@ -428,6 +444,78 @@ const EnhancedChatInterface: React.FC = () => {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  // GitHub Integration Functions
+  const handleRepoSelected = (repo: GitHubRepo) => {
+    setSelectedRepo(repo);
+    setIsGithubMode(true);
+    
+    const repoContext = `Repository: ${repo.full_name}\n` +
+      `Description: ${repo.description || 'No description'}\n` +
+      `Language: ${repo.language || 'Unknown'}\n` +
+      `Default Branch: ${repo.default_branch}\n` +
+      `Type: ${repo.private ? 'Private' : 'Public'} repository\n\n`;
+    
+    setGithubContext(repoContext);
+    
+    // Add context to the current input
+    setInput(prev => {
+      const newInput = `I'm working with this GitHub repository:\n\n${repoContext}` +
+        `Please help me analyze and suggest improvements for this codebase. ` +
+        `${prev ? '\n\n' + prev : ''}`;
+      return newInput;
+    });
+    
+    toast.success(`Repository ${repo.full_name} loaded for AI analysis!`);
+  };
+
+  const handlePullRequestCreated = (prUrl: string, repo: GitHubRepo) => {
+    toast.success('Pull request created successfully!');
+    
+    // Add success message to chat
+    if (selectedChatId) {
+      addMessageMutation({
+        chatId: selectedChatId as Id<'chats'>,
+        content: `✅ **Pull Request Created Successfully!**\n\n` +
+          `Repository: ${repo.full_name}\n` +
+          `Pull Request: [View PR](${prUrl})\n\n` +
+          `The changes have been applied and are ready for review. ` +
+          `You can now review the pull request on GitHub and merge it when ready.`,
+        role: 'assistant',
+        metadata: { 
+          type: 'github_success',
+          prUrl,
+          repository: repo.full_name
+        }
+      }).catch(error => {
+        logger.error('Failed to add PR success message:', error);
+      });
+    }
+  };
+
+  const detectGithubUrls = (text: string): string[] => {
+    const githubUrlRegex = /https?:\/\/github\.com\/[\w\-\.]+\/[\w\-\.]+(?:\/[^\s]*)?/g;
+    return text.match(githubUrlRegex) || [];
+  };
+
+  const enhanceMessageWithGitHub = async (message: string): Promise<string> => {
+    let enhancedMessage = message;
+    
+    // If GitHub mode is active, add repository context
+    if (isGithubMode && selectedRepo && githubContext) {
+      enhancedMessage = githubContext + '\n' + message;
+    }
+    
+    // Detect and suggest GitHub integration
+    const githubUrls = detectGithubUrls(message);
+    if (githubUrls.length > 0 && !isGithubMode) {
+      enhancedMessage += '\n\n[Assistant Note: I detected GitHub repository URLs in your message. ' +
+        'Would you like to use the GitHub integration to analyze the repository, ' +
+        'make changes, and create pull requests directly?]';
+    }
+    
+    return enhancedMessage;
   };
 
   if (authLoading) {
@@ -1048,6 +1136,64 @@ const EnhancedChatInterface: React.FC = () => {
                 </div>
               </ScrollArea>
 
+              {/* GitHub Mode Indicator */}
+              <AnimatePresence>
+                {isGithubMode && selectedRepo && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="border-t border-white/10 bg-[var(--color-chat-surface)]/30 backdrop-blur-xl"
+                  >
+                    <div className="max-w-4xl mx-auto p-2">
+                      <div className="flex items-center justify-between glass rounded-lg p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <GitBranch className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">GitHub Mode Active</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <img 
+                              src={selectedRepo.owner.avatar_url} 
+                              alt={selectedRepo.owner.login}
+                              className="w-5 h-5 rounded-full"
+                            />
+                            <span className="text-sm text-muted-foreground">{selectedRepo.full_name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {selectedRepo.language || 'Unknown'}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(selectedRepo.html_url, '_blank')}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setIsGithubMode(false);
+                              setSelectedRepo(null);
+                              setGithubContext('');
+                              toast.info('GitHub mode disabled');
+                            }}
+                            className="h-6 px-2 text-xs"
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Enhanced Input Area */}
               <div className="border-t border-white/10 bg-[var(--color-chat-surface)]/50 backdrop-blur-xl">
                 <div className="max-w-4xl mx-auto p-4">
@@ -1092,6 +1238,11 @@ const EnhancedChatInterface: React.FC = () => {
                               <Globe className="w-3 h-3 mr-1" />
                               Clone
                             </Button>
+                            <GitHubIntegration
+                              onRepoSelected={handleRepoSelected}
+                              onPullRequestCreated={handlePullRequestCreated}
+                              className="inline-block"
+                            />
                           </div>
 
                           <div className="flex items-center gap-2">
