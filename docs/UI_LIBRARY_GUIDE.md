@@ -2,16 +2,22 @@
 
 ## Migration from Radix UI to Modern Alternatives
 
-**IMPORTANT**: Do not use deprecated Radix UI components. Use DaisyUI + Headless UI instead.
+**IMPORTANT**: Do not use deprecated Radix UI components. Use shadcn/ui, DaisyUI, or Headless UI instead.
 
 ## Primary UI Libraries
 
-### 1. DaisyUI (Styled Components)
+### 1. shadcn/ui (Recommended)
+- **Installation**: `npx shadcn@latest init` then `npx shadcn@latest add [component]`
+- **Use for**: High-quality, accessible components with Radix UI primitives
+- **Documentation**: https://ui.shadcn.com/
+- **Benefits**: TypeScript-first, customizable, copy-paste components
+
+### 2. DaisyUI (Styled Components)
 - **Installation**: Already integrated with Tailwind CSS
 - **Use for**: Basic UI components with built-in styling
 - **Documentation**: https://daisyui.com/components/
 
-### 2. Headless UI (Behavior Components) 
+### 3. Headless UI (Behavior Components) 
 - **Installation**: `npm install @headlessui/react`
 - **Use for**: Complex interactive components needing custom styling
 - **Documentation**: https://headlessui.com/
@@ -30,6 +36,26 @@ import * from "@radix-ui/react-popover"
 ### ✅ USE THESE INSTEAD:
 
 #### Buttons
+
+**shadcn/ui Button:**
+```tsx
+import { Button } from "@/components/ui/button"
+
+<Button variant="default">Default</Button>
+<Button variant="destructive">Destructive</Button>
+<Button variant="outline">Outline</Button>
+<Button variant="secondary">Secondary</Button>
+<Button variant="ghost">Ghost</Button>
+<Button variant="link">Link</Button>
+
+// Sizes
+<Button size="default">Default</Button>
+<Button size="sm">Small</Button>
+<Button size="lg">Large</Button>
+<Button size="icon">Icon</Button>
+```
+
+**DaisyUI Button:**
 ```tsx
 // DaisyUI Button
 <button className="btn btn-primary">Primary Button</button>
@@ -50,6 +76,37 @@ import * from "@radix-ui/react-popover"
 ```
 
 #### Modal/Dialog
+
+**shadcn/ui Dialog:**
+```tsx
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+<Dialog>
+  <DialogTrigger asChild>
+    <Button variant="outline">Open Dialog</Button>
+  </DialogTrigger>
+  <DialogContent className="sm:max-w-[425px]">
+    <DialogHeader>
+      <DialogTitle>Edit profile</DialogTitle>
+      <DialogDescription>
+        Make changes to your profile here. Click save when you're done.
+      </DialogDescription>
+    </DialogHeader>
+    <div className="grid gap-4 py-4">
+      {/* Dialog content */}
+    </div>
+  </DialogContent>
+</Dialog>
+```
+
+**DaisyUI Modal:**
 ```tsx
 // DaisyUI Modal
 import { useState } from 'react'
@@ -121,6 +178,60 @@ import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
 
 #### Form Controls
 
+**shadcn/ui Form Components:**
+```tsx
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+
+// Input
+<div className="grid w-full max-w-sm items-center gap-1.5">
+  <Label htmlFor="email">Email</Label>
+  <Input type="email" id="email" placeholder="Email" />
+</div>
+
+// Checkbox
+<div className="flex items-center space-x-2">
+  <Checkbox id="terms" />
+  <Label htmlFor="terms">Accept terms and conditions</Label>
+</div>
+
+// Radio Group
+<RadioGroup defaultValue="option-one">
+  <div className="flex items-center space-x-2">
+    <RadioGroupItem value="option-one" id="option-one" />
+    <Label htmlFor="option-one">Option One</Label>
+  </div>
+  <div className="flex items-center space-x-2">
+    <RadioGroupItem value="option-two" id="option-two" />
+    <Label htmlFor="option-two">Option Two</Label>
+  </div>
+</RadioGroup>
+
+// Select
+<Select>
+  <SelectTrigger className="w-[180px]">
+    <SelectValue placeholder="Select a fruit" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="apple">Apple</SelectItem>
+    <SelectItem value="banana">Banana</SelectItem>
+    <SelectItem value="orange">Orange</SelectItem>
+  </SelectContent>
+</Select>
+
+// Switch
+<div className="flex items-center space-x-2">
+  <Switch id="airplane-mode" />
+  <Label htmlFor="airplane-mode">Airplane Mode</Label>
+</div>
+```
+
+**DaisyUI Form Controls:**
 ```tsx
 // Checkbox
 <input type="checkbox" className="checkbox" />
@@ -312,6 +423,13 @@ DaisyUI works with your existing Tailwind setup and offers multiple themes:
 Add to your project:
 
 ```bash
+# shadcn/ui (recommended) - Initialize first, then add components
+npx shadcn@latest init
+npx shadcn@latest add button
+npx shadcn@latest add dialog
+npx shadcn@latest add input
+# ... add components as needed
+
 # DaisyUI (already in your tailwind.config)
 npm install -D daisyui@latest
 
@@ -324,11 +442,13 @@ npm install @heroicons/react
 
 ## Best Practices
 
-1. **Use DaisyUI for**: Simple components (buttons, inputs, cards, alerts)
-2. **Use Headless UI for**: Complex interactions (combobox, popover, complex menus)
-3. **Combine both**: Use DaisyUI classes within Headless UI components for styling
-4. **Always prefer**: These modern alternatives over deprecated Radix UI
-5. **Testing**: Both libraries offer excellent accessibility and React 19 compatibility
+1. **Use shadcn/ui for**: High-quality, accessible components with full TypeScript support (recommended)
+2. **Use DaisyUI for**: Simple styled components when you need quick styling without customization
+3. **Use Headless UI for**: Complex interactions when you need full control over styling
+4. **Combine libraries**: Mix shadcn/ui with DaisyUI classes or use Headless UI for behavior
+5. **Always prefer**: These modern alternatives over deprecated Radix UI
+6. **Component priority**: shadcn/ui > DaisyUI > Headless UI > custom implementation
+7. **Testing**: All libraries offer excellent accessibility and React 19 compatibility
 
 ## Migration Priority
 
@@ -336,4 +456,4 @@ npm install @heroicons/react
 2. **Medium Priority**: Form controls, Progress, Tooltip
 3. **Low Priority**: Advanced components like Accordion, Navigation Menu
 
-Remember: DaisyUI + Headless UI provides better performance, smaller bundle size, and active maintenance compared to Radix UI.
+Remember: shadcn/ui, DaisyUI, and Headless UI provide better performance, smaller bundle size, and active maintenance compared to Radix UI. shadcn/ui is recommended for most use cases due to its excellent TypeScript support and component quality.
