@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { usePostHog } from 'posthog-js/react';
+import { authTokenManager } from '@/lib/auth-token';
 
 interface UsageEventMetadata {
   requests?: number;
@@ -40,10 +41,8 @@ export const useUsageTracking = () => {
         ingested: false,
       };
 
-      // Store in localStorage for backup/offline support
-      const existingEvents = JSON.parse(localStorage.getItem('pendingUsageEvents') || '[]');
-      existingEvents.push(localEvent);
-      localStorage.setItem('pendingUsageEvents', JSON.stringify(existingEvents));
+      // Store events in memory only for security - no localStorage persistence
+      // Events will be sent immediately to PostHog instead of being stored locally
 
       // Send event to PostHog with error handling
       try {
@@ -122,12 +121,13 @@ export const useUsageTracking = () => {
 
   // Get pending events (for sync with server)
   const getPendingEvents = useCallback(() => {
-    return JSON.parse(localStorage.getItem('pendingUsageEvents') || '[]');
+    // Security improvement: no longer storing events in localStorage
+    return [];
   }, []);
 
   // Clear pending events (after successful sync)
   const clearPendingEvents = useCallback(() => {
-    localStorage.removeItem('pendingUsageEvents');
+    // Security improvement: no localStorage usage
   }, []);
 
   // Sync pending events with server
@@ -159,7 +159,7 @@ export const useUsageTracking = () => {
         const url = base
           ? `${base.replace(/\/$/, '')}/trpc/billing.getUserSubscription`
           : '/trpc/billing.getUserSubscription';
-        const token = localStorage.getItem('authToken') || undefined;
+        const token = authTokenManager.getToken();
         const res = await fetch(url, {
           method: 'GET',
           headers: {

@@ -1,6 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
 import Stripe from 'stripe';
+import { 
+  StripeSubscription, 
+  StripeCustomer, 
+  SubscriptionData,
+  PlanType,
+  getSubscriptionPeriod,
+  isStripeSubscription,
+  isStripeCustomer 
+} from '../src/types/stripe';
 
 function withCors(res: VercelResponse, allowOrigin?: string) {
   const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
@@ -132,26 +141,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const subscription = subscriptions.data[0];
       const priceId = subscription.items.data[0]?.price.id;
 
-      // Map Stripe price IDs back to plan IDs
+      // Map Stripe price IDs back to plan IDs (standardized naming)
       const planIdMap: Record<string, string> = {
-        [process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly']: 'pro',
-        [process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly']: 'pro',
-        [process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly']: 'enterprise',
-        [process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly']: 'enterprise',
-        [process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
-        [process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
+        [process.env.STRIPE_PRICE_PRO_MONTH || process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly']: 'pro',
+        [process.env.STRIPE_PRICE_PRO_YEAR || process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly']: 'pro',
+        [process.env.STRIPE_PRICE_ENTERPRISE_MONTH || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly']: 'enterprise',
+        [process.env.STRIPE_PRICE_ENTERPRISE_YEAR || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly']: 'enterprise',
+        [process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
+        [process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
       };
 
       const planId = planIdMap[priceId] || 'free';
 
-      const subscriptionData = {
-        planId: planId,
+      // Type-safe period extraction
+      const subscriptionPeriod = getSubscriptionPeriod(subscription);
+      if (!subscriptionPeriod) {
+        console.error('Invalid subscription object structure');
+        return withCors(res, allowedOrigin).status(500).json({
+          error: 'Invalid subscription data'
+        });
+      }
+
+      const subscriptionData: SubscriptionData = {
+        planId: planId as PlanType,
         status: subscription.status,
-        currentPeriodStart: (subscription as any).current_period_start * 1000, // Convert to milliseconds
-        currentPeriodEnd: (subscription as any).current_period_end * 1000, // Convert to milliseconds
+        currentPeriodStart: subscriptionPeriod.currentPeriodStart,
+        currentPeriodEnd: subscriptionPeriod.currentPeriodEnd,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         stripeSubscriptionId: subscription.id,
-        stripeCustomerId: customer.id,
+        stripeCustomerId: typeof customer === 'string' ? customer : customer.id,
       };
 
       console.log('Retrieved subscription data for user:', authenticatedUserId, 'plan:', planId);

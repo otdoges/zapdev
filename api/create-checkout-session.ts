@@ -112,19 +112,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const stripe = new Stripe(stripeSecretKey);
 
-      // Map planId to Stripe price IDs based on period
+      // Map planId to Stripe price IDs based on period (standardized naming)
       const priceIdMap: Record<string, Record<string, string>> = {
         'pro': {
-          'month': process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly',
-          'year': process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly',
+          'month': process.env.STRIPE_PRICE_PRO_MONTH || process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly',
+          'year': process.env.STRIPE_PRICE_PRO_YEAR || process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly',
         },
         'enterprise': {
-          'month': process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly',
-          'year': process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly',
+          'month': process.env.STRIPE_PRICE_ENTERPRISE_MONTH || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly',
+          'year': process.env.STRIPE_PRICE_ENTERPRISE_YEAR || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly',
         },
         'starter': {
-          'month': process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly',
-          'year': process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly',
+          'month': process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly',
+          'year': process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly',
         },
       };
 

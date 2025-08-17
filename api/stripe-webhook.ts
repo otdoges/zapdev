@@ -1,15 +1,29 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
+import { 
+  StripeSubscription, 
+  StripeCustomer, 
+  StripeInvoice,
+  StripeWebhookEvent,
+  PlanType,
+  getSubscriptionPeriod,
+  getCustomerEmail,
+  getCustomerMetadata,
+  getInvoiceSubscriptionId,
+  isStripeSubscription,
+  isStripeCustomer,
+  isStripeInvoice 
+} from '../src/types/stripe';
 
-// Helper function to map Stripe price IDs to plan types
+// Helper function to map Stripe price IDs to plan types (standardized naming)
 function mapPriceIdToPlanType(priceId: string): 'free' | 'pro' | 'enterprise' | 'starter' {
   const priceIdMap: Record<string, 'free' | 'pro' | 'enterprise' | 'starter'> = {
-    [process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly']: 'pro',
-    [process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly']: 'pro',
-    [process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly']: 'enterprise',
-    [process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly']: 'enterprise',
-    [process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
-    [process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
+    [process.env.STRIPE_PRICE_PRO_MONTH || process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly']: 'pro',
+    [process.env.STRIPE_PRICE_PRO_YEAR || process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly']: 'pro',
+    [process.env.STRIPE_PRICE_ENTERPRISE_MONTH || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly']: 'enterprise',
+    [process.env.STRIPE_PRICE_ENTERPRISE_YEAR || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly']: 'enterprise',
+    [process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
+    [process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
   };
   return priceIdMap[priceId] || 'free';
 }
@@ -18,7 +32,7 @@ function mapPriceIdToPlanType(priceId: string): 'free' | 'pro' | 'enterprise' | 
 
 // Simplified subscription sync - for now just log the webhook events
 // In production, you would want to use Convex HTTP actions or a queue system
-async function logWebhookEvent(eventType: string, data: any): Promise<void> {
+async function logWebhookEvent(eventType: string, data: unknown): Promise<void> {
   console.log(`[WEBHOOK] ${eventType}:`, JSON.stringify(data, null, 2));
   
   // TODO: Implement proper Convex HTTP action calls or use a queue system
@@ -53,6 +67,13 @@ async function syncSubscriptionToConvex(
     const priceId = subscription.items.data[0]?.price.id;
     const planType = mapPriceIdToPlanType(priceId);
 
+    // Type-safe period extraction
+    const subscriptionPeriod = getSubscriptionPeriod(subscription);
+    if (!subscriptionPeriod) {
+      console.error('Invalid subscription structure, cannot sync');
+      return;
+    }
+
     // Log the subscription sync
     await logWebhookEvent('subscription_sync', {
       userId,
@@ -60,8 +81,8 @@ async function syncSubscriptionToConvex(
       planId: priceId,
       planType,
       status: subscription.status,
-      currentPeriodStart: (subscription as any).current_period_start * 1000,
-      currentPeriodEnd: (subscription as any).current_period_end * 1000,
+      currentPeriodStart: subscriptionPeriod.currentPeriodStart,
+      currentPeriodEnd: subscriptionPeriod.currentPeriodEnd,
       timestamp: now
     });
 
@@ -199,7 +220,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Ensure customer mapping exists
         const customer = await stripe.customers.retrieve(session.customer as string);
         if (!customer.deleted) {
-          await ensureCustomerMapping(userId, customer.id, (customer as any).email || '');
+          await ensureCustomerMapping(userId, customer.id, getCustomerEmail(customer));
         }
 
         // Get the subscription ID from the session
@@ -225,7 +246,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           break;
         }
 
-        const userId = !customer.deleted ? (customer as any).metadata?.userId : null;
+        const userId = !customer.deleted ? getCustomerMetadata(customer).userId : null;
         if (!userId) {
           console.error('No userId found in customer metadata for subscription:', subscription.id);
           break;
@@ -233,7 +254,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Ensure customer mapping exists
         if (!customer.deleted) {
-          await ensureCustomerMapping(userId, customer.id, (customer as any).email || '');
+          await ensureCustomerMapping(userId, customer.id, getCustomerEmail(customer));
         }
 
         // Sync subscription data
@@ -253,7 +274,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           break;
         }
 
-        const userId = !customer.deleted ? (customer as any).metadata?.userId : null;
+        const userId = !customer.deleted ? getCustomerMetadata(customer).userId : null;
         if (!userId) {
           console.error('No userId found in customer metadata for subscription:', subscription.id);
           break;
@@ -275,7 +296,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           break;
         }
 
-        const userId = !customer.deleted ? (customer as any).metadata?.userId : null;
+        const userId = !customer.deleted ? getCustomerMetadata(customer).userId : null;
         if (!userId) {
           console.error('No userId found in customer metadata for subscription:', subscription.id);
           break;
@@ -292,8 +313,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log('Payment succeeded for invoice:', invoice.id);
 
         // Get subscription if this is a subscription invoice
-        if ((invoice as any).subscription) {
-          const subscription = await stripe.subscriptions.retrieve((invoice as any).subscription as string);
+        const subscriptionId = getInvoiceSubscriptionId(invoice);
+        if (subscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           const customer = await stripe.customers.retrieve(subscription.customer as string);
 
           if (customer.deleted) {
@@ -301,7 +323,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             break;
           }
 
-          const userId = !customer.deleted ? (customer as any).metadata?.userId : null;
+          const userId = !customer.deleted ? getCustomerMetadata(customer).userId : null;
           if (userId) {
             await syncSubscriptionToConvex(userId, subscription.customer as string, subscription);
             console.log('Successfully processed payment success for user:', userId);
@@ -315,8 +337,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.log('Payment failed for invoice:', invoice.id);
 
         // Get subscription if this is a subscription invoice
-        if ((invoice as any).subscription) {
-          const subscription = await stripe.subscriptions.retrieve((invoice as any).subscription as string);
+        const subscriptionId = getInvoiceSubscriptionId(invoice);
+        if (subscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           const customer = await stripe.customers.retrieve(subscription.customer as string);
 
           if (customer.deleted) {
@@ -324,7 +347,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             break;
           }
 
-          const userId = !customer.deleted ? (customer as any).metadata?.userId : null;
+          const userId = !customer.deleted ? getCustomerMetadata(customer).userId : null;
           if (userId) {
             // Sync the current subscription status (might be past_due)
             await syncSubscriptionToConvex(userId, subscription.customer as string, subscription);
