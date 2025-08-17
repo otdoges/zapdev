@@ -38,7 +38,7 @@ export async function verifyClerkToken(
   audience?: string
 ): Promise<VerifiedClerkToken> {
   const { verifyToken } = await import('@clerk/backend');
-  const options: { jwtKey?: string; audience?: string } = { jwtKey: issuer };
+  const options: { issuer: string; audience?: string } = { issuer };
   if (audience) options.audience = audience;
   const verified = await verifyToken(token, options);
   return verified as VerifiedClerkToken;
