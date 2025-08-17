@@ -24,50 +24,52 @@ import { AuthErrorBoundary } from "./components/AuthErrorBoundary";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <AuthErrorBoundary>
-    <UserSync>
-      <AuthWrapper>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <div className="min-h-screen bg-background">
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/checkout" element={<CheckoutPage />} />
-                <Route path="/chat" element={
-                  <AuthGuard>
-                    <Chat />
-                  </AuthGuard>
-                } />
-                <Route path="/settings" element={
-                  <AuthGuard>
-                    <Settings />
-                  </AuthGuard>
-                } />
-                <Route
-                  path="/success"
-                  element={
-                    <AuthGuard>
-                      <Success />
-                    </AuthGuard>
-                  }
-                />
-                <Route path="/terms" element={<TermsOfService />} />
-                <Route path="/privacy" element={<PrivacyPolicy />} />
-              </Routes>
-            </BrowserRouter>
-          </div>
-        </TooltipProvider>
-      </QueryClientProvider>
-      </trpc.Provider>
-      </AuthWrapper>
-    </UserSync>
-  </AuthErrorBoundary>
+  <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+    <AuthErrorBoundary>
+      <UserSync>
+        <AuthWrapper>
+          <trpc.Provider client={trpcClient} queryClient={queryClient}>
+            <QueryClientProvider client={queryClient}>
+              <TooltipProvider>
+                <div className="min-h-screen bg-background">
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <Routes>
+                      {/* Public routes - no auth required */}
+                      <Route path="/" element={<Index />} />
+                      <Route path="/auth/callback" element={<AuthCallback />} />
+                      <Route path="/pricing" element={<Pricing />} />
+                      <Route path="/checkout" element={<CheckoutPage />} />
+                      <Route path="/terms" element={<TermsOfService />} />
+                      <Route path="/privacy" element={<PrivacyPolicy />} />
+                      
+                      {/* Protected routes - auth required */}
+                      <Route path="/chat" element={
+                        <AuthGuard>
+                          <Chat />
+                        </AuthGuard>
+                      } />
+                      <Route path="/settings" element={
+                        <AuthGuard>
+                          <Settings />
+                        </AuthGuard>
+                      } />
+                      <Route path="/success" element={
+                        <AuthGuard>
+                          <Success />
+                        </AuthGuard>
+                      } />
+                    </Routes>
+                  </BrowserRouter>
+                </div>
+              </TooltipProvider>
+            </QueryClientProvider>
+          </trpc.Provider>
+        </AuthWrapper>
+      </UserSync>
+    </AuthErrorBoundary>
+  </ConvexProviderWithClerk>
 );
 
 export default App;
