@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
-import { motion, MotionProps } from "framer-motion"
+import { motion as Motion, MotionProps } from "framer-motion"
 
 import { cn } from "@/lib/utils"
 
@@ -77,7 +77,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     disabled,
     ...props 
   }, ref) => {
-    const Comp = asChild ? Slot : motion && !asChild ? motion.button : "button"
+    const Comp = asChild ? Slot : motion && !asChild ? Motion.button : "button"
     const isDisabled = disabled || loading
     
     const defaultMotionProps = motion && !asChild ? {
@@ -89,7 +89,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     
     const content = loading ? (
       <>
-        <motion.div
+        <Motion.div
           className="w-4 h-4 mr-2 border-2 border-white/20 border-t-current rounded-full"
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
