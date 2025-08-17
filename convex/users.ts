@@ -88,7 +88,19 @@ const validateUsernameAvailability = async (ctx: QueryCtx | MutationCtx, usernam
 };
 
 // Helper function to handle email conflicts and merging
-const handleEmailConflict = async (ctx: MutationCtx, email: string, currentUserId: string, sanitizedData: any, now: number) => {
+type UserUpdateData = {
+  email?: string;
+  username?: string;
+  profileUrl?: string;
+  [key: string]: unknown; // Allow additional fields if needed
+};
+const handleEmailConflict = async (
+  ctx: MutationCtx,
+  email: string,
+  currentUserId: string,
+  sanitizedData: UserUpdateData,
+  now: number
+) => {
   const existingUserWithEmail = await ctx.db
     .query("users")
     .withIndex("by_email", (q) => q.eq("email", email))
