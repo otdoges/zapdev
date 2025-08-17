@@ -168,11 +168,22 @@ const EnhancedChatInterface: React.FC = () => {
   const inputContainerRef = useRef<HTMLDivElement>(null);
 
   // Convex queries and mutations
-  const chats = useQuery(api.chats.getUserChats);
-  const messages = useQuery(
+  const chatsData = useQuery(api.chats.getUserChats);
+  const messagesData = useQuery(
     api.messages.getChatMessages, 
     selectedChatId ? { chatId: selectedChatId as Id<'chats'> } : "skip"
   );
+
+  // Ensure arrays are properly handled
+  const chats = React.useMemo(() => {
+    const chatsArray = chatsData?.chats;
+    return Array.isArray(chatsArray) ? chatsArray : [];
+  }, [chatsData?.chats]);
+  
+  const messages = React.useMemo(() => {
+    const messagesArray = messagesData?.messages;
+    return Array.isArray(messagesArray) ? messagesArray : [];
+  }, [messagesData?.messages]);
   
   const createChatMutation = useMutation(api.chats.createChat);
   const addMessageMutation = useMutation(api.messages.createMessage);
@@ -317,7 +328,17 @@ const EnhancedChatInterface: React.FC = () => {
 
     } catch (error) {
       logger.error('Chat submission failed:', error);
-      toast.error('Failed to send message. Please try again.');
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Handle specific error types with helpful messages
+      if (errorMessage.includes('Free plan limit reached')) {
+        toast.error('Free plan limit reached! You can create up to 5 chats. Upgrade to Pro for unlimited chats.');
+      } else if (errorMessage.includes('Rate limit exceeded')) {
+        toast.error('Please wait a moment before creating another chat.');
+      } else {
+        toast.error('Failed to send message. Please try again.');
+      }
     } finally {
       setIsTyping(false);
     }

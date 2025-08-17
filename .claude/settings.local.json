@@ -79,7 +79,13 @@
       "Bash(git log:*)",
       "Bash(npm run preview:*)",
       "Bash(npx:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "WebFetch(domain:mui.com)",
+      "WebFetch(domain:v6.mui.com)",
+      "WebFetch(domain:daisyui.com)",
+      "WebFetch(domain:headlessui.com)",
+      "Bash(gh pr:*)",
+      "Bash(git stash:*)"
     ],
     "deny": []
   }

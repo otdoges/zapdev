@@ -89,6 +89,49 @@ Key tables with security considerations:
 - Primary brand color: `#3E6FF3`
 - Custom fonts: Geist and Inter
 
+### UI Component Libraries
+**IMPORTANT**: Do NOT use deprecated Radix UI components. Use these modern alternatives:
+
+#### Primary UI Libraries:
+- **DaisyUI**: Pre-styled Tailwind components for basic UI elements
+- **Headless UI**: Unstyled behavioral components for complex interactions
+- **Documentation**: See `/docs/UI_LIBRARY_GUIDE.md` and `/docs/RADIX_MIGRATION_PLAN.md`
+
+#### Component Guidelines:
+- Use DaisyUI for: buttons, inputs, modals, alerts, forms, navigation
+- Use Headless UI for: complex dropdowns, comboboxes, tabs with state
+- Never import from `@radix-ui/*` packages (deprecated)
+- All UI components must be accessible and React 19 compatible
+
+#### Installation:
+```bash
+bun add @headlessui/react
+bun add -D daisyui@latest
+```
+
+#### Example Usage:
+```tsx
+// DaisyUI Button
+<button className="btn btn-primary">Click me</button>
+
+// DaisyUI Modal
+<div className="modal modal-open">
+  <div className="modal-box">
+    <h3 className="font-bold text-lg">Title</h3>
+    <p>Content</p>
+  </div>
+</div>
+
+// Headless UI Dropdown
+import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
+<Menu>
+  <MenuButton className="btn">Options</MenuButton>
+  <MenuItems className="menu bg-base-100 shadow">
+    <MenuItem><a href="#">Item 1</a></MenuItem>
+  </MenuItems>
+</Menu>
+```
+
 ### Development Environment
 - Uses lovable-tagger in development mode
 - Images stored in `public/lovable-uploads/`
