@@ -109,14 +109,25 @@ export const upsertUser = mutation({
       }
     }
 
-    // Check if email is taken by another user
+    // Check if email is taken by another user and merge if necessary
     const existingUserWithEmail = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", sanitizedData.email))
       .first();
-    
+
     if (existingUserWithEmail && existingUserWithEmail.userId !== identity.subject) {
-      throw new Error("Email is already registered to another user");
+      // We found a record with the same email but a different userId. Instead of throwing
+      // an error (which breaks login flows when a user accidentally creates a new Clerk
+      // account with the same email), we transparently merge the account by re-assigning
+      // the stored `userId` to the currently authenticated identity.
+
+      await ctx.db.patch(existingUserWithEmail._id, {
+        userId: identity.subject,
+        ...sanitizedData,
+        updatedAt: now,
+      });
+
+      return existingUserWithEmail._id;
     }
 
     // Use proper index query instead of filter

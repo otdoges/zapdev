@@ -1,5 +1,7 @@
 import React from "react";
-import { useUser } from "@clerk/clerk-react";
+import { useUser, useAuth as useClerkAuth } from "@clerk/clerk-react";
+import { trpcClient } from '@/lib/trpc';
+import { authTokenManager } from '@/lib/auth-token';
 
 // Simple billing plans for compatibility
 const BILLING_PLANS = [
@@ -8,19 +10,11 @@ const BILLING_PLANS = [
   { id: 'enterprise', name: 'Enterprise', price: 0 },
 ];
 
-// Simple checkout function that redirects to API
+// Simple checkout via tRPC to avoid API route dependency
 async function createCheckoutSession(planId: string, period: string): Promise<{ url: string }> {
-  const response = await fetch('/api/create-checkout-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ planId, period }),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to create checkout session');
-  }
-
-  return response.json();
+  const result = await trpcClient.mutation('billing.createCheckoutSession', { planId: planId as 'pro' | 'starter' | 'enterprise', period: period as 'month' | 'year' });
+  if (!result?.url) throw new Error('Failed to create checkout session');
+  return { url: result.url };
 }
 
 type CheckoutStatus =
@@ -63,11 +57,16 @@ export const CheckoutProvider: React.FC<{
   }, [planId]);
 
   const { user } = useUser();
+  const { getToken } = useClerkAuth();
 
   const start = React.useCallback(async () => {
     try {
       setFetchStatus("fetching");
       setError(null);
+      try {
+        const fresh = await getToken();
+        if (fresh) authTokenManager.setToken(fresh);
+      } catch {}
       const { url } = await createCheckoutSession((resolvedPlan.id as 'pro' | 'enterprise'), 'month');
       window.location.href = url;
     } catch (e) {

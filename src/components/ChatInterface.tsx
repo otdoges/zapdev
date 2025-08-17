@@ -38,6 +38,8 @@ import { streamAIResponse, generateChatTitleFromMessages, generateAIResponse } f
 import { executeCode, startSandbox } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { trpc } from '@/lib/trpc';
+import { authTokenManager } from '@/lib/auth-token';
 import { useUsageTracking } from '@/hooks/useUsageTracking';
 import { E2BCodeExecution } from './E2BCodeExecution';
 import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
@@ -267,24 +269,20 @@ const ChatInterface: React.FC = () => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Stripe checkout function
+  const checkoutMutation = trpc.billing.createCheckoutSession.useMutation();
+
+  // Stripe checkout function (via tRPC)
   const createCheckoutSession = async (planId: string) => {
     try {
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await getToken()}`,
-        },
-        body: JSON.stringify({ planId, period: 'month' }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create checkout session');
+      try {
+        const fresh = await getToken();
+        if (fresh) authTokenManager.setToken(fresh);
+      } catch {
+        // ignore token refresh errors; tRPC will reject if truly unauthenticated
       }
-
-      const { url } = await response.json();
-      window.location.href = url;
+      const result = await checkoutMutation.mutateAsync({ planId: planId as 'pro' | 'starter' | 'enterprise', period: 'month' });
+      if (!result?.url) throw new Error('Failed to create checkout session');
+      window.location.href = result.url;
     } catch (error) {
       console.error('Checkout error:', error);
       toast.error('Failed to start checkout process');

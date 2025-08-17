@@ -85,7 +85,8 @@
       "WebFetch(domain:daisyui.com)",
       "WebFetch(domain:headlessui.com)",
       "Bash(gh pr:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "WebSearch"
     ],
     "deny": []
   }

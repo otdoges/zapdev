@@ -116,6 +116,13 @@ export default defineSchema({
       model: v.optional(v.string()),
       tokens: v.optional(v.number()),
       cost: v.optional(v.number()),
+      diagramData: v.optional(v.object({
+        type: v.union(v.literal("mermaid"), v.literal("flowchart"), v.literal("sequence"), v.literal("gantt")),
+        diagramText: v.string(),
+        isApproved: v.optional(v.boolean()),
+        userFeedback: v.optional(v.string()),
+        version: v.number(),
+      })),
     })),
     createdAt: v.number(),
   })

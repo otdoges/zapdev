@@ -72,8 +72,24 @@ const sanitizeContent = (content: string): string => {
 const sanitizeMetadata = (metadata: unknown) => {
   if (!metadata) return undefined;
   
-  const meta = metadata as { model?: unknown; tokens?: unknown; cost?: unknown };
-  const sanitized: { model?: string; tokens?: number; cost?: number } = {};
+  const meta = metadata as { 
+    model?: unknown; 
+    tokens?: unknown; 
+    cost?: unknown;
+    diagramData?: unknown;
+  };
+  const sanitized: { 
+    model?: string; 
+    tokens?: number; 
+    cost?: number;
+    diagramData?: {
+      type: "mermaid" | "flowchart" | "sequence" | "gantt";
+      diagramText: string;
+      isApproved?: boolean;
+      userFeedback?: string;
+      version: number;
+    };
+  } = {};
 
   if (typeof meta.model === 'string') {
     sanitized.model = meta.model.trim().substring(0, 100);
@@ -85,6 +101,31 @@ const sanitizeMetadata = (metadata: unknown) => {
 
   if (typeof meta.cost === 'number' && meta.cost >= 0) {
     sanitized.cost = Math.round(meta.cost * 100) / 100; // Round to 2 decimal places
+  }
+
+  // Sanitize diagram data
+  if (meta.diagramData && typeof meta.diagramData === 'object') {
+    const diagramData = meta.diagramData as any;
+    const validTypes = ['mermaid', 'flowchart', 'sequence', 'gantt'];
+    
+    if (validTypes.includes(diagramData.type) && 
+        typeof diagramData.diagramText === 'string' &&
+        typeof diagramData.version === 'number') {
+      
+      sanitized.diagramData = {
+        type: diagramData.type,
+        diagramText: diagramData.diagramText.substring(0, 10000), // Limit diagram text size
+        version: Math.floor(diagramData.version),
+      };
+
+      if (typeof diagramData.isApproved === 'boolean') {
+        sanitized.diagramData.isApproved = diagramData.isApproved;
+      }
+
+      if (typeof diagramData.userFeedback === 'string') {
+        sanitized.diagramData.userFeedback = diagramData.userFeedback.trim().substring(0, 1000);
+      }
+    }
   }
 
   return Object.keys(sanitized).length > 0 ? sanitized : undefined;
@@ -240,6 +281,13 @@ export const createMessage = mutation({
       model: v.optional(v.string()),
       tokens: v.optional(v.number()),
       cost: v.optional(v.number()),
+      diagramData: v.optional(v.object({
+        type: v.union(v.literal("mermaid"), v.literal("flowchart"), v.literal("sequence"), v.literal("gantt")),
+        diagramText: v.string(),
+        isApproved: v.optional(v.boolean()),
+        userFeedback: v.optional(v.string()),
+        version: v.number(),
+      })),
     })),
   },
   handler: async (ctx, args) => {
@@ -303,7 +351,18 @@ export const createMessage = mutation({
       userId: string;
       content: string;
       role: "user" | "assistant" | "system";
-      metadata?: { model?: string; tokens?: number; cost?: number };
+      metadata?: { 
+        model?: string; 
+        tokens?: number; 
+        cost?: number;
+        diagramData?: {
+          type: "mermaid" | "flowchart" | "sequence" | "gantt";
+          diagramText: string;
+          isApproved?: boolean;
+          userFeedback?: string;
+          version: number;
+        };
+      };
       createdAt: number;
       isEncrypted?: boolean;
       encryptedContent?: string;
@@ -364,6 +423,13 @@ export const updateMessage = mutation({
       model: v.optional(v.string()),
       tokens: v.optional(v.number()),
       cost: v.optional(v.number()),
+      diagramData: v.optional(v.object({
+        type: v.union(v.literal("mermaid"), v.literal("flowchart"), v.literal("sequence"), v.literal("gantt")),
+        diagramText: v.string(),
+        isApproved: v.optional(v.boolean()),
+        userFeedback: v.optional(v.string()),
+        version: v.number(),
+      })),
     })),
   },
   handler: async (ctx, args) => {
@@ -404,7 +470,18 @@ export const updateMessage = mutation({
     // Build update data with conditional encryption fields
     const updateData: {
       content: string;
-      metadata?: { model?: string; tokens?: number; cost?: number };
+      metadata?: { 
+        model?: string; 
+        tokens?: number; 
+        cost?: number;
+        diagramData?: {
+          type: "mermaid" | "flowchart" | "sequence" | "gantt";
+          diagramText: string;
+          isApproved?: boolean;
+          userFeedback?: string;
+          version: number;
+        };
+      };
       isEncrypted?: boolean;
       encryptedContent?: string;
       encryptionSalt?: string;

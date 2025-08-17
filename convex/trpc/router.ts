@@ -294,18 +294,64 @@ const billingRouter = router({
             message: 'Enterprise plan is not available for direct purchase. Please contact our sales team.'
           });
         }
-        const base = process.env.PUBLIC_ORIGIN;
-        if (!base) throw new Error('PUBLIC_ORIGIN not set');
-        const res = await fetch(`${base}/api/create-checkout-session`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ctx.authToken}` },
-          body: JSON.stringify({ planId: input.planId, period: input.period }),
+
+        const stripeSecret = process.env.STRIPE_SECRET_KEY;
+        if (!stripeSecret) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Stripe configuration missing' });
+        }
+
+        const { default: Stripe } = await import('stripe');
+        const stripe = new Stripe(stripeSecret);
+
+        // Resolve price ID using existing env naming used across the app
+        const resolvePriceId = (planId: 'starter' | 'pro', period: 'month' | 'year'): string | null => {
+          if (planId === 'pro') {
+            const month = process.env.STRIPE_PRICE_PRO_MONTH || process.env.STRIPE_PRO_MONTHLY_PRICE_ID;
+            const year = process.env.STRIPE_PRICE_PRO_YEAR || process.env.STRIPE_PRO_YEARLY_PRICE_ID;
+            return period === 'month' ? (month || null) : (year || null);
+          }
+          if (planId === 'starter') {
+            const month = process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID;
+            const year = process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID;
+            return period === 'month' ? (month || null) : (year || null);
+          }
+          return null;
+        };
+
+        const priceId = resolvePriceId(input.planId === 'starter' ? 'starter' : 'pro', input.period);
+        if (!priceId) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: `Unsupported plan ${input.planId} / ${input.period}` });
+        }
+
+        const publicOrigin = process.env.PUBLIC_ORIGIN || 'http://localhost:5173';
+
+        // Prefer session email from token if available
+        const customerEmail = ctx.user?.email;
+
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ['card'],
+          mode: 'subscription',
+          line_items: [
+            { price: priceId, quantity: 1 },
+          ],
+          // Let Stripe create the customer; pass email when available
+          ...(customerEmail ? { customer_email: customerEmail } : {}),
+          success_url: `${publicOrigin}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${publicOrigin}/pricing`,
+          metadata: {
+            userId: ctx.user!.id,
+            planId: input.planId,
+          },
         });
-        if (!res.ok) throw new Error('Failed to create checkout session');
-        const data = await res.json();
-        return { url: data.url as string };
+
+        if (!session.url) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Stripe did not return a checkout URL' });
+        }
+
+        return { url: session.url };
       } catch (error) {
         console.error('createCheckoutSession error:', error);
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create checkout session' });
       }
     }),

@@ -43,6 +43,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { streamAIResponse, generateChatTitleFromMessages, generateAIResponse } from '@/lib/ai';
+import { generateDiagramResponse, generateUpdatedDiagram } from '@/lib/diagram-ai';
 import { executeCode, startSandbox } from '@/lib/sandbox';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
@@ -57,11 +58,12 @@ import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
 import { GitHubIntegration } from '@/components/GitHubIntegration';
 import type { GitHubRepo } from '@/lib/github-service';
 import { githubService } from '@/lib/github-service';
+import DiagramMessageComponent from './DiagramMessageComponent';
 
 const { logger } = Sentry;
 
 // Memoized Enhanced Message Component
-const EnhancedMessageComponent = memo(({ message, user, isUser, isFirstInGroup, formatTimestamp, copyToClipboard, copiedMessage }: {
+const EnhancedMessageComponent = memo(({ message, user, isUser, isFirstInGroup, formatTimestamp, copyToClipboard, copiedMessage, onApproveDiagram, onRequestDiagramChanges, isSubmittingDiagram }: {
   message: ConvexMessage;
   user: { avatarUrl?: string; email?: string; fullName?: string } | null;
   isUser: boolean;
@@ -69,63 +71,86 @@ const EnhancedMessageComponent = memo(({ message, user, isUser, isFirstInGroup, 
   formatTimestamp: (timestamp: number) => string;
   copyToClipboard: (text: string, messageId: string) => Promise<void>;
   copiedMessage: string | null;
+  onApproveDiagram?: (messageId: string) => Promise<void>;
+  onRequestDiagramChanges?: (messageId: string, feedback: string) => Promise<void>;
+  isSubmittingDiagram?: boolean;
 }) => {
+  const hasDiagram = message.metadata?.diagramData;
+
   return (
-    <Card className={`
-      transition-smooth group-hover:scale-[1.01]
-      ${isUser 
-        ? 'chat-bubble-user ml-auto' 
-        : 'chat-bubble-assistant'
-      }
-      ${isFirstInGroup ? '' : (isUser ? 'rounded-tr-lg' : 'rounded-tl-lg')}
-    `}>
-      <CardContent className="p-4 relative">
-        <div className="space-y-3">
-          <SafeText 
-            className={`text-sm leading-relaxed ${
-              isUser ? 'text-foreground' : 'text-foreground/90'
-            }`}
-          >
-            {message.content}
-          </SafeText>
-          
-          {message.metadata?.model && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="glass text-xs">
-                {message.metadata.model}
-              </Badge>
-              {message.metadata.tokens && (
-                <span>{message.metadata.tokens} tokens</span>
-              )}
-              {message.metadata.cost && (
-                <span>${message.metadata.cost.toFixed(4)}</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className={`absolute top-2 ${isUser ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1`}>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => copyToClipboard(message.content, message._id)}
-            className="h-6 w-6 p-0 glass-hover"
-          >
-            {copiedMessage === message._id ? (
-              <Check className="w-3 h-3 text-green-400" />
-            ) : (
-              <Copy className="w-3 h-3" />
+    <div className="space-y-4">
+      <Card className={`
+        transition-smooth group-hover:scale-[1.01]
+        ${isUser 
+          ? 'chat-bubble-user ml-auto' 
+          : 'chat-bubble-assistant'
+        }
+        ${isFirstInGroup ? '' : (isUser ? 'rounded-tr-lg' : 'rounded-tl-lg')}
+      `}>
+        <CardContent className="p-4 relative">
+          <div className="space-y-3">
+            <SafeText 
+              className={`text-sm leading-relaxed ${
+                isUser ? 'text-foreground' : 'text-foreground/90'
+              }`}
+            >
+              {message.content}
+            </SafeText>
+            
+            {message.metadata?.model && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Badge variant="outline" className="glass text-xs">
+                  {message.metadata.model}
+                </Badge>
+                {message.metadata.tokens && (
+                  <span>{message.metadata.tokens} tokens</span>
+                )}
+                {message.metadata.cost && (
+                  <span>${message.metadata.cost.toFixed(4)}</span>
+                )}
+                {hasDiagram && (
+                  <Badge variant="outline" className="glass text-xs text-blue-300">
+                    Contains Diagram
+                  </Badge>
+                )}
+              </div>
             )}
-          </Button>
-        </div>
+          </div>
 
-        <div className={`text-xs text-muted-foreground mt-2 ${
-          isUser ? 'text-right' : 'text-left'
-        }`}>
-          {formatTimestamp(message.createdAt)}
-        </div>
-      </CardContent>
-    </Card>
+          <div className={`absolute top-2 ${isUser ? 'left-2' : 'right-2'} opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1`}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(message.content, message._id)}
+              className="h-6 w-6 p-0 glass-hover"
+            >
+              {copiedMessage === message._id ? (
+                <Check className="w-3 h-3 text-green-400" />
+              ) : (
+                <Copy className="w-3 h-3" />
+              )}
+            </Button>
+          </div>
+
+          <div className={`text-xs text-muted-foreground mt-2 ${
+            isUser ? 'text-right' : 'text-left'
+          }`}>
+            {formatTimestamp(message.createdAt)}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Diagram Component */}
+      {hasDiagram && onApproveDiagram && onRequestDiagramChanges && (
+        <DiagramMessageComponent
+          diagramData={message.metadata.diagramData}
+          messageId={message._id}
+          onApprove={onApproveDiagram}
+          onRequestChanges={onRequestDiagramChanges}
+          isSubmitting={isSubmittingDiagram}
+        />
+      )}
+    </div>
   );
 });
 
@@ -186,6 +211,13 @@ interface ConvexMessage {
     model?: string;
     tokens?: number;
     cost?: number;
+    diagramData?: {
+      type: 'mermaid' | 'flowchart' | 'sequence' | 'gantt';
+      diagramText: string;
+      isApproved?: boolean;
+      userFeedback?: string;
+      version: number;
+    };
   };
 }
 
@@ -231,6 +263,9 @@ const EnhancedChatInterface: React.FC = () => {
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
   const [githubContext, setGithubContext] = useState<string>('');
   const [isGithubMode, setIsGithubMode] = useState(false);
+
+  // Diagram state
+  const [isSubmittingDiagram, setIsSubmittingDiagram] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -331,48 +366,34 @@ const EnhancedChatInterface: React.FC = () => {
       setInput('');
       setIsTyping(true);
 
-      // Generate AI response with enhanced error handling
+      // Generate AI response with diagram support
       try {
-        const stream = await streamAIResponse(enhancedInput); // Use enhanced input for AI
-        let assistantResponse = '';
+        // Use diagram-aware AI generation
+        const result = await generateDiagramResponse(enhancedInput);
+        const assistantResponse = result.response;
+        const diagramData = result.diagramData;
 
-        // Add assistant message placeholder
+        // Create metadata object with diagram data if present
+        const metadata: {
+          diagramData?: {
+            type: 'mermaid' | 'flowchart' | 'sequence' | 'gantt';
+            diagramText: string;
+            isApproved?: boolean;
+            userFeedback?: string;
+            version: number;
+          };
+        } = {};
+        if (diagramData) {
+          metadata.diagramData = diagramData;
+        }
+
+        // Add assistant message with diagram data
         const assistantMessageId = await addMessageMutation({
           chatId: currentChatId as Id<'chats'>,
-          content: '',
+          content: assistantResponse,
           role: 'assistant',
-          metadata: {}
+          metadata
         });
-
-        // Process stream with throttled updates to reduce re-renders
-        let updateCounter = 0;
-        for await (const delta of stream.textStream) {
-          assistantResponse += delta;
-          updateCounter++;
-          
-          // Only update every 10 chunks to reduce database calls and re-renders
-          if (updateCounter % 10 === 0) {
-            try {
-              await updateMessageMutation({
-                messageId: assistantMessageId,
-                content: assistantResponse
-              });
-            } catch (error) {
-              // Continue streaming even if update fails
-              console.warn('Failed to update message during streaming:', error);
-            }
-          }
-        }
-        
-        // Final update with complete response
-        try {
-          await updateMessageMutation({
-            messageId: assistantMessageId,
-            content: assistantResponse
-          });
-        } catch (error) {
-          console.warn('Failed to update final message:', error);
-        }
         
         // Auto-generate title if this is the first exchange
         if (messages?.length === 0) {
@@ -627,6 +648,74 @@ const EnhancedChatInterface: React.FC = () => {
     }
     
     return enhancedMessage;
+  };
+
+  // Diagram approval handlers
+  const handleApproveDiagram = async (messageId: string) => {
+    setIsSubmittingDiagram(true);
+    try {
+      // Update the message to mark diagram as approved
+      await updateMessageMutation({
+        messageId: messageId as Id<'messages'>,
+        content: '', // Keep original content
+        metadata: {
+          diagramData: {
+            ...(messages.find(m => m._id === messageId)?.metadata?.diagramData || {}),
+            isApproved: true,
+          }
+        }
+      });
+      
+      toast.success('Diagram approved! You can proceed with implementation.');
+    } catch (error) {
+      logger.error('Failed to approve diagram:', error);
+      toast.error('Failed to approve diagram. Please try again.');
+    } finally {
+      setIsSubmittingDiagram(false);
+    }
+  };
+
+  const handleRequestDiagramChanges = async (messageId: string, feedback: string) => {
+    setIsSubmittingDiagram(true);
+    try {
+      const message = messages.find(m => m._id === messageId);
+      if (!message?.metadata?.diagramData) {
+        throw new Error('No diagram data found');
+      }
+
+      const originalDiagram = message.metadata.diagramData;
+      
+      // Generate updated diagram based on feedback
+      const updatedDiagram = await generateUpdatedDiagram(
+        originalDiagram.diagramText,
+        feedback,
+        originalDiagram.type,
+        originalDiagram.version
+      );
+
+      // Update the message with new diagram and feedback
+      await updateMessageMutation({
+        messageId: messageId as Id<'messages'>,
+        content: message.content, // Keep original content
+        metadata: {
+          ...message.metadata,
+          diagramData: {
+            ...originalDiagram,
+            diagramText: updatedDiagram.diagramText,
+            version: updatedDiagram.version,
+            isApproved: false,
+            userFeedback: feedback,
+          }
+        }
+      });
+      
+      toast.success('Diagram updated based on your feedback!');
+    } catch (error) {
+      logger.error('Failed to update diagram:', error);
+      toast.error('Failed to update diagram. Please try again.');
+    } finally {
+      setIsSubmittingDiagram(false);
+    }
   };
 
   if (authLoading) {
@@ -1087,6 +1176,9 @@ const EnhancedChatInterface: React.FC = () => {
                               formatTimestamp={formatTimestamp}
                               copyToClipboard={copyToClipboard}
                               copiedMessage={copiedMessage}
+                              onApproveDiagram={handleApproveDiagram}
+                              onRequestDiagramChanges={handleRequestDiagramChanges}
+                              isSubmittingDiagram={isSubmittingDiagram}
                             />
                           </div>
                         </div>

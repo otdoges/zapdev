@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { useAuthToken } from '@/lib/auth-token';
 import * as Sentry from '@sentry/react';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { trpc } from '@/lib/trpc';
+import { authTokenManager } from '@/lib/auth-token';
 
 interface PricingPlan {
   id: 'free' | 'starter' | 'pro' | 'enterprise';
@@ -121,38 +123,22 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
       return;
     }
 
-    // Use Stripe checkout for Pro plan
+    // Ensure tRPC has an auth token header
+    try {
+      const fresh = await getToken();
+      if (fresh) authTokenManager.setToken(fresh);
+    } catch {}
+
+    // Use tRPC-based checkout for Pro plan (avoids relying on /api/* availability)
     if (plan.id === 'pro') {
       try {
         setIsLoading(true);
-        // Basic retry on transient errors
-        const maxAttempts = 2;
-        let lastErr: unknown;
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          try {
-            // Use Stripe checkout instead
-            const response = await fetch('/api/create-checkout-session', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${await getToken()}`,
-              },
-              body: JSON.stringify({ planId: 'pro', period: 'month' }),
-            });
-
-            if (!response.ok) {
-              throw new Error('Failed to create checkout session');
-            }
-
-            const { url } = await response.json();
-            window.location.href = url;
-            lastErr = undefined;
-            break;
-          } catch (err) {
-            lastErr = err;
-            if (attempt === maxAttempts) throw err;
-          }
+        const result = await trpc.billing.createCheckoutSession.mutate({ planId: 'pro', period: 'month' });
+        if (result?.url) {
+          window.location.href = result.url;
+          return;
         }
+        throw new Error('Failed to create checkout session');
       } catch (error) {
         console.error('Stripe checkout error:', error);
         toast.error('Failed to start checkout. Please try again.');
@@ -195,50 +181,9 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
         console.error('Health check error:', e);
       }
 
-      // Call the API endpoint directly
-      console.log('Creating checkout session for plan:', plan.id);
-      console.log('Using token:', token ? 'Token present' : 'No token');
-
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          planId: plan.id,
-          period: 'month',
-        }),
-      });
-
-      console.log('Response status:', response.status);
-      console.log('Response URL:', response.url);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        let errorMessage = 'Failed to create checkout session';
-        let errorData: any = null;
-
-        try {
-          errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // If response is not JSON, get text
-          const errorText = await response.text();
-          console.error('Non-JSON error response:', errorText);
-          errorMessage = `Server error: ${response.status} - ${errorText.substring(0, 100)}`;
-        }
-
-        const error = new Error(errorMessage);
-        Sentry.captureException(error, {
-          tags: { feature: 'pricing', action: 'checkout_api_error' },
-          extra: { planId: plan.id, status: response.status, errorData }
-        });
-        throw error;
-      }
-
-      const result = await response.json();
-      if (result.url) {
+      // Fallback: Use tRPC for other paid plans as well
+      const result = await trpc.billing.createCheckoutSession.mutate({ planId: plan.id, period: 'month' });
+      if (result?.url) {
         window.location.href = result.url;
       }
     } catch (error) {
