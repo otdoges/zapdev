@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useAuthToken } from '@/lib/auth-token';
 import * as Sentry from '@sentry/react';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
-import { trpc } from '@/lib/trpc';
+// Removed tRPC import - now using direct Hono.js Polar.sh API calls
 
 interface PricingPlan {
   id: 'free' | 'starter' | 'pro' | 'enterprise';
@@ -100,34 +100,42 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
   const enterpriseContactEmail = import.meta.env.VITE_ENTERPRISE_CONTACT_EMAIL || 'enterprise@zapdev.link';
 
   const handleCheckoutWithFallback = async (planId: string, period: 'month' | 'year' = 'month') => {
-    // Try tRPC first
+    // Use the new Hono.js Polar.sh checkout endpoint
     try {
-      console.log('Attempting tRPC checkout:', { planId, period });
+      console.log('Attempting Polar.sh checkout via Hono.js:', { planId, period });
       
-      // Ensure fresh token
-      const tokenRefreshed = await ensureFreshTokenForTRPC();
-      if (!tokenRefreshed) {
-        throw new Error('Failed to obtain valid authentication token');
+      const token = await getValidToken();
+      if (!token) {
+        throw new Error('No authentication token available');
       }
 
-      // Verify tRPC client
-      if (!trpc?.billing?.createCheckoutSession) {
-        throw new Error('tRPC billing client not properly initialized');
+      // Call the Hono.js checkout endpoint with plan information
+      const response = await fetch('/api/hono-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ planId, period })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.message || `Hono checkout failed: ${response.status}`);
       }
 
-      const result = await trpc.billing.createCheckoutSession.mutate({ planId, period });
-      
-      if (result?.url) {
-        console.log('tRPC checkout successful, redirecting...');
-        window.location.href = result.url;
+      const data = await response.json();
+      if (data?.url) {
+        console.log('Hono.js Polar.sh checkout successful, redirecting...');
+        window.location.href = data.url;
         return true;
       }
       
-      throw new Error('tRPC checkout succeeded but no URL returned');
-    } catch (tRPCError) {
-      console.warn('tRPC checkout failed, trying direct API fallback:', tRPCError);
+      throw new Error('Hono checkout succeeded but no URL returned');
+    } catch (honoError) {
+      console.warn('Hono.js checkout failed, trying legacy API fallback:', honoError);
       
-      // Fallback to direct API call
+      // Fallback to legacy API call
       try {
         const token = await getValidToken();
         if (!token) {
@@ -150,28 +158,28 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
 
         const data = await response.json();
         if (data?.url) {
-          console.log('API fallback successful, redirecting...');
+          console.log('Legacy API fallback successful, redirecting...');
           window.location.href = data.url;
           return true;
         }
         
         throw new Error('API fallback succeeded but no URL returned');
       } catch (apiError) {
-        console.error('Both tRPC and API fallback failed:', { tRPCError, apiError });
+        console.error('Both Hono.js and legacy API failed:', { honoError, apiError });
         
         // Final fallback - show helpful error message
         const errorMessage = apiError instanceof Error 
           ? apiError.message 
           : 'Unable to start checkout process';
           
-        toast.error(`Checkout failed: ${errorMessage}. Please try again or contact support.`);
+        toast.error(`Polar.sh checkout failed: ${errorMessage}. Please try again or contact support.`);
         
-        Sentry.captureException(new Error('Complete checkout failure'), {
-          tags: { feature: 'pricing', action: 'checkout_complete_failure' },
+        Sentry.captureException(new Error('Complete Polar.sh checkout failure'), {
+          tags: { feature: 'pricing', action: 'polar_checkout_complete_failure' },
           extra: { 
             planId, 
             period,
-            tRPCError: tRPCError instanceof Error ? tRPCError.message : String(tRPCError),
+            honoError: honoError instanceof Error ? honoError.message : String(honoError),
             apiError: apiError instanceof Error ? apiError.message : String(apiError),
             userId: user?.id,
             isAuthenticated: isUserAuthenticated

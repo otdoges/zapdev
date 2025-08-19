@@ -3,7 +3,7 @@ import { CustomPricingTable } from "./CustomPricingTable";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 
-// Uses custom pricing table with direct Stripe integration
+// Uses custom pricing table with direct Polar.sh integration
 
 export const DynamicPricingSection = () => {
   const { user } = useAuth();
@@ -58,7 +58,7 @@ export const DynamicPricingSection = () => {
           transition={{ duration: 0.6, delay: 1.0 }}
           className="text-lg text-gray-400"
         >
-            Select the perfect plan for your AI-powered development needs with secure Stripe billing
+            Select the perfect plan for your AI-powered development needs with secure Polar.sh billing
         </motion.p>
       </motion.div>
 
