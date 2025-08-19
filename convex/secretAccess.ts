@@ -1,0 +1,157 @@
+import { v } from "convex/values";
+import { mutation, query } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import crypto from "crypto";
+
+// Check if user has secret access
+export const hasSecretAccess = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    const secretAccess = await ctx.db
+      .query("secretAccess")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .first();
+
+    return {
+      hasAccess: secretAccess?.hasAccess || false,
+      isFirstUser: secretAccess?.isFirstUser || false,
+    };
+  },
+});
+
+// Check if any user has set up secret access (for first-time setup)
+export const isSecretSetupComplete = query({
+  args: {},
+  handler: async (ctx) => {
+    const firstUser = await ctx.db
+      .query("secretAccess")
+      .withIndex("by_access", (q) => q.eq("hasAccess", true))
+      .first();
+
+    return firstUser !== null;
+  },
+});
+
+// Set up secret access (first user sets password)
+export const setupSecretAccess = mutation({
+  args: {
+    password: v.string(),
+  },
+  handler: async (ctx, { password }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    // Check if secret access is already set up
+    const existingSetup = await ctx.db
+      .query("secretAccess")
+      .withIndex("by_access", (q) => q.eq("hasAccess", true))
+      .first();
+
+    if (existingSetup) {
+      throw new Error("Secret access is already configured");
+    }
+
+    // Hash the password
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+
+    // Create secret access for this user
+    await ctx.db.insert("secretAccess", {
+      userId,
+      hasAccess: true,
+      passwordHash,
+      isFirstUser: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Verify password and grant access
+export const verifySecretPassword = mutation({
+  args: {
+    password: v.string(),
+  },
+  handler: async (ctx, { password }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the password hash from the first user who set it up
+    const firstUserAccess = await ctx.db
+      .query("secretAccess")
+      .withIndex("by_access", (q) => q.eq("hasAccess", true))
+      .filter((q) => q.eq(q.field("isFirstUser"), true))
+      .first();
+
+    if (!firstUserAccess?.passwordHash) {
+      throw new Error("Secret access not configured");
+    }
+
+    // Hash the provided password and compare
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+    
+    if (passwordHash !== firstUserAccess.passwordHash) {
+      throw new Error("Invalid password");
+    }
+
+    // Check if this user already has access
+    const existingAccess = await ctx.db
+      .query("secretAccess")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .first();
+
+    if (existingAccess) {
+      // Update existing record
+      await ctx.db.patch(existingAccess._id, {
+        hasAccess: true,
+        updatedAt: Date.now(),
+      });
+    } else {
+      // Create new access record
+      await ctx.db.insert("secretAccess", {
+        userId,
+        hasAccess: true,
+        isFirstUser: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+// Revoke secret access
+export const revokeSecretAccess = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    const secretAccess = await ctx.db
+      .query("secretAccess")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .first();
+
+    if (secretAccess) {
+      await ctx.db.patch(secretAccess._id, {
+        hasAccess: false,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
+  },
+});

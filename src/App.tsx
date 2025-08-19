@@ -13,6 +13,7 @@ import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Success from "./pages/Success";
 import Chat from "./pages/Chat";
+import SecretChat from "./pages/SecretChat";
 import AuthGuard from "./components/AuthGuard";
 import UserSync from "./components/UserSync";
 import { AuthWrapper } from "./components/AuthWrapper";
@@ -56,6 +57,13 @@ const App = () => (
                       <Route path="/success" element={
                         <AuthGuard>
                           <Success />
+                        </AuthGuard>
+                      } />
+                      
+                      {/* Secret chat - hidden route, no navigation links */}
+                      <Route path="/quantum" element={
+                        <AuthGuard>
+                          <SecretChat />
                         </AuthGuard>
                       } />
                     </Routes>

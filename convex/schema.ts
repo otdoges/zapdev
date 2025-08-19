@@ -282,4 +282,60 @@ export default defineSchema({
     .index("by_window", ["windowStart"])
     .index("by_user_operation", ["userId", "operation"])
     .index("by_user_window", ["userId", "windowStart"]),
+
+  // Secret access management for protected features
+  secretAccess: defineTable({
+    userId: v.string(), // User who has access to secret features
+    hasAccess: v.boolean(), // Whether user has access to secret chat
+    passwordHash: v.optional(v.string()), // Hashed password for secret access (only for first user setup)
+    isFirstUser: v.boolean(), // Whether this user is the one who set the password
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_access", ["hasAccess"]),
+
+  // User API keys for external services (encrypted storage)
+  userApiKeys: defineTable({
+    userId: v.string(), // User who owns this API key
+    provider: v.string(), // Service provider (e.g., "gemini", "openai")
+    encryptedApiKey: v.string(), // Encrypted API key using user-specific encryption
+    keyHash: v.string(), // SHA-256 hash of the API key for verification
+    isActive: v.boolean(), // Whether this key is currently active
+    lastUsed: v.optional(v.number()), // Timestamp of last usage
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_user_provider", ["userId", "provider"])
+    .index("by_active", ["isActive"]),
+
+  // Secret chat conversations (separate from regular chats)
+  secretChats: defineTable({
+    userId: v.string(), // User who owns this secret chat
+    title: v.string(),
+    provider: v.string(), // AI provider used (e.g., "gemini")
+    model: v.string(), // Specific model used (e.g., "gemini-2.0-flash-exp")
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_user_updated", ["userId", "updatedAt"]),
+
+  // Secret chat messages
+  secretMessages: defineTable({
+    chatId: v.id("secretChats"), // Reference to secret chat
+    userId: v.string(), // User who created this message
+    content: v.string(), // Message content
+    role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
+    metadata: v.optional(v.object({
+      model: v.optional(v.string()),
+      tokens: v.optional(v.number()),
+      cost: v.optional(v.number()),
+    })),
+    createdAt: v.number(),
+  })
+    .index("by_chat_id", ["chatId"])
+    .index("by_chat_created", ["chatId", "createdAt"])
+    .index("by_user_id", ["userId"]),
 });
