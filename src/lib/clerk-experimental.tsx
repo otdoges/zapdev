@@ -29,8 +29,8 @@ async function createCheckoutSession(
   }
   
   try {
-    // No type assertion needed because inputs are already validated & typed
-    const result = await trpcClient.mutation('billing.createCheckoutSession', {
+    // Use correct tRPC v10+ syntax for mutations
+    const result = await trpcClient.billing.createCheckoutSession.mutate({
       planId,
       period,
     });

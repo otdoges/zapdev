@@ -110,7 +110,7 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
       }
 
       // Call the Hono.js checkout endpoint with plan information
-      const response = await fetch('/api/hono-checkout', {
+      const response = await fetch('/api/hono-checkout/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

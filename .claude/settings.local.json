@@ -89,7 +89,8 @@
       "WebSearch",
       "Bash(npm run lint:*)",
       "WebFetch(domain:docs.stripe.com)",
-      "Bash(bun info:*)"
+      "Bash(bun info:*)",
+      "Bash(ss:*)"
     ],
     "deny": []
   }
