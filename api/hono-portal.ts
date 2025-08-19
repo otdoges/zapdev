@@ -2,9 +2,16 @@ import type { VercelRequest } from '@vercel/node';
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
 import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
-import { Polar } from '@polar-sh/sdk';
 
 const app = new Hono();
+
+// Add CORS headers for all requests
+app.use('*', async (c, next) => {
+  c.header('Access-Control-Allow-Origin', '*');
+  c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  await next();
+});
 
 // Create customer portal session
 app.post('/portal', async (c) => {
@@ -92,5 +99,10 @@ app.options('/portal', () => {
   return new Response('', { status: 204 });
 });
 
-// Export the Vercel handler
-export default handle(app);
+// Export the Vercel handler with explicit method exports
+const handler = handle(app);
+
+export default handler;
+export const GET = handler;
+export const POST = handler;
+export const OPTIONS = handler;

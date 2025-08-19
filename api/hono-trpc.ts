@@ -55,5 +55,10 @@ app.get('/health', (c) => {
   });
 });
 
-// Export the Vercel handler
-export default handle(app);
+// Export the Vercel handler with explicit method exports
+const handler = handle(app);
+
+export default handler;
+export const GET = handler;
+export const POST = handler;
+export const OPTIONS = handler;

@@ -13,6 +13,8 @@
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/hono/trpc/:path*", "destination": "/api/hono-trpc/trpc/:path*" },
+    { "source": "/hono/checkout/:path*", "destination": "/api/hono-checkout/:path*" },
+    { "source": "/hono/portal/:path*", "destination": "/api/hono-portal/:path*" },
     { "source": "/hono/polar/:path*", "destination": "/api/hono-polar/:path*" },
     { "source": "/hono/:path*", "destination": "/api/hono-polar/:path*" },
     { "source": "/:path*", "destination": "/index.html" }

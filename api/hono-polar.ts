@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
 import { Checkout, CustomerPortal, Webhooks } from '@polar-sh/hono';
-import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
+import { verifyClerkToken } from './_utils/auth';
 
 const app = new Hono();
 
@@ -134,5 +134,10 @@ app.post('/webhooks', Webhooks({
   },
 }));
 
-// Export the Vercel handler
-export default handle(app);
+// Export the Vercel handler with explicit method exports
+const handler = handle(app);
+
+export default handler;
+export const GET = handler;
+export const POST = handler;
+export const OPTIONS = handler;
