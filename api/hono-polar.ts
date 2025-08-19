@@ -1,4 +1,3 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
 import { Checkout, CustomerPortal, Webhooks } from '@polar-sh/hono';
@@ -20,7 +19,7 @@ app.use('*', async (c, next) => {
   c.header('Access-Control-Allow-Credentials', 'true');
   
   if (c.req.method === 'OPTIONS') {
-    return c.text('', 204);
+    return new Response('', { status: 204 });
   }
   
   await next();
@@ -29,32 +28,26 @@ app.use('*', async (c, next) => {
 // Helper function to verify Clerk authentication
 async function verifyClerkAuth(authHeader: string): Promise<{ id: string; email?: string } | null> {
   try {
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
     const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
+    const audience = process.env.CLERK_JWT_AUDIENCE;
     
-    if (!issuer || !token) {
+    if (!issuer) {
       return null;
     }
     
-    const audience = process.env.CLERK_JWT_AUDIENCE;
-    const { verifyToken } = await import('@clerk/backend');
+    const verified = await verifyClerkToken(authHeader, issuer, audience);
     
-    const options: { jwtKey?: string; audience?: string } = { jwtKey: issuer };
-    if (audience) options.audience = audience;
+    if (!verified?.sub) return null;
     
-    const verified = await verifyToken(token, options) as { sub?: string; email?: string };
-    
-    if (!verified.sub) return null;
-    
-    return { id: verified.sub, email: verified.email };
+    return { id: verified.sub, email: verified.email as string | undefined };
   } catch (error) {
     console.error('Token verification failed:', error);
     return null;
   }
 }
 
-// Authentication middleware
-const authenticateUser = async (c: any, next: any) => {
+// Authentication middleware  
+const authenticateUser = async (c: import('hono').Context, next: import('hono').Next) => {
   const authHeader = c.req.header('Authorization');
   
   if (!authHeader) {
@@ -102,7 +95,7 @@ app.get(
   authenticateUser,
   CustomerPortal({
     accessToken: process.env.POLAR_ACCESS_TOKEN!,
-    getCustomerId: (event) => {
+    getCustomerId: async (event) => {
       // Extract customer ID from query params or user context
       const customerId = event.req.query('customerId');
       return customerId || '';

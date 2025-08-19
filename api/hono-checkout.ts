@@ -98,7 +98,8 @@ app.post('/checkout', async (c) => {
       },
     };
     
-    const productId = productIdMap[planId as keyof typeof productIdMap]?.[period];
+    const planMap = productIdMap[planId as keyof typeof productIdMap];
+    const productId = planMap?.[period as keyof typeof planMap];
     if (!productId) {
       return c.json({
         error: 'Invalid Plan',
@@ -137,8 +138,8 @@ app.post('/checkout', async (c) => {
 });
 
 // Handle OPTIONS for CORS
-app.options('/checkout', (c) => {
-  return c.text('', 204);
+app.options('/checkout', () => {
+  return new Response('', { status: 204 });
 });
 
 // Export the Vercel handler

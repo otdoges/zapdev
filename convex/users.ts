@@ -2,7 +2,6 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { enforceRateLimit } from "./rateLimit";
-import { getSubscriptionPeriod } from "../src/types/stripe";
 import { api } from "./_generated/api";
 
 // Helper function to get authenticated user

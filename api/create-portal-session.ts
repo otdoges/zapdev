@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
-import { Polar } from '@polar-sh/sdk';
 
 function withCors(res: VercelResponse, allowOrigin?: string) {
   const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';

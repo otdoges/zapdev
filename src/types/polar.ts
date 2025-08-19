@@ -107,7 +107,7 @@ export interface UserSubscription {
   planId: PlanType;
   planName: string;
   status: 'none' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
-  features: string[];
+  features: readonly string[];
   currentPeriodStart: number;
   currentPeriodEnd: number;
   cancelAtPeriodEnd: boolean;
@@ -206,7 +206,7 @@ export class PolarWebhookError extends PolarError {
 }
 
 // Helper function to get plan features
-export function getPlanFeatures(planId: PlanType): string[] {
+export function getPlanFeatures(planId: PlanType): readonly string[] {
   return PLAN_FEATURES[planId] || PLAN_FEATURES.free;
 }
 

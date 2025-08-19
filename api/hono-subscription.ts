@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest } from '@vercel/node';
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
 import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
@@ -71,7 +71,8 @@ app.get('/subscription', async (c) => {
       });
       
       // Find active subscription for this user
-      const activeSubscription = subscriptions.items?.find(sub => 
+      const subscriptionList = Array.isArray(subscriptions) ? subscriptions : [];
+      const activeSubscription = subscriptionList.find((sub: { status: string; metadata?: { userId?: string } }) => 
         sub.status === 'active' && 
         sub.metadata?.userId === authenticatedUserId
       );
@@ -96,7 +97,7 @@ app.get('/subscription', async (c) => {
         planId,
         planName: getPlanDisplayName(planId),
         status: activeSubscription.status,
-        features: PLAN_FEATURES[planId] || PLAN_FEATURES.free,
+        features: PLAN_FEATURES[planId as keyof typeof PLAN_FEATURES] || PLAN_FEATURES.free,
         currentPeriodStart: new Date(activeSubscription.currentPeriodStart).getTime(),
         currentPeriodEnd: new Date(activeSubscription.currentPeriodEnd).getTime(),
         cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd || false,
@@ -132,8 +133,8 @@ app.get('/subscription', async (c) => {
 });
 
 // Handle OPTIONS for CORS
-app.options('/subscription', (c) => {
-  return c.text('', 204);
+app.options('/subscription', () => {
+  return new Response('', { status: 204 });
 });
 
 // Export the Vercel handler

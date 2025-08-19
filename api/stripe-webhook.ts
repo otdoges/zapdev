@@ -1,23 +1,12 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest } from '@vercel/node';
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
-import { Polar } from '@polar-sh/sdk';
 
 const app = new Hono();
 
-// Helper function to set CORS headers
-function withCors(res: VercelResponse, allowOrigin?: string) {
-  const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Polar-Webhook-Signature');
-  res.setHeader('Cache-Control', 'private, no-store');
-  return res;
-}
 
 // Helper function to log webhook events (replace with actual database sync)
-async function logWebhookEvent(eventType: string, data: unknown): Promise<void> {
+async function logWebhookEvent(eventType: string, data: Record<string, unknown>): Promise<void> {
   console.log(`[POLAR WEBHOOK] ${eventType}:`, JSON.stringify(data, null, 2));
   
   // TODO: Implement proper Convex HTTP action calls or database sync
@@ -106,7 +95,7 @@ function verifyWebhookSignature(body: string, signature: string, secret: string)
   try {
     // Polar.sh signature verification logic would go here
     // For now, we'll just check that the signature exists
-    return signature && secret && signature.length > 0;
+    return !!(signature && secret && signature.length > 0);
   } catch (error) {
     console.error('Webhook signature verification failed:', error);
     return false;
@@ -117,18 +106,6 @@ function verifyWebhookSignature(body: string, signature: string, secret: string)
 app.post('/webhook', async (c) => {
   try {
     const req = c.req.raw as unknown as VercelRequest;
-    const requestOrigin = req.headers.origin as string | undefined;
-    let allowedOrigin = process.env.PUBLIC_ORIGIN ?? '*';
-    
-    if (requestOrigin) {
-      const isZapDevDomain = requestOrigin.includes('zapdev.link') || 
-                            requestOrigin.includes('localhost') || 
-                            requestOrigin.includes('127.0.0.1');
-      
-      if (isZapDevDomain) {
-        allowedOrigin = requestOrigin;
-      }
-    }
 
     // Get the raw body and signature
     const body = await c.req.text();
@@ -269,8 +246,8 @@ app.post('/webhook', async (c) => {
 });
 
 // Handle OPTIONS for CORS
-app.options('/webhook', (c) => {
-  return c.text('', 204);
+app.options('/webhook', () => {
+  return new Response('', { status: 204 });
 });
 
 // Export the Vercel handler

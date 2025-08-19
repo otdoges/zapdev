@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
 import { trpcServer } from '@hono/trpc-server';
@@ -20,7 +20,7 @@ app.use('*', async (c, next) => {
   c.header('Access-Control-Allow-Credentials', 'true');
   
   if (c.req.method === 'OPTIONS') {
-    return c.text('', 204);
+    return new Response('', { status: 204 });
   }
   
   await next();
@@ -31,7 +31,7 @@ app.use(
   '/trpc/*',
   trpcServer({
     router: appRouter,
-    createContext: ({ req }) => createContext({ req }),
+    createContext: (opts: FetchCreateContextFnOptions) => createContext(opts),
     onError: ({ error, path, type }) => {
       console.error(`Hono tRPC Error on ${path} (${type}):`, {
         error: error.message,

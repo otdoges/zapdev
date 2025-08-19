@@ -6,19 +6,6 @@ import { Polar } from '@polar-sh/sdk';
 
 const app = new Hono();
 
-// Initialize Polar.sh SDK
-const getPolarClient = () => {
-  const accessToken = process.env.POLAR_ACCESS_TOKEN;
-  if (!accessToken) {
-    throw new Error('POLAR_ACCESS_TOKEN environment variable is required');
-  }
-  
-  return new Polar({
-    accessToken,
-    server: process.env.NODE_ENV === 'production' ? undefined : 'sandbox'
-  });
-};
-
 // Create customer portal session
 app.post('/portal', async (c) => {
   try {
@@ -30,7 +17,6 @@ app.post('/portal', async (c) => {
     const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
 
     let authenticatedUserId: string | undefined;
-    let userEmail: string | undefined;
     
     if (token && issuer) {
       try {
@@ -58,7 +44,6 @@ app.post('/portal', async (c) => {
     }
 
     try {
-      const polar = getPolarClient();
       
       // For Polar.sh, customer portal access is typically handled differently
       // than Stripe. You might need to:
@@ -103,8 +88,8 @@ app.post('/portal', async (c) => {
 });
 
 // Handle OPTIONS for CORS
-app.options('/portal', (c) => {
-  return c.text('', 204);
+app.options('/portal', () => {
+  return new Response('', { status: 204 });
 });
 
 // Export the Vercel handler

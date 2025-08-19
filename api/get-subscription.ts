@@ -120,7 +120,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         // Find active subscription for this user
         // Look for subscriptions with matching userId in metadata
-        const activeSubscription = subscriptions.items?.find(sub => 
+        const subscriptionList = Array.isArray(subscriptions) ? subscriptions : [];
+        const activeSubscription = subscriptionList.find((sub: { status: string; metadata?: { userId?: string } }) => 
           (sub.status === 'active' || sub.status === 'trialing') && 
           sub.metadata?.userId === authenticatedUserId
         );
@@ -149,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           planId,
           planName: getPlanDisplayName(planId),
           status: activeSubscription.status,
-          features: PLAN_FEATURES[planId] || PLAN_FEATURES.free,
+          features: PLAN_FEATURES[planId as keyof typeof PLAN_FEATURES] || PLAN_FEATURES.free,
           currentPeriodStart: new Date(activeSubscription.currentPeriodStart).getTime(),
           currentPeriodEnd: new Date(activeSubscription.currentPeriodEnd).getTime(),
           cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd || false,
