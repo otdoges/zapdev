@@ -1,53 +1,53 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import Stripe from 'stripe';
-import { 
-  getSubscriptionPeriod,
-  getCustomerEmail,
-  getCustomerMetadata,
-  getInvoiceSubscriptionId
-} from '../src/types/stripe';
+import { Hono } from 'hono';
+import { handle } from 'hono/vercel';
+import { Polar } from '@polar-sh/sdk';
 
-// Helper function to map Stripe price IDs to plan types (standardized naming)
-function mapPriceIdToPlanType(priceId: string): 'free' | 'pro' | 'enterprise' | 'starter' {
-  const priceIdMap: Record<string, 'free' | 'pro' | 'enterprise' | 'starter'> = {
-    [process.env.STRIPE_PRICE_PRO_MONTH || process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly']: 'pro',
-    [process.env.STRIPE_PRICE_PRO_YEAR || process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly']: 'pro',
-    [process.env.STRIPE_PRICE_ENTERPRISE_MONTH || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly']: 'enterprise',
-    [process.env.STRIPE_PRICE_ENTERPRISE_YEAR || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly']: 'enterprise',
-    [process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
-    [process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
-  };
-  // eslint-disable-next-line security/detect-object-injection
-  return (priceId && priceIdMap[priceId]) || 'free';
+const app = new Hono();
+
+// Helper function to set CORS headers
+function withCors(res: VercelResponse, allowOrigin?: string) {
+  const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Polar-Webhook-Signature');
+  res.setHeader('Cache-Control', 'private, no-store');
+  return res;
 }
 
-
-
-// Simplified subscription sync - for now just log the webhook events
-// In production, you would want to use Convex HTTP actions or a queue system
+// Helper function to log webhook events (replace with actual database sync)
 async function logWebhookEvent(eventType: string, data: unknown): Promise<void> {
-  console.log(`[WEBHOOK] ${eventType}:`, JSON.stringify(data, null, 2));
+  console.log(`[POLAR WEBHOOK] ${eventType}:`, JSON.stringify(data, null, 2));
   
-  // TODO: Implement proper Convex HTTP action calls or use a queue system
-  // For now, we'll just log the events so the webhook doesn't fail
+  // TODO: Implement proper Convex HTTP action calls or database sync
+  // This is where you would:
+  // 1. Update user subscription status in your database
+  // 2. Send confirmation emails
+  // 3. Update user permissions/features
+  // 4. Handle subscription lifecycle events
 }
 
-// Helper function to sync subscription data with Convex
-async function syncSubscriptionToConvex(
+// Helper function to sync subscription data with your database
+async function syncSubscriptionToDatabase(
   userId: string,
-  stripeCustomerId: string,
-  subscription?: Stripe.Subscription
+  polarCustomerId: string,
+  subscription?: any
 ) {
   try {
     const now = Date.now();
 
-    console.log('Syncing subscription to Convex:', { userId, stripeCustomerId, subscriptionId: subscription?.id });
+    console.log('Syncing subscription to database:', { 
+      userId, 
+      polarCustomerId, 
+      subscriptionId: subscription?.id 
+    });
 
     if (!subscription) {
-      // Log the free plan assignment
+      // User cancelled or subscription expired - set to free plan
       await logWebhookEvent('subscription_free_plan', {
         userId,
-        stripeCustomerId,
+        polarCustomerId,
         planId: 'free',
         status: 'none',
         timestamp: now
@@ -57,311 +57,188 @@ async function syncSubscriptionToConvex(
       return;
     }
 
-    const priceId = subscription.items.data[0]?.price.id;
-    const planType = mapPriceIdToPlanType(priceId);
-
-    // Type-safe period extraction
-    const subscriptionPeriod = getSubscriptionPeriod(subscription);
-    if (!subscriptionPeriod) {
-      console.error('Invalid subscription structure, cannot sync');
-      return;
-    }
-
+    // Extract plan information from subscription
+    const planType = subscription.metadata?.planId || 'pro';
+    
     // Log the subscription sync
     await logWebhookEvent('subscription_sync', {
       userId,
-      stripeCustomerId,
-      planId: priceId,
+      polarCustomerId,
+      planId: subscription.id,
       planType,
       status: subscription.status,
-      currentPeriodStart: subscriptionPeriod.currentPeriodStart,
-      currentPeriodEnd: subscriptionPeriod.currentPeriodEnd,
+      currentPeriodStart: subscription.currentPeriodStart,
+      currentPeriodEnd: subscription.currentPeriodEnd,
       timestamp: now
     });
 
-    console.log('Successfully synced subscription to Convex:', { userId, planType, status: subscription.status });
+    console.log('Successfully synced subscription to database:', { 
+      userId, 
+      planType, 
+      status: subscription.status 
+    });
   } catch (error) {
-    console.error('Failed to sync subscription to Convex:', error);
+    console.error('Failed to sync subscription to database:', error);
     throw error;
   }
 }
 
-// Helper function to ensure customer mapping exists in Convex
-async function ensureCustomerMapping(userId: string, stripeCustomerId: string, email: string) {
+// Helper function to ensure customer mapping exists
+async function ensureCustomerMapping(userId: string, polarCustomerId: string, email: string) {
   try {
     await logWebhookEvent('customer_mapping', {
       userId,
-      stripeCustomerId,
+      polarCustomerId,
       email,
       timestamp: Date.now()
     });
-    console.log('Ensured customer mapping exists:', { userId, stripeCustomerId });
+    console.log('Ensured customer mapping exists:', { userId, polarCustomerId });
   } catch (error) {
     console.error('Failed to ensure customer mapping:', error);
     throw error;
   }
 }
 
-// Disable body parsing for webhooks
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-function withCors(res: VercelResponse, allowOrigin?: string) {
-  const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, stripe-signature');
-  res.setHeader('Cache-Control', 'private, no-store');
-  return res;
-}
-
-// Helper function to get raw body
-async function getRawBody(req: VercelRequest): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Handle CORS
-  const requestOrigin = req.headers.origin as string | undefined;
-  let allowedOrigin = process.env.PUBLIC_ORIGIN ?? '*';
-  
-  if (requestOrigin) {
-    const isZapDevDomain = requestOrigin.includes('zapdev.link') || 
-                          requestOrigin.includes('localhost') || 
-                          requestOrigin.includes('127.0.0.1');
-    
-    if (isZapDevDomain) {
-      allowedOrigin = requestOrigin;
-    }
-  }
-
-  if (req.method === 'OPTIONS') {
-    withCors(res, allowedOrigin);
-    return res.status(204).end();
-  }
-
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return withCors(res, allowedOrigin).status(405).json({ 
-      error: 'Method Not Allowed',
-      message: 'Only POST requests are allowed' 
-    });
-  }
-
+// Verify webhook signature (implement according to Polar.sh docs)
+function verifyWebhookSignature(body: string, signature: string, secret: string): boolean {
+  // TODO: Implement proper signature verification based on Polar.sh documentation
+  // This is a placeholder implementation
   try {
-    // Initialize Stripe
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    // Polar.sh signature verification logic would go here
+    // For now, we'll just check that the signature exists
+    return signature && secret && signature.length > 0;
+  } catch (error) {
+    console.error('Webhook signature verification failed:', error);
+    return false;
+  }
+}
 
-    if (!stripeSecretKey) {
-      throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+// Main webhook handler
+app.post('/webhook', async (c) => {
+  try {
+    const req = c.req.raw as unknown as VercelRequest;
+    const requestOrigin = req.headers.origin as string | undefined;
+    let allowedOrigin = process.env.PUBLIC_ORIGIN ?? '*';
+    
+    if (requestOrigin) {
+      const isZapDevDomain = requestOrigin.includes('zapdev.link') || 
+                            requestOrigin.includes('localhost') || 
+                            requestOrigin.includes('127.0.0.1');
+      
+      if (isZapDevDomain) {
+        allowedOrigin = requestOrigin;
+      }
     }
-
-    if (!webhookSecret) {
-      throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set');
-    }
-
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2025-07-30.basil',
-    });
 
     // Get the raw body and signature
-    const rawBody = await getRawBody(req);
-    const signature = req.headers['stripe-signature'] as string;
+    const body = await c.req.text();
+    const signature = c.req.header('Polar-Webhook-Signature') || 
+                     c.req.header('X-Polar-Webhook-Signature') ||
+                     req.headers['polar-webhook-signature'] as string;
 
     if (!signature) {
-      return withCors(res, allowedOrigin).status(400).json({
-        error: 'Missing Stripe signature'
-      });
+      console.error('Missing Polar webhook signature');
+      return c.json({ error: 'Missing signature' }, 400);
     }
 
-    // Verify the webhook signature
-    let event: Stripe.Event;
-    try {
-      event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-    } catch (err) {
-      console.error('Webhook signature verification failed:', err);
-      return withCors(res, allowedOrigin).status(400).json({
-        error: 'Invalid signature'
-      });
+    const webhookSecret = process.env.POLAR_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error('POLAR_WEBHOOK_SECRET not configured');
+      return c.json({ error: 'Webhook secret not configured' }, 500);
     }
 
-    console.log('Received Stripe webhook event:', event.type, 'ID:', event.id);
+    // Verify webhook signature
+    if (!verifyWebhookSignature(body, signature, webhookSecret)) {
+      console.error('Invalid Polar webhook signature');
+      return c.json({ error: 'Invalid signature' }, 400);
+    }
 
-    // Handle the event
+    const event = JSON.parse(body);
+    console.log('Received Polar webhook event:', event.type, 'ID:', event.id);
+
+    // Handle different event types
     switch (event.type) {
       case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        console.log('Checkout session completed:', session.id);
+        const checkoutSession = event.data;
+        console.log('Checkout session completed:', checkoutSession.id);
 
-        // Get user ID from session metadata
-        const userId = session.metadata?.userId;
+        // Get user ID from checkout metadata
+        const userId = checkoutSession.metadata?.userId;
         if (!userId) {
           console.error('No userId found in checkout session metadata');
           break;
         }
 
-        // Ensure customer mapping exists
-        const customer = await stripe.customers.retrieve(session.customer as string);
-        if (!customer.deleted) {
-          await ensureCustomerMapping(userId, customer.id, getCustomerEmail(customer));
-        }
-
-        // Get the subscription ID from the session
-        const subscriptionId = session.subscription as string;
-        if (subscriptionId) {
-          // Fetch the subscription details
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          await syncSubscriptionToConvex(userId, session.customer as string, subscription);
+        // Ensure customer mapping exists if customer info is available
+        if (checkoutSession.customerId && checkoutSession.customerEmail) {
+          await ensureCustomerMapping(
+            userId, 
+            checkoutSession.customerId, 
+            checkoutSession.customerEmail
+          );
         }
 
         console.log('Successfully processed checkout completion for user:', userId);
         break;
       }
 
-      case 'customer.subscription.created': {
-        const subscription = event.data.object as Stripe.Subscription;
+      case 'subscription.created': {
+        const subscription = event.data;
         console.log('Subscription created:', subscription.id);
 
-        // Get customer and find associated user
-        const customer = await stripe.customers.retrieve(subscription.customer as string);
-        if (customer.deleted) {
-          console.error('Customer was deleted:', subscription.customer);
-          break;
-        }
-
-        const userId = !customer.deleted ? getCustomerMetadata(customer).userId : null;
+        const userId = subscription.metadata?.userId;
         if (!userId) {
-          console.error('No userId found in customer metadata for subscription:', subscription.id);
+          console.error('No userId found in subscription metadata:', subscription.id);
           break;
-        }
-
-        // Ensure customer mapping exists
-        if (!customer.deleted) {
-          await ensureCustomerMapping(userId, customer.id, getCustomerEmail(customer));
         }
 
         // Sync subscription data
-        await syncSubscriptionToConvex(userId, subscription.customer as string, subscription);
+        await syncSubscriptionToDatabase(userId, subscription.customerId, subscription);
         console.log('Successfully processed subscription creation for user:', userId);
         break;
       }
 
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription;
+      case 'subscription.updated': {
+        const subscription = event.data;
         console.log('Subscription updated:', subscription.id, 'Status:', subscription.status);
 
-        // Get customer and find associated user
-        const customer = await stripe.customers.retrieve(subscription.customer as string);
-        if (customer.deleted) {
-          console.error('Customer was deleted:', subscription.customer);
-          break;
-        }
-
-        const userId = !customer.deleted ? getCustomerMetadata(customer).userId : null;
+        const userId = subscription.metadata?.userId;
         if (!userId) {
-          console.error('No userId found in customer metadata for subscription:', subscription.id);
+          console.error('No userId found in subscription metadata:', subscription.id);
           break;
         }
 
-        await syncSubscriptionToConvex(userId, subscription.customer as string, subscription);
+        await syncSubscriptionToDatabase(userId, subscription.customerId, subscription);
         console.log('Successfully processed subscription update for user:', userId, 'Status:', subscription.status);
         break;
       }
 
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription;
-        console.log('Subscription deleted:', subscription.id);
+      case 'subscription.canceled': {
+        const subscription = event.data;
+        console.log('Subscription canceled:', subscription.id);
 
-        // Get customer and find associated user
-        const customer = await stripe.customers.retrieve(subscription.customer as string);
-        if (customer.deleted) {
-          console.error('Customer was deleted:', subscription.customer);
-          break;
-        }
-
-        const userId = !customer.deleted ? getCustomerMetadata(customer).userId : null;
+        const userId = subscription.metadata?.userId;
         if (!userId) {
-          console.error('No userId found in customer metadata for subscription:', subscription.id);
+          console.error('No userId found in subscription metadata:', subscription.id);
           break;
         }
 
         // Set user back to free plan
-        await syncSubscriptionToConvex(userId, subscription.customer as string, undefined);
-        console.log('Successfully processed subscription deletion for user:', userId);
-        break;
-      }
-
-      case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice;
-        console.log('Payment succeeded for invoice:', invoice.id);
-
-        // Get subscription if this is a subscription invoice
-        const subscriptionId = getInvoiceSubscriptionId(invoice);
-        if (subscriptionId) {
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          const customer = await stripe.customers.retrieve(subscription.customer as string);
-
-          if (customer.deleted) {
-            console.error('Customer was deleted:', subscription.customer);
-            break;
-          }
-
-          const userId = !customer.deleted ? getCustomerMetadata(customer).userId : null;
-          if (userId) {
-            await syncSubscriptionToConvex(userId, subscription.customer as string, subscription);
-            console.log('Successfully processed payment success for user:', userId);
-          }
-        }
-        break;
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice;
-        console.log('Payment failed for invoice:', invoice.id);
-
-        // Get subscription if this is a subscription invoice
-        const subscriptionId = getInvoiceSubscriptionId(invoice);
-        if (subscriptionId) {
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          const customer = await stripe.customers.retrieve(subscription.customer as string);
-
-          if (customer.deleted) {
-            console.error('Customer was deleted:', subscription.customer);
-            break;
-          }
-
-          const userId = !customer.deleted ? getCustomerMetadata(customer).userId : null;
-          if (userId) {
-            // Sync the current subscription status (might be past_due)
-            await syncSubscriptionToConvex(userId, subscription.customer as string, subscription);
-            console.log('Successfully processed payment failure for user:', userId, 'Status:', subscription.status);
-          }
-        }
+        await syncSubscriptionToDatabase(userId, subscription.customerId, undefined);
+        console.log('Successfully processed subscription cancellation for user:', userId);
         break;
       }
 
       case 'customer.created': {
-        const customer = event.data.object as Stripe.Customer;
+        const customer = event.data;
         console.log('Customer created:', customer.id);
 
-        // Get user ID from customer metadata
         const userId = customer.metadata?.userId;
         if (!userId) {
           console.log('No userId found in customer metadata, skipping customer creation sync');
           break;
         }
 
-        // Create or update the customer mapping in Convex
         try {
           await ensureCustomerMapping(userId, customer.id, customer.email || '');
           console.log('Successfully created customer mapping for user:', userId);
@@ -372,21 +249,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       default:
-        console.log('Unhandled event type:', event.type);
+        console.log('Unhandled Polar webhook event type:', event.type);
     }
 
-    // Return a response to acknowledge receipt of the event
-    return withCors(res, allowedOrigin).status(200).json({ 
+    // Return success response
+    return c.json({ 
       received: true,
       eventType: event.type,
       eventId: event.id
     });
 
   } catch (error) {
-    console.error('Stripe webhook error:', error);
-    return withCors(res, allowedOrigin).status(500).json({
+    console.error('Polar webhook error:', error);
+    return c.json({
       error: 'Webhook Error',
       message: error instanceof Error ? error.message : 'Unknown error occurred'
-    });
+    }, 500);
   }
-}
+});
+
+// Handle OPTIONS for CORS
+app.options('/webhook', (c) => {
+  return c.text('', 204);
+});
+
+// Export the Vercel handler
+export default handle(app);

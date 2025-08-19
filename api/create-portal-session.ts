@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
-import Stripe from 'stripe';
+import { Polar } from '@polar-sh/sdk';
 
 function withCors(res: VercelResponse, allowOrigin?: string) {
   const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
@@ -79,49 +79,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-      // Initialize Stripe
-      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-      if (!stripeSecretKey) {
-        throw new Error('STRIPE_SECRET_KEY environment variable is not set');
-      }
+      // For Polar.sh, customer portal access works differently than Stripe
+      // Polar.sh typically redirects users to their dashboard for subscription management
+      
+      try {
+        // Initialize Polar.sh (optional, for future customer portal API if available)
+        const polarAccessToken = process.env.POLAR_ACCESS_TOKEN;
+        if (polarAccessToken) {
+          // const polar = new Polar({
+          //   accessToken: polarAccessToken,
+          //   server: process.env.NODE_ENV === 'production' ? undefined : 'sandbox'
+          // });
+          
+          // If Polar.sh introduces a customer portal API in the future, use it here
+          // const portalSession = await polar.customerPortal.create({...});
+        }
+        
+        // For now, redirect to Polar.sh dashboard
+        const portalUrl = process.env.NODE_ENV === 'production' 
+          ? 'https://polar.sh/dashboard/subscriptions'
+          : 'https://sandbox.polar.sh/dashboard/subscriptions';
+        
+        console.log('Redirecting to Polar.sh dashboard for user:', authenticatedUserId);
 
-      const stripe = new Stripe(stripeSecretKey);
-
-      // Find the Stripe customer by email
-      const existingCustomers = await stripe.customers.list({
-        email: userEmail,
-        limit: 1,
-      });
-
-      if (existingCustomers.data.length === 0) {
-        return withCors(res, allowedOrigin).status(404).json({
-          error: 'Customer Not Found',
-          message: 'No Stripe customer found for this user. Please create a subscription first.'
+        return withCors(res, allowedOrigin).status(200).json({
+          url: portalUrl,
+          customer_id: authenticatedUserId,
+          message: 'Redirecting to subscription management dashboard'
+        });
+        
+      } catch (polarError) {
+        console.warn('Polar.sh dashboard redirect failed:', polarError);
+        
+        // Fallback: redirect to app settings page
+        const fallbackUrl = `${process.env.PUBLIC_ORIGIN || 'http://localhost:5173'}/settings?tab=billing`;
+        
+        return withCors(res, allowedOrigin).status(200).json({
+          url: fallbackUrl,
+          customer_id: authenticatedUserId,
+          message: 'Redirecting to billing settings. Contact support for subscription changes.'
         });
       }
 
-      const customer = existingCustomers.data[0];
-      console.log('Found Stripe customer for portal:', customer.id);
-
-      // Create billing portal session
-      const session = await stripe.billingPortal.sessions.create({
-        customer: customer.id,
-        return_url: `${process.env.PUBLIC_ORIGIN || 'http://localhost:5173'}/settings`,
-      });
-
-      console.log('Created Stripe billing portal session:', session.id, 'for user:', authenticatedUserId);
-
-      return withCors(res, allowedOrigin).status(200).json({
-        url: session.url,
-        customer_id: authenticatedUserId,
-        session_id: session.id,
-      });
-
-    } catch (stripeError) {
-      console.error('Error creating Stripe billing portal session:', stripeError);
+    } catch (portalError) {
+      console.error('Error creating portal session:', portalError);
       return withCors(res, allowedOrigin).status(500).json({
         error: 'Portal Error',
-        message: stripeError instanceof Error ? stripeError.message : 'Failed to create billing portal session'
+        message: portalError instanceof Error ? portalError.message : 'Failed to create portal session'
       });
     }
 

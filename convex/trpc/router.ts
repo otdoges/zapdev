@@ -1,6 +1,6 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
-// Stripe calls are handled in API routes with proper auth verification.
+// Polar.sh calls are handled in API routes with proper auth verification.
 
 type ClerkJwtPayload = {
   sub?: string;
@@ -243,7 +243,7 @@ const authRouter = router({
     }),
 });
 
-// Billing procedures (Stripe)
+// Billing procedures (Polar.sh)
 const billingRouter = router({
   // Get user subscription status (delegates to API route)
   getUserSubscription: protectedProcedure.query(async ({ ctx }) => {
@@ -255,8 +255,14 @@ const billingRouter = router({
       });
       if (!res.ok) throw new Error('Failed to fetch subscription');
       const sub = await res.json();
-      const planId = (sub?.planId as 'free' | 'pro' | 'enterprise') || 'free';
-      const features = planId === 'enterprise' ? ENTERPRISE_FEATURES : planId === 'pro' ? PRO_FEATURES : FREE_FEATURES;
+      const planId = (sub?.planId as 'free' | 'starter' | 'pro' | 'enterprise') || 'free';
+      const features = planId === 'enterprise' 
+        ? ENTERPRISE_FEATURES 
+        : planId === 'pro' 
+        ? PRO_FEATURES 
+        : planId === 'starter'
+        ? STARTER_FEATURES
+        : FREE_FEATURES;
       return {
         planId,
         planName: planId.charAt(0).toUpperCase() + planId.slice(1),
@@ -280,7 +286,7 @@ const billingRouter = router({
     }
   }),
 
-  // Create Stripe checkout session (delegates to API route)
+  // Create Polar.sh checkout session (delegates to API route)
   createCheckoutSession: protectedProcedure
     .input(z.object({ planId: z.enum(['free', 'starter', 'pro', 'enterprise']), period: z.enum(['month', 'year']).optional().default('month') }))
     .mutation(async ({ input, ctx }) => {
@@ -295,99 +301,37 @@ const billingRouter = router({
           });
         }
 
-        const stripeSecret = process.env.STRIPE_SECRET_KEY;
-        if (!stripeSecret || stripeSecret.trim() === '') {
-           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Stripe configuration missing' });
-         }
-
-         // Get server-side secret for HMAC generation
-         const hmacSecret = process.env.USER_ID_HMAC_SECRET;
-         if (!hmacSecret || hmacSecret.trim() === '') {
-           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'HMAC secret not configured' });
-         }
-
-         const { default: Stripe } = await import('stripe');
-         const stripe = new Stripe(stripeSecret);
-
-         // Generate hashed user reference instead of exposing raw user ID
-         const generateUserReference = async (userId: string): Promise<string> => {
-           const encoder = new TextEncoder();
-           const data = encoder.encode(userId);
-           const keyData = encoder.encode(hmacSecret);
-           
-           // Import key for HMAC-SHA256
-           const key = await crypto.subtle.importKey(
-             'raw', 
-             keyData, 
-             { name: 'HMAC', hash: 'SHA-256' }, 
-             false, 
-             ['sign']
-           );
-           
-           // Generate HMAC
-           const signature = await crypto.subtle.sign('HMAC', key, data);
-           const hashArray = Array.from(new Uint8Array(signature));
-           const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-           
-           // Return truncated hash for metadata (first 32 chars for readability)
-           return `usr_${hashHex.substring(0, 32)}`;
-         };
-
-         const hashedUserId = await generateUserReference(ctx.user!.id);
-
-         // Note: To resolve user ID from Stripe webhook metadata, use:
-         // 1. Extract userRef from Stripe webhook metadata
-         // 2. Query your database for users where HMAC(userId, secret) matches userRef
-         // 3. Alternatively, store userRef -> userId mapping in a separate secure table
-         // This ensures the original user ID is never exposed in Stripe metadata
-
-        // Resolve price ID using existing env naming used across the app
-        const resolvePriceId = (planId: 'starter' | 'pro', period: 'month' | 'year'): string | null => {
-          if (planId === 'pro') {
-            const month = process.env.STRIPE_PRICE_PRO_MONTH || process.env.STRIPE_PRO_MONTHLY_PRICE_ID;
-            const year = process.env.STRIPE_PRICE_PRO_YEAR || process.env.STRIPE_PRO_YEARLY_PRICE_ID;
-            return period === 'month' ? (month || null) : (year || null);
-          }
-          if (planId === 'starter') {
-            const month = process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID;
-            const year = process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID;
-            return period === 'month' ? (month || null) : (year || null);
-          }
-          return null;
-        };
-
-        const priceId = resolvePriceId(input.planId === 'starter' ? 'starter' : 'pro', input.period);
-        if (!priceId) {
-          throw new TRPCError({ code: 'BAD_REQUEST', message: `Unsupported plan ${input.planId} / ${input.period}` });
-        }
-
-        const publicOrigin = process.env.PUBLIC_ORIGIN || 'http://localhost:5173';
-
-        // Prefer session email from token if available
-        const customerEmail = ctx.user?.email;
-
-        const session = await stripe.checkout.sessions.create({
-          payment_method_types: ['card'],
-          mode: 'subscription',
-          line_items: [
-            { price: priceId, quantity: 1 },
-          ],
-          // Let Stripe create the customer; pass email when available
-          ...(customerEmail ? { customer_email: customerEmail } : {}),
-          success_url: `${publicOrigin}/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${publicOrigin}/pricing`,
-          metadata: {
-            userRef: hashedUserId, // Use hashed reference instead of raw user ID
-            planId: input.planId,
-            originalUserId: '', // Don't store original - use lookup by hash instead
+        // Delegate to API route for actual Polar.sh integration
+        const base = process.env.PUBLIC_ORIGIN;
+        if (!base) throw new Error('PUBLIC_ORIGIN not set');
+        
+        const res = await fetch(`${base}/api/create-checkout-session`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ctx.authToken}` 
           },
+          body: JSON.stringify({ 
+            planId: input.planId, 
+            period: input.period 
+          }),
         });
-
-        if (!session.url) {
-          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Stripe did not return a checkout URL' });
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+          throw new TRPCError({ 
+            code: 'INTERNAL_SERVER_ERROR', 
+            message: errorData.message || 'Failed to create checkout session' 
+          });
+        }
+        
+        const data = await res.json();
+        
+        if (!data.url) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'No checkout URL returned' });
         }
 
-        return { url: session.url };
+        return { url: data.url };
       } catch (error) {
         console.error('createCheckoutSession error:', error);
         if (error instanceof TRPCError) throw error;
@@ -395,7 +339,7 @@ const billingRouter = router({
       }
     }),
 
-  // Create Stripe billing portal session (delegates to API route)
+  // Create Polar.sh customer portal session (delegates to API route)
   createCustomerPortalSession: protectedProcedure.mutation(async ({ ctx }) => {
     try {
       const base = process.env.PUBLIC_ORIGIN;
@@ -410,27 +354,36 @@ const billingRouter = router({
       return { url: data.url as string };
     } catch (error) {
       console.error('createCustomerPortalSession error:', error);
-      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create billing portal session' });
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create customer portal session' });
     }
   }),
 });
 
-// Helper constants and functions for Stripe plan mapping
+// Helper constants and functions for Polar.sh plan mapping
 const PRO_FEATURES = [
   'Unlimited AI conversations',
   'Advanced code execution',
   'Priority support',
-  'Fast response time',
+  'Fastest response time',
   'Custom integrations',
   'Team collaboration',
+  'Advanced analytics',
 ];
 const ENTERPRISE_FEATURES = [
   'Everything in Pro',
-  'Dedicated support',
+  'Dedicated support team',
   'SLA guarantee',
   'Custom deployment',
-  'Advanced analytics',
+  'Advanced security',
   'Custom billing',
+  'On-premise options',
+];
+const STARTER_FEATURES = [
+  '100 AI conversations per month',
+  'Advanced code execution',
+  'Email support',
+  'Fast response time',
+  'File uploads',
 ];
 const FREE_FEATURES = [
   '10 AI conversations per month',

@@ -4,23 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-- `pnpm run dev` - Start Vite development server with hot reloading on port 8080
-- `pnpm run dev:api` - Start Vercel development server for API endpoints on port 3000
-- `pnpm run dev:full` - Start both frontend (port 8080) and API (port 3000) servers
-- `pnpm run build` - Build for production 
-- `pnpm run build:dev` - Build in development mode
-- `pnpm run lint` - Run ESLint to check code quality
-- `pnpm run preview` - Preview production build locally
+- `bun run dev` - Start Vite development server with hot reloading on port 8080
+- `bun run dev:api` - Start Vercel development server for API endpoints on port 3000
+- `bun run dev:full` - Start both frontend (port 8080) and API (port 3000) servers
+- `bun run dev:complete` - Start all services: Convex, API, and frontend
+- `bun run build` - Build for production 
+- `bun run build:dev` - Build in development mode
+- `bun run lint` - Run ESLint to check code quality
+- `bun run preview` - Preview production build locally
 
 ### Development Setup
 
-For full functionality including Stripe subscription and API endpoints:
-1. Install dependencies: `pnpm install`
-2. Ensure Vercel CLI is installed: `npm i -g vercel`
-3. Use `pnpm run dev:full` to start both frontend and API servers
+For full functionality including Polar.sh subscriptions and all API endpoints:
+1. Install dependencies: `bun install`
+2. Set up environment variables (see Polar.sh configuration below)
+3. Use `bun run dev:complete` to start all services (Convex, API, and frontend)
 4. Access the app at `http://localhost:8080`
 
-Note: The frontend (`pnpm run dev`) uses Vite with proxy configuration to forward `/api/*` requests to the Vercel dev server on port 3000.
+Note: The frontend uses Vite with proxy configuration to forward:
+- `/api/*` requests to the Vercel dev server on port 3000
+- `/hono/*` requests to serverless Hono.js functions via the API server
 
 ## Project Architecture
 
@@ -82,7 +85,9 @@ Key tables with security considerations:
 - Input validation using Zod schemas
 
 ### Configuration Notes
-- Vite runs on port 8080
+- Vite runs on port 8080 (frontend)
+- Vercel API server runs on port 3000 (existing API routes)
+- Hono.js server runs on port 3001 (new Hono.js + Polar.sh routes)
 - TypeScript configured with strict settings (no `any` types, strict null checks enabled)
 - ESLint with React hooks and TypeScript support
 - Tailwind with dark mode and custom color system
@@ -138,12 +143,46 @@ import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
 - Path alias `@/` points to `src/`
 - Package manager: Bun preferred, fallback to pnpm/npm
 
+### Payment Integration: Polar.sh
+**IMPORTANT**: ZapDev now uses Polar.sh for payment processing instead of Stripe.
+
+#### Required Environment Variables:
+```bash
+# Polar.sh Configuration
+POLAR_ACCESS_TOKEN=your_polar_access_token
+POLAR_WEBHOOK_SECRET=your_webhook_secret
+POLAR_ORGANIZATION_ID=your_org_id
+
+# Product ID mappings for different plans and periods
+POLAR_PRODUCT_STARTER_MONTH_ID=starter_monthly_product_id
+POLAR_PRODUCT_STARTER_YEAR_ID=starter_yearly_product_id
+POLAR_PRODUCT_PRO_MONTH_ID=pro_monthly_product_id
+POLAR_PRODUCT_PRO_YEAR_ID=pro_yearly_product_id
+POLAR_PRODUCT_ENTERPRISE_MONTH_ID=enterprise_monthly_product_id
+POLAR_PRODUCT_ENTERPRISE_YEAR_ID=enterprise_yearly_product_id
+```
+
+#### Hono.js + Polar.sh Integration:
+- **Serverless Hono.js Routes**: `/hono/checkout`, `/hono/portal`, `/hono/webhooks`, `/hono/trpc/*`
+- **Traditional API Routes**: Updated to use Polar.sh SDK instead of Stripe
+- **Fully Serverless**: All Hono.js functionality runs as Vercel serverless functions
+- **Development Mode**: Uses Polar.sh sandbox environment  
+- **Production Mode**: Uses Polar.sh production environment
+- **Auto-Deploy**: Vercel automatically starts all required services
+
+#### Plan Structure:
+- **Free**: 10 AI conversations/month, basic features
+- **Starter**: 100 AI conversations/month, advanced features ($9/month)  
+- **Pro**: Unlimited conversations, priority support ($29/month)
+- **Enterprise**: Custom pricing, dedicated support (contact sales)
+
 ### Key Features
 - Real-time AI chat with code execution capabilities
 - WebContainer-based safe code running environment
-- Subscription management with Stripe integration
+- Subscription management with Polar.sh integration
 - User authentication and profile management
 - Responsive design with modern UX patterns
+- Hono.js API layer for enhanced performance
 
 - Always Ultrathink.
 - Reason as much as possible.

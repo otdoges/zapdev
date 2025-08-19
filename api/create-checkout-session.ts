@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
-import Stripe from 'stripe';
+import { Polar } from '@polar-sh/sdk';
 
 function withCors(res: VercelResponse, allowOrigin?: string) {
   const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
@@ -104,97 +104,69 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-      // Initialize Stripe
-      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-      if (!stripeSecretKey) {
-        throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+      // Initialize Polar.sh
+      const polarAccessToken = process.env.POLAR_ACCESS_TOKEN;
+      if (!polarAccessToken) {
+        throw new Error('POLAR_ACCESS_TOKEN environment variable is not set');
       }
 
-      const stripe = new Stripe(stripeSecretKey);
+      const polar = new Polar({
+        accessToken: polarAccessToken,
+        server: process.env.NODE_ENV === 'production' ? undefined : 'sandbox'
+      });
 
-      // Map planId to Stripe price IDs based on period (standardized naming)
-      const priceIdMap: Record<string, Record<string, string>> = {
+      // Map planId to Polar.sh product IDs based on period
+      const productIdMap: Record<string, Record<string, string>> = {
         'pro': {
-          'month': process.env.STRIPE_PRICE_PRO_MONTH || process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly',
-          'year': process.env.STRIPE_PRICE_PRO_YEAR || process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly',
+          'month': process.env.POLAR_PRODUCT_PRO_MONTH_ID || 'pro_monthly',
+          'year': process.env.POLAR_PRODUCT_PRO_YEAR_ID || 'pro_yearly',
         },
         'enterprise': {
-          'month': process.env.STRIPE_PRICE_ENTERPRISE_MONTH || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly',
-          'year': process.env.STRIPE_PRICE_ENTERPRISE_YEAR || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly',
+          'month': process.env.POLAR_PRODUCT_ENTERPRISE_MONTH_ID || 'enterprise_monthly',
+          'year': process.env.POLAR_PRODUCT_ENTERPRISE_YEAR_ID || 'enterprise_yearly',
         },
         'starter': {
-          'month': process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly',
-          'year': process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly',
+          'month': process.env.POLAR_PRODUCT_STARTER_MONTH_ID || 'starter_monthly',
+          'year': process.env.POLAR_PRODUCT_STARTER_YEAR_ID || 'starter_yearly',
         },
       };
 
-      const stripePriceId = priceIdMap[planId as keyof typeof priceIdMap]?.[period as keyof typeof priceIdMap[keyof typeof priceIdMap]];
-      if (!stripePriceId) {
+      const polarProductId = productIdMap[planId as keyof typeof productIdMap]?.[period as keyof typeof productIdMap[keyof typeof productIdMap]];
+      if (!polarProductId) {
         return withCors(res, allowedOrigin).status(400).json({
           error: 'Invalid Plan',
           message: `Plan ${planId} with period ${period} is not supported`
         });
       }
 
-      // Create or get Stripe customer
-      let customer: Stripe.Customer;
-      try {
-        // Try to find existing customer by email
-        const existingCustomers = await stripe.customers.list({
-          email: userEmail,
-          limit: 1,
-        });
-
-        if (existingCustomers.data.length > 0) {
-          customer = existingCustomers.data[0];
-          console.log('Found existing Stripe customer:', customer.id);
-        } else {
-          // Create new customer
-          customer = await stripe.customers.create({
-            email: userEmail,
-            metadata: {
-              userId: authenticatedUserId,
-            },
-          });
-          console.log('Created new Stripe customer:', customer.id);
-        }
-      } catch (customerError) {
-        console.error('Error handling Stripe customer:', customerError);
-        throw new Error('Failed to create or retrieve customer');
-      }
-
-      // Create checkout session
-      const session = await stripe.checkout.sessions.create({
-        customer: customer.id,
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price: stripePriceId,
-            quantity: 1,
-          },
-        ],
-        mode: 'subscription',
-        success_url: `${process.env.PUBLIC_ORIGIN || 'http://localhost:5173'}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.PUBLIC_ORIGIN || 'http://localhost:5173'}/pricing`,
+      // Create Polar.sh checkout session
+      const checkout = await polar.checkouts.create({
+        products: [polarProductId],
+        customerBillingAddress: {
+          country: 'US' // Default, can be customized based on user location
+        },
         metadata: {
           userId: authenticatedUserId,
           planId: planId,
+          period: period,
         },
+        successUrl: `${process.env.PUBLIC_ORIGIN || 'http://localhost:5173'}/success?session_id={CHECKOUT_SESSION_ID}`,
+        customerEmail: userEmail,
       });
 
-      console.log('Created Stripe checkout session:', session.id, 'for user:', authenticatedUserId);
+      console.log('Created Polar.sh checkout session:', checkout.id, 'for user:', authenticatedUserId);
 
       return withCors(res, allowedOrigin).status(200).json({
-        url: session.url,
+        url: checkout.url,
         customer_id: authenticatedUserId,
-        session_id: session.id,
+        session_id: checkout.id,
       });
 
-    } catch (stripeError) {
-      console.error('Error creating Stripe checkout session:', stripeError);
+    } catch (polarError) {
+      console.error('Error creating Polar.sh checkout session:', polarError);
       return withCors(res, allowedOrigin).status(500).json({
         error: 'Checkout Error',
-        message: stripeError instanceof Error ? stripeError.message : 'Failed to create checkout session'
+        message: polarError instanceof Error ? polarError.message : 'Failed to create checkout session'
       });
     }
 

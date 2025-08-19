@@ -1,11 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
-import Stripe from 'stripe';
+import { Polar } from '@polar-sh/sdk';
 import { 
-  SubscriptionData,
+  UserSubscription,
   PlanType,
-  getSubscriptionPeriod
-} from '../src/types/stripe';
+  PLAN_FEATURES,
+  getPlanDisplayName
+} from '../src/types/polar';
 
 function withCors(res: VercelResponse, allowOrigin?: string) {
   const origin = allowOrigin ?? process.env.PUBLIC_ORIGIN ?? '*';
@@ -84,27 +85,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-      // Initialize Stripe
-      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-      if (!stripeSecretKey) {
-        throw new Error('STRIPE_SECRET_KEY environment variable is not set');
-      }
-
-      const stripe = new Stripe(stripeSecretKey, {
-        apiVersion: '2025-07-30.basil',
-      });
-
-      // Find the Stripe customer by email
-      const existingCustomers = await stripe.customers.list({
-        email: userEmail,
-        limit: 1,
-      });
-
-      if (existingCustomers.data.length === 0) {
-        // No customer found, return free plan
-        const freeSubscriptionData = {
+      // Initialize Polar.sh
+      const polarAccessToken = process.env.POLAR_ACCESS_TOKEN;
+      if (!polarAccessToken) {
+        // If no Polar access token, return free plan
+        console.warn('POLAR_ACCESS_TOKEN not set, defaulting to free plan');
+        const freeSubscriptionData: UserSubscription = {
           planId: 'free',
+          planName: 'Free',
           status: 'none',
+          features: PLAN_FEATURES.free,
           currentPeriodStart: Date.now(),
           currentPeriodEnd: Date.now() + (30 * 24 * 60 * 60 * 1000),
           cancelAtPeriodEnd: false,
@@ -112,73 +102,87 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return withCors(res, allowedOrigin).status(200).json(freeSubscriptionData);
       }
 
-      const customer = existingCustomers.data[0];
-      console.log('Found Stripe customer:', customer.id);
-
-      // Get active subscriptions for this customer
-      const subscriptions = await stripe.subscriptions.list({
-        customer: customer.id,
-        status: 'active',
-        limit: 1,
+      const polar = new Polar({
+        accessToken: polarAccessToken,
+        server: process.env.NODE_ENV === 'production' ? undefined : 'sandbox'
       });
 
-      if (subscriptions.data.length === 0) {
-        // No active subscription, return free plan
-        const freeSubscriptionData = {
-          planId: 'free',
-          status: 'none',
-          currentPeriodStart: Date.now(),
-          currentPeriodEnd: Date.now() + (30 * 24 * 60 * 60 * 1000),
-          cancelAtPeriodEnd: false,
-        };
-        return withCors(res, allowedOrigin).status(200).json(freeSubscriptionData);
-      }
-
-      const subscription = subscriptions.data[0];
-      const priceId = subscription.items.data[0]?.price.id;
-
-      // Map Stripe price IDs back to plan IDs (standardized naming)
-      const planIdMap: Record<string, string> = {
-        [process.env.STRIPE_PRICE_PRO_MONTH || process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly']: 'pro',
-        [process.env.STRIPE_PRICE_PRO_YEAR || process.env.STRIPE_PRO_YEARLY_PRICE_ID || 'price_pro_yearly']: 'pro',
-        [process.env.STRIPE_PRICE_ENTERPRISE_MONTH || process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID || 'price_enterprise_monthly']: 'enterprise',
-        [process.env.STRIPE_PRICE_ENTERPRISE_YEAR || process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID || 'price_enterprise_yearly']: 'enterprise',
-        [process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
-        [process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
-      };
-
-      // eslint-disable-next-line security/detect-object-injection
-      const planId = (priceId && planIdMap[priceId]) || 'free';
-
-      // Type-safe period extraction
-      const subscriptionPeriod = getSubscriptionPeriod(subscription);
-      if (!subscriptionPeriod) {
-        console.error('Invalid subscription object structure');
-        return withCors(res, allowedOrigin).status(500).json({
-          error: 'Invalid subscription data'
+      // Get user's subscriptions from Polar.sh
+      // Note: This is a simplified implementation. In production, you'd want to:
+      // 1. Store customer ID mapping in your database
+      // 2. Query subscriptions by customer ID or metadata
+      // 3. Handle pagination and filtering properly
+      
+      try {
+        const subscriptions = await polar.subscriptions.list({
+          limit: 100 // Get recent subscriptions
         });
+        
+        // Find active subscription for this user
+        // Look for subscriptions with matching userId in metadata
+        const activeSubscription = subscriptions.items?.find(sub => 
+          (sub.status === 'active' || sub.status === 'trialing') && 
+          sub.metadata?.userId === authenticatedUserId
+        );
+        
+        if (!activeSubscription) {
+          // No active subscription found, return free plan
+          const freeSubscriptionData: UserSubscription = {
+            planId: 'free',
+            planName: 'Free',
+            status: 'none',
+            features: PLAN_FEATURES.free,
+            currentPeriodStart: Date.now(),
+            currentPeriodEnd: Date.now() + (30 * 24 * 60 * 60 * 1000),
+            cancelAtPeriodEnd: false,
+          };
+          return withCors(res, allowedOrigin).status(200).json(freeSubscriptionData);
+        }
+
+        // Determine plan ID from subscription metadata or product mapping
+        const metadataPlanId = activeSubscription.metadata?.planId;
+        const planId = (metadataPlanId && ['free', 'starter', 'pro', 'enterprise'].includes(metadataPlanId) 
+          ? metadataPlanId as PlanType 
+          : 'pro');
+
+        const subscriptionData: UserSubscription = {
+          planId,
+          planName: getPlanDisplayName(planId),
+          status: activeSubscription.status,
+          features: PLAN_FEATURES[planId] || PLAN_FEATURES.free,
+          currentPeriodStart: new Date(activeSubscription.currentPeriodStart).getTime(),
+          currentPeriodEnd: new Date(activeSubscription.currentPeriodEnd).getTime(),
+          cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd || false,
+        };
+
+        console.log('Retrieved Polar.sh subscription data for user:', authenticatedUserId, 'plan:', planId);
+        return withCors(res, allowedOrigin).status(200).json(subscriptionData);
+        
+      } catch (polarApiError) {
+        console.warn('Failed to fetch subscriptions from Polar.sh API:', polarApiError);
+        
+        // Fallback to free plan if API call fails
+        const fallbackData: UserSubscription = {
+          planId: 'free',
+          planName: 'Free',
+          status: 'none',
+          features: PLAN_FEATURES.free,
+          currentPeriodStart: Date.now(),
+          currentPeriodEnd: Date.now() + (30 * 24 * 60 * 60 * 1000),
+          cancelAtPeriodEnd: false,
+        };
+        return withCors(res, allowedOrigin).status(200).json(fallbackData);
       }
 
-      const subscriptionData: SubscriptionData = {
-        planId: planId as PlanType,
-        status: subscription.status,
-        currentPeriodStart: subscriptionPeriod.currentPeriodStart,
-        currentPeriodEnd: subscriptionPeriod.currentPeriodEnd,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-        stripeSubscriptionId: subscription.id,
-        stripeCustomerId: typeof customer === 'string' ? customer : customer.id,
-      };
+    } catch (polarError) {
+      console.error('Error fetching Polar.sh subscription:', polarError);
 
-      console.log('Retrieved subscription data for user:', authenticatedUserId, 'plan:', planId);
-      return withCors(res, allowedOrigin).status(200).json(subscriptionData);
-
-    } catch (stripeError) {
-      console.error('Error fetching Stripe subscription:', stripeError);
-
-      // Fallback to default subscription data if Stripe API fails
-      const fallbackData = {
+      // Fallback to default subscription data if Polar.sh API fails
+      const fallbackData: UserSubscription = {
         planId: 'free',
+        planName: 'Free',
         status: 'none',
+        features: PLAN_FEATURES.free,
         currentPeriodStart: Date.now(),
         currentPeriodEnd: Date.now() + (30 * 24 * 60 * 60 * 1000),
         cancelAtPeriodEnd: false,

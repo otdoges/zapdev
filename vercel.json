@@ -5,13 +5,16 @@
     { "src": "api/*.js", "use": "@vercel/node@5.3.11", "config": { "runtime": "nodejs20.x", "memory": 256, "maxDuration": 10 } },
     { "src": "api/**/*.ts", "use": "@vercel/node@5.3.11", "config": { "runtime": "nodejs20.x", "memory": 256, "maxDuration": 10 } },
     { "src": "api/**/*.js", "use": "@vercel/node@5.3.11", "config": { "runtime": "nodejs20.x", "memory": 256, "maxDuration": 10 } },
-    { "src": "package.json", "use": "@vercel/static-build@2.7.17", "config": { "distDir": "dist", "buildCommand": "npm run build", "installCommand": "npm install --no-audit --no-fund --legacy-peer-deps" } }
+    { "src": "package.json", "use": "@vercel/static-build@2.7.17", "config": { "distDir": "dist", "buildCommand": "npm run build", "installCommand": "bun install", "devCommand": "npm run dev:complete" } }
   ],
 
   "headers": [],
   
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/hono/trpc/:path*", "destination": "/api/hono-trpc/trpc/:path*" },
+    { "source": "/hono/polar/:path*", "destination": "/api/hono-polar/:path*" },
+    { "source": "/hono/:path*", "destination": "/api/hono-polar/:path*" },
     { "source": "/:path*", "destination": "/index.html" }
   ]
 }

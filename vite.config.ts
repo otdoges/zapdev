@@ -27,6 +27,18 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        '/hono/trpc': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/hono\/trpc/, '/api/hono-trpc/trpc'),
+        },
+        '/hono': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/hono/, '/api/hono-polar'),
+        },
       },
     },
     plugins: [
@@ -37,7 +49,7 @@ export default defineConfig(({ mode }) => {
         injectRegister: 'auto',
         workbox: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-          navigateFallbackDenylist: [/^\/api\//, /^\/convex\//, /^\/_/],
+          navigateFallbackDenylist: [/^\/api\//, /^\/hono\//, /^\/convex\//, /^\/_/],
           runtimeCaching: [{
             urlPattern: /^https:\/\/api\./,
             handler: 'NetworkFirst',

@@ -11,9 +11,11 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "tsx api-dev-server.ts",
+    "dev:hono": "tsx src/hono-server.ts",
     "dev:full": "concurrently \"npm run dev:api\" \"npm run dev\"",
     "dev:convex": "npx convex dev",
     "dev:with-convex": "concurrently \"npx convex dev\" \"npm run dev:api\" \"npm run dev\"",
+    "dev:complete": "concurrently \"npx convex dev\" \"npm run dev:api\" \"npm run dev\"",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -41,10 +43,13 @@
     "@eslint/plugin-kit": "^0.3.5",
     "@geist-ui/core": "^2.3.8",
     "@headlessui/react": "^2.2.7",
+    "@hono/trpc-server": "^0.4.0",
     "@hookform/resolvers": "^5.2.1",
     "@lottiefiles/dotlottie-react": "^0.14.4",
     "@microsoft/eslint-formatter-sarif": "3.1.0",
     "@openrouter/ai-sdk-provider": "^1.1.2",
+    "@polar-sh/hono": "^0.3.4",
+    "@polar-sh/sdk": "^0.34.11",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -98,6 +103,7 @@
     "form-data": "^4.0.4",
     "framer-motion": "^12.23.12",
     "groq-sdk": "^0.30.0",
+    "hono": "^4.9.2",
     "input-otp": "^1.4.2",
     "lodash": "^4.17.21",
     "lucide-react": "^0.539.0",
@@ -116,7 +122,6 @@
     "recharts": "^3.1.2",
     "rollup": "^4.46.2",
     "sonner": "^2.0.7",
-    "stripe": "^18.4.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "undici": "^7.13.0",
@@ -162,7 +167,7 @@
   "vercel": {
     "buildCommand": "bun run build",
     "installCommand": "bun install",
-    "devCommand": null,
+    "devCommand": "bun run dev:complete",
     "outputDirectory": "dist"
   }
 }
