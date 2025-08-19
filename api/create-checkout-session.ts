@@ -128,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       };
 
-      const stripePriceId = priceIdMap[planId]?.[period];
+      const stripePriceId = priceIdMap[planId as keyof typeof priceIdMap]?.[period as keyof typeof priceIdMap[keyof typeof priceIdMap]];
       if (!stripePriceId) {
         return withCors(res, allowedOrigin).status(400).json({
           error: 'Invalid Plan',

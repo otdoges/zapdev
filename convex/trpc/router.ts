@@ -95,7 +95,7 @@ const userRouter = router({
       bio: z.string().optional(),
       avatarUrl: z.string().optional(),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async () => {
       // This would call a Convex mutation
       return { success: true };
     }),
@@ -104,7 +104,7 @@ const userRouter = router({
 // Chat procedures
 const chatRouter = router({
   // Get all chats for current user
-  getChats: protectedProcedure.query(async ({ ctx }) => {
+  getChats: protectedProcedure.query(async () => {
     // This would call a Convex query
     return [];
   }),
@@ -131,7 +131,7 @@ const chatRouter = router({
       id: z.string(),
       title: z.string(),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async () => {
       // This would call a Convex mutation
       return { success: true };
     }),
@@ -141,7 +141,7 @@ const chatRouter = router({
     .input(z.object({
       id: z.string(),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async () => {
       // This would call a Convex mutation
       return { success: true };
     }),
@@ -154,7 +154,7 @@ const messageRouter = router({
     .input(z.object({
       chatId: z.string(),
     }))
-    .query(async ({ input, ctx }) => {
+    .query(async () => {
       // This would call a Convex query
       return [];
     }),
@@ -218,7 +218,7 @@ const authRouter = router({
     .input(z.object({
       code: z.string(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async () => {
       try {
         // This would integrate with Clerk's auth flow
         // For now returning mock data

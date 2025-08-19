@@ -80,18 +80,6 @@ const sanitizeTitle = (title: string): string => {
 
   return sanitized;
 };
-const checkChatCreationRateLimit = async (ctx: QueryCtx | MutationCtx, userId: string) => {
-  const oneMinuteAgo = Date.now() - 60000;
-  const recentChats = await ctx.db
-    .query("chats")
-    .withIndex("by_user_id", (q) => q.eq("userId", userId))
-    .filter((q) => q.gt(q.field("createdAt"), oneMinuteAgo))
-    .take(11);
-
-  if (recentChats.length >= 10) {
-    throw new Error("Rate limit exceeded: Too many chats created recently (max 10 per minute)");
-  }
-};
 
 const checkChatUpdateRateLimit = async (ctx: QueryCtx | MutationCtx, userId: string) => {
   const tenSecondsAgo = Date.now() - 10000;

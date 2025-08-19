@@ -1,18 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { 
-  StripeSubscription, 
-  StripeCustomer, 
-  StripeInvoice,
-  StripeWebhookEvent,
-  PlanType,
   getSubscriptionPeriod,
   getCustomerEmail,
   getCustomerMetadata,
-  getInvoiceSubscriptionId,
-  isStripeSubscription,
-  isStripeCustomer,
-  isStripeInvoice 
+  getInvoiceSubscriptionId
 } from '../src/types/stripe';
 
 // Helper function to map Stripe price IDs to plan types (standardized naming)
@@ -25,7 +17,8 @@ function mapPriceIdToPlanType(priceId: string): 'free' | 'pro' | 'enterprise' | 
     [process.env.STRIPE_PRICE_STARTER_MONTH || process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly']: 'starter',
     [process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
   };
-  return priceIdMap[priceId] || 'free';
+  // eslint-disable-next-line security/detect-object-injection
+  return (priceId && priceIdMap[priceId]) || 'free';
 }
 
 

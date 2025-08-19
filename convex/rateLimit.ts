@@ -44,7 +44,7 @@ export async function checkRateLimit(
     cleanupExpiredRateLimits();
   }
 
-  const config = RATE_LIMITS[operation];
+  const config = RATE_LIMITS[operation as keyof typeof RATE_LIMITS];
   const key = `${identity.subject}:${operation}`;
   const now = Date.now();
   
@@ -125,7 +125,8 @@ function cleanupExpiredRateLimits(): void {
     
     const numToDelete = rateLimitStore.size - MAX_RATE_LIMIT_ENTRIES;
     for (let i = 0; i < numToDelete; i++) {
-      rateLimitStore.delete(entries[i][0]);
+      // eslint-disable-next-line security/detect-object-injection
+      rateLimitStore.delete(entries[i]![0]);
     }
   }
 }
@@ -147,7 +148,7 @@ export async function getRateLimitStatus(
     throw new Error("Authentication required");
   }
 
-  const config = RATE_LIMITS[operation];
+  const config = RATE_LIMITS[operation as keyof typeof RATE_LIMITS];
   const key = `${identity.subject}:${operation}`;
   const now = Date.now();
   

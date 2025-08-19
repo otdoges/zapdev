@@ -2,13 +2,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getBearerOrSessionToken, verifyClerkToken } from './_utils/auth';
 import Stripe from 'stripe';
 import { 
-  StripeSubscription, 
-  StripeCustomer, 
   SubscriptionData,
   PlanType,
-  getSubscriptionPeriod,
-  isStripeSubscription,
-  isStripeCustomer 
+  getSubscriptionPeriod
 } from '../src/types/stripe';
 
 function withCors(res: VercelResponse, allowOrigin?: string) {
@@ -151,7 +147,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         [process.env.STRIPE_PRICE_STARTER_YEAR || process.env.STRIPE_STARTER_YEARLY_PRICE_ID || 'price_starter_yearly']: 'starter',
       };
 
-      const planId = planIdMap[priceId] || 'free';
+      // eslint-disable-next-line security/detect-object-injection
+      const planId = (priceId && planIdMap[priceId]) || 'free';
 
       // Type-safe period extraction
       const subscriptionPeriod = getSubscriptionPeriod(subscription);

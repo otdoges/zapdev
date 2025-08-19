@@ -274,7 +274,7 @@ const validateEncryptionData = (args: {
     atob(args.encryptedContent);
     atob(args.encryptionSalt);
     atob(args.encryptionIv);
-  } catch (error) {
+  } catch {
     throw new Error("Invalid base64 encoding in encryption fields");
   }
 };
@@ -929,6 +929,7 @@ export const validateFileUpload = (
   if (!allowedExtensions.includes(extension)) {
     return { valid: false, error: 'File extension not allowed' };
   }
+  // eslint-disable-next-line security/detect-unsafe-regex
   const doubleExtPattern = /(\.[^.\s]{2,}){2,}$/i;
   if (doubleExtPattern.test(file.name.toLowerCase())) {
     return { valid: false, error: 'Suspicious file name detected' };
@@ -1121,7 +1122,7 @@ export const validatePhoneNumber = (phone: string, countryCode: string = 'US'): 
     // Add more country patterns as needed
   };
 
-  const pattern = patterns[countryCode] || /^[\d\s()+-]+$/;
+  const pattern = patterns[countryCode as keyof typeof patterns] || /^[\d\s()+-]+$/;
   return pattern.test(phone.replace(/\s/g, ''));
 };
 
@@ -1138,7 +1139,6 @@ export const sanitizeJSON = (jsonString: string): string | null => {
   }
 };
 export const timingSafeEqual = (a: string, b: string): boolean => {
-  const minLength = Math.min(a.length, b.length);
   const maxLength = Math.max(a.length, b.length);
 
   let result = 0;

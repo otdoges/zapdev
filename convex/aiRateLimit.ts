@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 
 /**
  * Production-grade AI rate limiting with multiple tiers and strategies
@@ -35,13 +35,6 @@ export const AI_RATE_LIMITS: Record<string, AIRateLimitConfig> = {
   },
 };
 
-// Token bucket algorithm for smooth rate limiting
-interface TokenBucket {
-  tokens: number;
-  lastRefill: number;
-  maxTokens: number;
-  refillRate: number; // tokens per ms
-}
 
 // Store rate limit state
 export const aiRateLimitState = mutation({
@@ -56,7 +49,7 @@ export const aiRateLimitState = mutation({
     const now = Date.now();
     const key = `ai_rate_${args.userId}_${args.operation}`;
     const tier = args.tier || "free";
-    const limits = AI_RATE_LIMITS[tier] || AI_RATE_LIMITS.free;
+    const limits = AI_RATE_LIMITS[tier as keyof typeof AI_RATE_LIMITS] || AI_RATE_LIMITS.free;
     
     // Get current state or create new
     const state = await ctx.db
@@ -119,7 +112,7 @@ export const checkAIRateLimit = query({
   },
   handler: async (ctx, args) => {
     const tier = args.tier || "free";
-    const limits = AI_RATE_LIMITS[tier] || AI_RATE_LIMITS.free;
+    const limits = AI_RATE_LIMITS[tier as keyof typeof AI_RATE_LIMITS] || AI_RATE_LIMITS.free;
     const now = Date.now();
     const key = `ai_rate_${args.userId}_${args.operation}`;
     
@@ -197,7 +190,7 @@ export async function enforceAIRateLimit(
   }
 ): Promise<void> {
   const tier = options?.tier || "free";
-  const limits = AI_RATE_LIMITS[tier] || AI_RATE_LIMITS.free;
+  const limits = AI_RATE_LIMITS[tier as keyof typeof AI_RATE_LIMITS] || AI_RATE_LIMITS.free;
   const now = Date.now();
   const key = `ai_rate_${userId}_${operation}`;
   // Get or create rate limit state

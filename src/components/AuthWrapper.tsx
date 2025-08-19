@@ -24,7 +24,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
             // Let Convex naturally re-authenticate without forcing reload
             console.log('Auth token refreshed for Convex sync');
           }
-        } catch (error) {
+        } catch {
           console.error('Auth recovery failed');
           clearStoredToken();
         }

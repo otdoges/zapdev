@@ -33,7 +33,7 @@ class MockVercelRequest implements VercelRequest {
     if (body && body.trim().startsWith('{')) {
       try {
         this.body = JSON.parse(body);
-      } catch (e) {
+      } catch {
         // Keep as string if not valid JSON
       }
     }
@@ -51,8 +51,11 @@ class MockVercelResponse implements VercelResponse {
   }
   
   setHeader(name: string, value: string | number | readonly string[]): this {
-    this.headers[name] = String(value);
-    this.res.setHeader(name, value);
+    const headerName = String(name);
+    const headerValue = String(value);
+    // eslint-disable-next-line security/detect-object-injection
+    this.headers[headerName] = headerValue;
+    this.res.setHeader(headerName, value);
     return this;
   }
   
@@ -117,10 +120,20 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   
   // Extract endpoint name
   const endpoint = url.pathname.replace('/api/', '');
-  const apiFilePath = join(__dirname, 'api', `${endpoint}.ts`);
   
-  if (!existsSync(apiFilePath)) {
-    console.log(`API endpoint not found: ${endpoint} (${apiFilePath})`);
+  // Validate endpoint name (only allow alphanumeric and hyphens)
+  if (!/^[a-zA-Z0-9-]+$/.test(endpoint)) {
+    console.log(`Invalid endpoint name: ${endpoint}`);
+    res.writeHead(400);
+    res.end(JSON.stringify({ error: 'Invalid endpoint name' }));
+    return;
+  }
+  
+  // Validate path to prevent directory traversal
+  const normalizedPath = join(__dirname, 'api', `${endpoint}.ts`);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  if (!normalizedPath.startsWith(join(__dirname, 'api')) || !existsSync(normalizedPath)) {
+    console.log(`API endpoint not found: ${endpoint} (${normalizedPath})`);
     res.writeHead(404);
     res.end(JSON.stringify({ error: `API endpoint not found: ${endpoint}` }));
     return;
@@ -142,7 +155,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       
       // Import and execute the API handler
       // Add timestamp to avoid module caching for development
-      const moduleUrl = `file://${apiFilePath}?t=${Date.now()}`;
+      const moduleUrl = `file://${normalizedPath}?t=${Date.now()}`;
       const module = await import(moduleUrl);
       const handler = module.default;
       

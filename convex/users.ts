@@ -2,7 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { enforceRateLimit } from "./rateLimit";
-import { api } from "./_generated/api";
+import { api } from "./_generated/api"; // Used for internal Convex API calls
 import { getSubscriptionPeriod } from "../src/types/stripe";
 
 // Helper function to get authenticated user
@@ -120,7 +120,7 @@ const handleEmailConflict = async (
 };
 
 // Helper function to upsert user record
-const upsertUserRecord = async (ctx: MutationCtx, userId: string, sanitizedData: any, now: number) => {
+const upsertUserRecord = async (ctx: MutationCtx, userId: string, sanitizedData: Record<string, unknown>, now: number) => {
   const existingUser = await ctx.db
     .query("users")
     .withIndex("by_user_id", (q) => q.eq("userId", userId))

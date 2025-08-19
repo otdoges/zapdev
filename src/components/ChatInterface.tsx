@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -13,28 +12,24 @@ import {
   Send, 
   User, 
   Bot, 
-  Play, 
   Copy, 
   Check, 
   Plus,
   MessageSquare,
   Trash2,
-  Edit3,
-  Sparkles,
   Clock,
   Zap,
   Loader2,
   Search,
   Globe,
   ExternalLink,
-  Link,
   Shield
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { streamAIResponse, generateChatTitleFromMessages, generateAIResponse } from '@/lib/ai';
+import { streamAIResponse, generateChatTitleFromMessages } from '@/lib/ai';
 import { executeCode, startSandbox } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
@@ -43,20 +38,17 @@ import { authTokenManager } from '@/lib/auth-token';
 import { useUsageTracking } from '@/hooks/useUsageTracking';
 import { E2BCodeExecution } from './E2BCodeExecution';
 import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
-import { braveSearchService, type BraveSearchResult, type WebsiteAnalysis } from '@/lib/search-service';
-import { crawlSite } from '@/lib/firecrawl';
+import { braveSearchService, type BraveSearchResult } from '@/lib/search-service';
 import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
-import WebContainerFailsafe from './WebContainerFailsafe';
 import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
 
 
 const { logger } = Sentry;
 
 // Memoized Message Component to prevent unnecessary re-renders
-const MessageComponent = memo(({ message, user, extractCodeBlocks, copyToClipboard, copiedMessage, formatTimestamp, getMessageContent }: {
+const MessageComponent = memo(({ message, extractCodeBlocks, copyToClipboard, copiedMessage, formatTimestamp, getMessageContent }: {
   message: ConvexMessage;
-  user: { avatarUrl?: string } | null;
   extractCodeBlocks: (content: string) => CodeBlock[];
   copyToClipboard: (text: string, messageId: string) => Promise<void>;
   copiedMessage: string | null;
@@ -157,8 +149,6 @@ const MessageComponent = memo(({ message, user, extractCodeBlocks, copyToClipboa
 
 // Security constants for input validation
 const MAX_MESSAGE_LENGTH = 10000;
-const MAX_TITLE_LENGTH = 100;
-const MIN_TITLE_LENGTH = 1;
 
 // XSS protection: sanitize text input
 const sanitizeText = (text: string): string => {
@@ -171,6 +161,7 @@ const sanitizeText = (text: string): string => {
         '"': '&quot;',
         '&': '&amp;'
       };
+      // eslint-disable-next-line security/detect-object-injection
       return chars[char] || char;
     })
     .trim();
@@ -217,12 +208,6 @@ interface ConvexMessage {
   };
 }
 
-interface ConvexChat {
-  _id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-}
 
 interface CodeBlock {
   id: string;
@@ -252,51 +237,16 @@ const ChatInterface: React.FC = () => {
   const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
   // Team Lead planning
   const [teamLeadPlan, setTeamLeadPlan] = useState<string | null>(null);
-  const [isPlanning, setIsPlanning] = useState<boolean>(false);
-  
   // Search and website cloning state
   const [searchQuery, setSearchQuery] = useState('');
-  const [websiteUrl, setWebsiteUrl] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isAnalyzingWebsite, setIsAnalyzingWebsite] = useState(false);
   const [searchResults, setSearchResults] = useState<BraveSearchResult[]>([]);
-  const [websiteAnalysis, setWebsiteAnalysis] = useState<WebsiteAnalysis | null>(null);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
-  const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
-  const [isCrawling, setIsCrawling] = useState(false);
-  const [crawlPages, setCrawlPages] = useState<{url: string; title?: string}[]>([]);
   
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const checkoutMutation = trpc.billing.createCheckoutSession.useMutation();
-
-  // Stripe checkout function (via tRPC)
-  const createCheckoutSession = async (planId: string) => {
-    try {
-      try {
-        const fresh = await getToken();
-        if (fresh) authTokenManager.setToken(fresh);
-      } catch {
-        // ignore token refresh errors; tRPC will reject if truly unauthenticated
-      }
-      
-      // Runtime validation for planId before calling mutateAsync
-      const allowedPlanIds = new Set(['pro', 'starter', 'enterprise']);
-      if (!allowedPlanIds.has(planId)) {
-        throw new Error(`Invalid plan ID: ${planId}. Allowed values are: ${Array.from(allowedPlanIds).join(', ')}`);
-      }
-      
-      // Now safely cast planId since we've validated it
-      const validatedPlanId = planId as 'pro' | 'starter' | 'enterprise';
-      const result = await checkoutMutation.mutateAsync({ planId: validatedPlanId, period: 'month' });
-      if (!result?.url) throw new Error('Failed to create checkout session');
-      window.location.href = result.url;
-    } catch (error) {
-      console.error('Checkout error:', error);
-      toast.error('Failed to start checkout process');
-    }
-  };
 
   // Convex queries and mutations
   const chatsData = useQuery(api.chats.getUserChats, {});
@@ -1241,7 +1191,6 @@ const ChatInterface: React.FC = () => {
                           <div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
                             <MessageComponent
                               message={message}
-                              user={user}
                               extractCodeBlocks={extractCodeBlocks}
                               copyToClipboard={copyToClipboard}
                               copiedMessage={copiedMessage}

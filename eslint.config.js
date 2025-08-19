@@ -6,7 +6,7 @@ import security from "eslint-plugin-security";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "src/lib/webcontainer-templates.ts", "node_modules"] },
+  { ignores: ["dist", "dev-dist", "src/lib/webcontainer-templates.ts", "node_modules", "convex/_generated"] },
   {
     extends: [
       js.configs.recommended, 

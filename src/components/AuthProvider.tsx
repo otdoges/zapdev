@@ -29,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setToken(null);
         clearStoredToken();
       }
-    } catch (error) {
+    } catch {
       console.error('Failed to refresh auth token');
       setToken(null);
       clearStoredToken();
