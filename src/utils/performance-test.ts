@@ -72,7 +72,12 @@ export class PerformanceMonitor {
       const min = Math.min(...values);
       const max = Math.max(...values);
       
-      report[key] = { count, avg, min, max };
+      Object.defineProperty(report, key, { 
+        value: { count, avg, min, max }, 
+        writable: true, 
+        enumerable: true, 
+        configurable: true 
+      });
     }
 
     return report;

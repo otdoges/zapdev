@@ -12,9 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  CreditCard, User, Settings as SettingsIcon, Bell, Shield, Palette, Calendar,
+  CreditCard, User, Settings as SettingsIcon, Shield,
   ArrowUpRight, CheckCircle, XCircle, AlertTriangle, Activity, Trash2,
-  Download, Upload, Key, Eye, EyeOff
+  Download, Key, Eye, EyeOff
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUsageTracking } from "@/hooks/useUsageTracking";

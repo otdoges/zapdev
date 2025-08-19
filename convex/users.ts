@@ -2,8 +2,8 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { enforceRateLimit } from "./rateLimit";
-import { api } from "./_generated/api"; // Used for internal Convex API calls
 import { getSubscriptionPeriod } from "../src/types/stripe";
+import { api } from "./_generated/api";
 
 // Helper function to get authenticated user
 const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {

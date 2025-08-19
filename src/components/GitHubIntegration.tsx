@@ -262,7 +262,14 @@ export function GitHubIntegration({
 
   const updateFileChange = (index: number, field: keyof FileChange, value: string) => {
     const updatedChanges = [...changes];
-    updatedChanges[index] = { ...updatedChanges[index], [field]: value };
+    const currentChange = updatedChanges[index];
+    if (field === 'path') {
+      updatedChanges[index] = { ...currentChange, path: value };
+    } else if (field === 'content') {
+      updatedChanges[index] = { ...currentChange, content: value };
+    } else if (field === 'action') {
+      updatedChanges[index] = { ...currentChange, action: value as FileChange['action'] };
+    }
     setChanges(updatedChanges);
   };
 

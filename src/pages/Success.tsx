@@ -72,7 +72,7 @@ export default function Success() {
         // Clean up localStorage
         try {
           localStorage.removeItem('checkout-info');
-        } catch (e) {
+        } catch {
           // Ignore storage errors
         }
 

@@ -2,6 +2,30 @@ import * as Sentry from '@sentry/react'
 
 const { logger } = Sentry
 
+// Secure HTML text sanitization function
+function sanitizeHtmlText(htmlString: string): string {
+  if (!htmlString) return ''
+  
+  // More robust HTML tag removal that handles edge cases
+  return htmlString
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags with content
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove style tags with content
+    .replace(/<[^>]+>/g, '') // Remove all remaining HTML tags
+    .replace(/&[#\w]+;/g, (entity) => { // Decode common HTML entities
+      const entities: { [key: string]: string } = {
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#39;': "'",
+        '&nbsp;': ' '
+      }
+      return entities[entity] || entity
+    })
+    .trim()
+    .substring(0, 500) // Limit length for safety
+}
+
 interface NavigationItem {
   index: number
   type: string
@@ -539,7 +563,7 @@ function extractNavigationStructure(html: string): NavigationItem[] {
       while ((linkMatch = linkRegex.exec(nav)) !== null) {
         links.push({
           href: linkMatch[1],
-          text: linkMatch[2].replace(/<[^>]*>/g, '').trim()
+          text: sanitizeHtmlText(linkMatch[2])
         })
       }
       
@@ -617,7 +641,7 @@ function analyzeSEO(page: FirecrawlPageResult): { metaTags: string[]; headings: 
     while ((headingMatch = headingRegex.exec(html)) !== null) {
       headings.push({
         level: i,
-        text: headingMatch[1].replace(/<[^>]*>/g, '').trim()
+        text: sanitizeHtmlText(headingMatch[1])
       })
     }
   }

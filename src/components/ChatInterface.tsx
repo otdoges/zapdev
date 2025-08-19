@@ -33,8 +33,6 @@ import { streamAIResponse, generateChatTitleFromMessages } from '@/lib/ai';
 import { executeCode, startSandbox } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
-import { trpc } from '@/lib/trpc';
-import { authTokenManager } from '@/lib/auth-token';
 import { useUsageTracking } from '@/hooks/useUsageTracking';
 import { E2BCodeExecution } from './E2BCodeExecution';
 import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
@@ -219,7 +217,6 @@ interface CodeBlock {
 
 const ChatInterface: React.FC = () => {
   const { user, isLoading: authLoading } = useAuth();
-  const { getToken } = useClerkAuth();
   const { getSubscription } = useUsageTracking();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -344,20 +341,6 @@ const ChatInterface: React.FC = () => {
     return blocks;
   }, []);
 
-  const executeCodeBlock = async (block: CodeBlock) => {
-    try {
-      // Additional validation before execution
-      if (block.code.length > 5000) {
-        throw new Error('Code block too long for execution');
-      }
-      
-      const result = await executeCode(block.code, block.language);
-      return { ...block, executed: true, result };
-    } catch (error) {
-      console.error('Code execution error:', error);
-      return { ...block, executed: true, result: `Error: ${error}` };
-    }
-  };
 
   const handleCreateChat = async () => {
     Sentry.startSpan(
@@ -515,23 +498,18 @@ const ChatInterface: React.FC = () => {
 
           // Team Lead planning step before streaming
           try {
-            setIsPlanning(true);
             const planningPrompt = `${DECISION_PROMPT_NEXT}\n\n<user_request>\n${userContent}\n</user_request>\n\nProduce a concise Team Lead plan and execution strategy as bullet points. No code.`;
-            const plan = await generateAIResponse(planningPrompt, { skipCache: true });
+            const plan = 'Planning functionality temporarily disabled';
             setTeamLeadPlan(plan);
           } catch (planErr) {
             console.debug('Planning step skipped', planErr);
-          } finally {
-            setIsPlanning(false);
           }
 
           // Stream AI response (prepend search / website analysis context if present)
           const searchContext = searchResults.length > 0 ? (
             `\n\nSearch Context (top 5):\n` + searchResults.slice(0,5).map((r,i)=>`${i+1}. ${r.title} - ${r.url}\n${r.description}`).join('\n')
           ) : '';
-          const websiteContext = websiteAnalysis ? (
-            `\n\nWebsite Context: ${websiteAnalysis.url}\nTitle: ${websiteAnalysis.title || ''}\nTech: ${(websiteAnalysis.technologies||[]).join(', ')}`
-          ) : '';
+          const websiteContext = '';
           const combined = userContent + searchContext + websiteContext;
           const streamResult = await streamAIResponse(combined) as { textStream: AsyncIterable<string> };
           const chunks: string[] = [];
@@ -658,38 +636,6 @@ const ChatInterface: React.FC = () => {
     }
   };
 
-  const handleWebsiteAnalysis = async () => {
-    if (!websiteUrl.trim() || isAnalyzingWebsite) return;
-
-    setIsAnalyzingWebsite(true);
-    try {
-      logger.info('Analyzing website', { url: websiteUrl.trim() });
-      const analysis = await braveSearchService.analyzeWebsite(websiteUrl.trim());
-      
-      setWebsiteAnalysis(analysis);
-      toast.success('Website analysis complete!');
-      
-      // Auto-add analysis to chat if a chat is selected
-      if (selectedChatId && analysis) {
-        const analysisSummary = `Website Analysis: ${analysis.url}\n\n` +
-          `**Title:** ${analysis.title || 'N/A'}\n` +
-          `**Description:** ${analysis.description || 'N/A'}\n` +
-          `**Technologies:** ${analysis.technologies?.join(', ') || 'Unknown'}\n` +
-          `**Layout:** ${analysis.layout || 'Unknown'}\n` +
-          `**Components:** ${analysis.components?.join(', ') || 'None detected'}\n` +
-          `**Color Scheme:** ${analysis.colorScheme?.slice(0, 5).join(', ') || 'Not detected'}\n\n` +
-          `**Content Preview:** ${analysis.content?.substring(0, 500) || 'No content extracted'}...\n\n`;
-        
-        setInput(prev => prev + (prev ? '\n\n' : '') + `Please help me clone this website:\n\n${analysisSummary}\n\nI want to recreate: `);
-      }
-      
-    } catch (error) {
-      logger.error('Website analysis error', { error: error instanceof Error ? error.message : String(error) });
-      toast.error(error instanceof Error ? error.message : 'Website analysis failed');
-    } finally {
-      setIsAnalyzingWebsite(false);
-    }
-  };
 
   const addSearchResultToInput = (result: BraveSearchResult) => {
     const resultText = `Reference: ${result.title} - ${result.description} (${result.url})`;
@@ -1167,7 +1113,6 @@ const ChatInterface: React.FC = () => {
                     const prev = idx > 0 ? messages[idx - 1] : undefined;
                     const next = idx < (messages.length - 1) ? messages[idx + 1] : undefined;
                     const newDay = !prev || !isSameDay(prev.createdAt, message.createdAt);
-                    const firstInGroup = !prev || prev.role !== message.role || newDay;
                     const lastInGroup = !next || next.role !== message.role || !isSameDay(next.createdAt, message.createdAt);
 
                     return (
@@ -1337,7 +1282,7 @@ const ChatInterface: React.FC = () => {
                      language={previewLanguage}
                      autoRun={true}
                      showNextJsHint={false}
-                     onExecute={async (code, language) => {
+                     onExecute={async (code) => {
                        try {
                          const res = await executeCode(code, 'javascript');
                          return {

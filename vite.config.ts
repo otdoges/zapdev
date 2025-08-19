@@ -110,7 +110,7 @@ export default defineConfig(({ mode }) => {
             if (lastIndex === -1) return;
 
             let start = lastIndex + 'node_modules'.length;
-            if (normalized[start] === '/') start += 1;
+            if (normalized.charAt(start) === '/') start += 1;
 
             const after = normalized.slice(start);
             if (!after) return;

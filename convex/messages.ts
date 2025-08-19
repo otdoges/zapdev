@@ -151,15 +151,15 @@ const sanitizeMetadata = (metadata: unknown) => {
         
         // Reject disallowed patterns
         const disallowedPatterns = [
-          /<script[\s\S]*?<\/script>/gi,      // Script tags
+          /<script[^>]*>.*?<\/script>/gi,    // Script tags (safer pattern)
           /<[^>]*on\w+\s*=/gi,               // Event handlers (onclick, etc.)
           /data:\s*[^;]*;base64/gi,          // Data URLs
           /https?:\/\/[^\s]+/gi,             // HTTP(S) URLs
           /javascript:/gi,                   // JavaScript protocol
           /vbscript:/gi,                     // VBScript protocol
-          /<embed[\s\S]*?>/gi,               // Embed tags
-          /<object[\s\S]*?>/gi,              // Object tags
-          /<iframe[\s\S]*?>/gi,              // Iframe tags
+          /<embed[^>]*>/gi,                  // Embed tags (safer pattern)
+          /<object[^>]*>/gi,                 // Object tags (safer pattern)
+          /<iframe[^>]*>/gi,                 // Iframe tags (safer pattern)
           /@@\w+/gi,                         // Potential template injection
           /\$\{\w+\}/gi,                     // Template literals
         ];

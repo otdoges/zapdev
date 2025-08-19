@@ -48,6 +48,10 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     lg: 'w-8 h-8',
     xl: 'w-12 h-12'
   };
+  
+  const getSizeClass = (size: string) => {
+    return Object.prototype.hasOwnProperty.call(sizeClasses, size) ? sizeClasses[size as keyof typeof sizeClasses] : sizeClasses.md;
+  };
 
   if (variant === 'dots') {
     return (
@@ -83,7 +87,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       <motion.div
         className={cn(
           'bg-primary rounded-full opacity-75',
-          sizeClasses[size],
+          getSizeClass(size),
           className
         )}
         animate={{
@@ -127,7 +131,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       <motion.div
         className={cn(
           'relative rounded-full bg-gradient-to-r from-primary to-blue-600',
-          sizeClasses[size],
+          getSizeClass(size),
           className
         )}
         animate={{ rotate: 360 }}
@@ -153,12 +157,12 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       >
         <div className={cn(
           'absolute -inset-1 bg-gradient-to-r from-primary to-blue-600 rounded-full blur opacity-50',
-          sizeClasses[size]
+          getSizeClass(size)
         )} />
         <motion.div
           className={cn(
             'relative bg-primary rounded-full',
-            sizeClasses[size]
+            getSizeClass(size)
           )}
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
@@ -170,7 +174,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   // Default spinner
   return (
     <motion.div
-      className={cn(sizeClasses[size], className)}
+      className={cn(getSizeClass(size), className)}
       animate={{ rotate: 360 }}
       transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
     >

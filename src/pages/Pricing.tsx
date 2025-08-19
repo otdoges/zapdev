@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Check, Star, ArrowRight, ChevronDown, ChevronUp, Zap, Shield, Sparkles } from "lucide-react";
+import { Check, Star, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DynamicPricingSection } from "@/components/pricing/DynamicPricingSection";
 import { PricingTestimonials } from "@/components/pricing/PricingTestimonials";
@@ -16,7 +16,7 @@ import React, { useEffect } from "react"; // Added missing import for React
 import * as Sentry from "@sentry/react";
 
 const HeroSection = () => {
-  const { isAuthenticated, isSignedIn, isLoading: authLoading } = useAuth();
+  const { isSignedIn, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   
   // Better authentication check for UI display
@@ -314,7 +314,7 @@ const FAQSection = () => {
 };
 
 const CTASection = () => {
-  const { isAuthenticated, isSignedIn, isLoading: authLoading } = useAuth();
+  const { isSignedIn, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   
   // Better authentication check for UI display
@@ -425,7 +425,7 @@ const Pricing = () => {
 };
 
 export default Sentry.withErrorBoundary(Pricing, {
-  fallback: ({ error, resetError }) => (
+  fallback: ({ resetError }) => (
     <div className="min-h-screen bg-black text-white flex items-center justify-center">
       <div className="text-center">
         <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>

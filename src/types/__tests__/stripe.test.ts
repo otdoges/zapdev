@@ -4,9 +4,6 @@
  */
 
 import {
-  StripeSubscription,
-  StripeCustomer,
-  StripeInvoice,
   isStripeSubscription,
   isStripeCustomer,
   isStripeInvoice,

@@ -57,7 +57,7 @@ describe('Security Utilities', () => {
     });
 
     it('should reject non-string input', () => {
-      const result = validateInput(null as any, 100);
+      const result = validateInput(null as unknown as string, 100);
       expect(result.isValid).toBe(false);
       expect(result.error).toBe('Input must be a non-empty string');
     });
@@ -96,7 +96,7 @@ describe('Security Utilities', () => {
     });
 
     it('should reject non-string titles', () => {
-      const result = validateChatTitle(undefined as any);
+      const result = validateChatTitle(undefined as unknown as string);
       expect(result.isValid).toBe(false);
       expect(result.error).toBe('Title must be a non-empty string');
     });

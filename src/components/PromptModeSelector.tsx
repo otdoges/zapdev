@@ -54,7 +54,7 @@ const PromptModeSelector = ({ currentMode, onModeChange }: PromptModeSelectorPro
         className="border-gray-600 text-gray-300 hover:bg-gray-700"
       >
         <Settings className="w-4 h-4 mr-2" />
-        {promptModes[currentMode].name}
+        {Object.prototype.hasOwnProperty.call(promptModes, currentMode) ? promptModes[currentMode as keyof typeof promptModes].name : 'Unknown Mode'}
       </Button>
 
       {isOpen && (

@@ -19,7 +19,7 @@ export const sanitizeText = (text: string): string => {
         '"': '&quot;',
         '&': '&amp;'
       };
-      return chars[char] || char;
+      return Object.prototype.hasOwnProperty.call(chars, char) ? chars[char] : char;
     })
     .trim();
 };
