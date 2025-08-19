@@ -87,7 +87,9 @@
       "Bash(gh pr:*)",
       "Bash(git stash:*)",
       "WebSearch",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "WebFetch(domain:docs.stripe.com)",
+      "Bash(bun info:*)"
     ],
     "deny": []
   }

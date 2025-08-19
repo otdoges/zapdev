@@ -90,7 +90,7 @@ const PRICING_PLANS: PricingPlan[] = [
 
 const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
   const { isSignedIn, isLoading: authLoading, user } = useAuth();
-  const { getValidToken } = useAuthToken();
+  const { getValidToken, ensureFreshTokenForTRPC } = useAuthToken();
   const { getToken } = useClerkAuth();
   const [isLoading, setIsLoading] = useState(false);
   
@@ -100,6 +100,90 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
   const isUserAuthenticated = isSignedIn && !authLoading;
 
   const enterpriseContactEmail = import.meta.env.VITE_ENTERPRISE_CONTACT_EMAIL || 'enterprise@zapdev.link';
+
+  const handleCheckoutWithFallback = async (planId: string, period: 'month' | 'year' = 'month') => {
+    // Try tRPC first
+    try {
+      console.log('Attempting tRPC checkout:', { planId, period });
+      
+      // Ensure fresh token
+      const tokenRefreshed = await ensureFreshTokenForTRPC();
+      if (!tokenRefreshed) {
+        throw new Error('Failed to obtain valid authentication token');
+      }
+
+      // Verify tRPC client
+      if (!trpc?.billing?.createCheckoutSession) {
+        throw new Error('tRPC billing client not properly initialized');
+      }
+
+      const result = await trpc.billing.createCheckoutSession.mutate({ planId, period });
+      
+      if (result?.url) {
+        console.log('tRPC checkout successful, redirecting...');
+        window.location.href = result.url;
+        return true;
+      }
+      
+      throw new Error('tRPC checkout succeeded but no URL returned');
+    } catch (tRPCError) {
+      console.warn('tRPC checkout failed, trying direct API fallback:', tRPCError);
+      
+      // Fallback to direct API call
+      try {
+        const token = await getValidToken();
+        if (!token) {
+          throw new Error('No authentication token available for API fallback');
+        }
+
+        const response = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ planId, period })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+          throw new Error(errorData.message || `API request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data?.url) {
+          console.log('API fallback successful, redirecting...');
+          window.location.href = data.url;
+          return true;
+        }
+        
+        throw new Error('API fallback succeeded but no URL returned');
+      } catch (apiError) {
+        console.error('Both tRPC and API fallback failed:', { tRPCError, apiError });
+        
+        // Final fallback - show helpful error message
+        const errorMessage = apiError instanceof Error 
+          ? apiError.message 
+          : 'Unable to start checkout process';
+          
+        toast.error(`Checkout failed: ${errorMessage}. Please try again or contact support.`);
+        
+        Sentry.captureException(new Error('Complete checkout failure'), {
+          tags: { feature: 'pricing', action: 'checkout_complete_failure' },
+          extra: { 
+            planId, 
+            period,
+            tRPCError: tRPCError instanceof Error ? tRPCError.message : String(tRPCError),
+            apiError: apiError instanceof Error ? apiError.message : String(apiError),
+            userId: user?.id,
+            isAuthenticated: isUserAuthenticated
+          }
+        });
+        
+        return false;
+      }
+    }
+  };
 
   const handlePlanSelect = async () => {
     if (plan.contactOnly) {
@@ -123,78 +207,28 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
       return;
     }
 
-    // Ensure tRPC has an auth token header
-    try {
-      const fresh = await getToken();
-      if (fresh) authTokenManager.setToken(fresh);
-    } catch {}
-
-    // Use tRPC-based checkout for Pro plan (avoids relying on /api/* availability)
-    if (plan.id === 'pro') {
-      try {
-        setIsLoading(true);
-        const result = await trpc.billing.createCheckoutSession.mutate({ planId: 'pro', period: 'month' });
-        if (result?.url) {
-          window.location.href = result.url;
-          return;
-        }
-        throw new Error('Failed to create checkout session');
-      } catch (error) {
-        console.error('Stripe checkout error:', error);
-        toast.error('Failed to start checkout. Please try again.');
-        Sentry.captureException(error, {
-          tags: { feature: 'pricing', action: 'stripe_checkout_error' },
-          extra: { planId: plan.id }
-        });
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
-
-    let token: string | null = null;
     try {
       setIsLoading(true);
-
-      // Get valid auth token from Clerk
-      token = await getValidToken();
-      if (!token) {
-        const errorMsg = 'Please sign in to continue';
-        toast.error(errorMsg);
-        Sentry.captureMessage(errorMsg, {
-          level: 'warning',
-          tags: { feature: 'pricing', action: 'checkout' },
-          extra: { planId: plan.id, isSignedIn, authLoading }
+      
+      // Use the robust checkout handler with fallback mechanisms
+      const success = await handleCheckoutWithFallback(plan.id, 'month');
+      
+      if (!success) {
+        // Additional user guidance if all methods fail
+        toast.error('Checkout temporarily unavailable. Please try again in a few minutes or contact support.', {
+          action: {
+            label: 'Contact Support',
+            onClick: () => window.location.href = 'mailto:support@zapdev.link?subject=Checkout Issue'
+          }
         });
-        return;
-      }
-
-      // First test if API is reachable
-      console.log('Testing API health...');
-      try {
-        const healthResponse = await fetch('/api/health');
-        console.log('Health check status:', healthResponse.status);
-        if (!healthResponse.ok) {
-          console.error('Health check failed');
-        }
-      } catch (e) {
-        console.error('Health check error:', e);
-      }
-
-      // Fallback: Use tRPC for other paid plans as well
-      const result = await trpc.billing.createCheckoutSession.mutate({ planId: plan.id, period: 'month' });
-      if (result?.url) {
-        window.location.href = result.url;
       }
     } catch (error) {
-      console.error('Checkout error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to start checkout. Please try again.';
-      toast.error(errorMessage);
+      console.error('Unexpected error in handlePlanSelect:', error);
+      toast.error('An unexpected error occurred. Please try again.');
       
-      // Capture error in Sentry
       Sentry.captureException(error, {
-        tags: { feature: 'pricing', action: 'checkout_error' },
-        extra: { planId: plan.id, isUserAuthenticated, token: !!token }
+        tags: { feature: 'pricing', action: 'handle_plan_select_error' },
+        extra: { planId: plan.id, userId: user?.id }
       });
     } finally {
       setIsLoading(false);

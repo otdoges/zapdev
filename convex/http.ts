@@ -25,15 +25,32 @@ async function verifyClerkJwt(token: string): Promise<{ id: string; email?: stri
 
 // HTTP action to handle tRPC requests
 const trpcHandler = httpAction(async (ctx, request) => {
-  return fetchRequestHandler({
-    endpoint: '/trpc',
-    req: request,
-    router: appRouter,
-    createContext: ({ req }) => createContext({ req }),
-    onError: ({ error, path }) => {
-      console.error(`tRPC Error on ${path}:`, error);
-    },
-  });
+  try {
+    console.log('tRPC request received:', {
+      method: request.method,
+      url: request.url,
+      headers: Object.fromEntries(request.headers.entries())
+    });
+    
+    return fetchRequestHandler({
+      endpoint: '/trpc',
+      req: request,
+      router: appRouter,
+      createContext: ({ req }) => createContext({ req }),
+      onError: ({ error, path, type, input }) => {
+        console.error(`tRPC Error on ${path} (${type}):`, {
+          error: error.message,
+          stack: error.stack,
+          input,
+          path,
+          type
+        });
+      },
+    });
+  } catch (error) {
+    console.error('Fatal tRPC handler error:', error);
+    throw error;
+  }
 });
 
 // HTTP router configuration

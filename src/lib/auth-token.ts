@@ -67,9 +67,29 @@ export const useAuthToken = () => {
     authTokenManager.clearToken();
   }, []);
 
+  const ensureFreshTokenForTRPC = useCallback(async (): Promise<boolean> => {
+    try {
+      const token = await getValidToken();
+      if (token) {
+        // Ensure authTokenManager has the latest token
+        authTokenManager.setToken(token);
+        console.log('Token refreshed for tRPC:', { 
+          hasToken: !!token, 
+          tokenAge: authTokenManager.shouldRefreshToken() ? 'fresh' : 'cached' 
+        });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to ensure fresh token for tRPC:', error);
+      return false;
+    }
+  }, [getValidToken]);
+
   return {
     getValidToken,
     clearStoredToken,
-    hasStoredToken: () => authTokenManager.hasToken()
+    hasStoredToken: () => authTokenManager.hasToken(),
+    ensureFreshTokenForTRPC
   };
 };
