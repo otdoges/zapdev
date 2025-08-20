@@ -1,6 +1,6 @@
 import { google } from '@ai-sdk/google';
 import { generateText, streamText } from 'ai';
-import { NextRequest, NextResponse } from 'next/server';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifyAuth } from './_utils/auth';
 
 export const runtime = 'edge';
@@ -16,31 +16,31 @@ interface ChatRequest {
   model?: string;
 }
 
-export default async function handler(req: NextRequest) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
-    return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(req);
+    const authResult = await verifyAuth({ headers: new Headers(req.headers as Record<string, string>) });
     if (!authResult.success || !authResult.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { messages, apiKey, model = 'gemini-2.0-flash-exp' }: ChatRequest = await req.json();
+    const { messages, apiKey, model = 'gemini-2.0-flash-exp' }: ChatRequest = req.body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
+      return res.status(400).json({ error: 'Messages array is required' });
     }
 
     if (!apiKey || typeof apiKey !== 'string') {
-      return NextResponse.json({ error: 'API key is required' }, { status: 400 });
+      return res.status(400).json({ error: 'API key is required' });
     }
 
     // Validate API key format (basic validation)
     if (!apiKey.startsWith('AIza') || apiKey.length < 30) {
-      return NextResponse.json({ error: 'Invalid Gemini API key format' }, { status: 400 });
+      return res.status(400).json({ error: 'Invalid Gemini API key format' });
     }
 
     // Configure the Google provider with the user's API key
@@ -49,8 +49,8 @@ export default async function handler(req: NextRequest) {
     });
 
     // Check if this is a streaming request
-    const isStreaming = req.headers.get('accept')?.includes('text/stream') || 
-                       req.headers.get('x-stream') === 'true';
+    const isStreaming = req.headers['accept']?.includes('text/stream') || 
+                       req.headers['x-stream'] === 'true';
 
     if (isStreaming) {
       // Stream the response
@@ -64,7 +64,7 @@ export default async function handler(req: NextRequest) {
         maxTokens: 4000,
       });
 
-      return result.toDataStreamResponse();
+      return result.toTextStreamResponse();
     } else {
       // Generate a complete response
       const { text, usage } = await generateText({
@@ -77,14 +77,14 @@ export default async function handler(req: NextRequest) {
         maxTokens: 4000,
       });
 
-      return NextResponse.json({
+      return res.status(200).json({
         message: {
           role: 'assistant',
           content: text,
         },
         usage: {
-          promptTokens: usage?.promptTokens || 0,
-          completionTokens: usage?.completionTokens || 0,
+          promptTokens: usage?.inputTokens || 0,
+          completionTokens: usage?.outputTokens || 0,
           totalTokens: usage?.totalTokens || 0,
         },
       });
@@ -94,25 +94,25 @@ export default async function handler(req: NextRequest) {
     
     // Handle specific API errors
     if (error?.message?.includes('API key')) {
-      return NextResponse.json({ 
+      return res.status(401).json({ 
         error: 'Invalid or expired API key. Please check your Gemini API key.' 
-      }, { status: 401 });
+      });
     }
     
     if (error?.message?.includes('quota') || error?.message?.includes('rate limit')) {
-      return NextResponse.json({ 
+      return res.status(429).json({ 
         error: 'API quota exceeded or rate limit reached. Please try again later.' 
-      }, { status: 429 });
+      });
     }
 
     if (error?.message?.includes('model')) {
-      return NextResponse.json({ 
+      return res.status(400).json({ 
         error: 'Invalid model specified. Please use a valid Gemini model.' 
-      }, { status: 400 });
+      });
     }
 
-    return NextResponse.json({ 
+    return res.status(500).json({ 
       error: 'An error occurred while processing your request. Please try again.' 
-    }, { status: 500 });
+    });
   }
 }

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import crypto from "crypto";
+// Using Web Crypto API instead of Node crypto
 
 // Check if user has secret access
 export const hasSecretAccess = query({
@@ -58,8 +58,11 @@ export const setupSecretAccess = mutation({
       throw new Error("Secret access is already configured");
     }
 
-    // Hash the password
-    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+    // Hash the password using Web Crypto API
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const passwordHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 
     // Create secret access for this user
     await ctx.db.insert("secretAccess", {
@@ -97,8 +100,11 @@ export const verifySecretPassword = mutation({
       throw new Error("Secret access not configured");
     }
 
-    // Hash the provided password and compare
-    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+    // Hash the provided password and compare using Web Crypto API
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const passwordHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
     
     if (passwordHash !== firstUserAccess.passwordHash) {
       throw new Error("Invalid password");

@@ -89,7 +89,7 @@ async function ensureCustomerMapping(userId: string, polarCustomerId: string, em
 }
 
 // Verify webhook signature (implement according to Polar.sh docs)
-function verifyWebhookSignature(body: string, signature: string, secret: string): boolean {
+function verifyWebhookSignature(_body: string, signature: string, secret: string): boolean {
   // TODO: Implement proper signature verification based on Polar.sh documentation
   // This is a placeholder implementation
   try {

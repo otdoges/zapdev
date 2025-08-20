@@ -44,4 +44,35 @@ export async function verifyClerkToken(
   return verified as VerifiedClerkToken;
 }
 
+export async function verifyAuth(req: { headers: Headers }): Promise<{ success: boolean; userId?: string; error?: string }> {
+  try {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return { success: false, error: 'Missing or invalid authorization header' };
+    }
+
+    const token = authHeader.slice(7).trim();
+    if (!token) {
+      return { success: false, error: 'Empty token' };
+    }
+
+    const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
+    if (!issuer) {
+      return { success: false, error: 'Missing CLERK_JWT_ISSUER_DOMAIN' };
+    }
+
+    const audience = process.env.CLERK_JWT_AUDIENCE;
+    const verified = await verifyClerkToken(token, issuer, audience);
+    
+    if (!verified.sub) {
+      return { success: false, error: 'Invalid token payload' };
+    }
+
+    return { success: true, userId: verified.sub };
+  } catch (error) {
+    console.error('Auth verification failed:', error);
+    return { success: false, error: 'Token verification failed' };
+  }
+}
+
 

@@ -10,7 +10,7 @@ const trpcHandler = httpAction(async (ctx, request) => {
     console.log('tRPC request received:', {
       method: request.method,
       url: request.url,
-      headers: Object.fromEntries(request.headers.entries())
+      headers: request.headers ? Object.fromEntries(Object.entries(request.headers)) : {}
     });
     
     return fetchRequestHandler({

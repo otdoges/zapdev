@@ -136,6 +136,7 @@ const upsertUserRecord = async (ctx: MutationCtx, userId: string, sanitizedData:
     // Create new user
     return await ctx.db.insert("users", {
       userId,
+      email: "", // Default empty email, will be updated by upsertUser
       ...sanitizedData,
       createdAt: now,
       updatedAt: now,
@@ -319,7 +320,8 @@ export const deleteUserAccount = mutation({
   },
 });
 
-// Centralized function to sync Stripe subscription data to Convex
+// Centralized function to sync Stripe subscription data to Convex - DEPRECATED
+// TODO: Replace with Polar.sh integration
 export const syncStripeDataToConvex = mutation({
   args: {
     stripeCustomerId: v.string(),
@@ -327,222 +329,7 @@ export const syncStripeDataToConvex = mutation({
     source: v.union(v.literal("webhook"), v.literal("success"), v.literal("manual")),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
-    const stripeSecret = process.env.STRIPE_SECRET_KEY;
-    
-    if (!stripeSecret) {
-      console.error('[SYNC] Missing STRIPE_SECRET_KEY environment variable');
-      throw new Error('Stripe configuration missing');
-    }
-
-    // Dynamic import of Stripe to avoid bundle issues
-    const { default: Stripe } = await import('stripe');
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2025-07-30.basil' });
-
-    try {
-      // Get customer info first
-      const customer = await stripe.customers.retrieve(args.stripeCustomerId);
-      if (!customer || customer.deleted) {
-        console.error('[SYNC] Customer not found or deleted:', args.stripeCustomerId);
-        throw new Error('Customer not found');
-      }
-
-      // Extract userId from customer metadata or use provided userId
-      const userId = args.userId || customer.metadata?.userId;
-      if (!userId) {
-        console.error('[SYNC] No userId found in customer metadata or args');
-        throw new Error('User ID required for sync');
-      }
-
-      // Ensure stripeCustomers record exists
-      const existingCustomerRecord = await ctx.db
-        .query('stripeCustomers')
-        .withIndex('by_user_id', (q) => q.eq('userId', userId))
-        .first();
-
-      if (!existingCustomerRecord) {
-        await ctx.db.insert('stripeCustomers', {
-          userId,
-          stripeCustomerId: args.stripeCustomerId,
-          email: customer.email || '',
-          metadata: {
-            createdViaCheckout: args.source === 'success',
-          },
-          createdAt: now,
-          updatedAt: now,
-        });
-      } else if (existingCustomerRecord.stripeCustomerId !== args.stripeCustomerId) {
-        // Update if customer ID changed (shouldn't happen but be safe)
-        await ctx.db.patch(existingCustomerRecord._id, {
-          stripeCustomerId: args.stripeCustomerId,
-          email: customer.email || existingCustomerRecord.email,
-          updatedAt: now,
-        });
-      }
-
-      // Fetch latest subscriptions
-      const subscriptions = await stripe.subscriptions.list({
-        customer: args.stripeCustomerId,
-        limit: 5,
-        status: 'all',
-        expand: ['data.default_payment_method'],
-      });
-
-      // Find the most relevant subscription (active/trialing first, then most recent)
-      const activeOrTrialing = subscriptions.data.find(s => s.status === 'active' || s.status === 'trialing');
-      const subscription = activeOrTrialing || subscriptions.data[0];
-
-      let syncData: {
-        userId: string;
-        stripeCustomerId: string;
-        subscriptionId?: string;
-        status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused' | 'none';
-        priceId?: string;
-        planId: 'free' | 'pro' | 'enterprise';
-        currentPeriodStart?: number;
-        currentPeriodEnd?: number;
-        cancelAtPeriodEnd: boolean;
-        paymentMethod?: { brand?: string; last4?: string };
-        lastSyncAt: number;
-        syncSource: typeof args.source;
-        updatedAt: number;
-      };
-
-      if (!subscription) {
-        // No subscription found - free plan
-        syncData = {
-          userId,
-          stripeCustomerId: args.stripeCustomerId,
-          status: 'none',
-          planId: 'free',
-          cancelAtPeriodEnd: false,
-          lastSyncAt: now,
-          syncSource: args.source,
-          updatedAt: now,
-        };
-      } else {
-        // Map Stripe subscription status to our enum
-        const mappedStatus = mapSubscriptionStatus(subscription.status);
-        
-        // Get price ID and map to plan
-        const priceId = subscription.items.data[0]?.price?.id || '';
-        const planId = mapPriceIdToPlan(priceId);
-        
-        // Extract payment method info
-        let paymentMethod: { brand?: string; last4?: string } | undefined;
-        if (subscription.default_payment_method && typeof subscription.default_payment_method !== 'string') {
-          const pm = subscription.default_payment_method;
-          paymentMethod = {
-            brand: pm.card?.brand || undefined,
-            last4: pm.card?.last4 || undefined,
-          };
-        }
-
-        syncData = {
-          userId,
-          stripeCustomerId: args.stripeCustomerId,
-          subscriptionId: subscription.id,
-          status: mappedStatus,
-          priceId,
-          planId,
-          ...(() => {
-            const period = getSubscriptionPeriod(subscription);
-            return period ? {
-              currentPeriodStart: Math.floor(period.currentPeriodStart / 1000), // Convert back to seconds for Convex
-              currentPeriodEnd: Math.floor(period.currentPeriodEnd / 1000),
-            } : {
-              currentPeriodStart: 0,
-              currentPeriodEnd: 0,
-            };
-          })(),
-          cancelAtPeriodEnd: !!subscription.cancel_at_period_end,
-          paymentMethod,
-          lastSyncAt: now,
-          syncSource: args.source,
-          updatedAt: now,
-        };
-      }
-
-      // Upsert to stripeSubscriptionCache
-      const existingCache = await ctx.db
-        .query('stripeSubscriptionCache')
-        .withIndex('by_user_id', (q) => q.eq('userId', userId))
-        .first();
-
-      if (existingCache) {
-        await ctx.db.patch(existingCache._id, syncData);
-      } else {
-        await ctx.db.insert('stripeSubscriptionCache', {
-          ...syncData,
-          createdAt: now,
-        });
-      }
-
-      // Also update the existing userSubscriptions table for backward compatibility
-      const planType: 'free' | 'pro' | 'enterprise' = syncData.planId;
-      const features = planType === 'enterprise'
-        ? ['Everything in Pro', 'Dedicated support', 'SLA guarantee', 'Custom deployment', 'Advanced analytics', 'Custom billing']
-        : planType === 'pro'
-        ? ['Unlimited AI conversations', 'Advanced code execution', 'Priority support', 'Fast response time', 'Custom integrations', 'Team collaboration']
-        : ['10 AI conversations per month', 'Basic code execution', 'Community support', 'Standard response time'];
-
-      const usageLimits = {
-        maxConversations: planType === 'free' ? 10 : undefined,
-        maxCodeExecutions: planType === 'free' ? 10 : undefined,
-        hasAdvancedFeatures: planType !== 'free',
-      } as { maxConversations?: number; maxCodeExecutions?: number; hasAdvancedFeatures: boolean };
-
-      const existingSubscription = await ctx.db
-        .query('userSubscriptions')
-        .withIndex('by_user_id', (q) => q.eq('userId', userId))
-        .first();
-
-      if (existingSubscription) {
-        await ctx.db.patch(existingSubscription._id, {
-          planId: mapPlanIdToString(syncData.planId),
-          planName: planType.charAt(0).toUpperCase() + planType.slice(1),
-          planType,
-          status: mapStripeStatusToUserStatus(syncData.status),
-          features,
-          usageLimits,
-          currentUsage: existingSubscription.currentUsage ?? { conversationsUsed: 0, codeExecutionsUsed: 0 },
-          currentPeriodStart: (syncData.currentPeriodStart || 0) * 1000, // Convert to ms
-          currentPeriodEnd: (syncData.currentPeriodEnd || 0) * 1000, // Convert to ms
-          resetDate: (syncData.currentPeriodEnd || 0) * 1000,
-          updatedAt: now,
-        });
-      } else {
-        await ctx.db.insert('userSubscriptions', {
-          userId,
-          planId: mapPlanIdToString(syncData.planId),
-          planName: planType.charAt(0).toUpperCase() + planType.slice(1),
-          planType,
-          status: mapStripeStatusToUserStatus(syncData.status),
-          features,
-          usageLimits,
-          currentUsage: { conversationsUsed: 0, codeExecutionsUsed: 0 },
-          currentPeriodStart: (syncData.currentPeriodStart || 0) * 1000, // Convert to ms
-          currentPeriodEnd: (syncData.currentPeriodEnd || 0) * 1000, // Convert to ms
-          resetDate: (syncData.currentPeriodEnd || 0) * 1000,
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
-
-      console.log('[SYNC] Successfully synced subscription for user:', userId, 'plan:', syncData.planId, 'status:', syncData.status);
-      
-      return {
-        success: true,
-        userId,
-        planId: syncData.planId,
-        status: syncData.status,
-        subscriptionId: syncData.subscriptionId,
-      };
-
-    } catch (error) {
-      console.error('[SYNC] Error syncing Stripe data:', error);
-      throw new Error(`Failed to sync Stripe data: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+    throw new Error('Stripe integration deprecated - please use Polar.sh instead');
   },
 });
 
@@ -553,63 +340,21 @@ export const ensureStripeCustomer = mutation({
     email: v.string(),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
-    
-    // Check if we already have a customer record
-    const existingRecord = await ctx.db
-      .query('stripeCustomers')
-      .withIndex('by_user_id', (q) => q.eq('userId', args.userId))
-      .first();
-    
-    if (existingRecord) {
-      return { stripeCustomerId: existingRecord.stripeCustomerId };
-    }
-
-    // Need to create Stripe customer
-    const stripeSecret = process.env.STRIPE_SECRET_KEY;
-    if (!stripeSecret) {
-      throw new Error('Stripe configuration missing');
-    }
-
-    const { default: Stripe } = await import('stripe');
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2025-07-30.basil' });
-
-    try {
-      // Create idempotency key to prevent duplicate customers
-      const idempotencyKey = `customer_${args.userId}_${args.email.toLowerCase()}`.slice(0, 255);
-      
-      const customer = await stripe.customers.create(
-        {
-          email: args.email,
-          metadata: {
-            userId: args.userId,
-          },
-        },
-        { idempotencyKey }
-      );
-
-      // Store the mapping
-      await ctx.db.insert('stripeCustomers', {
-        userId: args.userId,
-        stripeCustomerId: customer.id,
-        email: args.email,
-        metadata: {
-          createdViaCheckout: true,
-        },
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      return { stripeCustomerId: customer.id };
-
-    } catch (error) {
-      console.error('[ENSURE_CUSTOMER] Error creating Stripe customer:', error);
-      throw new Error(`Failed to create Stripe customer: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+    throw new Error('Stripe integration deprecated - please use Polar.sh instead');
   },
 });
 
 // Helper functions
+function getSubscriptionPeriod(subscription: any): { currentPeriodStart: number; currentPeriodEnd: number } | null {
+  if (!subscription || !subscription.current_period_start || !subscription.current_period_end) {
+    return null;
+  }
+  return {
+    currentPeriodStart: subscription.current_period_start * 1000, // Convert to milliseconds
+    currentPeriodEnd: subscription.current_period_end * 1000,
+  };
+}
+
 function mapSubscriptionStatus(stripeStatus: string): 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused' | 'none' {
   switch (stripeStatus) {
     case 'incomplete': return 'incomplete';

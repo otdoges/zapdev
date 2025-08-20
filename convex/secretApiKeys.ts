@@ -1,33 +1,46 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import crypto from "crypto";
+// Using Web Crypto API instead of Node crypto
 
 // Simple encryption using crypto (for demo purposes - in production, use proper key management)
 const ENCRYPTION_KEY = process.env.API_KEY_ENCRYPTION_SECRET || "default-secret-key-change-in-production";
 
-function encryptApiKey(apiKey: string, userId: string): { encrypted: string; hash: string } {
+async function encryptApiKey(apiKey: string, userId: string): Promise<{ encrypted: string; hash: string }> {
   // Create a user-specific key by combining the base key with userId
-  const userKey = crypto.createHash('sha256').update(ENCRYPTION_KEY + userId).digest();
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(ENCRYPTION_KEY + userId);
+  const keyHashBuffer = await crypto.subtle.digest('SHA-256', keyData);
+  const userKey = await crypto.subtle.importKey('raw', keyHashBuffer, { name: 'AES-CBC' }, false, ['encrypt']);
   
-  const cipher = crypto.createCipher('aes-256-cbc', userKey);
-  let encrypted = cipher.update(apiKey, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+  const data = encoder.encode(apiKey);
+  const encryptedBuffer = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, userKey, data);
   
-  const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
+  const encrypted = Array.from(new Uint8Array(iv)).map(b => b.toString(16).padStart(2, '0')).join('') + ':' + 
+    Array.from(new Uint8Array(encryptedBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
   
   return { encrypted, hash };
 }
 
-function decryptApiKey(encryptedApiKey: string, userId: string): string {
+async function decryptApiKey(encryptedApiKey: string, userId: string): Promise<string> {
   // Create the same user-specific key
-  const userKey = crypto.createHash('sha256').update(ENCRYPTION_KEY + userId).digest();
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(ENCRYPTION_KEY + userId);
+  const keyHashBuffer = await crypto.subtle.digest('SHA-256', keyData);
+  const userKey = await crypto.subtle.importKey('raw', keyHashBuffer, { name: 'AES-CBC' }, false, ['decrypt']);
   
-  const decipher = crypto.createDecipher('aes-256-cbc', userKey);
-  let decrypted = decipher.update(encryptedApiKey, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
+  const parts = encryptedApiKey.split(':');
+  const iv = new Uint8Array(parts[0].match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
+  const encryptedData = new Uint8Array(parts[1].match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
   
-  return decrypted;
+  const decryptedBuffer = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, userKey, encryptedData);
+  const decoder = new TextDecoder();
+  
+  return decoder.decode(decryptedBuffer);
 }
 
 // Get user's API keys (returns only metadata, not the actual keys)
@@ -80,7 +93,7 @@ export const setApiKey = mutation({
     }
 
     // Encrypt the API key
-    const { encrypted, hash } = encryptApiKey(apiKey, userId);
+    const { encrypted, hash } = await encryptApiKey(apiKey, userId);
 
     // Check if user already has an API key for this provider
     const existingKey = await ctx.db
@@ -139,18 +152,41 @@ export const getDecryptedApiKey = query({
     }
 
     try {
-      const decryptedKey = decryptApiKey(apiKeyRecord.encryptedApiKey, userId);
-      
-      // Update last used timestamp
-      await ctx.db.patch(apiKeyRecord._id, {
-        lastUsed: Date.now(),
-      });
-      
+      const decryptedKey = await decryptApiKey(apiKeyRecord.encryptedApiKey, userId);
       return decryptedKey;
     } catch (error) {
       console.error("Failed to decrypt API key:", error);
       return null;
     }
+  },
+});
+
+// Update API key last used timestamp (separate mutation)
+export const updateApiKeyLastUsed = mutation({
+  args: {
+    provider: v.string(),
+  },
+  handler: async (ctx, { provider }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    const apiKeyRecord = await ctx.db
+      .query("userApiKeys")
+      .withIndex("by_user_provider", (q) => 
+        q.eq("userId", userId).eq("provider", provider)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (apiKeyRecord) {
+      await ctx.db.patch(apiKeyRecord._id, {
+        lastUsed: Date.now(),
+      });
+    }
+
+    return { success: true };
   },
 });
 

@@ -31,7 +31,9 @@ app.use(
   '/trpc/*',
   trpcServer({
     router: appRouter,
-    createContext: (opts: FetchCreateContextFnOptions) => createContext(opts),
+    createContext: async (opts: FetchCreateContextFnOptions) => {
+      return await createContext({ req: opts.req });
+    },
     onError: ({ error, path, type }) => {
       console.error(`Hono tRPC Error on ${path} (${type}):`, {
         error: error.message,
