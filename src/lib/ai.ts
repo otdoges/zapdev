@@ -28,12 +28,19 @@ const circuitBreaker = new AICircuitBreaker();
 const responseCache = new AIResponseCache();
 
 // Cost tracking and limits
-const MODEL_PRICING = {
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   'openai/gpt-oss-120b': {
-    // Pricing based on Groq docs: $0.15 / 1M input tokens, $0.75 / 1M output tokens
     input: 0.15 / 1_000_000,
     output: 0.75 / 1_000_000,
-  }
+  },
+  'openai/gpt-oss-20b': {
+    input: 0.10 / 1_000_000,
+    output: 0.50 / 1_000_000,
+  },
+  'qwen/qwen3-coder:free': {
+    input: 0,
+    output: 0,
+  },
 };
 
 const DAILY_COST_LIMIT = 1.00; // $1.00 daily limit
@@ -143,10 +150,24 @@ const openrouter = createOpenRouter({
   apiKey: import.meta.env.VITE_OPENROUTER_API_KEY || '',
 })
 
-// Get current model instance
-async function getCurrentModel() {
-  const groq = createGroqInstance();
-  return (await groq)('openai/gpt-oss-120b');
+// Get model instance by id. Gemini models are not supported here (handled server-side).
+async function getCurrentModel(modelId?: string): Promise<LanguageModelV1> {
+  const targetModelId = modelId || 'openai/gpt-oss-120b';
+  // Route OpenRouter models
+  if (targetModelId.startsWith('qwen/')) {
+    return openrouter.chat(targetModelId);
+  }
+  // Route Groq OpenAI-compatible models
+  if (targetModelId.startsWith('openai/')) {
+    const groq = await createGroqInstance();
+    return groq(targetModelId);
+  }
+  // Gemini should be handled via API route
+  if (targetModelId.startsWith('gemini-')) {
+    throw new Error('Gemini models are handled via server API. Use /api/secret-chat from UI.');
+  }
+  const groq = await createGroqInstance();
+  return groq('openai/gpt-oss-120b');
 }
 
 // Gemma model (for concise title generation)
@@ -158,7 +179,7 @@ async function getGemmaModel() {
 // OpenRouter failsafe model
 const fallbackModel = openrouter.chat('qwen/qwen3-coder:free')
 
-export async function generateAIResponse(prompt: string, options?: { skipCache?: boolean }) {
+export async function generateAIResponse(prompt: string, options?: { skipCache?: boolean; modelId?: string }) {
   // Rate limit client-side bursts
   enforceClientAIRate();
 
@@ -203,9 +224,10 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           throw error;
         }
 
+        const targetModelId = options?.modelId || 'openai/gpt-oss-120b';
         const estimatedInputTokens = Math.ceil(prompt.length / 4);
         const estimatedOutputTokens = 8000;
-        const estimatedCost = calculateCost('openai/gpt-oss-120b', estimatedInputTokens, estimatedOutputTokens);
+        const estimatedCost = calculateCost(targetModelId, estimatedInputTokens, estimatedOutputTokens);
         
         checkCostLimit(estimatedCost);
 
@@ -215,8 +237,8 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           apiKeySource
         });
 
-        const currentModel = await getCurrentModel();
-        span.setAttribute("model", "openai/gpt-oss-120b");
+        const currentModel = await getCurrentModel(targetModelId);
+        span.setAttribute("model", targetModelId);
         
         const { text, usage } = await circuitBreaker.execute(
           () => withRetry(
@@ -228,18 +250,18 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
                 temperature: 0.7,
               }), 60_000),
               'generateText',
-              { model: 'openai/gpt-oss-120b', promptLength: prompt.length }
+              { model: targetModelId, promptLength: prompt.length }
             ),
             'AI Text Generation'
           ),
           'generateAIResponse'
         )
         
-        const actualCost = usage ? calculateCost('openai/gpt-oss-120b', usage.promptTokens, usage.completionTokens) : estimatedCost;
+        const actualCost = usage ? calculateCost(targetModelId, usage.promptTokens, usage.completionTokens) : estimatedCost;
         addTodayCost(actualCost);
 
         await recordAIConversation({
-          model: 'openai/gpt-oss-120b',
+          model: targetModelId,
           inputTokens: usage?.promptTokens || 0,
           outputTokens: usage?.completionTokens || 0,
           cost: actualCost,
@@ -252,7 +274,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         
         logger.info("AI text generation completed", { 
           responseLength: text.length,
-          model: "openai/gpt-oss-120b",
+          model: targetModelId,
           actualCost: actualCost.toFixed(6),
           inputTokens: usage?.promptTokens || 0,
           outputTokens: usage?.completionTokens || 0,
@@ -261,7 +283,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         
         aiMonitoring.recordOperation({
           operation: 'generateText',
-          model: 'openai/gpt-oss-120b',
+          model: targetModelId,
           duration: Date.now() - startTime,
           success: true,
           inputTokens: usage?.promptTokens || 0,
@@ -287,7 +309,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         
         aiMonitoring.recordOperation({
           operation: 'generateText',
-          model: 'openai/gpt-oss-120b',
+          model: targetModelId,
           duration: Date.now() - startTime,
           success: false,
           error: aiError.message,
@@ -328,7 +350,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
   );
 }
 
-export async function streamAIResponse(prompt: string, options?: { skipCache?: boolean }) {
+export async function streamAIResponse(prompt: string, options?: { skipCache?: boolean; modelId?: string }) {
   // Rate limit client-side bursts
   enforceClientAIRate();
 
@@ -355,9 +377,10 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
 
         const systemPrompt = SYSTEM_PROMPT;
         const fullPrompt = systemPrompt + "\n\n" + prompt;
+        const targetModelId = options?.modelId || 'openai/gpt-oss-120b';
         const estimatedInputTokens = Math.ceil(fullPrompt.length / 4);
         const estimatedOutputTokens = 8000;
-        const estimatedCost = calculateCost('openai/gpt-oss-120b', estimatedInputTokens, estimatedOutputTokens);
+        const estimatedCost = calculateCost(targetModelId, estimatedInputTokens, estimatedOutputTokens);
         
         checkCostLimit(estimatedCost);
 
@@ -367,8 +390,8 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
           apiKeySource
         });
 
-        const model = await getCurrentModel();
-        span.setAttribute("model", "openai/gpt-oss-120b");
+        const model = await getCurrentModel(targetModelId);
+        span.setAttribute("model", targetModelId);
 
         const result = await circuitBreaker.execute(
           () => withRetry(
@@ -383,7 +406,7 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
                 temperature: 0.7,
               }),
               'streamText',
-              { model: 'openai/gpt-oss-120b', promptLength: prompt.length }
+              { model: targetModelId, promptLength: prompt.length }
             ),
             'AI Stream Generation'
           ),
@@ -393,21 +416,21 @@ export async function streamAIResponse(prompt: string, options?: { skipCache?: b
         addTodayCost(estimatedCost);
 
         await recordAIConversation({
-          model: 'openai/gpt-oss-120b',
+          model: targetModelId,
           inputTokens: estimatedInputTokens,
           outputTokens: estimatedOutputTokens,
           cost: estimatedCost,
         });
         
         logger.info("AI streaming started successfully", { 
-          model: "openai/gpt-oss-120b",
+          model: targetModelId,
           estimatedCost: estimatedCost.toFixed(6),
           dailyCost: getTodayCost().toFixed(4)
         });
         
         aiMonitoring.recordOperation({
           operation: 'streamText',
-          model: 'openai/gpt-oss-120b',
+          model: targetModelId,
           duration: Date.now() - startTime,
           success: true,
           inputTokens: estimatedInputTokens,

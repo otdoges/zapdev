@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { streamAIResponse, generateChatTitleFromMessages, generateAIResponse } from '@/lib/ai';
+import { streamAIResponse, generateChatTitleFromMessages } from '@/lib/ai';
 import { generateDiagramResponse, generateUpdatedDiagram } from '@/lib/diagram-ai';
 import { executeCode, startSandbox } from '@/lib/sandbox';
 import { useAuth } from '@/hooks/useAuth';
@@ -90,6 +90,7 @@ const EnhancedChatInterface: React.FC = () => {
   // Code execution
   const [codeBlocks, setCodeBlocks] = useState<CodeBlock[]>([]);
   const [sandboxReady, setSandboxReady] = useState(false);
+  const [selectedModelId, setSelectedModelId] = useState<string>('openai/gpt-oss-120b');
 
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -103,6 +104,7 @@ const EnhancedChatInterface: React.FC = () => {
   const createMessageMutation = useMutation(api.messages.createMessage);
   const updateMessageMutation = useMutation(api.messages.updateMessage);
   const deleteChatMutation = useMutation(api.chats.deleteChat);
+  const getDecryptedGeminiKey = useMutation(api.secretApiKeys.getDecryptedApiKey);
 
   // Utility functions
   const formatTimestamp = useCallback((timestamp: number) => {
@@ -187,17 +189,62 @@ const EnhancedChatInterface: React.FC = () => {
 
       // Generate AI response
       const subscription = await getSubscription();
-      const aiResponse = await streamAIResponse(userInput, [], subscription?.tier || 'free');
+      let assistantContent = '';
+      let modelUsed = selectedModelId;
+
+      // Route Gemini via server API using stored key
+      if (selectedModelId.startsWith('gemini-')) {
+        const geminiKey = await getDecryptedGeminiKey({ provider: 'gemini' });
+        if (!geminiKey) {
+          toast.error('No Gemini API key found. Add it in Secret Chat settings.');
+          throw new Error('Missing Gemini API key');
+        }
+        try {
+          const token = await getToken();
+          const resp = await fetch('/api/secret-chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              'x-stream': 'true',
+              Accept: 'text/stream'
+            },
+            body: JSON.stringify({
+              messages: [
+                { role: 'system', content: 'You are a helpful assistant.' },
+                { role: 'user', content: userInput }
+              ],
+              apiKey: geminiKey,
+              model: selectedModelId,
+            })
+          });
+          if (!resp.ok) {
+            const err = await resp.text();
+            throw new Error(err || 'Gemini request failed');
+          }
+          const text = await resp.text();
+          assistantContent = text;
+        } catch (err) {
+          toast.error('Gemini request failed');
+          throw err as Error;
+        }
+      } else {
+        const streamResult = await streamAIResponse(userInput, { modelId: selectedModelId });
+        const chunks: string[] = [];
+        for await (const delta of (streamResult as any).textStream) {
+          chunks.push(String(delta));
+          if (chunks.join('').length > 50000) break;
+        }
+        assistantContent = chunks.join('').slice(0, 50000);
+      }
       
       // Create assistant message
       await createMessageMutation({
         chatId: currentChatId as Id<'chats'>,
-        content: aiResponse.content,
+        content: assistantContent,
         role: 'assistant',
         metadata: {
-          model: aiResponse.model,
-          tokens: aiResponse.usage?.total_tokens,
-          cost: aiResponse.cost
+          model: modelUsed,
         }
       });
 
@@ -205,7 +252,7 @@ const EnhancedChatInterface: React.FC = () => {
       if (messages?.length === 0) {
         const title = await generateChatTitleFromMessages([
           { content: userInput, role: 'user' },
-          { content: aiResponse.content, role: 'assistant' }
+          { content: assistantContent, role: 'assistant' }
         ]);
         // Update chat title (would need a mutation for this)
       }
@@ -216,7 +263,7 @@ const EnhancedChatInterface: React.FC = () => {
     } finally {
       setIsTyping(false);
     }
-  }, [input, isTyping, user, selectedChatId, messages, createChatMutation, createMessageMutation, getSubscription]);
+  }, [input, isTyping, user, selectedChatId, messages, createChatMutation, createMessageMutation, getSubscription, selectedModelId, getToken, getDecryptedGeminiKey]);
 
   // GitHub integration handlers
   const handleRepoSelected = useCallback((repo: GitHubRepo) => {
@@ -391,6 +438,8 @@ const EnhancedChatInterface: React.FC = () => {
                 deleteChat={deleteChat}
                 formatTimestamp={formatTimestamp}
                 user={user}
+                modelId={selectedModelId}
+                onChangeModel={setSelectedModelId}
               />
 
               {/* Main chat area */}

@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, MessageSquare, Trash2, Zap } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// Types for the sidebar
 interface Chat {
   _id: string;
   title: string;
@@ -27,9 +27,11 @@ interface ChatSidebarProps {
   deleteChat: (chatId: string) => void;
   formatTimestamp: (timestamp: number) => string;
   user: User | null;
+  modelId: string;
+  onChangeModel: (modelId: string) => void;
 }
 
-export const ChatSidebar: React.FC<ChatSidebarProps> = memo(({
+export const ChatSidebar: React.FC<ChatSidebarProps> = memo(({ 
   sidebarExpanded,
   setSidebarExpanded,
   chats,
@@ -38,7 +40,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = memo(({
   selectChat,
   deleteChat,
   formatTimestamp,
-  user
+  user,
+  modelId,
+  onChangeModel
 }) => {
   return (
     <motion.div
@@ -97,6 +101,22 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = memo(({
             )}
           </Button>
         </motion.div>
+      </div>
+
+      {/* Model selector */}
+      <div className="px-4 pb-2">
+        <Select value={modelId} onValueChange={onChangeModel}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select model" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="openai/gpt-oss-120b">Open GPT 120B (Groq)</SelectItem>
+            <SelectItem value="openai/gpt-oss-20b">Open GPT 20B (Groq)</SelectItem>
+            <SelectItem value="qwen/qwen3-coder:free">Qwen3 Coder (OpenRouter)</SelectItem>
+            <SelectItem value="gemini-2.0-flash-exp">Gemini 2.0 Flash</SelectItem>
+            <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Chat list */}
