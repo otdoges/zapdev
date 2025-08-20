@@ -109,8 +109,8 @@ const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
         throw new Error('No authentication token available');
       }
 
-      // Call the Hono.js checkout endpoint with plan information
-      const response = await fetch('/hono/checkout/checkout', {
+      // Call the Hono.js checkout endpoint with plan information (JSON POST)
+      const response = await fetch('/hono/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

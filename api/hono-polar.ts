@@ -218,6 +218,53 @@ app.get('/checkout', authenticateUser, async (c) => {
   }
 });
 
+// JSON-based checkout endpoint for programmatic clients (POST)
+app.post('/checkout', authenticateUser, async (c) => {
+  try {
+    const user = c.get('user') as { id: string; email?: string };
+    const body = await c.req.json<{ planId?: string; period?: 'month' | 'year' }>().catch(() => ({} as any));
+    const planId = body?.planId;
+    const period = body?.period || 'month';
+
+    if (!planId) {
+      return c.json({ message: 'planId is required' }, 400);
+    }
+
+    const productIdMap: Record<string, Record<string, string>> = {
+      'starter': {
+        'month': process.env.POLAR_PRODUCT_STARTER_MONTH_ID || '',
+        'year': process.env.POLAR_PRODUCT_STARTER_YEAR_ID || '',
+      },
+      'pro': {
+        'month': process.env.POLAR_PRODUCT_PRO_MONTH_ID || '',
+        'year': process.env.POLAR_PRODUCT_PRO_YEAR_ID || '',
+      },
+      'enterprise': {
+        'month': process.env.POLAR_PRODUCT_ENTERPRISE_MONTH_ID || '',
+        'year': process.env.POLAR_PRODUCT_ENTERPRISE_YEAR_ID || '',
+      },
+    };
+
+    const planMap = productIdMap[planId as keyof typeof productIdMap];
+    const productId = planMap?.[period as keyof typeof planMap];
+
+    if (!productId) {
+      return c.json({ message: `Plan ${planId} with period ${period} is not supported` }, 400);
+    }
+
+    const base = new URL(c.req.url);
+    const checkoutUrl = new URL(base.toString().replace(/\/checkout(?:\?.*)?$/, '/checkout-polar'));
+    checkoutUrl.searchParams.set('products', productId);
+    if (user.email) checkoutUrl.searchParams.set('customerEmail', user.email);
+    checkoutUrl.searchParams.set('metadata', JSON.stringify({ userId: user.id, planId, period }));
+
+    return c.json({ url: checkoutUrl.toString() });
+  } catch (error) {
+    console.error('Checkout POST error:', error);
+    return c.json({ message: 'Failed to create checkout' }, 500);
+  }
+});
+
 // Direct Polar.sh checkout using official adapter
 app.get('/checkout-polar', Checkout({
   accessToken: process.env.POLAR_ACCESS_TOKEN!,
