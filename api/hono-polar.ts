@@ -3,6 +3,8 @@ import { handle } from 'hono/vercel';
 import { Checkout, Webhooks } from '@polar-sh/hono';
 import { verifyClerkToken } from './_utils/auth';
 import { Polar } from '@polar-sh/sdk';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../convex/_generated/api';
 
 const app = new Hono();
 
@@ -17,6 +19,84 @@ const getPolarClient = () => {
     accessToken,
     server: process.env.NODE_ENV === 'production' ? undefined : 'sandbox'
   });
+};
+
+// Helper function to get Convex client
+const getConvexClient = () => {
+  const convexUrl = process.env.CONVEX_URL;
+  if (!convexUrl) {
+    throw new Error('CONVEX_URL environment variable is required');
+  }
+  
+  return new ConvexHttpClient(convexUrl);
+};
+
+// Helper function to sync subscription data to Convex
+const syncSubscriptionToConvex = async (subscription: {
+  id?: string;
+  status: string;
+  metadata?: { userId?: string; planId?: string };
+  product?: { name?: string };
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+  created_at?: string;
+  cancel_at_period_end?: boolean;
+}, action: 'created' | 'updated' | 'canceled') => {
+  try {
+    const convex = getConvexClient();
+    
+    // Extract user ID from subscription metadata
+    const userId = subscription.metadata?.userId;
+    if (!userId) {
+      console.warn(`No userId found in subscription metadata for subscription ID: ${subscription.id}`);
+      return;
+    }
+
+    // Map Polar.sh status to our status format
+    const mapPolarStatus = (status: string) => {
+      switch (status) {
+        case 'active':
+          return 'active';
+        case 'canceled':
+          return 'canceled';
+        case 'past_due':
+          return 'past_due';
+        case 'incomplete':
+          return 'incomplete';
+        case 'trialing':
+          return 'trialing';
+        default:
+          return 'none';
+      }
+    };
+
+    // Determine plan ID from subscription metadata or product info
+    const planId = subscription.metadata?.planId || 
+                  (subscription.product?.name?.toLowerCase().includes('pro') ? 'pro' : 'starter');
+
+    const subscriptionData = {
+      userId,
+      planId,
+      status: mapPolarStatus(subscription.status),
+      currentPeriodStart: new Date(subscription.currentPeriodStart || subscription.created_at).getTime(),
+      currentPeriodEnd: new Date(subscription.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).getTime(),
+      cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+    };
+
+    // For canceled subscriptions, we might want to set them to free plan
+    if (action === 'canceled') {
+      subscriptionData.planId = 'free';
+      subscriptionData.status = 'canceled' as const;
+    }
+
+    // Call Convex mutation to update subscription
+    await convex.mutation(api.users.upsertUserSubscription, subscriptionData);
+    
+    console.log(`Successfully synced ${action} subscription for user ${userId} with plan ${subscriptionData.planId}`);
+  } catch (error) {
+    console.error(`Failed to sync subscription to Convex:`, error);
+    throw error;
+  }
 };
 
 // Add CORS middleware
@@ -157,6 +237,8 @@ app.get('/portal', authenticateUser, async (c) => {
       ? 'https://polar.sh/dashboard/subscriptions'
       : 'https://sandbox.polar.sh/dashboard/subscriptions';
     
+    console.log('Redirecting user to portal:', user.id);
+    
     return c.json({
       url: portalUrl,
       message: 'Redirecting to subscription management dashboard'
@@ -171,6 +253,7 @@ app.get('/portal', authenticateUser, async (c) => {
 app.get('/subscription', authenticateUser, async (c) => {
   try {
     const user = c.get('user') as { id: string; email?: string };
+    console.log('Getting subscription for user:', user.id);
     
     try {
       const polar = getPolarClient();
@@ -247,22 +330,44 @@ app.post('/webhooks', Webhooks({
   },
   onSubscriptionCreated: async (payload) => {
     console.log('Subscription created:', payload);
-    // TODO: Sync subscription data with Convex database
+    try {
+      await syncSubscriptionToConvex(payload.data, 'created');
+    } catch (error) {
+      console.error('Failed to sync created subscription:', error);
+    }
   },
   onSubscriptionUpdated: async (payload) => {
     console.log('Subscription updated:', payload);
-    // TODO: Sync subscription data with Convex database
+    try {
+      await syncSubscriptionToConvex(payload.data, 'updated');
+    } catch (error) {
+      console.error('Failed to sync updated subscription:', error);
+    }
   },
   onSubscriptionCanceled: async (payload) => {
     console.log('Subscription canceled:', payload);
-    // TODO: Set user back to free plan in database
+    try {
+      await syncSubscriptionToConvex(payload.data, 'canceled');
+    } catch (error) {
+      console.error('Failed to sync canceled subscription:', error);
+    }
   },
   onOrderCreated: async (payload) => {
     console.log('Order created:', payload);
   },
   onOrderPaid: async (payload) => {
     console.log('Order paid:', payload);
-    // TODO: Activate subscription/benefits
+    try {
+      // Order paid might indicate a subscription should be activated
+      // Check if this order is related to a subscription
+      if (payload.data.subscription) {
+        console.log('Order has associated subscription, will be handled by subscription webhook');
+      } else {
+        console.log('One-time order paid - no subscription sync needed');
+      }
+    } catch (error) {
+      console.error('Failed to process paid order:', error);
+    }
   },
 }));
 
