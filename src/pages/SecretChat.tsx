@@ -38,7 +38,7 @@ export default function SecretChat() {
   const secretAccess = useQuery(api.secretAccess.hasSecretAccess);
   const isSetupComplete = useQuery(api.secretAccess.isSecretSetupComplete);
   const userApiKeys = useQuery(api.secretApiKeys.getUserApiKeys);
-  const geminiApiKeyFromDb = useQuery(api.secretApiKeys.getDecryptedApiKey, { provider: "gemini" });
+  const getDecryptedApiKey = useMutation(api.secretApiKeys.getDecryptedApiKey);
   const secretChats = useQuery(api.secretChats.getSecretChats);
   const currentChat = useQuery(
     api.secretChats.getSecretChat,
@@ -205,7 +205,8 @@ export default function SecretChat() {
         role: "user",
       });
 
-      // Check if user has a Gemini API key
+      // Get user's Gemini API key
+      const geminiApiKeyFromDb = await getDecryptedApiKey({ provider: "gemini" });
       if (!geminiApiKeyFromDb) {
         throw new Error("No Gemini API key found. Please add your API key in the settings tab.");
       }

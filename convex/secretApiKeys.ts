@@ -129,7 +129,7 @@ export const setApiKey = mutation({
 });
 
 // Get decrypted API key for use (internal function)
-export const getDecryptedApiKey = query({
+export const getDecryptedApiKey = mutation({
   args: {
     provider: v.string(),
   },
