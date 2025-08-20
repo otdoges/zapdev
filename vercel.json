@@ -13,9 +13,11 @@
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/hono/trpc/:path*", "destination": "/api/hono-trpc/trpc/:path*" },
-    { "source": "/hono/checkout/:path*", "destination": "/api/hono-checkout/:path*" },
-    { "source": "/hono/portal/:path*", "destination": "/api/hono-portal/:path*" },
-    { "source": "/hono/polar/:path*", "destination": "/api/hono-polar/:path*" },
+    { "source": "/hono/checkout", "destination": "/api/hono-polar/checkout" },
+    { "source": "/hono/checkout-polar", "destination": "/api/hono-polar/checkout-polar" },
+    { "source": "/hono/portal", "destination": "/api/hono-polar/portal" },
+    { "source": "/hono/subscription", "destination": "/api/hono-polar/subscription" },
+    { "source": "/hono/webhooks", "destination": "/api/hono-polar/webhooks" },
     { "source": "/hono/:path*", "destination": "/api/hono-polar/:path*" },
     { "source": "/:path*", "destination": "/index.html" }
   ]

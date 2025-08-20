@@ -1,9 +1,23 @@
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
-import { Checkout, CustomerPortal, Webhooks } from '@polar-sh/hono';
+import { Checkout, Webhooks } from '@polar-sh/hono';
 import { verifyClerkToken } from './_utils/auth';
+import { Polar } from '@polar-sh/sdk';
 
 const app = new Hono();
+
+// Helper function to get Polar client
+const getPolarClient = () => {
+  const accessToken = process.env.POLAR_ACCESS_TOKEN;
+  if (!accessToken) {
+    throw new Error('POLAR_ACCESS_TOKEN environment variable is required');
+  }
+  
+  return new Polar({
+    accessToken,
+    server: process.env.NODE_ENV === 'production' ? undefined : 'sandbox'
+  });
+};
 
 // Add CORS middleware
 app.use('*', async (c, next) => {
@@ -77,32 +91,150 @@ app.get('/health', (c) => {
   });
 });
 
-// Polar.sh Checkout endpoint using official Hono integration
-app.get(
-  '/checkout',
-  authenticateUser,
-  Checkout({
-    accessToken: process.env.POLAR_ACCESS_TOKEN!,
-    successUrl: `${process.env.PUBLIC_ORIGIN || 'http://localhost:8080'}/success`,
-    server: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
-    theme: 'dark',
-  })
-);
+// Polar.sh Checkout endpoint 
+app.get('/checkout', authenticateUser, async (c) => {
+  try {
+    const user = c.get('user') as { id: string; email?: string };
+    const planId = c.req.query('planId');
+    const period = c.req.query('period') || 'month';
+    
+    if (!planId) {
+      return c.json({ error: 'planId query parameter is required' }, 400);
+    }
 
-// Customer portal using official Hono integration
-app.get(
-  '/portal',
-  authenticateUser,
-  CustomerPortal({
-    accessToken: process.env.POLAR_ACCESS_TOKEN!,
-    getCustomerId: async (event) => {
-      // Extract customer ID from query params or user context
-      const customerId = event.req.query('customerId');
-      return customerId || '';
-    },
-    server: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
-  })
-);
+    // Map plan IDs to Polar.sh product IDs
+    const productIdMap: Record<string, Record<string, string>> = {
+      'starter': {
+        'month': process.env.POLAR_PRODUCT_STARTER_MONTH_ID || '',
+        'year': process.env.POLAR_PRODUCT_STARTER_YEAR_ID || '',
+      },
+      'pro': {
+        'month': process.env.POLAR_PRODUCT_PRO_MONTH_ID || '',
+        'year': process.env.POLAR_PRODUCT_PRO_YEAR_ID || '',
+      },
+    };
+    
+    const planMap = productIdMap[planId as keyof typeof productIdMap];
+    const productId = planMap?.[period as keyof typeof planMap];
+    
+    if (!productId) {
+      return c.json({ error: `Plan ${planId} with period ${period} is not supported` }, 400);
+    }
+
+    // Create checkout URL with query parameters for Polar.sh Hono adapter
+    const checkoutUrl = new URL(`${c.req.url.split('/checkout')[0]}/checkout-polar`);
+    checkoutUrl.searchParams.set('products', productId);
+    checkoutUrl.searchParams.set('customerEmail', user.email || '');
+    checkoutUrl.searchParams.set('metadata', JSON.stringify({
+      userId: user.id,
+      planId,
+      period
+    }));
+    
+    return c.redirect(checkoutUrl.toString());
+  } catch (error) {
+    console.error('Checkout redirect error:', error);
+    return c.json({ error: 'Failed to create checkout' }, 500);
+  }
+});
+
+// Direct Polar.sh checkout using official adapter
+app.get('/checkout-polar', Checkout({
+  accessToken: process.env.POLAR_ACCESS_TOKEN!,
+  successUrl: `${process.env.PUBLIC_ORIGIN || 'http://localhost:8080'}/success`,
+  server: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
+  theme: 'dark',
+}));
+
+// Customer portal endpoint
+app.get('/portal', authenticateUser, async (c) => {
+  try {
+    const user = c.get('user') as { id: string; email?: string };
+    
+    // For now, redirect to Polar.sh dashboard since we need the customer ID mapping
+    // In production, you'd want to store the Polar customer ID in your database
+    const portalUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://polar.sh/dashboard/subscriptions'
+      : 'https://sandbox.polar.sh/dashboard/subscriptions';
+    
+    return c.json({
+      url: portalUrl,
+      message: 'Redirecting to subscription management dashboard'
+    });
+  } catch (error) {
+    console.error('Portal error:', error);
+    return c.json({ error: 'Failed to access portal' }, 500);
+  }
+});
+
+// Get subscription status endpoint
+app.get('/subscription', authenticateUser, async (c) => {
+  try {
+    const user = c.get('user') as { id: string; email?: string };
+    
+    try {
+      const polar = getPolarClient();
+      
+      // Get user's subscriptions from Polar.sh
+      const subscriptions = await polar.subscriptions.list({
+        limit: 100
+      });
+      
+      // Find active subscription for this user
+      const subscriptionList = Array.isArray(subscriptions) ? subscriptions : [];
+      const activeSubscription = subscriptionList.find((sub: { status: string; metadata?: { userId?: string } }) => 
+        (sub.status === 'active' || sub.status === 'trialing') && 
+        sub.metadata?.userId === user.id
+      );
+      
+      if (!activeSubscription) {
+        // Return free plan
+        return c.json({
+          planId: 'free',
+          planName: 'Free',
+          status: 'none',
+          features: { conversations: 10, advancedFeatures: false },
+          currentPeriodStart: Date.now(),
+          currentPeriodEnd: Date.now() + (30 * 24 * 60 * 60 * 1000),
+          cancelAtPeriodEnd: false,
+        });
+      }
+      
+      // Determine plan ID from subscription metadata
+      const planId = activeSubscription.metadata?.planId || 'pro';
+      const features = planId === 'starter' 
+        ? { conversations: 100, advancedFeatures: true }
+        : { conversations: -1, advancedFeatures: true };
+      
+      return c.json({
+        planId,
+        planName: planId === 'starter' ? 'Starter' : 'Pro',
+        status: activeSubscription.status,
+        features,
+        currentPeriodStart: new Date(activeSubscription.currentPeriodStart).getTime(),
+        currentPeriodEnd: new Date(activeSubscription.currentPeriodEnd).getTime(),
+        cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd || false,
+      });
+      
+    } catch (polarError) {
+      console.warn('Failed to fetch subscriptions from Polar.sh:', polarError);
+      
+      // Fallback to free plan
+      return c.json({
+        planId: 'free',
+        planName: 'Free',
+        status: 'none',
+        features: { conversations: 10, advancedFeatures: false },
+        currentPeriodStart: Date.now(),
+        currentPeriodEnd: Date.now() + (30 * 24 * 60 * 60 * 1000),
+        cancelAtPeriodEnd: false,
+      });
+    }
+  } catch (error) {
+    console.error('Get subscription error:', error);
+    return c.json({ error: 'Failed to get subscription' }, 500);
+  }
+});
 
 // Polar.sh webhook handler using official Hono integration
 app.post('/webhooks', Webhooks({
