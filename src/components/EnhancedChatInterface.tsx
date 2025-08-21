@@ -353,11 +353,10 @@ const EnhancedChatInterface: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-blue-950/20 to-gray-950 text-white relative overflow-hidden">
-        {/* Animated background elements */}
+        {/* Optimized static background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
-          <div className="absolute top-3/4 left-3/4 w-64 h-64 bg-cyan-600/10 rounded-full blur-3xl animate-pulse delay-2000" />
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-600/5 rounded-full" />
+          <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-600/5 rounded-full" />
         </div>
 
         <AnimatePresence mode="wait">

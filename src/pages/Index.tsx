@@ -131,23 +131,13 @@ const Index = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 {isAuthenticated ? (
-                  <div className="flex flex-col sm:flex-row gap-3 items-center">
-                    <Button 
-                      size="lg" 
-                      className="button-gradient"
-                      onClick={() => navigate('/chat')}
-                    >
-                      Open Chat
-                    </Button>
-                    <Button 
-                      size="lg" 
-                      variant="outline"
-                      className="border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
-                      onClick={() => navigate('/pricing')}
-                    >
-                      Upgrade Plan
-                    </Button>
-                  </div>
+                  <Button 
+                    size="lg" 
+                    className="button-gradient"
+                    onClick={() => navigate('/chat')}
+                  >
+                    Open Chat
+                  </Button>
                 ) : (
                   <Button 
                     size="lg" 
