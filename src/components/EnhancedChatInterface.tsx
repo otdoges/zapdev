@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 
 // Import extracted components
 import { ChatSidebar } from './chat/ChatSidebar';
-import { ChatMessage } from './chat/ChatMessage';
+import { EnhancedChatMessage } from './chat/EnhancedChatMessage';
 import { ChatInput } from './chat/ChatInput';
 import { WelcomeScreen } from './chat/WelcomeScreen';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -398,19 +398,30 @@ const EnhancedChatInterface: React.FC = () => {
                 {/* Messages area */}
                 <ScrollArea className="flex-1 custom-scrollbar">
                   <div className="p-6 space-y-6 max-w-4xl mx-auto">
-                    {memoizedMessages.map((message, index) => (
-                      <ChatMessage
-                        key={message._id}
-                        message={message}
-                        user={user}
-                        copiedMessage={copiedMessage}
-                        setCopiedMessage={setCopiedMessage}
-                        isLast={index === memoizedMessages.length - 1}
-                        handleApproveDiagram={handleApproveDiagram}
-                        handleRequestDiagramChanges={handleRequestDiagramChanges}
-                        isSubmittingDiagram={isSubmittingDiagram}
-                      />
-                    ))}
+                    {memoizedMessages.map((message, index) => {
+                      const isUser = message.role === 'user';
+                      const isFirstInGroup = index === 0 || memoizedMessages[index - 1].role !== message.role;
+
+                      return (
+                        <EnhancedChatMessage
+                          key={message._id}
+                          message={message}
+                          isUser={isUser}
+                          isFirstInGroup={isFirstInGroup}
+                          formatTimestamp={formatTimestamp}
+                          copyToClipboard={async (text: string, messageId: string) => {
+                            await navigator.clipboard.writeText(text);
+                            setCopiedMessage(messageId);
+                            setTimeout(() => setCopiedMessage(null), 2000);
+                            toast.success('Message copied to clipboard!');
+                          }}
+                          copiedMessage={copiedMessage}
+                          onApproveDiagram={handleApproveDiagram}
+                          onRequestDiagramChanges={handleRequestDiagramChanges}
+                          isSubmittingDiagram={isSubmittingDiagram}
+                        />
+                      );
+                    })}
                     
                     {typingIndicator}
                     
