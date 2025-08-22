@@ -55,7 +55,7 @@ export const useAuthToken = () => {
       const freshToken = await getToken();
       authTokenManager.setToken(freshToken);
       return freshToken;
-    } catch (error) {
+    } catch {
       // Log error without exposing token details
       console.error('Failed to refresh auth token');
       authTokenManager.clearToken();

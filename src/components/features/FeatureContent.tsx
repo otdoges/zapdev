@@ -4,7 +4,6 @@ interface FeatureContentProps {
   title: string;
 }
 export const FeatureContent = ({
-  image,
   title
 }: FeatureContentProps) => {
   return <motion.div initial={{

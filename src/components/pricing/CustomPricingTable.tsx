@@ -8,7 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useAuthToken } from '@/lib/auth-token';
 import * as Sentry from '@sentry/react';
-import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 // Removed tRPC import - now using direct Hono.js Polar.sh API calls
 
 interface PricingPlan {
@@ -89,7 +88,7 @@ const PRICING_PLANS: PricingPlan[] = [
 
 const PricingCard = ({ plan, index }: { plan: PricingPlan; index: number }) => {
   const { isSignedIn, isLoading: authLoading, user } = useAuth();
-  const { getValidToken, ensureFreshTokenForTRPC } = useAuthToken();
+  const { getValidToken } = useAuthToken();
   const [isLoading, setIsLoading] = useState(false);
   
 

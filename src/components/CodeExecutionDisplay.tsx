@@ -63,7 +63,7 @@ const CodeExecutionDisplay: React.FC<CodeExecutionDisplayProps> = ({ output }) =
   };
 
   const formatResults = (results: unknown[]) => {
-    return results.map((result, index) => {
+    return results.map((result) => {
       if (typeof result === 'object') {
         return JSON.stringify(result, null, 2);
       }

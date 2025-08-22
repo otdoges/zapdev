@@ -42,7 +42,7 @@ export async function handleToolCall(toolCall: ToolCall): Promise<ToolCallResult
       // Expected args: { language?: 'javascript' | 'typescript', code: string, timeoutMs?: number }
       const language = ((toolCall.arguments.language as string) || 'javascript').toLowerCase();
       const code = String(toolCall.arguments.code || '').slice(0, 50000);
-      const timeout = typeof toolCall.arguments.timeoutMs === 'number' ? toolCall.arguments.timeoutMs : undefined;
+
 
       if (!code) {
         return { ok: false, content: 'Tool code_execute: missing code argument' };

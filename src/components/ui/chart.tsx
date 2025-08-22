@@ -70,7 +70,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const sanitizedId = id.replace(/[^a-zA-Z0-9_-]/g, '');
   
   const colorConfig = Object.entries(config).filter(
-    ([_, config]) => config.theme || config.color
+    ([, configItem]) => configItem.theme || configItem.color
   )
 
   if (!colorConfig.length) {
@@ -352,7 +352,7 @@ function getPayloadConfigFromPayload(
   }
 
   return configLabelKey in config
-    ? config[configLabelKey]
+    ? config[configLabelKey as keyof typeof config]
     : config[key as keyof typeof config]
 }
 

@@ -1,17 +1,17 @@
 
 import { useState, useEffect } from "react";
-import { Sparkles, Menu, User, Zap } from "lucide-react";
+import { Menu, User, Zap } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { SignInButton, useClerk } from "@clerk/clerk-react";
 import { useAuth } from "@/hooks/useAuth";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const location = useLocation();
+
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const { signOut } = useClerk();

@@ -1,24 +1,21 @@
 import { createGroq } from '@ai-sdk/groq'
-import { createOpenRouter, LanguageModelV1 } from '@openrouter/ai-sdk-provider'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateText, streamText } from 'ai'
 import * as Sentry from '@sentry/react'
 import { recordAIConversation } from './usage-service'
 import { SYSTEM_PROMPT } from './systemprompt'
-import { DECISION_PROMPT_NEXT } from './decisionPrompt'
+
 import { 
   withRetry, 
   monitorAIOperation, 
   AICircuitBreaker, 
   AIResponseCache,
   parseAIError,
-  AIRateLimitError,
-  AIQuotaExceededError,
   enforceClientAIRate,
   withTimeout
 } from './ai-utils'
 import { aiMonitoring } from './ai-monitoring'
 import { getSecureApiKey, getApiKeySource } from './secure-storage'
-import { apiKeyManager } from './api-key-manager'
 import { toast } from 'sonner'
 
 const { logger } = Sentry;
@@ -328,7 +325,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
   );
 }
 
-export async function streamAIResponse(prompt: string, options?: { skipCache?: boolean }) {
+export async function streamAIResponse(prompt: string) {
   // Rate limit client-side bursts
   enforceClientAIRate();
 
@@ -486,7 +483,7 @@ export async function generateChatTitleFromMessages(messages: Array<{ role: 'use
     });
     const title = (res.text || 'New chat').trim().replace(/^"|"$/g, '').replace(/[.!?\s]+$/g, '').slice(0, 60);
     return title.length > 0 ? title : 'New chat';
-  } catch (e) {
+  } catch {
     return 'New chat';
   }
 }

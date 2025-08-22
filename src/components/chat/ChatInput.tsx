@@ -1,8 +1,7 @@
 import React, { memo, useState } from 'react';
-import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, Globe, ArrowUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import WebsiteCloneDialog from '@/components/WebsiteCloneDialog';
@@ -40,24 +39,17 @@ export const ChatInput: React.FC<ChatInputProps> = memo(({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.8, delay: 1 }}
-      className="max-w-3xl mx-auto"
-    >
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Premium input container with enhanced design */}
-        <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-blue-600/30 rounded-3xl blur-xl opacity-50 group-hover:opacity-75 transition-all duration-500"></div>
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/40 to-blue-600/40 rounded-2xl blur opacity-30 group-hover:opacity-50 transition-all duration-300"></div>
-          <div className="relative glass-elevated rounded-2xl p-6 shadow-2xl border-white/10 hover:border-white/20 transition-all duration-300">
+    <div className="max-w-3xl mx-auto p-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Simplified input container */}
+        <div className="relative">
+          <div className="glass-elevated rounded-xl p-4 border border-white/10 hover:border-white/20 transition-colors">
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="What would you like to build today? Describe your app, website, or coding challenge..."
-              className="min-h-[140px] max-h-[300px] resize-none border-none bg-transparent text-lg placeholder:text-muted-foreground/60 focus:ring-0 focus-visible:ring-0 focus-visible:outline-none transition-all duration-300 leading-relaxed"
+              placeholder="What would you like to build today?"
+              className="min-h-[100px] max-h-[300px] resize-none border-none bg-transparent placeholder:text-muted-foreground/60 focus:ring-0 focus-visible:ring-0 focus-visible:outline-none"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                   handleSubmit(e);
@@ -65,90 +57,52 @@ export const ChatInput: React.FC<ChatInputProps> = memo(({
               }}
             />
             
-            {/* Premium action buttons with enhanced design */}
-            <div className="flex items-center justify-between pt-6 border-t border-white/10">
-              <div className="flex items-center space-x-3">
-                {/* Enhanced quick action buttons */}
-                <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
-                  <DialogTrigger asChild>
-                    <motion.div
-                      whileHover={{ scale: 1.05, y: -2 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="glass-hover rounded-xl px-4 py-2.5 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all duration-300 backdrop-blur-xl"
-                        type="button"
-                      >
-                        <Search className="w-4 h-4 mr-2" />
-                        Search Web
-                      </Button>
-                    </motion.div>
-                  </DialogTrigger>
-                  <DialogContent className="glass-elevated border-white/20">
-                    <DialogHeader>
-                      <DialogTitle className="text-gradient-static">Web Search</DialogTitle>
-                    </DialogHeader>
-                    {/* Search content here */}
-                  </DialogContent>
-                </Dialog>
-
-                <motion.div
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
+            {/* Simplified action bar */}
+            <div className="flex items-center justify-between pt-4 border-t border-white/10">
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="rounded-lg px-3 py-2 text-sm border border-white/10 hover:bg-white/5"
+                  type="button"
+                  onClick={() => setIsSearchOpen(true)}
                 >
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="glass-hover rounded-xl px-4 py-2.5 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all duration-300 backdrop-blur-xl"
-                    type="button"
-                    onClick={handleCloneWebsiteClick}
-                  >
-                    <Globe className="w-4 h-4 mr-2" />
-                    Clone Website
-                  </Button>
-                </motion.div>
+                  <Search className="w-4 h-4 mr-2" />
+                  Search
+                </Button>
+
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="rounded-lg px-3 py-2 text-sm border border-white/10 hover:bg-white/5"
+                  type="button"
+                  onClick={handleCloneWebsiteClick}
+                >
+                  <Globe className="w-4 h-4 mr-2" />
+                  Clone
+                </Button>
               </div>
 
-              {/* Premium send button */}
-              <motion.div
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
+              <Button
+                type="submit"
+                disabled={!input.trim() || isTyping}
+                className="bg-primary hover:bg-primary/90 px-6 py-2 rounded-lg disabled:opacity-50"
               >
-                <Button
-                  type="submit"
-                  disabled={!input.trim() || isTyping}
-                  className="button-gradient px-10 py-3.5 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isTyping ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-3 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <ArrowUp className="w-4 h-4 mr-3" />
-                      Start Building
-                    </>
-                  )}
-                </Button>
-              </motion.div>
+                {isTyping ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <ArrowUp className="w-4 h-4 mr-2" />
+                    Send
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </div>
-        
-        {/* Input hints */}
-        <motion.div 
-          className="text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
-        >
-          <p className="text-sm text-muted-foreground/60">
-            Press <kbd className="px-2 py-1 text-xs rounded bg-white/10 border border-white/20">Ctrl</kbd> + <kbd className="px-2 py-1 text-xs rounded bg-white/10 border border-white/20">Enter</kbd> to send
-          </p>
-        </motion.div>
       </form>
 
       {/* Website Clone Dialog */}
@@ -157,6 +111,18 @@ export const ChatInput: React.FC<ChatInputProps> = memo(({
         onOpenChange={setIsCloneDialogOpen}
         onCloneRequest={handleCloneRequest}
       />
-    </motion.div>
+
+      {/* Search Dialog */}
+      <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+        <DialogContent className="glass-elevated border-white/20">
+          <DialogHeader>
+            <DialogTitle>Web Search</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            Search functionality will be available soon.
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 });

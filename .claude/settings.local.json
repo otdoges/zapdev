@@ -90,7 +90,8 @@
       "Bash(npm run lint:*)",
       "WebFetch(domain:docs.stripe.com)",
       "Bash(bun info:*)",
-      "Bash(ss:*)"
+      "Bash(ss:*)",
+      "Bash(git config:*)"
     ],
     "deny": []
   }

@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   Check, 
-  X, 
   MessageSquare, 
   ChevronDown, 
   ChevronUp,
@@ -104,7 +103,6 @@ export const DiagramApprovalControls: React.FC<DiagramApprovalControlsProps> = (
   };
 
   const canApprove = !isApproved && !isSubmitting;
-  const canRequestChanges = !isApproved && !isSubmitting;
 
   return (
     <motion.div

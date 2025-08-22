@@ -17,7 +17,7 @@ export const useAuthWithTokens = () => {
       }
       
       return null;
-    } catch (error) {
+    } catch {
       console.error('Error getting auth token');
       clearStoredToken();
       return null;

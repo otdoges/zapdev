@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import {
   Play,
   Square,
-  RotateCcw,
   ExternalLink,
   Loader2,
   AlertTriangle,
@@ -19,11 +18,8 @@ import {
   Terminal,
   FileText,
   Folder,
-  Code2,
   Zap,
-  Download,
   Copy,
-  Check,
   Settings,
   Maximize,
   Minimize,
@@ -159,7 +155,7 @@ export const WebContainerFailsafe: React.FC<WebContainerFailsafeProps> = ({
         setTimeout(() => {
           void runProject();
         }, 150);
-      } catch (e) {
+      } catch {
         // no-op; errors handled downstream
       }
     };

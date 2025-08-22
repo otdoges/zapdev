@@ -2,7 +2,6 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { enforceRateLimit } from "./rateLimit";
-import { api } from "./_generated/api";
 
 // Helper function to get authenticated user
 const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
@@ -187,6 +186,12 @@ export const updateUserPreferences = mutation({
       notifications: v.optional(v.boolean()),
       autoSave: v.optional(v.boolean()),
       fontSize: v.optional(v.string()),
+      aiBackgroundAgent: v.optional(v.object({
+        enabled: v.boolean(),
+        mode: v.union(v.literal("manual"), v.literal("auto"), v.literal("scheduled")),
+        triggers: v.optional(v.array(v.string())),
+        restrictions: v.optional(v.array(v.string())),
+      })),
     })),
   },
   handler: async (ctx, args) => {
@@ -202,6 +207,33 @@ export const updateUserPreferences = mutation({
       const validFontSizes = ["xs", "sm", "md", "lg", "xl", "2xl"];
       if (!validFontSizes.includes(args.settings.fontSize)) {
         throw new Error("Invalid font size. Must be one of: " + validFontSizes.join(", "));
+      }
+    }
+
+    // Validate AI background agent settings for Pro users only
+    if (args.settings?.aiBackgroundAgent) {
+      // Check user subscription
+      const subscription = await ctx.db
+        .query("userSubscriptions")
+        .withIndex("by_user_id", (q) => q.eq("userId", identity.subject))
+        .first();
+      
+      const planType = subscription?.planType || "free";
+      
+      if (planType === "free") {
+        throw new Error("AI Background Agent is a Pro feature. Please upgrade to Pro to enable this feature.");
+      }
+
+      // Validate mode
+      const validModes = ["manual", "auto", "scheduled"];
+      if (!validModes.includes(args.settings.aiBackgroundAgent.mode)) {
+        throw new Error("Invalid AI background agent mode. Must be one of: " + validModes.join(", "));
+      }
+
+      // For auto mode, ensure triggers are provided
+      if (args.settings.aiBackgroundAgent.mode === "auto" && 
+          (!args.settings.aiBackgroundAgent.triggers || args.settings.aiBackgroundAgent.triggers.length === 0)) {
+        throw new Error("Auto mode requires at least one trigger condition.");
       }
     }
 
@@ -328,7 +360,7 @@ export const syncStripeDataToConvex = mutation({
     userId: v.optional(v.string()),
     source: v.union(v.literal("webhook"), v.literal("success"), v.literal("manual")),
   },
-  handler: async (ctx, args) => {
+  handler: async () => {
     throw new Error('Stripe integration deprecated - please use Polar.sh instead');
   },
 });
@@ -339,84 +371,12 @@ export const ensureStripeCustomer = mutation({
     userId: v.string(),
     email: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async () => {
     throw new Error('Stripe integration deprecated - please use Polar.sh instead');
   },
 });
 
-// Helper functions
-function getSubscriptionPeriod(subscription: any): { currentPeriodStart: number; currentPeriodEnd: number } | null {
-  if (!subscription || !subscription.current_period_start || !subscription.current_period_end) {
-    return null;
-  }
-  return {
-    currentPeriodStart: subscription.current_period_start * 1000, // Convert to milliseconds
-    currentPeriodEnd: subscription.current_period_end * 1000,
-  };
-}
 
-function mapSubscriptionStatus(stripeStatus: string): 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused' | 'none' {
-  switch (stripeStatus) {
-    case 'incomplete': return 'incomplete';
-    case 'incomplete_expired': return 'incomplete_expired';
-    case 'trialing': return 'trialing';
-    case 'active': return 'active';
-    case 'past_due': return 'past_due';
-    case 'canceled': return 'canceled';
-    case 'unpaid': return 'unpaid';
-    case 'paused': return 'paused';
-    default: return 'none';
-  }
-}
-
-function mapPriceIdToPlan(priceId: string): 'free' | 'pro' | 'enterprise' {
-  const pro = [
-    process.env.STRIPE_PRICE_PRO_MONTH, 
-    process.env.STRIPE_PRICE_PRO_YEAR,
-    process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
-    process.env.STRIPE_PRO_YEARLY_PRICE_ID
-  ].filter(Boolean);
-  const enterprise = [
-    process.env.STRIPE_PRICE_ENTERPRISE_MONTH, 
-    process.env.STRIPE_PRICE_ENTERPRISE_YEAR,
-    process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
-    process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID
-  ].filter(Boolean);
-  
-  if (enterprise.includes(priceId)) return 'enterprise';
-  if (pro.includes(priceId)) return 'pro';
-  return 'free';
-}
-
-function mapPlanIdToString(planId: 'free' | 'pro' | 'enterprise'): string {
-  return planId;
-}
-
-// Helper function to map Stripe statuses to userSubscriptions allowed statuses
-function mapStripeStatusToUserStatus(stripeStatus: string): "active" | "canceled" | "past_due" | "incomplete" | "trialing" | "none" {
-  switch (stripeStatus) {
-    case 'active':
-      return 'active';
-    case 'canceled':
-      return 'canceled';
-    case 'past_due':
-      return 'past_due';
-    case 'incomplete':
-      return 'incomplete';
-    case 'trialing':
-      return 'trialing';
-    case 'incomplete_expired':
-      return 'incomplete'; // Map to incomplete
-    case 'unpaid':
-      return 'past_due'; // Map to past_due
-    case 'paused':
-      return 'canceled'; // Map to canceled
-    case 'none':
-      return 'none';
-    default:
-      return 'none'; // Default fallback
-  }
-}
 
 // Upsert user subscription (called from webhooks)
 export const upsertUserSubscription = mutation({

@@ -11,12 +11,8 @@ import {
   Bot,
   Code,
   Settings,
-  User,
   CreditCard,
-  Shield,
-  Globe,
-  Clock,
-  Archive
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -57,7 +53,7 @@ export interface Notification {
   onAction?: () => void;
   autoHide?: boolean;
   hideDelay?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface NotificationState {

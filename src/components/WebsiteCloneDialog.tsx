@@ -4,8 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { 
   Globe, 
   Loader2, 
@@ -19,8 +17,7 @@ import {
   ExternalLink,
   Copy,
   CheckCircle,
-  AlertCircle,
-  Info
+  AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { crawlWebsite, type WebsiteAnalysis } from '@/lib/firecrawl';
@@ -145,7 +142,7 @@ export const WebsiteCloneDialog: React.FC<WebsiteCloneDialogProps> = ({
         await new Promise(resolve => setTimeout(resolve, 500)); // Visual feedback
         updateStepStatus('validate', 'completed');
         setCurrentStep(1);
-      } catch (error) {
+      } catch {
         updateStepStatus('validate', 'error');
         throw new Error('Invalid URL format');
       }
@@ -208,7 +205,7 @@ export const WebsiteCloneDialog: React.FC<WebsiteCloneDialogProps> = ({
       
       // Mark current step as error
       if (steps[currentStep]) {
-        updateStepStatus(steps[currentStep].id, 'error');
+        updateStepStatus(steps[currentStep]?.id || '', 'error');
       }
     } finally {
       setIsAnalyzing(false);
@@ -218,7 +215,7 @@ export const WebsiteCloneDialog: React.FC<WebsiteCloneDialogProps> = ({
   const generateClonePrompt = useCallback(() => {
     if (!analysis) return '';
 
-    const options = selectedOptions;
+    const options = selectedOptions as Record<string, boolean>;
     let prompt = `Please clone this website: ${analysis.url}\n\n`;
     
     prompt += `**Website Analysis:**\n`;
@@ -284,7 +281,7 @@ export const WebsiteCloneDialog: React.FC<WebsiteCloneDialogProps> = ({
     try {
       await navigator.clipboard.writeText(analysisText);
       toast.success('Analysis copied to clipboard!');
-    } catch (error) {
+    } catch {
       toast.error('Failed to copy analysis');
     }
   }, [analysis]);
@@ -343,7 +340,7 @@ export const WebsiteCloneDialog: React.FC<WebsiteCloneDialogProps> = ({
                   className="glass-elevated rounded-xl p-4 border border-white/10"
                 >
                   <div className="space-y-3">
-                    {steps.map((step, index) => (
+                    {steps.map((step) => (
                       <div key={step.id} className="flex items-center gap-3">
                         <div className="flex-shrink-0">
                           {step.status === 'completed' ? (

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Zap, Bot, Code, Sparkles, Brain, Cpu, Network, Shield } from 'lucide-react';
+import { Loader2, Zap, Code, Brain, Cpu, Network } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LoadingSpinnerProps {
@@ -342,9 +342,7 @@ export const ProgressiveLoading: React.FC<ProgressiveLoadingProps> = ({
 };
 
 // Specialized Loading Components for ZapDev
-export const AIThinkingLoader: React.FC<{ message?: string }> = ({
-  message = "AI is thinking..."
-}) => {
+export const AIThinkingLoader: React.FC<{ message?: string }> = () => {
   const thoughts = [
     "Analyzing your request",
     "Processing context",
@@ -405,7 +403,7 @@ export const AIThinkingLoader: React.FC<{ message?: string }> = ({
         <div className="flex space-x-1 mt-2">
           {[0, 1, 2].map((i) => (
             <motion.div
-              key={i}
+              key={`dot-${i}`}
               className="w-1 h-1 bg-primary rounded-full"
               animate={{
                 opacity: [0.3, 1, 0.3],

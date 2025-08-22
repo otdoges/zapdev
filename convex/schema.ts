@@ -138,6 +138,12 @@ export default defineSchema({
       notifications: v.optional(v.boolean()),
       autoSave: v.optional(v.boolean()),
       fontSize: v.optional(v.string()),
+      aiBackgroundAgent: v.optional(v.object({
+        enabled: v.boolean(),
+        mode: v.union(v.literal("manual"), v.literal("auto"), v.literal("scheduled")),
+        triggers: v.optional(v.array(v.string())), // Conditions that trigger AI agent
+        restrictions: v.optional(v.array(v.string())), // What AI should not do
+      })),
     })),
     createdAt: v.number(),
     updatedAt: v.number(),

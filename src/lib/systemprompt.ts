@@ -28,6 +28,7 @@ export function getSystemPrompt(options: SystemPromptOptions = {}): string {
     'All examples must be TypeScript or JavaScript. Avoid Python and shell unless explicitly requested.',
     'Never hardcode secrets. Use environment variables (browser: VITE_*, server-only: non-VITE keys).',
     'Default to accessibility, responsiveness, and security best practices.',
+    'NEVER use indigo color classes in Tailwind CSS (avoid indigo-*, use alternatives like blue-*, purple-*, violet-*, etc.)',
   ];
 
   const team = [
@@ -180,6 +181,7 @@ Avoid:
 - Giving tutorials unless requested
 - Being overly formal or robotic
 - Assuming the user wants to see implementation details unless they ask
+- Using indigo color classes in Tailwind CSS (use blue-*, purple-*, violet-* instead)
 
 Remember: You're having a conversation, not writing documentation. Be human-like and helpful.`;
 

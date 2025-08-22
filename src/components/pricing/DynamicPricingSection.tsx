@@ -1,12 +1,9 @@
 import { motion } from "framer-motion";
 import { CustomPricingTable } from "./CustomPricingTable";
-import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
 
 // Uses custom pricing table with direct Polar.sh integration
 
 export const DynamicPricingSection = () => {
-  const { user } = useAuth();
   
   // User ID persistence is now handled securely via session state
   // No need to store sensitive user data in localStorage

@@ -32,14 +32,13 @@ import type { Id } from '../../convex/_generated/dataModel';
 import { streamAIResponse, generateChatTitleFromMessages } from '@/lib/ai';
 import { executeCode, startSandbox } from '@/lib/sandbox.ts';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useUsageTracking } from '@/hooks/useUsageTracking';
 import { E2BCodeExecution } from './E2BCodeExecution';
 import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
 import { braveSearchService, type BraveSearchResult } from '@/lib/search-service';
 import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
-import { DECISION_PROMPT_NEXT } from '@/lib/decisionPrompt';
+
 
 
 const { logger } = Sentry;
@@ -237,7 +236,7 @@ const ChatInterface: React.FC = () => {
   // Search and website cloning state
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [isAnalyzingWebsite, setIsAnalyzingWebsite] = useState(false);
+
   const [searchResults, setSearchResults] = useState<BraveSearchResult[]>([]);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
   
@@ -498,7 +497,6 @@ const ChatInterface: React.FC = () => {
 
           // Team Lead planning step before streaming
           try {
-            const planningPrompt = `${DECISION_PROMPT_NEXT}\n\n<user_request>\n${userContent}\n</user_request>\n\nProduce a concise Team Lead plan and execution strategy as bullet points. No code.`;
             const plan = 'Planning functionality temporarily disabled';
             setTeamLeadPlan(plan);
           } catch (planErr) {

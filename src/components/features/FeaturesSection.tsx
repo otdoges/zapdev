@@ -122,7 +122,7 @@ export const FeaturesSection = () => {
               transition={{ duration: 0.8, delay: 0.8 }}
               className="md:col-span-7"
             >
-              {features.map((feature, index) => (
+              {features.map((feature) => (
                 <TabsContent
                   key={feature.title}
                   value={feature.title}
