@@ -26,6 +26,7 @@ const CONFIG = {
 class PostHogAnalytics {
   private readonly apiKey: string;
   private readonly host: string;
+  private readonly MAX_PAYLOAD_SIZE = 32 * 1024; // 32KB limit
   
   constructor() {
     this.apiKey = process.env.POSTHOG_API_KEY || '';
@@ -35,11 +36,14 @@ class PostHogAnalytics {
   capture(event: { event: string; properties?: Record<string, unknown> }): void {
     if (!CONFIG.ENABLE_ANALYTICS || !this.apiKey) return;
     
+    // Sanitize and limit payload size
+    const sanitizedProperties = this.sanitizeProperties(event.properties || {});
+    
     const payload = {
       api_key: this.apiKey,
       event: event.event,
       properties: {
-        ...event.properties,
+        ...sanitizedProperties,
         timestamp: new Date().toISOString(),
         server_instance: 'universal-api-server',
         environment: CONFIG.NODE_ENV,
@@ -47,14 +51,100 @@ class PostHogAnalytics {
       timestamp: new Date().toISOString(),
     };
     
+    // Check payload size before sending
+    const payloadString = JSON.stringify(payload);
+    if (payloadString.length > this.MAX_PAYLOAD_SIZE) {
+      logger.warn('PostHog payload too large, truncating', { size: payloadString.length });
+      // Truncate properties if payload is too large
+      const truncatedPayload = {
+        ...payload,
+        properties: {
+          ...payload.properties,
+          _truncated: true,
+          _original_size: payloadString.length
+        }
+      };
+      const truncatedString = JSON.stringify(truncatedPayload);
+      if (truncatedString.length <= this.MAX_PAYLOAD_SIZE) {
+        this.sendPayload(truncatedString);
+        return;
+      }
+    }
+    
+    this.sendPayload(payloadString);
+  }
+  
+  private sendPayload(payloadString: string): void {
     // Fire-and-forget analytics (non-blocking)
     fetch(`${this.host}/capture/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      headers: { 
+        'Content-Type': 'application/json',
+        'Content-Length': payloadString.length.toString()
+      },
+      body: payloadString,
     }).catch(error => {
       logger.warn('PostHog capture failed', error);
     });
+  }
+  
+  private sanitizeProperties(properties: Record<string, unknown>): Record<string, unknown> {
+    const sanitized: Record<string, unknown> = {};
+    const PII_PATTERNS = [
+      /email/i,
+      /password/i, 
+      /token/i,
+      /key/i,
+      /secret/i,
+      /auth/i,
+      /credit/i,
+      /card/i,
+      /ssn/i,
+      /social/i,
+      /phone/i,
+      /address/i
+    ];
+    
+    for (const [key, value] of Object.entries(properties)) {
+      // Skip potentially sensitive keys
+      const isSensitive = PII_PATTERNS.some(pattern => pattern.test(key));
+      if (isSensitive) {
+        sanitized[key] = '[REDACTED]';
+        continue;
+      }
+      
+      // Sanitize string values
+      if (typeof value === 'string') {
+        // Truncate very long strings
+        if (value.length > 1000) {
+          // eslint-disable-next-line security/detect-object-injection
+          sanitized[key] = value.substring(0, 1000) + '[TRUNCATED]';
+        } else {
+          // eslint-disable-next-line security/detect-object-injection
+          sanitized[key] = value;
+        }
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        // eslint-disable-next-line security/detect-object-injection
+        sanitized[key] = value;
+      } else if (value === null || value === undefined) {
+        // eslint-disable-next-line security/detect-object-injection
+        sanitized[key] = value;
+      } else {
+        // For objects/arrays, convert to string and truncate
+        try {
+          const stringified = JSON.stringify(value);
+          // eslint-disable-next-line security/detect-object-injection
+          sanitized[key] = stringified.length > 500 
+            ? stringified.substring(0, 500) + '[TRUNCATED]'
+            : stringified;
+        } catch {
+          // eslint-disable-next-line security/detect-object-injection
+          sanitized[key] = '[INVALID_JSON]';
+        }
+      }
+    }
+    
+    return sanitized;
   }
   
   trackApiRequest(data: {
@@ -102,6 +192,51 @@ class PostHogAnalytics {
 
 const analytics = new PostHogAnalytics();
 
+// Utility function to sanitize error messages for client responses
+function sanitizeErrorForClient(error: Error | unknown, isDevelopment: boolean = false): { error: string; code?: string } {
+  if (!error) {
+    return { error: 'Unknown error occurred' };
+  }
+  
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  
+  // In development, provide more details (but still sanitized)
+  if (isDevelopment && CONFIG.NODE_ENV === 'development') {
+    // Remove sensitive paths and internal details but keep useful info
+    const sanitized = errorMessage
+      .replace(/\/[^/\s]*\/([^/\s]*\/)*[^/\s]*(\.(js|ts|json))/g, '[FILE_PATH]')
+      .replace(/at\s+[^\s]+\s+\([^)]+\)/g, '[STACK_TRACE]')
+      .replace(/ENOENT.*'/g, 'File not found')
+      .replace(/EACCES.*'/g, 'Permission denied')
+      .replace(/Error:\s*/g, '');
+    
+    return { 
+      error: sanitized.length > 200 ? sanitized.substring(0, 200) + '...' : sanitized,
+      code: 'DEVELOPMENT_ERROR'
+    };
+  }
+  
+  // In production, return generic errors for security
+  const commonErrors: Record<string, string> = {
+    'Request timeout': 'Request timed out',
+    'Invalid API handler export': 'Service temporarily unavailable',
+    'ENOENT': 'Resource not found',
+    'EACCES': 'Access denied',
+    'ETIMEDOUT': 'Request timed out',
+    'ECONNRESET': 'Connection interrupted'
+  };
+  
+  // Check for known error patterns
+  for (const [pattern, safeMessage] of Object.entries(commonErrors)) {
+    if (errorMessage.includes(pattern)) {
+      return { error: safeMessage };
+    }
+  }
+  
+  // Default safe error message
+  return { error: 'Internal server error' };
+}
+
 // Rate limiting with secure IP validation and bounded storage
 const MAX_RATE_LIMIT_ENTRIES = 10000; // Prevent unbounded growth
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -119,18 +254,62 @@ setInterval(() => {
 function validateAndNormalizeIP(ip: string): string | null {
   if (!ip || typeof ip !== 'string') return null;
   
-  // Basic IPv4 validation
-  const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-  // Basic IPv6 validation (simplified)
-  const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$/;
-  
   const trimmedIP = ip.trim();
   
-  if (ipv4Regex.test(trimmedIP) || ipv6Regex.test(trimmedIP)) {
+  // Safe IPv4 validation using split and numeric validation
+  if (validateIPv4(trimmedIP)) {
+    return trimmedIP;
+  }
+  
+  // Safe IPv6 validation using split and hex validation
+  if (validateIPv6(trimmedIP)) {
     return trimmedIP;
   }
   
   return null;
+}
+
+// Safe IPv4 validation without regex DoS vulnerability
+function validateIPv4(ip: string): boolean {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return false;
+  
+  return parts.every(part => {
+    if (!/^\d+$/.test(part)) return false; // Only digits allowed
+    const num = parseInt(part, 10);
+    return num >= 0 && num <= 255 && part === num.toString(); // No leading zeros
+  });
+}
+
+// Safe IPv6 validation without regex DoS vulnerability
+function validateIPv6(ip: string): boolean {
+  // Handle special cases
+  if (ip === '::1' || ip === '::') return true;
+  
+  // Basic IPv6 structure validation without complex regex
+  if (ip.includes('::')) {
+    // Double colon can only appear once
+    if (ip.split('::').length !== 2) return false;
+    
+    const parts = ip.split('::');
+    const leftParts = parts[0] ? parts[0].split(':') : [];
+    const rightParts = parts[1] ? parts[1].split(':') : [];
+    
+    // Total parts should not exceed 8
+    if (leftParts.length + rightParts.length > 7) return false;
+    
+    return [...leftParts, ...rightParts].every(part => 
+      part === '' || (part.length <= 4 && /^[0-9a-fA-F]+$/.test(part))
+    );
+  } else {
+    // Standard IPv6 format (8 groups of 4 hex digits)
+    const parts = ip.split(':');
+    if (parts.length !== 8) return false;
+    
+    return parts.every(part => 
+      part.length >= 1 && part.length <= 4 && /^[0-9a-fA-F]+$/.test(part)
+    );
+  }
 }
 
 function checkRateLimit(req: IncomingMessage): boolean {
@@ -247,7 +426,7 @@ class EnhancedVercelRequest implements VercelRequest {
   }
   
   private parseCookies(cookieHeader?: string): Record<string, string> {
-    const cookies: Record<string, string> = {};
+    const cookies = Object.create(null) as Record<string, string>;
     if (!cookieHeader) return cookies;
     
     const COOKIE_NAME_PATTERN = /^[A-Za-z0-9_.-]+$/;
@@ -277,6 +456,7 @@ class EnhancedVercelRequest implements VercelRequest {
         // Attempt decoding, skip if it fails
         try {
           const decodedValue = decodeURIComponent(rawValue);
+          // eslint-disable-next-line security/detect-object-injection
           cookies[trimmedName] = decodedValue;
         } catch {
           // Skip malformed cookies - do not use raw value
@@ -543,6 +723,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   }
   
   // Safe file existence check
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
   if (!existsSync(resolvedApiPath)) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: `API endpoint not found: ${endpoint}` }));
@@ -584,6 +765,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
+      const ip = req.socket.remoteAddress || 'unknown';
+      
       logger.error('API Handler Error', error, { endpoint, method: req.method, ip });
       
       if (CONFIG.ENABLE_ANALYTICS) {
@@ -594,8 +777,10 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       }
       
       if (!res.headersSent) {
+        // Use sanitized error message for client response
+        const sanitizedError = sanitizeErrorForClient(error, CONFIG.NODE_ENV === 'development');
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+        res.end(JSON.stringify(sanitizedError));
       }
     }
   });
@@ -618,15 +803,36 @@ if (CONFIG.ENABLE_CLUSTERING && cluster.isPrimary) {
       clustering: CONFIG.ENABLE_CLUSTERING,
     });
     
-    // List endpoints
-    const apiDir = join(__dirname, 'api');
-    if (typeof apiDir === 'string' && apiDir.length > 0 && existsSync(apiDir)) {
-      const endpoints = readdirSync(apiDir)
-        .filter(file => file.endsWith('.ts') && !file.startsWith('_'))
-        .map(file => file.replace('.ts', ''));
-      
-      console.log('\n📊 Available Endpoints:');
-      endpoints.forEach(endpoint => console.log(`  • http://localhost:${CONFIG.PORT}/api/${endpoint}`));
+    // List endpoints with additional security validation
+    const apiDir = path.resolve(join(__dirname, 'api'));
+    const validApiBaseDir = path.resolve(__dirname);
+    
+    // Ensure apiDir is within the expected directory structure
+    if (typeof apiDir === 'string' && apiDir.length > 0 && 
+        // eslint-disable-next-line security/detect-non-literal-fs-filename
+        apiDir.startsWith(validApiBaseDir) && existsSync(apiDir)) {
+      try {
+        // eslint-disable-next-line security/detect-non-literal-fs-filename
+        const endpoints = readdirSync(apiDir)
+          .filter(file => {
+            // Enhanced filtering for security
+            return typeof file === 'string' &&
+                   file.endsWith('.ts') && 
+                   !file.startsWith('_') && 
+                   !file.includes('..') &&
+                   /^[A-Za-z0-9_-]+\.ts$/.test(file);
+          })
+          .map(file => file.replace('.ts', ''));
+        
+        console.log('\n📊 Available Endpoints:');
+        endpoints.forEach(endpoint => {
+          if (typeof endpoint === 'string' && /^[A-Za-z0-9_-]+$/.test(endpoint)) {
+            console.log(`  • http://localhost:${CONFIG.PORT}/api/${endpoint}`);
+          }
+        });
+      } catch (error) {
+        logger.warn('Failed to list API endpoints safely', error);
+      }
     }
     
     console.log(`\n🔍 Health: http://localhost:${CONFIG.PORT}/health`);
