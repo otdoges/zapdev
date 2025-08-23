@@ -537,21 +537,33 @@ function detectDesignPatterns(html: string, content: string): string[] {
 function extractNavigationStructure(html: string): NavigationItem[] {
   const navigation: NavigationItem[] = []
   
-  // Extract navigation links
-  const navRegex = /<nav[^>]*>(.*?)<\/nav>/gis
+  // More secure navigation extraction with bounded regex patterns
+  const navRegex = /<nav\b[^>]*>[\s\S]*?<\/nav>/gi
   const navMatches = html.match(navRegex)
   
   if (navMatches) {
     navMatches.forEach((nav, index) => {
-      const linkRegex = /<a[^>]*href=["']([^"']*)["'][^>]*>(.*?)<\/a>/gi
+      // More robust anchor tag pattern with proper escaping
+      const linkRegex = /<a\b[^>]*\bhref\s*=\s*["']([^"'<>]+)["'][^>]*>((?:(?!<\/a>)[\s\S])*?)<\/a>/gi
       const links: Array<{ href: string; text: string }> = []
       let linkMatch
       
-      while ((linkMatch = linkRegex.exec(nav)) !== null) {
-        links.push({
-          href: linkMatch[1],
-          text: sanitizeHtmlText(linkMatch[2])
-        })
+      // Limit iterations to prevent catastrophic backtracking
+      let iterations = 0
+      const maxIterations = 100
+      
+      while ((linkMatch = linkRegex.exec(nav)) !== null && iterations < maxIterations) {
+        const href = linkMatch[1]
+        const text = linkMatch[2]
+        
+        // Validate href is a safe URL
+        if (href && href.length < 2000 && !href.includes('<') && !href.includes('>')) {
+          links.push({
+            href: href,
+            text: sanitizeHtmlText(text || '')
+          })
+        }
+        iterations++
       }
       
       navigation.push({
@@ -573,77 +585,128 @@ function extractAssets(html: string): AssetInfo {
     fonts: [] as string[]
   }
   
-  // Extract images
-  const imgRegex = /<img[^>]*src=["']([^"']*)[^>]*>/gi
+  // Safer regex patterns with bounded matching and validation
+  
+  // Extract images with more secure pattern
+  const imgRegex = /<img\b[^>]*\bsrc\s*=\s*["']([^"'<>]+)["'][^>]*>/gi
   let imgMatch
-  while ((imgMatch = imgRegex.exec(html)) !== null) {
-    assets.images.push(imgMatch[1])
+  let imgIterations = 0
+  const maxImgIterations = 200
+  
+  while ((imgMatch = imgRegex.exec(html)) !== null && imgIterations < maxImgIterations) {
+    const src = imgMatch[1]
+    if (src && src.length < 2000 && !src.includes('<') && !src.includes('>')) {
+      assets.images.push(src)
+    }
+    imgIterations++
   }
   
-  // Extract stylesheets
-  const cssRegex = /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']*)[^>]*>/gi
+  // Extract stylesheets with more secure pattern
+  const cssRegex = /<link\b[^>]*\brel\s*=\s*["']stylesheet["'][^>]*\bhref\s*=\s*["']([^"'<>]+)["'][^>]*>/gi
   let cssMatch
-  while ((cssMatch = cssRegex.exec(html)) !== null) {
-    assets.stylesheets.push(cssMatch[1])
+  let cssIterations = 0
+  const maxCssIterations = 100
+  
+  while ((cssMatch = cssRegex.exec(html)) !== null && cssIterations < maxCssIterations) {
+    const href = cssMatch[1]
+    if (href && href.length < 2000 && !href.includes('<') && !href.includes('>')) {
+      assets.stylesheets.push(href)
+    }
+    cssIterations++
   }
   
-  // Extract scripts
-  const scriptRegex = /<script[^>]*src=["']([^"']*)[^>]*>/gi
+  // Extract scripts with more secure pattern
+  const scriptRegex = /<script\b[^>]*\bsrc\s*=\s*["']([^"'<>]+)["'][^>]*>/gi
   let scriptMatch
-  while ((scriptMatch = scriptRegex.exec(html)) !== null) {
-    assets.scripts.push(scriptMatch[1])
+  let scriptIterations = 0
+  const maxScriptIterations = 100
+  
+  while ((scriptMatch = scriptRegex.exec(html)) !== null && scriptIterations < maxScriptIterations) {
+    const src = scriptMatch[1]
+    if (src && src.length < 2000 && !src.includes('<') && !src.includes('>')) {
+      assets.scripts.push(src)
+    }
+    scriptIterations++
   }
   
-  // Extract fonts
-  const fontRegex = /font-family:\s*["']([^"']*)[^;]*/gi
+  // Extract fonts with bounded pattern - limit CSS parsing
+  const fontRegex = /font-family\s*:\s*["']([^"'<>]{1,100})["']/gi
   let fontMatch
-  while ((fontMatch = fontRegex.exec(html)) !== null) {
-    assets.fonts.push(fontMatch[1])
+  let fontIterations = 0
+  const maxFontIterations = 100
+  
+  while ((fontMatch = fontRegex.exec(html)) !== null && fontIterations < maxFontIterations) {
+    const font = fontMatch[1]
+    if (font && font.length > 0 && font.length < 100) {
+      assets.fonts.push(font)
+    }
+    fontIterations++
   }
   
   return {
     images: [...new Set(assets.images)].slice(0, 50),
-    stylesheets: [...new Set(assets.stylesheets)],
-    scripts: [...new Set(assets.scripts)],
-    fonts: [...new Set(assets.fonts)]
+    stylesheets: [...new Set(assets.stylesheets)].slice(0, 20),
+    scripts: [...new Set(assets.scripts)].slice(0, 20),
+    fonts: [...new Set(assets.fonts)].slice(0, 20)
   }
 }
 
 function analyzeSEO(page: FirecrawlPageResult): { metaTags: string[]; headings: HeadingInfo[]; imageAlts: string[] } {
   const html = page.html || ''
   
-  // Extract meta tags
+  // Extract meta tags with bounded and secure pattern
   const metaTags: string[] = []
-  const metaRegex = /<meta[^>]*>/gi
+  const metaRegex = /<meta\b[^>]{0,500}>/gi
   let metaMatch
-  while ((metaMatch = metaRegex.exec(html)) !== null) {
-    metaTags.push(metaMatch[0])
+  let metaIterations = 0
+  const maxMetaIterations = 100
+  
+  while ((metaMatch = metaRegex.exec(html)) !== null && metaIterations < maxMetaIterations) {
+    const metaTag = metaMatch[0]
+    if (metaTag && metaTag.length < 1000) {
+      metaTags.push(metaTag)
+    }
+    metaIterations++
   }
   
-  // Extract headings
+  // Extract headings with more secure bounded patterns
   const headings: HeadingInfo[] = []
   for (let i = 1; i <= 6; i++) {
-    const headingRegex = new RegExp(`<h${i}[^>]*>(.*?)</h${i}>`, 'gi')
+    const headingRegex = new RegExp(`<h${i}\\b[^>]*>((?:(?!<\\/h${i}>)[\\s\\S]){0,500}?)<\\/h${i}>`, 'gi')
     let headingMatch
-    while ((headingMatch = headingRegex.exec(html)) !== null) {
-      headings.push({
-        level: i,
-        text: sanitizeHtmlText(headingMatch[1])
-      })
+    let headingIterations = 0
+    const maxHeadingIterations = 50
+    
+    while ((headingMatch = headingRegex.exec(html)) !== null && headingIterations < maxHeadingIterations) {
+      const text = headingMatch[1]
+      if (text && text.length < 500) {
+        headings.push({
+          level: i,
+          text: sanitizeHtmlText(text)
+        })
+      }
+      headingIterations++
     }
   }
   
-  // Extract image alt texts
+  // Extract image alt texts with bounded pattern
   const imageAlts: string[] = []
-  const altRegex = /<img[^>]*alt=["']([^"']*)[^>]*>/gi
+  const altRegex = /<img\b[^>]*\balt\s*=\s*["']([^"'<>]{0,200})["'][^>]*>/gi
   let altMatch
-  while ((altMatch = altRegex.exec(html)) !== null) {
-    imageAlts.push(altMatch[1])
+  let altIterations = 0
+  const maxAltIterations = 100
+  
+  while ((altMatch = altRegex.exec(html)) !== null && altIterations < maxAltIterations) {
+    const alt = altMatch[1]
+    if (alt && alt.length > 0 && alt.length < 200) {
+      imageAlts.push(alt)
+    }
+    altIterations++
   }
   
   return {
-    metaTags,
-    headings,
-    imageAlts: [...new Set(imageAlts)]
+    metaTags: metaTags.slice(0, 50), // Limit results
+    headings: headings.slice(0, 100), // Limit results
+    imageAlts: [...new Set(imageAlts)].slice(0, 50) // Limit and dedupe results
   }
 }

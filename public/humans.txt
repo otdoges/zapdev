@@ -1,14 +1,109 @@
 # humanstxt.org
 
 /* TEAM */
-ZapDev Team: The ultimate zap dev platform creators
-Site: https://zapdev.com
+    Developer: Jackson
+    Contact: jackson@zapdev.com
+    From: San Francisco, CA, USA
+
+    Developer: ZapDev Team
+    Contact: team@zapdev.com
+    From: Global
 
 /* SITE */
-Last update: 2025-08-03
-Standards: HTML5, CSS3, JavaScript
-Components: React 19, TypeScript, Vite
-Software: ZapDev - AI-powered zap development platform
+    Last update: 2024/12/21
+    Language: English
+    Doctype: HTML5
+    IDE: Cursor, VS Code
+    Standards: HTML5, CSS3, JavaScript ES2022+
+    Components: React 19, TypeScript, Tailwind CSS, DaisyUI
+    Software: Vite, Bun, Convex, Clerk, Stripe
 
-/* KEYWORDS */
-zap dev, AI development, code generation, web app builder, developer tools, fast development, React, TypeScript
+/* TECHNOLOGY STACK */
+    Frontend: React 19, TypeScript, Tailwind CSS, DaisyUI
+    Backend: Convex (Real-time Database), Node.js
+    Authentication: Clerk
+    Payments: Stripe
+    Hosting: Vercel, Netlify
+    Build Tools: Vite, Bun
+    Package Manager: Bun
+    Database: Convex
+    Real-time: Convex, WebSockets
+    AI Integration: OpenAI, Anthropic
+    Code Execution: E2B WebContainer
+    Monitoring: Sentry
+    Analytics: PostHog
+
+/* DEVELOPMENT PRACTICES */
+    Code Quality: ESLint, Prettier, TypeScript strict mode
+    Testing: Vitest, React Testing Library
+    Security: OWASP guidelines, Content Security Policy
+    Performance: Core Web Vitals optimization, lazy loading
+    Accessibility: WCAG 2.1 AA compliance
+    SEO: Structured data, meta tags, sitemaps
+    Mobile: Progressive Web App (PWA), responsive design
+    Performance: Bundle optimization, code splitting
+
+/* FEATURES */
+    AI-Powered Development: Code generation, intelligent assistance
+    Real-time Collaboration: Live chat, shared workspaces
+    Full-Stack Development: Frontend, backend, database
+    Instant Deployment: One-click deployment to multiple platforms
+    WebContainer: Secure code execution environment
+    Version Control: Git integration, GitHub workflows
+    API Management: RESTful APIs, GraphQL support
+    Database Management: Real-time database with Convex
+
+/* USE CASES */
+    MVP Development: Rapid prototyping for startups
+    SaaS Applications: Full-stack SaaS platform development
+    E-commerce Sites: Online stores and marketplaces
+    Web Applications: Custom web applications
+    API Development: Backend API services
+    Mobile Apps: Progressive web applications
+    Enterprise Solutions: Large-scale business applications
+    Educational Platforms: Learning management systems
+
+/* TARGET AUDIENCE */
+    Startups: Building MVPs and prototypes
+    Developers: Seeking AI-powered development tools
+    Agencies: Delivering client projects faster
+    Enterprises: Modernizing development workflows
+    Students: Learning modern development practices
+    Freelancers: Managing multiple client projects
+    Product Managers: Rapidly iterating on ideas
+    Designers: Prototyping and testing concepts
+
+/* MISSION */
+    To democratize AI-powered development by providing
+    the most intuitive, powerful, and accessible platform
+    for building full-stack applications. We believe
+    everyone should be able to turn their ideas into
+    reality, regardless of their technical background.
+
+/* VALUES */
+    Innovation: Pushing the boundaries of AI development
+    Accessibility: Making development tools available to everyone
+    Quality: Delivering enterprise-grade solutions
+    Community: Building a supportive developer ecosystem
+    Security: Prioritizing user data and application security
+    Performance: Optimizing for speed and efficiency
+    User Experience: Creating intuitive and delightful interfaces
+    Continuous Improvement: Always learning and evolving
+
+/* CONTRIBUTING */
+    We welcome contributions from the community!
+    GitHub: https://github.com/zapdev
+    Documentation: https://zapdev.com/docs
+    Community: https://zapdev.com/community
+    Issues: https://github.com/zapdev/issues
+    Discussions: https://github.com/zapdev/discussions
+
+/* LICENSE */
+    MIT License - see LICENSE file for details
+    Open source components used under their respective licenses
+
+/* ACKNOWLEDGMENTS */
+    Built with love using amazing open source technologies
+    Special thanks to the React, TypeScript, and Tailwind CSS communities
+    Inspired by the need for better AI-powered development tools
+    Dedicated to all developers building the future of the web
