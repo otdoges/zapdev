@@ -204,8 +204,9 @@ export const WebsiteCloneDialog: React.FC<WebsiteCloneDialogProps> = ({
       toast.error(`Analysis failed: ${errorMessage}`);
       
       // Mark current step as error
-      if (steps[currentStep]) {
-        updateStepStatus(steps[currentStep]?.id || '', 'error');
+      const currentStepData = steps.length > currentStep ? steps[currentStep] : null;
+      if (currentStepData) {
+        updateStepStatus(currentStepData.id, 'error');
       }
     } finally {
       setIsAnalyzing(false);
@@ -285,6 +286,8 @@ export const WebsiteCloneDialog: React.FC<WebsiteCloneDialogProps> = ({
       toast.error('Failed to copy analysis');
     }
   }, [analysis]);
+
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>

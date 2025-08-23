@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Menu, User, Zap } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { SignInButton, useClerk } from "@clerk/clerk-react";
 import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";

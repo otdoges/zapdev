@@ -93,7 +93,7 @@ async function getUserApiKey(): Promise<string | null> {
     }
     return null;
   } catch (error) {
-    logger.warn('Error retrieving user API key:', error);
+    logger.warn('Error retrieving user API key:', { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }
@@ -105,18 +105,32 @@ async function createGroqInstance() {
   const apiKey = userApiKey || envApiKey || '';
   
   // Validate API key before creating instance
-  if (!apiKey || apiKey.length < 20) {
-    const error = new Error('Invalid or missing Groq API key. Please check your configuration.');
+  if (!apiKey || apiKey.length < 20 || apiKey === 'your_groq_api_key_here' || apiKey.includes('xxxxx')) {
+    const error = new Error(
+      '🔑 No Groq API key configured!\n\n' +
+      '📋 Quick setup (2 minutes):\n' +
+      '1. Visit https://console.groq.com/keys\n' +
+      '2. Sign up (free)\n' +
+      '3. Create API key\n' +
+      '4. Add to .env.local: VITE_GROQ_API_KEY=your_key\n' +
+      '5. Restart server\n\n' +
+      '💡 Check QUICK_SETUP.md for detailed instructions!'
+    );
     logger.error('Groq API key validation failed', { hasUserKey: !!userApiKey, hasEnvKey: !!envApiKey });
-    toast.error('AI service configuration error. Please check your API keys.');
+    toast.error('🔑 Groq API key required! Check console for setup instructions.', { duration: 8000 });
     throw error;
   }
   
   // Validate key format
   if (!apiKey.startsWith('gsk_')) {
-    const error = new Error('Invalid Groq API key format. Key should start with "gsk_".');
+    const error = new Error(
+      '❌ Invalid Groq API key format!\n\n' +
+      'Groq API keys should start with "gsk_"\n' +
+      'Example: gsk_abc123...\n\n' +
+      '🔧 Please check your API key at https://console.groq.com/keys'
+    );
     logger.error('Groq API key format validation failed');
-    toast.error('Invalid Groq API key format. Please check your key.');
+    toast.error('❌ Invalid Groq API key format. Keys should start with "gsk_"', { duration: 6000 });
     throw error;
   }
   
@@ -221,7 +235,6 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
               () => withTimeout(generateText({
                 model: currentModel,
                 prompt,
-                maxTokens: 8000,
                 temperature: 0.7,
               }), 60_000),
               'generateText',
@@ -232,27 +245,27 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           'generateAIResponse'
         )
         
-        const actualCost = usage ? calculateCost('openai/gpt-oss-120b', usage.promptTokens, usage.completionTokens) : estimatedCost;
+        const actualCost = usage ? calculateCost('openai/gpt-oss-120b', usage.inputTokens || 0, usage.outputTokens || 0) : estimatedCost;
         addTodayCost(actualCost);
 
         await recordAIConversation({
           model: 'openai/gpt-oss-120b',
-          inputTokens: usage?.promptTokens || 0,
-          outputTokens: usage?.completionTokens || 0,
+          inputTokens: usage?.inputTokens || 0,
+          outputTokens: usage?.outputTokens || 0,
           cost: actualCost,
         });
 
         span.setAttribute("response_length", text.length);
         span.setAttribute("actual_cost", actualCost.toFixed(6));
-        span.setAttribute("input_tokens", usage?.promptTokens || 0);
-        span.setAttribute("output_tokens", usage?.completionTokens || 0);
+        span.setAttribute("input_tokens", usage?.inputTokens || 0);
+        span.setAttribute("output_tokens", usage?.outputTokens || 0);
         
         logger.info("AI text generation completed", { 
           responseLength: text.length,
           model: "openai/gpt-oss-120b",
           actualCost: actualCost.toFixed(6),
-          inputTokens: usage?.promptTokens || 0,
-          outputTokens: usage?.completionTokens || 0,
+          inputTokens: usage?.inputTokens || 0,
+          outputTokens: usage?.outputTokens || 0,
           dailyCost: getTodayCost().toFixed(4)
         });
         
@@ -261,8 +274,8 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           model: 'openai/gpt-oss-120b',
           duration: Date.now() - startTime,
           success: true,
-          inputTokens: usage?.promptTokens || 0,
-          outputTokens: usage?.completionTokens || 0,
+          inputTokens: usage?.inputTokens || 0,
+          outputTokens: usage?.outputTokens || 0,
           cost: actualCost,
           cacheHit: false
         });
@@ -305,7 +318,6 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
           const { text } = await withTimeout(generateText({
             model: fallbackModel,
             prompt,
-            maxTokens: 4000,
             temperature: 0.7,
           }), 30_000)
           
@@ -376,7 +388,6 @@ export async function streamAIResponse(prompt: string) {
                   { role: 'system', content: systemPrompt },
                   { role: 'user', content: prompt }
                 ],
-                maxTokens: 8000,
                 temperature: 0.7,
               }),
               'streamText',
@@ -441,7 +452,6 @@ export async function streamAIResponse(prompt: string) {
               { role: 'system', content: systemPrompt },
               { role: 'user', content: prompt }
             ],
-            maxTokens: 4000,
             temperature: 0.7,
           })
           
@@ -479,7 +489,6 @@ export async function generateChatTitleFromMessages(messages: Array<{ role: 'use
       model,
       prompt: instruction,
       temperature: 0.3,
-      maxTokens: 24,
     });
     const title = (res.text || 'New chat').trim().replace(/^"|"$/g, '').replace(/[.!?\s]+$/g, '').slice(0, 60);
     return title.length > 0 ? title : 'New chat';

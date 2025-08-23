@@ -1,3 +1,4 @@
+import sanitizeHtml from 'sanitize-html';
 import * as Sentry from '@sentry/react'
 
 const { logger } = Sentry
@@ -6,22 +7,8 @@ const { logger } = Sentry
 function sanitizeHtmlText(htmlString: string): string {
   if (!htmlString) return ''
   
-  // More robust HTML tag removal that handles edge cases
-  return htmlString
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags with content
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove style tags with content
-    .replace(/<[^>]+>/g, '') // Remove all remaining HTML tags
-    .replace(/&[#\w]+;/g, (entity) => { // Decode common HTML entities
-      const entities: { [key: string]: string } = {
-        '&amp;': '&',
-        '&lt;': '<',
-        '&gt;': '>',
-        '&quot;': '"',
-        '&#39;': "'",
-        '&nbsp;': ' '
-      }
-      return entities[entity] || entity
-    })
+  // Use well-tested sanitize-html library to strip all HTML tags and decode entities
+  return sanitizeHtml(htmlString, { allowedTags: [], allowedAttributes: {} })
     .trim()
     .substring(0, 500) // Limit length for safety
 }

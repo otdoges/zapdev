@@ -3,16 +3,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import React from "react";
 
-interface AuthUser {
-  _id: string;
-  userId: string;
-  email: string;
-  fullName?: string;
-  avatarUrl?: string;
-  username?: string;
-  bio?: string;
-}
-
 export const useAuth = () => {
   const { user: clerkUser, isLoaded, isSignedIn } = useUser();
   

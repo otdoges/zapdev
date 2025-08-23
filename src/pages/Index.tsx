@@ -20,10 +20,17 @@ const Index = () => {
       try {
         const convexUserId = user?._id; // Only use session-based user ID for security
         if (convexUserId) {
-          fetch(`/api/success?userId=${encodeURIComponent(convexUserId)}`, { method: 'POST' }).catch(() => {});
+          fetch(`/api/success?userId=${encodeURIComponent(convexUserId)}`, { method: 'POST' })
+            .catch((error) => {
+              console.error('Failed to handle success redirect:', error);
+              // Optionally show user notification about partial failure
+              // but don't prevent the success page from showing
+            });
         }
-      } catch (e) {
-        // no-op
+      } catch (error) {
+        console.error('Success redirect processing failed:', error);
+        // Log error for debugging but don't disrupt user flow
+        // Could optionally report to error tracking service
       }
       // Clean up URL
       window.history.replaceState({}, '', '/');

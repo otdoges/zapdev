@@ -126,13 +126,12 @@ class GitHubService {
         }
       }
       
-      // Handle various GitHub URL formats with domain validation
+      // Handle various GitHub URL formats with domain validation - using safer patterns
       const patterns = [
-        /(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
-        /(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)\.git$/,
-        /git@github\.com:([^/]+)\/([^/]+)\.git$/,
+        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
+        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)\.git$/,
+        /^git@github\.com:([^/]+)\/([^/]+)\.git$/,
       ];
-
       const cleanUrl = url.trim();
       
       for (const pattern of patterns) {
@@ -144,8 +143,8 @@ class GitHubService {
           const cleanOwner = owner.trim();
           const cleanRepo = repo.replace(/\.git$/, '').trim();
           
-          // Validate GitHub username/org and repo name patterns separately
-          const ownerPattern = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
+          // Validate GitHub username/org and repo name patterns separately - using safer patterns
+          const ownerPattern = /^[a-z\d](?:[a-z\d]|[-](?=[a-z\d])){0,38}$/i;
           const repoPattern = /^[A-Za-z0-9._-]{1,100}$/;
           
           const isOwnerValid = ownerPattern.test(cleanOwner);
@@ -172,8 +171,8 @@ class GitHubService {
       }
 
       return null;
-    } catch (error) {
-      logger.error('Error parsing GitHub URL:', error);
+    } catch {
+      logger.error('Error parsing GitHub URL');
       return null;
     }
   }
@@ -188,9 +187,9 @@ class GitHubService {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       return forkedRepo;
-    } catch (error) {
-      logger.error('Error forking repository:', error);
-      throw new Error(`Failed to fork repository: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } catch {
+      logger.error('Error forking repository');
+      throw new Error('Failed to fork repository');
     }
   }
 
