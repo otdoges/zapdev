@@ -532,7 +532,7 @@ export class NetlifyDeploymentService implements IDeploymentService {
       } catch {
         // Fallback for git@github.com:owner/repo.git
         // E.g. git@github.com:owner/repo.git or ssh://git@github.com/owner/repo.git
-        const match = url.match(/@([a-zA-Z0-9.\-]+)[/:]/);
+        const match = url.match(/@([a-zA-Z0-9.-]+)[/:]/);
         if (match) hostname = match[1].toLowerCase();
       }
       if (hostname === 'github.com') return 'github';
@@ -540,10 +540,8 @@ export class NetlifyDeploymentService implements IDeploymentService {
       if (hostname === 'bitbucket.org') return 'bitbucket';
       return 'github'; // default
     } catch {
-      // Fallback to original heuristic
-      if (url.includes('github.com')) return 'github';
-      if (url.includes('gitlab.com')) return 'gitlab';
-      if (url.includes('bitbucket.org')) return 'bitbucket';
+      // Secure fallback - no substring matching to prevent spoofing
+      // Only return 'github' as default if we cannot parse the URL securely
       return 'github';
     }
   }

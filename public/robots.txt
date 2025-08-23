@@ -1,17 +1,118 @@
+# Enhanced Robots.txt for ZapDev
+# Optimized for search engine crawling and indexing
+
 User-agent: *
 Allow: /
 
-# Block access to authentication callback
-Disallow: /auth/callback
-
-# Block access to settings for non-authenticated users  
-Disallow: /settings
-
-# Allow access to important pages
+# Core Application Pages - High Priority
 Allow: /
 Allow: /pricing
+Allow: /features
+Allow: /use-cases
+Allow: /docs
+Allow: /tutorials
+Allow: /examples
+Allow: /blog
+Allow: /resources
+
+# Legal & Trust Pages
 Allow: /terms
 Allow: /privacy
+Allow: /security
+Allow: /about
+Allow: /contact
 
-# Sitemap location
+# SEO Landing Pages
+Allow: /ai-development-platform
+Allow: /full-stack-development
+Allow: /rapid-prototyping
+Allow: /ai-code-generation
+Allow: /web-application-builder
+Allow: /mvp-development
+Allow: /saas-development
+Allow: /e-commerce-development
+
+# Target Audience Pages
+Allow: /for-startups
+Allow: /for-developers
+Allow: /for-agencies
+Allow: /for-enterprises
+
+# Technical & Integration Pages
+Allow: /api
+Allow: /integrations
+Allow: /status
+Allow: /changelog
+
+# Comparison Pages
+Allow: /vs-traditional-development
+Allow: /vs-low-code-platforms
+
+# Block sensitive areas
+Disallow: /auth/callback
+Disallow: /settings
+Disallow: /admin
+Disallow: /api/internal
+Disallow: /_next
+Disallow: /static/admin
+
+# Block development and testing paths
+Disallow: /dev
+Disallow: /test
+Disallow: /staging
+Disallow: /debug
+
+# Block user-specific content
+Disallow: /user/
+Disallow: /profile/
+Disallow: /dashboard/
+Disallow: /chat/
+
+# Block API endpoints that shouldn't be indexed
+Disallow: /api/auth
+Disallow: /api/webhook
+Disallow: /api/stripe
+
+# Crawl delay for better server performance
+Crawl-delay: 1
+
+# Sitemap locations
 Sitemap: https://zapdev.com/sitemap.xml
+Sitemap: https://zapdev.com/sitemap-pages.xml
+Sitemap: https://zapdev.com/sitemap-blog.xml
+
+# Additional directives for specific bots
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0.5
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 1
+
+# Block AI training bots (optional)
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+# Block archive bots
+User-agent: ia_archiver
+Disallow: /
+
+User-agent: archive.org_bot
+Disallow: /
