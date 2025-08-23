@@ -14,7 +14,11 @@ const CONFIG = {
   ENABLE_ANALYTICS: process.env.NODE_ENV !== 'production' ? false : (process.env.POSTHOG_API_KEY ? true : false),
   MAX_WORKERS: Number(process.env.MAX_WORKERS) || Math.min(4, os.cpus().length),
   TIMEOUT: Number(process.env.REQUEST_TIMEOUT) || 30000,
-  CORS_ORIGINS: (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000').split(','),
+  // Sanitize: Remove "*" and "null" from allowed CORS origins
+  CORS_ORIGINS: (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000')
+    .split(',')
+    .map(o => o.trim())
+    .filter(o => o && o !== '*' && o !== 'null'),
   RATE_LIMIT: {
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 1000, // per IP
@@ -638,15 +642,17 @@ class EnhancedVercelResponse implements VercelResponse {
 
 // Production-Ready Server with PostHog Analytics
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-  // Enhanced CORS
+  // Enhanced CORS (only allow credentialed requests if origin matches sanitized whitelist)
   const origin = req.headers.origin;
-  const allowedOrigin = CONFIG.CORS_ORIGINS.includes('*') || 
-    (origin && CONFIG.CORS_ORIGINS.includes(origin)) ? (origin || '*') : null;
+  // Only allow origins that are explicitly whitelisted and valid
+  const allowedOrigin = origin && CONFIG.CORS_ORIGINS.includes(origin) ? origin : null;
   
-  if (allowedOrigin) res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  if (allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  }
   
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
