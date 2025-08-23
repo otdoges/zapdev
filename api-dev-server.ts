@@ -6,6 +6,30 @@ import cluster from 'cluster';
 import os from 'os';
 import { logger } from './src/lib/error-handler.js';
 
+
+// Helper to strictly validate CORS origin format and whitelist inclusion
+function isValidOrigin(origin: string): boolean {
+  if (!origin) return false;
+  // Disallow wildcards and null origins
+  if (origin === '*' || origin === 'null') return false;
+  try {
+    // Must be a well-formed URL with http(s)
+    const u = new URL(origin);
+    if (!['http:', 'https:'].includes(u.protocol)) return false;
+    // Only allow known hardcoded origins (add all trusted origins here)
+    const ALLOWED_ORIGINS = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:8080',
+      'https://zapdev.vercel.app',
+      'https://zapdev.link'
+    ];
+    return ALLOWED_ORIGINS.includes(origin);
+  } catch {
+    return false;
+  }
+}
+
 // Security-first configuration with PostHog Analytics
 const CONFIG = {
   PORT: Number(process.env.PORT) || 3000,
@@ -14,11 +38,11 @@ const CONFIG = {
   ENABLE_ANALYTICS: process.env.NODE_ENV !== 'production' ? false : (process.env.POSTHOG_API_KEY ? true : false),
   MAX_WORKERS: Number(process.env.MAX_WORKERS) || Math.min(4, os.cpus().length),
   TIMEOUT: Number(process.env.REQUEST_TIMEOUT) || 30000,
-  // Sanitize: Remove "*" and "null" from allowed CORS origins
+  // Sanitize: Only allow explicitly whitelisted, valid origins (no "*", no "null", no malformed origins)
   CORS_ORIGINS: (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000')
     .split(',')
     .map(o => o.trim())
-    .filter(o => o && o !== '*' && o !== 'null'),
+    .filter(o => isValidOrigin(o)),
   RATE_LIMIT: {
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 1000, // per IP
@@ -669,9 +693,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     'https://zapdev.link'
   ];
   
-  // Only allow credentialed requests from explicitly trusted origins
-  const isTrustedOrigin = origin && TRUSTED_ORIGINS_FOR_CREDENTIALS.includes(origin);
-  const isAllowedOrigin = origin && CONFIG.CORS_ORIGINS.includes(origin);
+  // Origin must be strictly validated for both credentials and general header
+  const isTrustedOrigin = origin && TRUSTED_ORIGINS_FOR_CREDENTIALS.includes(origin) && isValidOrigin(origin);
+  const isAllowedOrigin = origin && CONFIG.CORS_ORIGINS.includes(origin) && isValidOrigin(origin);
   
   if (isAllowedOrigin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
