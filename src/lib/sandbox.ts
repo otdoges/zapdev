@@ -15,11 +15,17 @@ export async function initializeSandbox(): Promise<Sandbox> {
     }
     
     const apiKey = import.meta.env.VITE_E2B_API_KEY
-    if (!apiKey) {
+    if (!apiKey || apiKey === 'e2b_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' || apiKey.includes('xxxxx')) {
       throw new Error(
-        '🔑 VITE_E2B_API_KEY is not configured.\n' +
-        '📝 Get your API key from: https://e2b.dev/dashboard\n' +
-        '🔧 Add it to your .env.local file: VITE_E2B_API_KEY=e2b_your_key_here'
+        '🔑 No E2B API key configured!\n\n' +
+        '📋 Quick setup (2 minutes):\n' +
+        '1. Visit https://e2b.dev/dashboard\n' +
+        '2. Sign up (free 100 hours/month)\n' +
+        '3. Create API key\n' +
+        '4. Add to .env.local: VITE_E2B_API_KEY=your_key\n' +
+        '5. Restart server\n\n' +
+        '💡 Check QUICK_SETUP.md for detailed instructions!\n' +
+        '🔄 Code will use WebContainer failsafe until configured.'
       )
     }
     
@@ -171,10 +177,11 @@ export async function getSandboxInfo(): Promise<{
       sandboxId: sandboxInstance.sandboxId,
       isAlive,
     }
-  } catch (error) {
+  } catch (error: unknown) {
+    // Log the error for debugging purposes
+    console.warn('Failed to get sandbox info:', error);
     return { isAlive: false }
-  }
-}
+  }}
 
 /**
  * Start sandbox proactively (useful for warming up)

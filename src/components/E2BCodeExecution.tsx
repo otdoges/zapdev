@@ -127,14 +127,22 @@ export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = t
   const getLanguageIcon = () => {
     switch (language.toLowerCase()) {
       case 'javascript':
+      case 'js':
+        return <div className="w-4 h-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded flex items-center justify-center text-white text-xs font-bold">JS</div>;
       case 'typescript':
-        return <div className="w-4 h-4 bg-yellow-400 rounded" />;
+      case 'ts':
+        return <div className="w-4 h-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded flex items-center justify-center text-white text-xs font-bold">TS</div>;
       case 'python':
-        return <div className="w-4 h-4 bg-blue-400 rounded" />;
+      case 'py':
+        return <div className="w-4 h-4 bg-gradient-to-br from-blue-500 to-green-500 rounded flex items-center justify-center text-white text-xs font-bold">PY</div>;
       case 'html':
-        return <div className="w-4 h-4 bg-orange-400 rounded" />;
+        return <div className="w-4 h-4 bg-gradient-to-br from-orange-400 to-red-500 rounded flex items-center justify-center text-white text-xs font-bold">H</div>;
+      case 'css':
+        return <div className="w-4 h-4 bg-gradient-to-br from-blue-400 to-purple-500 rounded flex items-center justify-center text-white text-xs font-bold">C</div>;
+      case 'json':
+        return <div className="w-4 h-4 bg-gradient-to-br from-green-400 to-teal-500 rounded flex items-center justify-center text-white text-xs font-bold">J</div>;
       default:
-        return <Code2 className="w-4 h-4" />;
+        return <Code2 className="w-4 h-4 text-gray-500" />;
     }
   };
 
@@ -145,46 +153,75 @@ export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = t
       transition={{ duration: 0.5 }}
       className="w-full"
     >
-      <Card className="overflow-hidden border-blue-200 dark:border-blue-800 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-50 dark:from-blue-950 dark:to-blue-950">
+      <Card className="overflow-hidden border-gradient bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950 shadow-xl backdrop-blur-sm">
+        <CardHeader className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 border-b border-blue-200/50 dark:border-blue-800/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <motion.div
-                animate={{ rotate: isExecuting ? 360 : 0 }}
-                transition={{ duration: 2, repeat: isExecuting ? Infinity : 0, ease: "linear" }}
+                animate={{ 
+                  rotate: isExecuting ? 360 : 0,
+                  scale: isExecuting ? [1, 1.1, 1] : 1
+                }}
+                transition={{ 
+                  rotate: { duration: 2, repeat: isExecuting ? Infinity : 0, ease: "linear" },
+                  scale: { duration: 1, repeat: isExecuting ? Infinity : 0, ease: "easeInOut" }
+                }}
+                className="relative"
               >
-                <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="absolute inset-0 bg-blue-400 rounded-full blur-sm opacity-30 animate-pulse" />
+                <Zap className="relative w-5 h-5 text-blue-600 dark:text-blue-400" />
               </motion.div>
-              <CardTitle className="text-lg font-semibold">E2B Code Execution</CardTitle>
-              <Badge variant="secondary" className="flex items-center gap-1">
-                {getLanguageIcon()}
-                {language}
-              </Badge>
-              {e2bFailed && (
-                <Badge variant="outline" className="flex items-center gap-1 border-orange-500 text-orange-600">
-                  <AlertTriangle className="w-3 h-3" />
-                  E2B Failed
-                </Badge>
-              )}
+              <div className="flex flex-col">
+                <CardTitle className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                  Code Execution
+                </CardTitle>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="secondary" className="flex items-center gap-1 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 text-blue-700 dark:text-blue-300">
+                    {getLanguageIcon()}
+                    {language.toUpperCase()}
+                  </Badge>
+                  {isExecuting && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex items-center gap-1"
+                    >
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">Running...</span>
+                    </motion.div>
+                  )}
+                  {e2bFailed && (
+                    <Badge variant="outline" className="flex items-center gap-1 border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950">
+                      <AlertTriangle className="w-3 h-3" />
+                      E2B Unavailable
+                    </Badge>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 onClick={() => setShowCode(!showCode)}
-                className="gap-2"
+                className="gap-2 hover:bg-blue-100 dark:hover:bg-blue-900 transition-all duration-200"
               >
                 <Code2 className="w-3 h-3" />
-                {showCode ? 'Hide Code' : 'Show Code'}
+                {showCode ? 'Hide' : 'Show'} Code
               </Button>
               
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 onClick={handleCopy}
-                className="gap-2"
+                className="gap-2 hover:bg-green-100 dark:hover:bg-green-900 transition-all duration-200"
               >
-                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                <motion.div
+                  animate={{ scale: copied ? [1, 1.2, 1] : 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {copied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                </motion.div>
                 {copied ? 'Copied!' : 'Copy'}
               </Button>
               
@@ -193,31 +230,50 @@ export function E2BCodeExecution({ code, language, onExecute, showNextJsHint = t
                   size="sm"
                   variant="outline"
                   onClick={activateFailsafe}
-                  className="gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
+                  className="gap-2 border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950 transition-all duration-200"
                 >
                   <Shield className="w-3 h-3" />
                   Use Failsafe
                 </Button>
               )}
               
-              <Button
-                size="sm"
-                onClick={handleExecute}
-                disabled={isExecuting}
-                className={`gap-2 ${isExecuting ? 'animate-pulse' : ''}`}
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                {isExecuting ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Executing...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3 h-3" />
-                    Run Code
-                  </>
-                )}
-              </Button>
+                <Button
+                  size="sm"
+                  onClick={handleExecute}
+                  disabled={isExecuting}
+                  className={`gap-2 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 text-white border-0 shadow-lg transition-all duration-300 ${
+                    isExecuting ? 'animate-pulse opacity-80' : 'hover:shadow-xl'
+                  }`}
+                >
+                  {isExecuting ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      >
+                        <Loader2 className="w-3 h-3" />
+                      </motion.div>
+                      <span className="hidden sm:inline">Executing...</span>
+                      <span className="sm:hidden">Running</span>
+                    </>
+                  ) : (
+                    <>
+                      <motion.div
+                        whileHover={{ scale: 1.2 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <Play className="w-3 h-3" />
+                      </motion.div>
+                      <span className="hidden sm:inline">Run Code</span>
+                      <span className="sm:hidden">Run</span>
+                    </>
+                  )}
+                </Button>
+              </motion.div>
             </div>
           </div>
           {showNextJsHint && language.toLowerCase() === 'javascript' && (

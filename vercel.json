@@ -51,6 +51,7 @@
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/hono/trpc/:path*", "destination": "/api/hono-trpc/trpc/:path*" },
     { "source": "/hono/checkout", "destination": "/api/hono-polar/checkout" },
+    { "source": "/hono/checkout-redirect", "destination": "/api/hono-polar/checkout-redirect" },
     { "source": "/hono/checkout-polar", "destination": "/api/hono-polar/checkout-polar" },
     { "source": "/hono/portal", "destination": "/api/hono-polar/portal" },
     { "source": "/hono/subscription", "destination": "/api/hono-polar/subscription" },

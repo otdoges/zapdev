@@ -8,8 +8,8 @@ function sanitizeHtmlText(htmlString: string): string {
   
   // More robust HTML tag removal that handles edge cases
   return htmlString
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags with content
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove style tags with content
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove script tags with content
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove style tags with content
     .replace(/<[^>]+>/g, '') // Remove all remaining HTML tags
     .replace(/&[#\w]+;/g, (entity) => { // Decode common HTML entities
       const entities: { [key: string]: string } = {
@@ -20,7 +20,8 @@ function sanitizeHtmlText(htmlString: string): string {
         '&#39;': "'",
         '&nbsp;': ' '
       }
-      return entities[entity] || entity
+      const safeEntities = entities;
+      return safeEntities[entity] || entity;
     })
     .trim()
     .substring(0, 500) // Limit length for safety

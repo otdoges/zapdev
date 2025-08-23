@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,7 +9,6 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { 
   GitBranch, 
-  GitFork, 
   GitPullRequest, 
   Github, 
   ExternalLink, 
@@ -19,7 +18,6 @@ import {
   Settings,
   Key,
   FileText,
-  Folder,
   Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -98,7 +96,7 @@ export function GitHubIntegration({
       setShowTokenSetup(false);
       toast.success('GitHub token saved securely!');
     } catch (error) {
-      logger.error('Failed to save GitHub token:', error);
+      logger.error('Failed to save GitHub token:', { error: error instanceof Error ? error.message : String(error) });
       toast.error('Failed to save GitHub token. Please try again.');
     }
   };
@@ -148,7 +146,7 @@ export function GitHubIntegration({
 
       toast.success(`Repository ${repo.full_name} loaded successfully!`);
     } catch (error) {
-      logger.error('Error loading repository:', error);
+      logger.error('Error loading repository:', { error: error instanceof Error ? error.message : String(error) });
       setOperationStatus({
         stage: 'error',
         message: error instanceof Error ? error.message : 'Failed to load repository',
@@ -246,7 +244,7 @@ export function GitHubIntegration({
       setChanges([]);
       
     } catch (error) {
-      logger.error('Error creating pull request:', error);
+      logger.error('Error creating pull request:', { error: error instanceof Error ? error.message : String(error) });
       setOperationStatus({
         stage: 'error',
         message: error instanceof Error ? error.message : 'Failed to create pull request',
@@ -261,16 +259,26 @@ export function GitHubIntegration({
   };
 
   const updateFileChange = (index: number, field: keyof FileChange, value: string) => {
-    const updatedChanges = [...changes];
-    const currentChange = updatedChanges[index];
-    if (field === 'path') {
-      updatedChanges[index] = { ...currentChange, path: value };
-    } else if (field === 'content') {
-      updatedChanges[index] = { ...currentChange, content: value };
-    } else if (field === 'action') {
-      updatedChanges[index] = { ...currentChange, action: value as FileChange['action'] };
+    if (index < 0 || index >= changes.length) {
+      return; // Bounds check for security
     }
-    setChanges(updatedChanges);
+    
+    setChanges(prevChanges => 
+      prevChanges.map((change, i) => {
+        if (i !== index) return change;
+        
+        switch (field) {
+          case 'path':
+            return { ...change, path: value };
+          case 'content':
+            return { ...change, content: value };
+          case 'action':
+            return { ...change, action: value as FileChange['action'] };
+          default:
+            return change;
+        }
+      })
+    );
   };
 
   const removeFileChange = (index: number) => {
@@ -408,7 +416,7 @@ export function GitHubIntegration({
                             setIsTokenSetup(false);
                             toast.success('GitHub token removed');
                           } catch (error) {
-                            logger.error('Failed to clear token:', error);
+                            logger.error('Failed to clear token:', { error: error instanceof Error ? error.message : String(error) });
                             toast.error('Failed to remove token');
                           }
                         }}

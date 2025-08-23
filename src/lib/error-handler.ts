@@ -26,7 +26,7 @@ export interface ErrorContext {
   userId?: string;
   action?: string;
   component?: string;
-  additionalData?: Record<string, any>;
+  additionalData?: Record<string, unknown>;
   timestamp?: number;
   userAgent?: string;
   url?: string;
@@ -449,7 +449,7 @@ class ErrorHandler {
       // This would ping the service health endpoint
       // Implementation depends on your backend setup
       return true;
-    } catch (error) {
+    } catch {
       this.handleError(new EnhancedError({
         message: `${serviceName} service health check failed`,
         type: ErrorType.SERVICE_UNAVAILABLE,
@@ -466,7 +466,7 @@ export const errorHandler = new ErrorHandler();
 
 // Logger interface for simple console logging with error handling
 export const logger = {
-  error: (message: string, error?: any) => {
+  error: (message: string, error?: Error | unknown) => {
     console.error(message, error);
     if (error instanceof Error) {
       errorHandler.handleError(error, { 
@@ -476,13 +476,13 @@ export const logger = {
       });
     }
   },
-  warn: (message: string, data?: any) => {
+  warn: (message: string, data?: unknown) => {
     console.warn(message, data);
   },
-  info: (message: string, data?: any) => {
+  info: (message: string, data?: unknown) => {
     console.info(message, data);
   },
-  debug: (message: string, data?: any) => {
+  debug: (message: string, data?: unknown) => {
     if (process.env.NODE_ENV === 'development') {
       console.debug(message, data);
     }

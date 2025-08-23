@@ -89,23 +89,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Secret chat API error:', error);
     
     // Handle specific API errors
-    if (error?.message?.includes('API key')) {
+    if (errorMessage.includes('API key')) {
       return res.status(401).json({ 
         error: 'Invalid or expired API key. Please check your Gemini API key.' 
       });
     }
     
-    if (error?.message?.includes('quota') || error?.message?.includes('rate limit')) {
+    if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
       return res.status(429).json({ 
         error: 'API quota exceeded or rate limit reached. Please try again later.' 
       });
     }
 
-    if (error?.message?.includes('model')) {
+    if (errorMessage.includes('model')) {
       return res.status(400).json({ 
         error: 'Invalid model specified. Please use a valid Gemini model.' 
       });

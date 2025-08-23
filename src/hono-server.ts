@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, Context, Next } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { trpcServer } from '@hono/trpc-server';
@@ -80,7 +80,7 @@ async function verifyClerkToken(authHeader: string): Promise<{ id: string; email
 }
 
 // Authentication middleware
-const authenticateUser = async (c: any, next: any) => {
+const authenticateUser = async (c: Context, next: Next) => {
   const authHeader = c.req.header('Authorization');
   
   if (!authHeader) {
@@ -248,7 +248,7 @@ export const startServer = (port = 3001) => {
     });
   } else {
     // Running on Node.js
-    const { serve } = require('@hono/node-server');
+    const serve = await import('@hono/node-server').then(m => m.serve);
     console.log(`🚀 Hono.js server starting on http://localhost:${port}`);
     return serve({
       fetch: app.fetch,

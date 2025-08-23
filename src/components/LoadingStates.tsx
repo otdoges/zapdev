@@ -50,7 +50,15 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   };
   
   const getSizeClass = (size: string) => {
-    return Object.prototype.hasOwnProperty.call(sizeClasses, size) ? sizeClasses[size as keyof typeof sizeClasses] : sizeClasses.md;
+    const safeSize = size || 'md';
+    const sizeMap: Record<string, string> = {
+      xs: sizeClasses.xs,
+      sm: sizeClasses.sm,
+      md: sizeClasses.md,
+      lg: sizeClasses.lg,
+      xl: sizeClasses.xl
+    };
+    return sizeMap[safeSize] || sizeClasses.md;
   };
 
   if (variant === 'dots') {
@@ -342,7 +350,7 @@ export const ProgressiveLoading: React.FC<ProgressiveLoadingProps> = ({
 };
 
 // Specialized Loading Components for ZapDev
-export const AIThinkingLoader: React.FC<{ message?: string }> = () => {
+export const AIThinking: React.FC<{ message?: string }> = () => {
   const thoughts = [
     "Analyzing your request",
     "Processing context",
@@ -397,7 +405,7 @@ export const AIThinkingLoader: React.FC<{ message?: string }> = () => {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
           >
-            {thoughts[currentThought]}
+            {thoughts[Math.min(currentThought, thoughts.length - 1)] || thoughts[0]}
           </motion.p>
         </AnimatePresence>
         <div className="flex space-x-1 mt-2">
@@ -593,8 +601,8 @@ export default {
   LoadingState,
   Skeleton,
   ProgressiveLoading,
-  AIThinkingLoader,
+  AIThinking,
   CodeExecutionLoader,
   NetworkLoader,
-  PageLoadingOverlay
-};
+  PageLoadingOverlay,
+} as const;

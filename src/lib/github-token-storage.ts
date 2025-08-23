@@ -3,7 +3,7 @@
  * Uses the existing secure storage infrastructure for GitHub tokens specifically
  */
 
-import { setSecureApiKey, getSecureApiKey, clearSecureApiKey, hasUserApiKey } from './secure-storage';
+import { setSecureApiKey, getSecureApiKey, clearSecureApiKey } from './secure-storage';
 import * as Sentry from '@sentry/react';
 
 const { logger } = Sentry;

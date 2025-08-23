@@ -1,10 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as Sentry from '@sentry/react';
-import { 
-  generateAIResponse, 
-  streamAIResponse, 
-  costTracker 
-} from '../ai';
+import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest';
+import { costTracker } from '../ai';
 import { 
   AICircuitBreaker, 
   AIResponseCache, 
@@ -330,14 +325,14 @@ describe('AI Production Tests', () => {
       expect(insights.costBreakdown).toBeTruthy();
     });
   });
-    it('should validate production API configuration', () => {
-      const validation = validateProductionApiConfig();
+
+  it('should validate production API configuration', () => {
+    const validation = validateProductionApiConfig();
       
-      // In test environment, should have warnings but no critical errors
-      expect(validation.ready).toBeDefined();
-      expect(validation.errors).toBeDefined();
-      expect(validation.warnings).toBeDefined();
-    });
+    // In test environment, should have warnings but no critical errors
+    expect(validation.ready).toBeDefined();
+    expect(validation.errors).toBeDefined();
+    expect(validation.warnings).toBeDefined();
   });
 
   describe('Integration Tests', () => {
@@ -355,8 +350,9 @@ describe('AI Production Tests', () => {
         generateText: mockGenerateText
       }));
       
-      // Spy on monitoring
-      const monitoringSpy = vi.spyOn(aiMonitoring, 'recordOperation');
+      // Track monitoring calls
+      const mockMonitoringCall = vi.fn();
+      vi.spyOn(aiMonitoring, 'recordOperation').mockImplementation(mockMonitoringCall);
       
       // Make request (would need proper mocking setup)
       // const response = await generateAIResponse('Test prompt');
@@ -421,4 +417,6 @@ describe('Production Readiness Checklist', () => {
     // Security utilities implemented
     expect(true).toBe(true);
   });
+});
+
 });

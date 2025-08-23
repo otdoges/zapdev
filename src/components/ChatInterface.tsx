@@ -36,6 +36,8 @@ import { useUsageTracking } from '@/hooks/useUsageTracking';
 import { E2BCodeExecution } from './E2BCodeExecution';
 import AnimatedResultShowcase, { type ShowcaseExecutionResult } from './AnimatedResultShowcase';
 import { braveSearchService, type BraveSearchResult } from '@/lib/search-service';
+import { SmartPrompts } from './SmartPrompts.tsx';
+import { LivePreview } from '@/components/LivePreview';
 import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
 
@@ -239,6 +241,7 @@ const ChatInterface: React.FC = () => {
 
   const [searchResults, setSearchResults] = useState<BraveSearchResult[]>([]);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
+  const [showSmartPrompts, setShowSmartPrompts] = useState(true); // Show smart prompts initially
   
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -641,6 +644,17 @@ const ChatInterface: React.FC = () => {
     toast.success('Search result added to message');
   };
 
+  // Handler for smart prompt selection
+  const handleSmartPromptSelect = (prompt: string) => {
+    setInput(prompt);
+    setShowSmartPrompts(false);
+    // Create a new chat if none exists
+    if (!selectedChatId) {
+      handleCreateChat();
+    }
+    toast.success('Smart prompt selected! Ready to send.');
+  };
+
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString([], { 
       hour: '2-digit', 
@@ -744,6 +758,19 @@ const ChatInterface: React.FC = () => {
                 <span className="text-base opacity-80">Start a conversation to unlock powerful coding assistance.</span>
               </motion.p>
 
+              {/* Smart Prompts Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.45 }}
+                className="mb-8"
+              >
+                <SmartPrompts 
+                  onPromptSelect={handleSmartPromptSelect}
+                  isVisible={showSmartPrompts && !input.trim()}
+                />
+              </motion.div>
+
               {/* Chat input */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -755,7 +782,16 @@ const ChatInterface: React.FC = () => {
                   <div className="relative">
                     <Textarea
                       value={input}
-                      onChange={(e) => setInput(e.target.value.substring(0, MAX_MESSAGE_LENGTH))}
+                      onChange={(e) => {
+                        const newValue = e.target.value.substring(0, MAX_MESSAGE_LENGTH);
+                        setInput(newValue);
+                        // Hide smart prompts when user starts typing
+                        if (newValue.trim() && showSmartPrompts) {
+                          setShowSmartPrompts(false);
+                        } else if (!newValue.trim() && !showSmartPrompts) {
+                          setShowSmartPrompts(true);
+                        }
+                      }}
                       placeholder="What would you like to build today?"
                       className="min-h-[60px] text-base bg-card/80 backdrop-blur-sm border-2 border-muted/50 focus:border-primary/50 transition-all duration-200 resize-none pr-16 rounded-xl shadow-lg"
                       maxLength={MAX_MESSAGE_LENGTH}
@@ -1265,44 +1301,59 @@ const ChatInterface: React.FC = () => {
           {/* Close left column */}
           </div>
 
-          {/* Right column: Persistent live preview */}
-          <div className="hidden xl:flex w-[45%] min-w-[480px] max-w-[780px] border-l border-gray-800/60 bg-[#111] flex-col">
-            <div className="p-4 border-b border-gray-800/60 flex items-center justify-between">
-              <div className="text-sm font-medium text-gray-200 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-blue-400" /> E2B Live Preview
-              </div>
-              <div className="text-xs text-gray-400">{previewLanguage.toUpperCase()}</div>
-            </div>
-            <div className="flex-1 overflow-hidden p-4">
-                               {showPreview && previewCode ? (
-                   <E2BCodeExecution
-                     code={previewCode}
-                     language={previewLanguage}
-                     autoRun={true}
-                     showNextJsHint={false}
-                     onExecute={async (code) => {
-                       try {
-                         const res = await executeCode(code, 'javascript');
-                         return {
-                           success: res.success,
-                           output: res.stdout,
-                           error: res.error as string | undefined,
-                           logs: res.stderr ? [res.stderr] : [],
-                           artifacts: [],
-                           executionTime: Date.now() % 1000,
-                           memoryUsage: 0,
-                         };
-                       } catch (err) {
-                         return { success: false, error: String(err), logs: [] };
-                       }
-                     }}
-                   />
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                  Paste or generate JS code to preview here
-                </div>
-              )}
-            </div>
+          {/* Right column: Comprehensive Live Preview */}
+          <div className="hidden xl:flex w-[45%] min-w-[480px] max-w-[780px]">
+            <LivePreview
+              code={previewCode}
+              language={previewLanguage}
+              isVisible={showPreview}
+              onExecute={async () => {
+                if (!previewCode?.trim()) {
+                  toast.error('No code to execute');
+                  return {
+                    success: false,
+                    error: 'No code provided',
+                    logs: [],
+                    executionTime: 0
+                  };
+                }
+                
+                try {
+                  const startTime = Date.now();
+                  const res = await executeCode(previewCode, previewLanguage as 'python' | 'javascript');
+                  const executionTime = Date.now() - startTime;
+                  
+                  const result = {
+                    success: res.success,
+                    output: res.stdout,
+                    error: res.error as string | undefined,
+                    logs: res.stderr ? [res.stderr] : [],
+                    executionTime
+                  };
+                  
+                  // Show toast notifications for user feedback
+                  if (result.success) {
+                    toast.success(`Code executed successfully in ${executionTime}ms`);
+                  } else {
+                    toast.error(`Execution failed: ${result.error || 'Unknown error'}`);
+                  }
+                  
+                  return result;
+                } catch (error) {
+                  const errorMessage = error instanceof Error ? error.message : String(error);
+                  console.error('LivePreview execution error:', error);
+                  
+                  toast.error(`Execution error: ${errorMessage}`);
+                  
+                  return {
+                    success: false,
+                    error: errorMessage,
+                    logs: [],
+                    executionTime: 0
+                  };
+                }
+              }}
+            />
           </div>
           {/* Close Right Panel - Chat Interface */}
           </motion.div>

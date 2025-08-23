@@ -37,9 +37,9 @@ const syncSubscriptionToConvex = async (subscription: {
   status: string;
   metadata?: { userId?: string; planId?: string };
   product?: { name?: string };
-  currentPeriodStart?: string;
-  currentPeriodEnd?: string;
-  created_at?: string;
+  currentPeriodStart?: string | Date;
+  currentPeriodEnd?: string | Date;
+  created_at?: string | Date;
   cancel_at_period_end?: boolean;
 }, action: 'created' | 'updated' | 'canceled') => {
   try {
@@ -53,7 +53,7 @@ const syncSubscriptionToConvex = async (subscription: {
     }
 
     // Map Polar.sh status to our status format
-    const mapPolarStatus = (status: string) => {
+    const mapPolarStatus = (status: string): 'canceled' | 'none' | 'active' | 'trialing' | 'past_due' | 'incomplete' => {
       switch (status) {
         case 'active':
           return 'active';
@@ -74,12 +74,15 @@ const syncSubscriptionToConvex = async (subscription: {
     const planId = subscription.metadata?.planId || 
                   (subscription.product?.name?.toLowerCase().includes('pro') ? 'pro' : 'starter');
 
+    const currentPeriodStart = subscription.currentPeriodStart || subscription.created_at || new Date();
+    const currentPeriodEnd = subscription.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
     const subscriptionData = {
       userId,
       planId,
       status: mapPolarStatus(subscription.status),
-      currentPeriodStart: new Date(subscription.currentPeriodStart || subscription.created_at).getTime(),
-      currentPeriodEnd: new Date(subscription.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).getTime(),
+      currentPeriodStart: new Date(currentPeriodStart).getTime(),
+      currentPeriodEnd: new Date(currentPeriodEnd).getTime(),
       cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
     };
 
@@ -141,7 +144,7 @@ async function verifyClerkAuth(authHeader: string): Promise<{ id: string; email?
 }
 
 // Authentication middleware  
-const authenticateUser = async (c: import('hono').Context, next: import('hono').Next) => {
+const authenticateUser = async (c: { req: { header: (name: string) => string | undefined }; json: (data: unknown, status?: number) => unknown; set: (key: string, value: unknown) => void }, next: () => Promise<void>) => {
   const authHeader = c.req.header('Authorization');
   
   if (!authHeader) {
@@ -171,7 +174,7 @@ app.get('/health', (c) => {
   });
 });
 
-// Polar.sh Checkout endpoint 
+// Polar.sh Checkout endpoint - GET for redirects, POST for API responses
 app.get('/checkout', authenticateUser, async (c) => {
   try {
     const user = c.get('user') as { id: string; email?: string };
@@ -201,10 +204,59 @@ app.get('/checkout', authenticateUser, async (c) => {
       return c.json({ error: `Plan ${planId} with period ${period} is not supported` }, 400);
     }
 
-    // Create checkout URL with query parameters for Polar.sh Hono adapter
-    const checkoutUrl = new URL(`${c.req.url.split('/checkout')[0]}/checkout-polar`);
+    // For GET requests, return JSON response with checkout URL instead of redirect
+    // This matches what the frontend expects
+    const baseUrl = process.env.PUBLIC_ORIGIN || `${c.req.url.split('/checkout')[0]}`;
+    const checkoutUrl = new URL(`${baseUrl}/hono/checkout-polar`);
     checkoutUrl.searchParams.set('products', productId);
-    checkoutUrl.searchParams.set('customerEmail', user.email || '');
+    if (user.email) checkoutUrl.searchParams.set('customerEmail', user.email);
+    checkoutUrl.searchParams.set('metadata', JSON.stringify({
+      userId: user.id,
+      planId,
+      period
+    }));
+    
+    return c.json({ url: checkoutUrl.toString() });
+  } catch (error) {
+    console.error('Checkout error:', error);
+    return c.json({ error: 'Failed to create checkout' }, 500);
+  }
+});
+
+// Alternative GET endpoint for direct checkout redirects (browser navigation)
+app.get('/checkout-redirect', authenticateUser, async (c) => {
+  try {
+    const user = c.get('user') as { id: string; email?: string };
+    const planId = c.req.query('planId');
+    const period = c.req.query('period') || 'month';
+    
+    if (!planId) {
+      return c.json({ error: 'planId query parameter is required' }, 400);
+    }
+
+    // Map plan IDs to Polar.sh product IDs
+    const productIdMap: Record<string, Record<string, string>> = {
+      'starter': {
+        'month': process.env.POLAR_PRODUCT_STARTER_MONTH_ID || '',
+        'year': process.env.POLAR_PRODUCT_STARTER_YEAR_ID || '',
+      },
+      'pro': {
+        'month': process.env.POLAR_PRODUCT_PRO_MONTH_ID || '',
+        'year': process.env.POLAR_PRODUCT_PRO_YEAR_ID || '',
+      },
+    };
+    
+    const planMap = productIdMap[planId as keyof typeof productIdMap];
+    const productId = planMap?.[period as keyof typeof planMap];
+    
+    if (!productId) {
+      return c.json({ error: `Plan ${planId} with period ${period} is not supported` }, 400);
+    }
+
+    // For redirect endpoint, actually redirect to Polar checkout
+    const checkoutUrl = new URL(`${c.req.url.split('/checkout-redirect')[0]}/checkout-polar`);
+    checkoutUrl.searchParams.set('products', productId);
+    if (user.email) checkoutUrl.searchParams.set('customerEmail', user.email);
     checkoutUrl.searchParams.set('metadata', JSON.stringify({
       userId: user.id,
       planId,
@@ -222,7 +274,7 @@ app.get('/checkout', authenticateUser, async (c) => {
 app.post('/checkout', authenticateUser, async (c) => {
   try {
     const user = c.get('user') as { id: string; email?: string };
-    const body = await c.req.json<{ planId?: string; period?: 'month' | 'year' }>().catch(() => ({} as any));
+    const body = await c.req.json<{ planId?: string; period?: 'month' | 'year' }>().catch(() => ({} as Record<string, unknown>));
     const planId = body?.planId;
     const period = body?.period || 'month';
 
@@ -253,7 +305,7 @@ app.post('/checkout', authenticateUser, async (c) => {
     }
 
     const base = new URL(c.req.url);
-    const checkoutUrl = new URL(base.toString().replace(/\/checkout(?:\?.*)?$/, '/checkout-polar'));
+    const checkoutUrl = new URL(base.origin + base.pathname.replace('/checkout', '/checkout-polar'));
     checkoutUrl.searchParams.set('products', productId);
     if (user.email) checkoutUrl.searchParams.set('customerEmail', user.email);
     checkoutUrl.searchParams.set('metadata', JSON.stringify({ userId: user.id, planId, period }));
@@ -378,7 +430,14 @@ app.post('/webhooks', Webhooks({
   onSubscriptionCreated: async (payload) => {
     console.log('Subscription created:', payload);
     try {
-      await syncSubscriptionToConvex(payload.data, 'created');
+      // Convert Date objects to strings for syncSubscriptionToConvex
+      const subscriptionData = {
+        ...payload.data,
+        currentPeriodStart: payload.data.currentPeriodStart ? payload.data.currentPeriodStart.toISOString() : undefined,
+        currentPeriodEnd: payload.data.currentPeriodEnd ? payload.data.currentPeriodEnd.toISOString() : undefined,
+        created_at: payload.data.createdAt ? payload.data.createdAt.toISOString() : undefined,
+      };
+      await syncSubscriptionToConvex(subscriptionData, 'created');
     } catch (error) {
       console.error('Failed to sync created subscription:', error);
     }
@@ -386,7 +445,14 @@ app.post('/webhooks', Webhooks({
   onSubscriptionUpdated: async (payload) => {
     console.log('Subscription updated:', payload);
     try {
-      await syncSubscriptionToConvex(payload.data, 'updated');
+      // Convert Date objects to strings for syncSubscriptionToConvex
+      const subscriptionData = {
+        ...payload.data,
+        currentPeriodStart: payload.data.currentPeriodStart ? payload.data.currentPeriodStart.toISOString() : undefined,
+        currentPeriodEnd: payload.data.currentPeriodEnd ? payload.data.currentPeriodEnd.toISOString() : undefined,
+        created_at: payload.data.createdAt ? payload.data.createdAt.toISOString() : undefined,
+      };
+      await syncSubscriptionToConvex(subscriptionData, 'updated');
     } catch (error) {
       console.error('Failed to sync updated subscription:', error);
     }
@@ -394,7 +460,14 @@ app.post('/webhooks', Webhooks({
   onSubscriptionCanceled: async (payload) => {
     console.log('Subscription canceled:', payload);
     try {
-      await syncSubscriptionToConvex(payload.data, 'canceled');
+      // Convert Date objects to strings for syncSubscriptionToConvex
+      const subscriptionData = {
+        ...payload.data,
+        currentPeriodStart: payload.data.currentPeriodStart ? payload.data.currentPeriodStart.toISOString() : undefined,
+        currentPeriodEnd: payload.data.currentPeriodEnd ? payload.data.currentPeriodEnd.toISOString() : undefined,
+        created_at: payload.data.createdAt ? payload.data.createdAt.toISOString() : undefined,
+      };
+      await syncSubscriptionToConvex(subscriptionData, 'canceled');
     } catch (error) {
       console.error('Failed to sync canceled subscription:', error);
     }
