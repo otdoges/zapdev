@@ -15,6 +15,9 @@ import {
   DeploymentStatus
 } from './types.js';
 
+// For URL parsing
+// Node.js global URL is available, but add import if needed:
+// import { URL } from 'url';
 interface NetlifyDeploy {
   id: string;
   url: string;
@@ -520,10 +523,29 @@ export class NetlifyDeploymentService implements IDeploymentService {
   }
 
   private extractGitProvider(url: string): string {
-    if (url.includes('github.com')) return 'github';
-    if (url.includes('gitlab.com')) return 'gitlab';
-    if (url.includes('bitbucket.org')) return 'bitbucket';
-    return 'github'; // default
+    try {
+      // Try to parse the URL (supports https/git:///ssh; fallback for git@ style)
+      let hostname = '';
+      try {
+        // Handle web and git URLs (e.g., https://github.com/..., git://github.com/...)
+        hostname = new URL(url).hostname.toLowerCase();
+      } catch {
+        // Fallback for git@github.com:owner/repo.git
+        // E.g. git@github.com:owner/repo.git or ssh://git@github.com/owner/repo.git
+        const match = url.match(/@([a-zA-Z0-9.\-]+)[/:]/);
+        if (match) hostname = match[1].toLowerCase();
+      }
+      if (hostname === 'github.com') return 'github';
+      if (hostname === 'gitlab.com') return 'gitlab';
+      if (hostname === 'bitbucket.org') return 'bitbucket';
+      return 'github'; // default
+    } catch {
+      // Fallback to original heuristic
+      if (url.includes('github.com')) return 'github';
+      if (url.includes('gitlab.com')) return 'gitlab';
+      if (url.includes('bitbucket.org')) return 'bitbucket';
+      return 'github';
+    }
   }
 
   private extractRepoPath(url: string): string {
