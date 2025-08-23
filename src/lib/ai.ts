@@ -26,10 +26,10 @@ const responseCache = new AIResponseCache();
 
 // Cost tracking and limits
 const MODEL_PRICING = {
-  'openai/gpt-oss-120b': {
-    // Pricing based on Groq docs: $0.15 / 1M input tokens, $0.75 / 1M output tokens
-    input: 0.15 / 1_000_000,
-    output: 0.75 / 1_000_000,
+  'moonshotai/kimi-k2-instruct': {
+    // Pricing based on Groq docs: $1.00 / 1M input tokens, $3.00 / 333,333 output tokens
+    input: 1.00 / 1_000_000,
+    output: 3.00 / 333_333,
   }
 };
 
@@ -157,13 +157,13 @@ const openrouter = createOpenRouter({
 // Get current model instance
 async function getCurrentModel() {
   const groq = createGroqInstance();
-  return (await groq)('openai/gpt-oss-120b');
+  return (await groq)('moonshotai/kimi-k2-instruct');
 }
 
 // Gemma model (for concise title generation)
 async function getGemmaModel() {
   const groq = await createGroqInstance();
-  return groq('openai/gpt-oss-120b');
+  return groq('moonshotai/kimi-k2-instruct');
 }
 
 // OpenRouter failsafe model
@@ -181,7 +181,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
       logger.info('Using cached AI response');
       aiMonitoring.recordOperation({
         operation: 'generateText',
-        model: 'openai/gpt-oss-120b',
+        model: 'moonshotai/kimi-k2-instruct',
         duration: 0,
         success: true,
         inputTokens: 0,
@@ -216,7 +216,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
 
         const estimatedInputTokens = Math.ceil(prompt.length / 4);
         const estimatedOutputTokens = 8000;
-        const estimatedCost = calculateCost('openai/gpt-oss-120b', estimatedInputTokens, estimatedOutputTokens);
+        const estimatedCost = calculateCost('moonshotai/kimi-k2-instruct', estimatedInputTokens, estimatedOutputTokens);
         
         checkCostLimit(estimatedCost);
 
@@ -227,7 +227,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         });
 
         const currentModel = await getCurrentModel();
-        span.setAttribute("model", "openai/gpt-oss-120b");
+        span.setAttribute("model", "moonshotai/kimi-k2-instruct");
         
         const { text, usage } = await circuitBreaker.execute(
           () => withRetry(
@@ -235,21 +235,21 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
               () => withTimeout(generateText({
                 model: currentModel,
                 prompt,
-                temperature: 0.7,
+                temperature: 0.6,
               }), 60_000),
               'generateText',
-              { model: 'openai/gpt-oss-120b', promptLength: prompt.length }
+              { model: 'moonshotai/kimi-k2-instruct', promptLength: prompt.length }
             ),
             'AI Text Generation'
           ),
           'generateAIResponse'
         )
         
-        const actualCost = usage ? calculateCost('openai/gpt-oss-120b', usage.inputTokens || 0, usage.outputTokens || 0) : estimatedCost;
+        const actualCost = usage ? calculateCost('moonshotai/kimi-k2-instruct', usage.inputTokens || 0, usage.outputTokens || 0) : estimatedCost;
         addTodayCost(actualCost);
 
         await recordAIConversation({
-          model: 'openai/gpt-oss-120b',
+          model: 'moonshotai/kimi-k2-instruct',
           inputTokens: usage?.inputTokens || 0,
           outputTokens: usage?.outputTokens || 0,
           cost: actualCost,
@@ -262,7 +262,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         
         logger.info("AI text generation completed", { 
           responseLength: text.length,
-          model: "openai/gpt-oss-120b",
+          model: "moonshotai/kimi-k2-instruct",
           actualCost: actualCost.toFixed(6),
           inputTokens: usage?.inputTokens || 0,
           outputTokens: usage?.outputTokens || 0,
@@ -271,7 +271,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         
         aiMonitoring.recordOperation({
           operation: 'generateText',
-          model: 'openai/gpt-oss-120b',
+          model: 'moonshotai/kimi-k2-instruct',
           duration: Date.now() - startTime,
           success: true,
           inputTokens: usage?.inputTokens || 0,
@@ -297,7 +297,7 @@ export async function generateAIResponse(prompt: string, options?: { skipCache?:
         
         aiMonitoring.recordOperation({
           operation: 'generateText',
-          model: 'openai/gpt-oss-120b',
+          model: 'moonshotai/kimi-k2-instruct',
           duration: Date.now() - startTime,
           success: false,
           error: aiError.message,
@@ -366,7 +366,7 @@ export async function streamAIResponse(prompt: string) {
         const fullPrompt = systemPrompt + "\n\n" + prompt;
         const estimatedInputTokens = Math.ceil(fullPrompt.length / 4);
         const estimatedOutputTokens = 8000;
-        const estimatedCost = calculateCost('openai/gpt-oss-120b', estimatedInputTokens, estimatedOutputTokens);
+        const estimatedCost = calculateCost('moonshotai/kimi-k2-instruct', estimatedInputTokens, estimatedOutputTokens);
         
         checkCostLimit(estimatedCost);
 
@@ -377,7 +377,7 @@ export async function streamAIResponse(prompt: string) {
         });
 
         const model = await getCurrentModel();
-        span.setAttribute("model", "openai/gpt-oss-120b");
+        span.setAttribute("model", "moonshotai/kimi-k2-instruct");
 
         const result = await circuitBreaker.execute(
           () => withRetry(
@@ -388,10 +388,10 @@ export async function streamAIResponse(prompt: string) {
                   { role: 'system', content: systemPrompt },
                   { role: 'user', content: prompt }
                 ],
-                temperature: 0.7,
+                temperature: 0.6,
               }),
               'streamText',
-              { model: 'openai/gpt-oss-120b', promptLength: prompt.length }
+              { model: 'moonshotai/kimi-k2-instruct', promptLength: prompt.length }
             ),
             'AI Stream Generation'
           ),
@@ -401,21 +401,21 @@ export async function streamAIResponse(prompt: string) {
         addTodayCost(estimatedCost);
 
         await recordAIConversation({
-          model: 'openai/gpt-oss-120b',
+          model: 'moonshotai/kimi-k2-instruct',
           inputTokens: estimatedInputTokens,
           outputTokens: estimatedOutputTokens,
           cost: estimatedCost,
         });
         
         logger.info("AI streaming started successfully", { 
-          model: "openai/gpt-oss-120b",
+          model: "moonshotai/kimi-k2-instruct",
           estimatedCost: estimatedCost.toFixed(6),
           dailyCost: getTodayCost().toFixed(4)
         });
         
         aiMonitoring.recordOperation({
           operation: 'streamText',
-          model: 'openai/gpt-oss-120b',
+          model: 'moonshotai/kimi-k2-instruct',
           duration: Date.now() - startTime,
           success: true,
           inputTokens: estimatedInputTokens,

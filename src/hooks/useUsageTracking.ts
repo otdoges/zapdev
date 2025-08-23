@@ -155,24 +155,26 @@ export const useUsageTracking = () => {
     syncPendingEvents,
     getSubscription: async () => {
       try {
-        const base = import.meta.env.VITE_CONVEX_URL as string | undefined;
-        const url = base
-          ? `${base.replace(/\/$/, '')}/trpc/billing.getUserSubscription`
-          : '/trpc/billing.getUserSubscription';
+        // Use the correct tRPC endpoint based on vercel.json routing
+        const url = '/hono/trpc/billing.getUserSubscription';
         const token = authTokenManager.getToken();
         const res = await fetch(url, {
-          method: 'GET',
+          method: 'POST', // tRPC queries use POST
           headers: {
+            'Content-Type': 'application/json',
             ...(token ? { authorization: `Bearer ${token}` } : {}),
-            accept: 'application/json',
           },
-          // Include cookies if same-origin; omit if cross-origin bearer-token flow
-          credentials: base ? 'omit' : 'include',
+          body: JSON.stringify({}), // Empty body for query
+          credentials: 'include',
         });
-        if (!res.ok) return null;
+        if (!res.ok) {
+          console.error('tRPC subscription fetch failed:', res.status, res.statusText);
+          return null;
+        }
         const json = await res.json();
         return json?.result?.data ?? null;
-      } catch {
+      } catch (error) {
+        console.error('Error fetching subscription:', error);
         return null;
       }
     },
