@@ -737,16 +737,14 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   const isTrustedOrigin = origin && TRUSTED_ORIGINS_FOR_CREDENTIALS.includes(origin) && isValidOrigin(origin);
   const isAllowedOrigin = origin && CONFIG.CORS_ORIGINS.includes(origin) && isValidOrigin(origin);
   
-  if (isAllowedOrigin) {
+  if (isTrustedOrigin) {
+    // Only echo origin and allow credentials for trusted origins
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    
-    // Only enable credentials for trusted origins to prevent credential hijacking
-    if (isTrustedOrigin) {
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
+  // Optionally handle non-credentialed CORS here. For maximum safety, do not dynamically echo origins for untrusted sources.
   
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
