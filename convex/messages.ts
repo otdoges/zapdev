@@ -157,19 +157,30 @@ const sanitizeMetadata = (metadata: unknown) => {
           throw new Error('Diagram text too long (maximum 10,000 characters)');
         }
         
-        // Reject disallowed patterns
+        // Reject disallowed patterns using safer regex patterns
         const disallowedPatterns = [
-          /<script[^>]*>.*?<\/script>/gi,    // Script tags (safer pattern)
-          /<[^>]*on\w+\s*=/gi,               // Event handlers (onclick, etc.)
-          /data:\s*[^;]*;base64/gi,          // Data URLs
-          /https?:\/\/[^\s]+/gi,             // HTTP(S) URLs
-          /javascript:/gi,                   // JavaScript protocol
-          /vbscript:/gi,                     // VBScript protocol
-          /<embed[^>]*>/gi,                  // Embed tags (safer pattern)
-          /<object[^>]*>/gi,                 // Object tags (safer pattern)
-          /<iframe[^>]*>/gi,                 // Iframe tags (safer pattern)
-          /@@\w+/gi,                         // Potential template injection
-          /\$\{\w+\}/gi,                     // Template literals
+          // Script tag detection (simplified for security)
+          /<script\b[^>]*>/gi,
+          // Event handlers (safer pattern)
+          /<[^>]*\son\w+\s*=/gi,
+          // Data URLs
+          /data:\s*[^;]*;base64/gi,
+          // HTTP(S) URLs  
+          /https?:\/\/[^\s<>"']+/gi,
+          // JavaScript protocol
+          /javascript:\s*[^"'\s]*/gi,
+          // VBScript protocol
+          /vbscript:\s*[^"'\s]*/gi,
+          // Embed tags
+          /<embed\b[^>]*>/gi,
+          // Object tags
+          /<object\b[^>]*>/gi,
+          // Iframe tags
+          /<iframe\b[^>]*>/gi,
+          // Template injection patterns
+          /@@\w+/gi,
+          // Template literals
+          /\$\{\w+\}/gi,
         ];
         
         for (const pattern of disallowedPatterns) {
