@@ -5,6 +5,7 @@
 
 // Security constants for input validation
 export const MAX_MESSAGE_LENGTH = 10000;
+export const MAX_RESPONSE_LENGTH = 50000; // Maximum AI response length
 export const MAX_TITLE_LENGTH = 100;
 export const MIN_TITLE_LENGTH = 1;
 
@@ -12,14 +13,14 @@ export const MIN_TITLE_LENGTH = 1;
 export const sanitizeText = (text: string): string => {
   return text
     .replace(/[<>'"&]/g, (char) => {
-      const chars: { [key: string]: string } = {
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#x27;',
-        '"': '&quot;',
-        '&': '&amp;'
-      };
-      return Object.prototype.hasOwnProperty.call(chars, char) ? chars[char] : char;
+      switch (char) {
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case "'": return '&#x27;';
+        case '"': return '&quot;';
+        case '&': return '&amp;';
+        default: return char;
+      }
     })
     .trim();
 };
@@ -70,6 +71,40 @@ export const validateChatTitle = (title: string): { isValid: boolean; error?: st
   const hasXSSPattern = xssPatterns.some(pattern => pattern.test(trimmedTitle));
   if (hasXSSPattern) {
     return { isValid: false, error: 'Title contains potentially unsafe content' };
+  }
+  
+  return { isValid: true };
+};
+
+// Validate AI response content
+export const validateResponse = (content: string): { isValid: boolean; error?: string } => {
+  if (!content || typeof content !== 'string') {
+    return { isValid: false, error: 'Response must be a non-empty string' };
+  }
+  
+  if (content.trim().length === 0) {
+    return { isValid: false, error: 'Response cannot be empty or only whitespace' };
+  }
+  
+  if (content.length > MAX_RESPONSE_LENGTH) {
+    return { isValid: false, error: `Response exceeds maximum length of ${MAX_RESPONSE_LENGTH} characters` };
+  }
+  
+  // Check for potentially malicious patterns
+  const maliciousPatterns = [
+    /<script[^>]*>.*?<\/script>/gi,
+    /javascript:/gi,
+    /on\w+\s*=\s*["'][^"']*["']/gi,
+    /<iframe[^>]*>.*?<\/iframe>/gi,
+    /<object[^>]*>.*?<\/object>/gi,
+    /<embed[^>]*>/gi,
+    /data:text\/html/gi,
+    /vbscript:/gi
+  ];
+  
+  const hasMaliciousPattern = maliciousPatterns.some(pattern => pattern.test(content));
+  if (hasMaliciousPattern) {
+    return { isValid: false, error: 'Response contains potentially unsafe content' };
   }
   
   return { isValid: true };

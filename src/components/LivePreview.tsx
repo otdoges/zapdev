@@ -129,7 +129,7 @@ ${htmlCode}
     if ((language.toLowerCase() === 'html' || code.includes('<html')) && code.trim()) {
       createSecurePreviewUrl(code);
     }
-  }, [code, language]);
+  }, [code, language, createSecurePreviewUrl]);
   
   // Auto-execute on code change if enabled
   useEffect(() => {

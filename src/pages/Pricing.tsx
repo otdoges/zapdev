@@ -424,8 +424,7 @@ const Pricing = () => {
   );
 };
 
-export default Sentry.withErrorBoundary(Pricing, {
-  fallback: ({ resetError }) => (
+const PricingErrorFallback = ({ resetError }: { resetError: () => void }) => (
     <div className="min-h-screen bg-black text-white flex items-center justify-center">
       <div className="text-center">
         <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
@@ -435,5 +434,11 @@ export default Sentry.withErrorBoundary(Pricing, {
         </Button>
       </div>
     </div>
-  ),
+);
+
+export default Sentry.withErrorBoundary(Pricing, {
+  fallback: PricingErrorFallback,
+  beforeCapture: (scope) => {
+    scope.setTag('page', 'pricing');
+  },
 }); 

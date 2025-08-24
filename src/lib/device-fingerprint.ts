@@ -10,10 +10,14 @@
 export function getDeviceFingerprint(): string {
   try {
     // Check if we're in a browser environment
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    if (
+      typeof window === 'undefined' ||
+      typeof document === 'undefined' ||
+      typeof navigator === 'undefined'
+    ) {
       return 'ssr-environment';
     }
-    
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
@@ -23,14 +27,17 @@ export function getDeviceFingerprint(): string {
       try {
         ctx.textBaseline = 'top';
         ctx.font = '14px Arial';
-        ctx.fillText('🔐📱💻', 0, 0);
-        canvasData = canvas.toDataURL();
+        ctx.fillText('Device fingerprint', 2, 2);
+        canvasData = canvas.toDataURL().slice(0, 50); // Take first 50 chars for entropy
       } catch {
-        if (process.env.NODE_ENV !== 'production') {
+        // Avoid ReferenceError in browsers without a process shim
+        if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
           console.warn('Canvas fingerprinting failed, using fallback');
         }
         canvasData = 'canvas-blocked';
       }
+    } else {
+      canvasData = 'canvas-unavailable';
     }
     
     const factors = [
@@ -44,14 +51,18 @@ export function getDeviceFingerprint(): string {
       typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency?.toString() || '0') : '0',
       canvasData
     ];
+
+    // Create a hash-like string from the factors
+    return factors.join('|').replace(/[^a-zA-Z0-9|]/g, '').slice(0, 100);
     
-    return factors.join('|');
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
+  } catch (error: unknown) {
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
       console.error('Device fingerprinting failed completely, using fallback', error);
     }
-    // Return a stable fallback fingerprint with safe navigator access
-    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
-    return `fallback|${userAgent}|${Date.now()}`;
+    // Return a stable fallback fingerprint with safe navigator access (no timestamp)
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
+    const lang = typeof navigator !== 'undefined' ? navigator.language : 'unknown';
+    const tz = new Date().getTimezoneOffset();
+    return `fallback|${ua}|${lang}|${tz}`.replace(/[^a-zA-Z0-9|]/g, '').slice(0, 100);
   }
 }

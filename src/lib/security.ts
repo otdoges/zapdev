@@ -74,7 +74,7 @@ export const sanitizeUrl = (url: string): string => {
 export const isValidEmail = (email: string): boolean => {
   if (!email || email.length > 254) return false;
   
-  // More comprehensive email regex based on RFC 5322
+  // More comprehensive email regex based on RFC 5322 - using safe character classes
   const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
   return emailRegex.test(email);
 };
@@ -556,7 +556,7 @@ export const validatePhoneNumber = (phone: string, countryCode: string = 'US'): 
     // Add more country patterns as needed
   };
 
-  const pattern = patterns[countryCode] || /^[\d\s()+-]+$/;
+  const pattern = Object.prototype.hasOwnProperty.call(patterns, countryCode) ? patterns[countryCode as keyof typeof patterns] : /^[\d\s()+-]+$/;
   return pattern.test(phone.replace(/\s/g, ''));
 };
 

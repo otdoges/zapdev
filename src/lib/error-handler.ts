@@ -336,7 +336,7 @@ class ErrorHandler {
     }
   }
 
-  private triggerRetry(error: AppError): void {
+  private triggerRetry(): void {
     // This would trigger a retry mechanism
     // Implementation depends on the specific context
     toast.info('Retrying...');

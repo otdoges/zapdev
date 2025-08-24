@@ -392,7 +392,7 @@ const Settings = () => {
       }
     }
     loadInvoices();
-  }, [user?._id]);
+  }, [user]);
 
   // Tab Components
   const ProfileTab = () => (

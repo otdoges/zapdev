@@ -3,6 +3,8 @@ import { OTPInput, OTPInputContext } from "input-otp"
 import { Dot } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { SafeText } from "./SafeText"
+import { sanitizeText } from "@/utils/security"
 
 const InputOTP = React.forwardRef<
   React.ElementRef<typeof OTPInput>,
@@ -32,9 +34,24 @@ const InputOTPSlot = React.forwardRef<
   React.ElementRef<"div">,
   React.ComponentPropsWithoutRef<"div"> & { index: number }
 >(({ index, className, ...props }, ref) => {
+  // Define the exact shape of an OTP slot to keep types strict
+  type OTPSlotShape = {
+    char: string | null
+    hasFakeCaret: boolean
+    isActive: boolean
+  }
+
   const inputOTPContext = React.useContext(OTPInputContext)
-  const slot = inputOTPContext?.slots?.[index] || null
-  const { char, hasFakeCaret, isActive } = slot || {}
+  // Safe array access to prevent object injection
+  const slots = inputOTPContext?.slots || []
+  // Use explicit bounds checking with Array.prototype.at for safer access
+  const slot = (Array.isArray(slots) && Number.isInteger(index) && index >= 0 && index < slots.length 
+    ? slots.at(index) 
+    : null) as OTPSlotShape | null
+
+  const char: string | null = slot?.char ?? null
+  const hasFakeCaret: boolean = !!slot?.hasFakeCaret
+  const isActive: boolean = !!slot?.isActive
 
   return (
     <div
@@ -46,7 +63,7 @@ const InputOTPSlot = React.forwardRef<
       )}
       {...props}
     >
-      {char}
+      {char && <SafeText>{sanitizeText(char)}</SafeText>}
       {hasFakeCaret && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="h-4 w-px animate-caret-blink bg-foreground duration-1000" />

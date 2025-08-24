@@ -1,7 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { join } from 'path';
 import * as path from 'path';
-import { existsSync, readdirSync } from 'fs';
+import { readdirSync, statSync } from 'fs';
 import cluster from 'cluster';
 import os from 'os';
 import { logger } from './src/lib/error-handler.js';
@@ -542,8 +542,15 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
   
-  // Safe file existence check
-  if (!existsSync(resolvedApiPath)) {
+  // Safe file existence check with validation
+  try {
+    const stats = statSync(resolvedApiPath);
+    if (!stats.isFile()) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `API endpoint not found: ${endpoint}` }));
+      return;
+    }
+  } catch {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: `API endpoint not found: ${endpoint}` }));
     return;
@@ -618,15 +625,20 @@ if (CONFIG.ENABLE_CLUSTERING && cluster.isPrimary) {
       clustering: CONFIG.ENABLE_CLUSTERING,
     });
     
-    // List endpoints
+    // List endpoints safely
     const apiDir = join(__dirname, 'api');
-    if (typeof apiDir === 'string' && apiDir.length > 0 && existsSync(apiDir)) {
-      const endpoints = readdirSync(apiDir)
+    try {
+      const stats = statSync(apiDir);
+      if (stats.isDirectory()) {
+        const endpoints = readdirSync(apiDir)
         .filter(file => file.endsWith('.ts') && !file.startsWith('_'))
         .map(file => file.replace('.ts', ''));
       
-      console.log('\n📊 Available Endpoints:');
-      endpoints.forEach(endpoint => console.log(`  • http://localhost:${CONFIG.PORT}/api/${endpoint}`));
+        console.log('\n📊 Available Endpoints:');
+        endpoints.forEach(endpoint => console.log(`  • http://localhost:${CONFIG.PORT}/api/${endpoint}`));
+      }
+    } catch {
+      console.log('\n📊 API directory not found or inaccessible');
     }
     
     console.log(`\n🔍 Health: http://localhost:${CONFIG.PORT}/health`);

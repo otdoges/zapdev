@@ -207,7 +207,7 @@ export class PolarWebhookError extends PolarError {
 
 // Helper function to get plan features
 export function getPlanFeatures(planId: PlanType): readonly string[] {
-  return PLAN_FEATURES[planId] || PLAN_FEATURES.free;
+  return Object.prototype.hasOwnProperty.call(PLAN_FEATURES, planId) ? PLAN_FEATURES[planId as keyof typeof PLAN_FEATURES] : PLAN_FEATURES.free;
 }
 
 // Helper function to get plan display name
@@ -218,7 +218,7 @@ export function getPlanDisplayName(planId: PlanType): string {
     pro: 'Pro',
     enterprise: 'Enterprise',
   };
-  return names[planId] || 'Free';
+  return Object.prototype.hasOwnProperty.call(names, planId) ? names[planId as keyof typeof names] : 'Free';
 }
 
 // Helper function to validate plan ID
@@ -243,10 +243,10 @@ export function convertPolarSubscription(
 }
 
 // Type guards
-export function isPolarSubscription(obj: any): obj is PolarSubscription {
+export function isPolarSubscription(obj: unknown): obj is PolarSubscription {
   return obj && typeof obj.id === 'string' && typeof obj.status === 'string';
 }
 
-export function isPolarCheckoutSession(obj: any): obj is PolarCheckoutSession {
+export function isPolarCheckoutSession(obj: unknown): obj is PolarCheckoutSession {
   return obj && typeof obj.id === 'string' && typeof obj.url === 'string';
 }

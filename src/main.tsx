@@ -16,6 +16,9 @@ if (import.meta.env.VITE_SENTRY_DSN && import.meta.env.VITE_SENTRY_DSN !== 'put_
       dsn: import.meta.env.VITE_SENTRY_DSN,
       environment: import.meta.env.MODE,
       enableLogs: true,
+      // Setting this option to true will send default PII data to Sentry.
+      // For example, automatic IP address collection on events
+      sendDefaultPii: true,
       integrations: [
         Sentry.browserTracingIntegration(),
         Sentry.replayIntegration({
@@ -24,6 +27,13 @@ if (import.meta.env.VITE_SENTRY_DSN && import.meta.env.VITE_SENTRY_DSN !== 'put_
         }),
         // Send console.log, console.error, and console.warn calls as logs to Sentry
         Sentry.consoleLoggingIntegration({ levels: ['log', 'error', 'warn'] }),
+        // User Feedback integration with system color scheme
+        Sentry.feedbackIntegration({
+          colorScheme: "system",
+          enableScreenshot: true,
+          isNameRequired: true,
+          isEmailRequired: true,
+        }),
       ],
       tracesSampleRate: import.meta.env.MODE === 'development' ? 1.0 : 0.1,
       replaysSessionSampleRate: import.meta.env.MODE === 'development' ? 1.0 : 0.1,

@@ -102,10 +102,10 @@ export default function SecretChat() {
       }
       setShowPasswordInput(false);
       setPassword("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Invalid password",
+        description: error instanceof Error ? error.message : "Invalid password",
         variant: "destructive",
       });
     }
@@ -128,10 +128,10 @@ export default function SecretChat() {
         description: "API key saved successfully!",
       });
       setGeminiApiKey("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to save API key",
+        description: error instanceof Error ? error.message : "Failed to save API key",
         variant: "destructive",
       });
     }
@@ -150,10 +150,10 @@ export default function SecretChat() {
         title: "Success",
         description: "New chat created!",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create chat",
+        description: error instanceof Error ? error.message : "Failed to create chat",
         variant: "destructive",
       });
     }
@@ -170,10 +170,10 @@ export default function SecretChat() {
         title: "Success",
         description: "Chat deleted successfully!",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete chat",
+        description: error instanceof Error ? error.message : "Failed to delete chat",
         variant: "destructive",
       });
     }
@@ -247,10 +247,10 @@ export default function SecretChat() {
         metadata: assistantMessage.metadata,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to send message",
+        description: error instanceof Error ? error.message : "Failed to send message",
         variant: "destructive",
       });
     } finally {
