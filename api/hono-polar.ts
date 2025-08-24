@@ -23,18 +23,22 @@ const getPolarClient = () => {
 };
 
 // Helper function to validate Polar.sh environment variables
-const validatePolarEnvironment = () => {
-  const requiredVars = [
-    'POLAR_ACCESS_TOKEN',
-    'POLAR_PRODUCT_STARTER_MONTH_ID',
-    'POLAR_PRODUCT_STARTER_YEAR_ID',
-    'POLAR_PRODUCT_PRO_MONTH_ID',
-    'POLAR_PRODUCT_PRO_YEAR_ID'
-  ] as const;
-  
-  // Collect any vars that are missing or undefined in process.env
-  const missingVars = requiredVars.filter(varName => !(varName in process.env) || !process.env[varName]);
-  
+const validatePolarEnvironment = (): void => {
+  const envMap = {
+    POLAR_ACCESS_TOKEN: process.env.POLAR_ACCESS_TOKEN,
+    POLAR_PRODUCT_STARTER_MONTH_ID: process.env.POLAR_PRODUCT_STARTER_MONTH_ID,
+    POLAR_PRODUCT_STARTER_YEAR_ID: process.env.POLAR_PRODUCT_STARTER_YEAR_ID,
+    POLAR_PRODUCT_PRO_MONTH_ID: process.env.POLAR_PRODUCT_PRO_MONTH_ID,
+    POLAR_PRODUCT_PRO_YEAR_ID: process.env.POLAR_PRODUCT_PRO_YEAR_ID,
+  } as const;
+
+  const missingVars: string[] = [];
+  if (!envMap.POLAR_ACCESS_TOKEN || envMap.POLAR_ACCESS_TOKEN.trim() === '') missingVars.push('POLAR_ACCESS_TOKEN');
+  if (!envMap.POLAR_PRODUCT_STARTER_MONTH_ID || envMap.POLAR_PRODUCT_STARTER_MONTH_ID.trim() === '') missingVars.push('POLAR_PRODUCT_STARTER_MONTH_ID');
+  if (!envMap.POLAR_PRODUCT_STARTER_YEAR_ID || envMap.POLAR_PRODUCT_STARTER_YEAR_ID.trim() === '') missingVars.push('POLAR_PRODUCT_STARTER_YEAR_ID');
+  if (!envMap.POLAR_PRODUCT_PRO_MONTH_ID || envMap.POLAR_PRODUCT_PRO_MONTH_ID.trim() === '') missingVars.push('POLAR_PRODUCT_PRO_MONTH_ID');
+  if (!envMap.POLAR_PRODUCT_PRO_YEAR_ID || envMap.POLAR_PRODUCT_PRO_YEAR_ID.trim() === '') missingVars.push('POLAR_PRODUCT_PRO_YEAR_ID');
+
   if (missingVars.length > 0) {
     throw new Error(
       `Missing required Polar.sh environment variables: ${missingVars.join(', ')}. ` +
@@ -182,10 +186,11 @@ const authenticateUser = async (c: Context, next: () => Promise<void>) => {
 };
 
 // Helper to get authenticated user from context
-const getAuthenticatedUser = (c: Context): { id: string; email?: string } => {
-  const user = c.get('user') as { id: string; email?: string } | undefined;
+type AuthenticatedUser = { id: string; email?: string };
+const getAuthenticatedUser = (c: Context): AuthenticatedUser => {
+  const user = c.get('user') as AuthenticatedUser | undefined;
   if (!user) {
-    throw new Error('User not found in context. Ensure authenticateUser middleware is applied.');
+    throw new Error('Authentication required: user not found in context');
   }
   return user;
 };
@@ -218,24 +223,37 @@ app.get('/checkout', authenticateUser, async (c) => {
       return c.json({ error: 'planId query parameter is required' }, 400);
     }
 
-    // Map plan IDs to Polar.sh product IDs
-    const productIdMap: Record<string, Record<string, string>> = {
-      'starter': {
-        'month': process.env.POLAR_PRODUCT_STARTER_MONTH_ID || '',
-        'year': process.env.POLAR_PRODUCT_STARTER_YEAR_ID || '',
-      },
-      'pro': {
-        'month': process.env.POLAR_PRODUCT_PRO_MONTH_ID || '',
-        'year': process.env.POLAR_PRODUCT_PRO_YEAR_ID || '',
-      },
+    // Replace ad-hoc mapping with a type-safe lookup
+    type PlanId = 'starter' | 'pro';
+    type PeriodType = 'month' | 'year';
+
+    const getProductId = (planId: string, period: string): string | null => {
+      const productIdMap: Record<PlanId, Record<PeriodType, string>> = {
+        starter: {
+          month: process.env.POLAR_PRODUCT_STARTER_MONTH_ID || '',
+          year:  process.env.POLAR_PRODUCT_STARTER_YEAR_ID  || '',
+        },
+        pro: {
+          month: process.env.POLAR_PRODUCT_PRO_MONTH_ID || '',
+          year:  process.env.POLAR_PRODUCT_PRO_YEAR_ID  || '',
+        },
+      };
+
+      // Validate inputs against our defined keys
+      if (!Object.keys(productIdMap).includes(planId) ||
+          !Object.keys(productIdMap.starter).includes(period)) {
+        return null;
+      }
+
+      const planMap = productIdMap[planId as PlanId];
+      return planMap[period as PeriodType] || null;
     };
-    
-    const planMap = productIdMap[planId as keyof typeof productIdMap];
-    const productId = planMap?.[period as keyof typeof planMap];
-    
+
+    const productId = getProductId(planId, period);
+
     if (!productId) {
-      return c.json({ 
-        error: `Plan ${planId} with period ${period} is not supported. Available plans: starter, pro` 
+      return c.json({
+        error: `Plan ${planId} with period ${period} is not supported. Available plans: starter, pro`
       }, 400);
     }
 
@@ -312,7 +330,13 @@ app.post('/checkout', authenticateUser, async (c) => {
     validatePolarEnvironment();
     
     const user = getAuthenticatedUser(c);
-    const body = await c.req.json<{ planId?: string; period?: 'month' | 'year' }>().catch(() => ({} as Record<string, unknown>));
+    let body: { planId?: string; period?: 'month' | 'year' };
+    try {
+      body = await c.req.json<{ planId?: string; period?: 'month' | 'year' }>();
+    } catch (error) {
+      console.error('Invalid JSON in request body:', error);
+      return c.json({ message: 'Invalid JSON in request body' }, 400);
+    }
     const planId = body?.planId;
     const period = body?.period || 'month';
 

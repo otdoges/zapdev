@@ -92,21 +92,22 @@ export const validateResponse = (content: string): { isValid: boolean; error?: s
   
   // Check for potentially malicious patterns
   const maliciousPatterns = [
-    /<script[^>]*>.*?<\/script>/gi,
-    /javascript:/gi,
-    /on\w+\s*=\s*["'][^"']*["']/gi,
-    /<iframe[^>]*>.*?<\/iframe>/gi,
-    /<object[^>]*>.*?<\/object>/gi,
-    /<embed[^>]*>/gi,
-    /data:text\/html/gi,
-    /vbscript:/gi
+    /<script[^>]*>[\s\S]*?<\/script>/is,
+    /\bjavascript:/i,
+    // quoted or unquoted inline handlers
+    /\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i,
+    /<iframe[^>]*>[\s\S]*?<\/iframe>/is,
+    /<object[^>]*>[\s\S]*?<\/object>/is,
+    /<embed[^>]*>/i,
+    // restrict risky data URI media types commonly used for HTML/script delivery
+    /\bdata:(?:text\/html|application\/xhtml\+xml|image\/svg\+xml)/i,
+    /\bvbscript:/i
   ];
-  
+
   const hasMaliciousPattern = maliciousPatterns.some(pattern => pattern.test(content));
   if (hasMaliciousPattern) {
     return { isValid: false, error: 'Response contains potentially unsafe content' };
-  }
-  
+  }  
   return { isValid: true };
 };
 

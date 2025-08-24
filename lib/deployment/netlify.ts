@@ -15,18 +15,89 @@ import {
   DeploymentStatus
 } from './types.js';
 
+// Security constants for input validation
+const MAX_PROJECT_NAME_LENGTH = 64;
+const MAX_SUBDOMAIN_LENGTH = 63;
+const GIT_URL_REGEX = /^https?:\/\/(?:github\.com|gitlab\.com|bitbucket\.org)\/[a-zA-Z0-9._-]{1,100}\/[a-zA-Z0-9._-]{1,100}(?:\.git)?$/u;
+
+/**
+ * Sanitizes a string by trimming and converting to lowercase
+ */
+function sanitizeString(raw: string): string {
+  return raw.toLowerCase().trim();
+}
+
+/**
+ * Validates subdomain format and length using string validation
+ */
+function validateSubdomain(raw: string): void {
+  if (raw.length > MAX_SUBDOMAIN_LENGTH) {
+    throw new DeploymentError('Invalid subdomain format.', 'netlify', 'INVALID_CONFIG');
+  }
+  
+  // Validate character set manually for security
+  const validChars = /^[a-z0-9-]+$/;
+  if (!validChars.test(raw)) {
+    throw new DeploymentError('Invalid subdomain format.', 'netlify', 'INVALID_CONFIG');
+  }
+  
+  // Check start and end characters
+  if (raw.startsWith('-') || raw.endsWith('-')) {
+    throw new DeploymentError('Invalid subdomain format.', 'netlify', 'INVALID_CONFIG');
+  }
+  
+  // Check for consecutive hyphens
+  if (raw.includes('--')) {
+    throw new DeploymentError('Invalid subdomain format.', 'netlify', 'INVALID_CONFIG');
+  }
+}
+
+/**
+ * Validates git repository URL format
+ */
+function validateGitUrl(url: string): void {
+  if (!GIT_URL_REGEX.test(url)) {
+    throw new DeploymentError('Invalid git repository URL format.', 'netlify', 'INVALID_CONFIG');
+  }
+}
+
+/**
+ * Sanitizes project name with length enforcement
+ */
+function sanitizeProjectName(raw: string): string {
+  const sanitized = sanitizeString(raw);
+  return sanitized.slice(0, MAX_PROJECT_NAME_LENGTH);
+}
+
 interface NetlifyDeploy {
   id: string;
+  site_id?: string;
   url: string;
   deploy_url: string;
   admin_url: string;
-  state: 'new' | 'building' | 'ready' | 'error' | 'uploading';
+  state:
+    | 'new'
+    | 'pending_review'
+    | 'accepted'
+    | 'rejected'
+    | 'enqueued'
+    | 'preparing'
+    | 'prepared'
+    | 'uploading'
+    | 'uploaded'
+    | 'processing'
+    | 'processed'
+    | 'building'
+    | 'ready'
+    | 'retrying'
+    | 'error'
+    | 'canceled'
+    | string; // forward-compat
   name: string;
   created_at: string;
   build_id?: string;
   error_message?: string;
 }
-
 interface NetlifySite {
   id: string;
   name: string;
@@ -73,18 +144,49 @@ export class NetlifyDeploymentService implements IDeploymentService {
     }
   }
 
+  private validateAndSanitizeConfig(config: BaseDeploymentConfig): BaseDeploymentConfig {
+    // Sanitize and validate project name
+    if (!config.projectName || typeof config.projectName !== 'string') {
+      throw new DeploymentError('Project name is required and must be a string', 'netlify', 'INVALID_CONFIG');
+    }
+    const safeProjectName = sanitizeProjectName(config.projectName);
+    
+    // Validate subdomain if provided
+    if (config.subdomain) {
+      if (typeof config.subdomain !== 'string') {
+        throw new DeploymentError('Subdomain must be a string', 'netlify', 'INVALID_CONFIG');
+      }
+      const sanitizedSubdomain = sanitizeString(config.subdomain);
+      validateSubdomain(sanitizedSubdomain);
+      config.subdomain = sanitizedSubdomain;
+    }
+    
+    // Validate git repository URL if provided
+    if (config.gitRepo?.url) {
+      validateGitUrl(config.gitRepo.url);
+    }
+    
+    return {
+      ...config,
+      projectName: safeProjectName
+    };
+  }
+
   async deploy(config: BaseDeploymentConfig): Promise<DeploymentResult> {
     const startTime = Date.now();
     
     try {
+      // Validate and sanitize inputs
+      const validatedConfig = this.validateAndSanitizeConfig(config);
+      
       // If files are provided, deploy directly
-      if (config.files) {
-        return await this.deployFiles(config);
+      if (validatedConfig.files) {
+        return await this.deployFiles(validatedConfig);
       }
       
       // If git repo is provided, create a site with git integration
-      if (config.gitRepo) {
-        return await this.deployFromGit(config);
+      if (validatedConfig.gitRepo) {
+        return await this.deployFromGit(validatedConfig);
       }
       
       throw new DeploymentError(
@@ -100,7 +202,7 @@ export class NetlifyDeploymentService implements IDeploymentService {
       }
       
       throw new DeploymentError(
-        `Netlify deployment failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         'netlify',
         'DEPLOYMENT_FAILED',
         { error, duration }
@@ -135,9 +237,8 @@ export class NetlifyDeploymentService implements IDeploymentService {
     });
 
     if (!deployResponse.ok) {
-      const error = await deployResponse.text();
       throw new DeploymentError(
-        `Failed to create deployment: ${error}`,
+        'Failed to create deployment',
         'netlify',
         'DEPLOY_FAILED'
       );
@@ -198,9 +299,8 @@ export class NetlifyDeploymentService implements IDeploymentService {
     });
 
     if (!siteResponse.ok) {
-      const error = await siteResponse.text();
       throw new DeploymentError(
-        `Failed to create site: ${error}`,
+        'Failed to create site',
         'netlify',
         'SITE_CREATION_FAILED'
       );
@@ -256,9 +356,8 @@ export class NetlifyDeploymentService implements IDeploymentService {
     });
 
     if (!response.ok) {
-      const error = await response.text();
       throw new DeploymentError(
-        `Failed to create site: ${error}`,
+        'Failed to create site',
         'netlify',
         'SITE_CREATION_FAILED'
       );
@@ -275,7 +374,7 @@ export class NetlifyDeploymentService implements IDeploymentService {
 
       if (!response.ok) {
         throw new DeploymentError(
-          `Failed to get deployment status: ${response.statusText}`,
+          'Failed to get deployment status',
           'netlify',
           'STATUS_FETCH_FAILED'
         );
@@ -335,9 +434,8 @@ export class NetlifyDeploymentService implements IDeploymentService {
       });
 
       if (!response.ok) {
-        const error = await response.text();
         throw new DomainConfigurationError(
-          `Failed to configure custom domain: ${error}`,
+          'Failed to configure custom domain',
           config.fullDomain,
           'netlify',
           'DOMAIN_CONFIG_FAILED'
@@ -406,7 +504,7 @@ export class NetlifyDeploymentService implements IDeploymentService {
         return {
           success: false,
           verified: false,
-          error: `Failed to get site info: ${response.statusText}`
+          error: 'Failed to get site info'
         };
       }
 
@@ -437,7 +535,7 @@ export class NetlifyDeploymentService implements IDeploymentService {
       if (!deployResponse.ok) {
         return {
           success: false,
-          error: `Failed to find deployment: ${deployResponse.statusText}`
+          error: 'Failed to find deployment'
         };
       }
 
@@ -461,7 +559,7 @@ export class NetlifyDeploymentService implements IDeploymentService {
       if (!deleteResponse.ok) {
         return {
           success: false,
-          error: `Failed to delete site: ${deleteResponse.statusText}`
+          error: 'Failed to delete site'
         };
       }
 
@@ -493,7 +591,7 @@ export class NetlifyDeploymentService implements IDeploymentService {
       if (!response.ok) {
         return {
           success: false,
-          error: `Failed to list sites: ${response.statusText}`
+          error: 'Failed to list sites'
         };
       }
 

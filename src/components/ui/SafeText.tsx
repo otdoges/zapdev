@@ -35,3 +35,16 @@ export const SafeText: React.FC<SafeTextProps> = ({ children, className = '' }) 
     </span>
   );
 }; 
+
+// Utility for sanitizing strings outside of React rendering
+export function sanitizeText(input: string): string {
+  if (!input) return '';
+  const clean = DOMPurify.sanitize(input, {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: true,
+    RETURN_DOM: false,
+    RETURN_DOM_FRAGMENT: false,
+  });
+  return clean.replace(/\s+/g, ' ').trim();
+}

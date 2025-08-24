@@ -31,19 +31,17 @@ export default function Success() {
 
     const syncSubscription = async () => {
       try {
-        // Add userId to the request if available from localStorage
-        let url = '/api/success';
+        // Add userId to the request body if available from localStorage
         const storedUserId = localStorage.getItem('convexUserId');
-        if (storedUserId) {
-          url += `?userId=${encodeURIComponent(storedUserId)}`;
-        }
+        const requestBody = storedUserId ? { userId: storedUserId } : {};
 
-        const response = await fetch(url, { 
+        const response = await fetch('/api/success', { 
           method: 'POST', 
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify(requestBody)
         });
 
         const result: SyncResult = await response.json();

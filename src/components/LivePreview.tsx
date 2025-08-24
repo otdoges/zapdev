@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { sanitizeCode, sanitizeOutput } from '../utils/text-sanitizer';
 import { motion, AnimatePresence } from 'framer-motion';
+import DOMPurify from 'isomorphic-dompurify';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +60,26 @@ export function LivePreview({
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
   const blobUrlsRef = useRef<string[]>([]);
 
+  // Sanitize HTML to prevent XSS attacks
+  const sanitizeHtml = (htmlCode: string): string => {
+    return DOMPurify.sanitize(htmlCode, {
+      ALLOWED_TAGS: [
+        'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'a', 'img', 'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'td', 'th',
+        'form', 'input', 'button', 'textarea', 'select', 'option',
+        'nav', 'header', 'footer', 'section', 'article', 'aside',
+        'strong', 'em', 'i', 'b', 'u', 'br', 'hr'
+      ],
+      ALLOWED_ATTR: [
+        'class', 'id', 'style', 'href', 'src', 'alt', 'title',
+        'type', 'value', 'placeholder', 'name', 'for', 'data-*'
+      ],
+      ALLOW_DATA_ATTR: true,
+      FORBID_TAGS: ['script', 'object', 'embed', 'applet', 'meta', 'link'],
+      FORBID_ATTR: ['onload', 'onerror', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange', 'onsubmit']
+    });
+  };
+
   // Create a secure blob URL for HTML preview to avoid same-origin security issues
   const createSecurePreviewUrl = (htmlCode: string): string => {
     // Clean up previous URL if it exists
@@ -76,11 +98,11 @@ export function LivePreview({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self'; frame-ancestors 'none'; base-uri 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; media-src 'none'; script-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'">
   <title>Live Preview</title>
 </head>
 <body>
-${htmlCode}
+${sanitizeHtml(htmlCode)}
 </body>
 </html>`;
     
@@ -126,10 +148,12 @@ ${htmlCode}
 
   // Update preview URL when code changes
   useEffect(() => {
-    if ((language.toLowerCase() === 'html' || code.includes('<html')) && code.trim()) {
+    const isHtml = (language || '').toLowerCase() === 'html' || code.includes('<html');
+    if (isHtml && code.trim()) {
       createSecurePreviewUrl(code);
     }
-  }, [code, language, createSecurePreviewUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, language]);
   
   // Auto-execute on code change if enabled
   useEffect(() => {
@@ -327,7 +351,7 @@ ${htmlCode}
                             src={currentPreviewUrl}
                             className="w-full h-full border-0"
                             title="Live Preview"
-                            sandbox=""
+                            sandbox="allow-same-origin"
                           />
                         ) : language.toLowerCase().includes('javascript') ? (
                           <div className="p-4 h-full flex items-center justify-center bg-gray-50">
@@ -362,7 +386,7 @@ ${htmlCode}
                     <ScrollArea className="h-full">
                       <div className="p-4">
                         <pre className="text-sm font-mono text-gray-300 bg-gray-900 p-4 rounded-lg overflow-x-auto">
-                          <code>{code || '// No code to display'}</code>
+                          <code>{sanitizeCode(code, '// No code to display')}</code>
                         </pre>
                       </div>
                     </ScrollArea>
@@ -399,7 +423,7 @@ ${htmlCode}
                                 <div>
                                   <h4 className="text-sm font-medium mb-2 text-gray-300">Output:</h4>
                                   <pre className="text-xs font-mono bg-black/20 p-3 rounded border overflow-x-auto">
-                                    {executionResult.output}
+                                    {sanitizeOutput(executionResult.output, 'No output')}
                                   </pre>
                                 </div>
                               )}
@@ -408,7 +432,7 @@ ${htmlCode}
                                 <div className="mt-3">
                                   <h4 className="text-sm font-medium mb-2 text-red-300">Error:</h4>
                                   <pre className="text-xs font-mono bg-black/20 p-3 rounded border overflow-x-auto text-red-200">
-                                    {executionResult.error}
+                                    {sanitizeOutput(executionResult.error, 'No error details')}
                                   </pre>
                                 </div>
                               )}
@@ -419,7 +443,7 @@ ${htmlCode}
                                   <div className="space-y-1">
                                     {executionResult.logs.map((log, index) => (
                                       <pre key={index} className="text-xs font-mono bg-black/20 p-2 rounded border overflow-x-auto">
-                                        {log}
+                                        {sanitizeOutput(log, 'Empty log entry')}
                                       </pre>
                                     ))}
                                   </div>

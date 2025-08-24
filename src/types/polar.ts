@@ -231,22 +231,32 @@ export function convertPolarSubscription(
   polarSub: PolarSubscription,
   planId: PlanType
 ): UserSubscription {
+  // Guard against invalid Date objects
+  const start = polarSub.currentPeriodStart instanceof Date ? polarSub.currentPeriodStart : new Date(polarSub.currentPeriodStart);
+  const end = polarSub.currentPeriodEnd instanceof Date ? polarSub.currentPeriodEnd : new Date(polarSub.currentPeriodEnd);
+  const safeStart = isNaN(start.getTime()) ? new Date() : start;
+  const safeEnd = isNaN(end.getTime()) ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : end;
+
   return {
     planId,
     planName: getPlanDisplayName(planId),
     status: polarSub.status,
     features: getPlanFeatures(planId),
-    currentPeriodStart: polarSub.currentPeriodStart.getTime(),
-    currentPeriodEnd: polarSub.currentPeriodEnd.getTime(),
+    currentPeriodStart: safeStart.getTime(),
+    currentPeriodEnd: safeEnd.getTime(),
     cancelAtPeriodEnd: polarSub.cancelAtPeriodEnd,
   };
 }
 
 // Type guards
 export function isPolarSubscription(obj: unknown): obj is PolarSubscription {
-  return obj && typeof obj.id === 'string' && typeof obj.status === 'string';
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+  return typeof o.id === 'string' && typeof o.status === 'string';
 }
 
 export function isPolarCheckoutSession(obj: unknown): obj is PolarCheckoutSession {
-  return obj && typeof obj.id === 'string' && typeof obj.url === 'string';
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+  return typeof o.id === 'string' && typeof o.url === 'string';
 }

@@ -75,7 +75,7 @@ export class VercelDeploymentService implements IDeploymentService {
   }
 
   private get teamQuery() {
-    return this.teamId ? `?teamId=${this.teamId}` : '';
+    return this.teamId ? `?teamId=${encodeURIComponent(this.teamId)}` : '';
   }
 
   private mapStatus(vercelState: string): DeploymentStatus {
@@ -214,7 +214,7 @@ export class VercelDeploymentService implements IDeploymentService {
       body: JSON.stringify({
         name: config.projectName,
         gitSource: {
-          type: 'github', // Could be enhanced to support other providers
+          type: this.extractGitProvider(gitRepo.url),
           repo: this.extractRepoPath(gitRepo.url),
           ref: gitRepo.branch || 'main'
         },
@@ -531,7 +531,11 @@ export class VercelDeploymentService implements IDeploymentService {
     error?: string;
   }> {
     try {
-      const response = await fetch(`${this.baseUrl}/v6/deployments${this.teamQuery}&limit=${limit}`, {
+      const params = new URLSearchParams();
+      if (this.teamId) params.set('teamId', this.teamId);
+      // Clamp limit to sane bounds supported by API
+      params.set('limit', String(Math.max(1, Math.min(100, limit))));
+      const response = await fetch(`${this.baseUrl}/v6/deployments?${params.toString()}`, {
         headers: this.headers
       });
 
@@ -572,7 +576,10 @@ export class VercelDeploymentService implements IDeploymentService {
 
   private extractRepoPath(url: string): string {
     // Extract owner/repo from git URL
-    const match = url.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?(?:[?#]|$)/);
-    return match?.[1] || url;
+    const sanitized = url.trim();
+    const match = sanitized.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?(?:[?#]|$)/);
+    const repo = match?.[1] || sanitized;
+    // Basic allowlist to avoid path traversal or invalid characters
+    return repo.replace(/[^A-Za-z0-9._/-]/g, '');
   }
 }

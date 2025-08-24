@@ -26,6 +26,10 @@ VITE_PUBLIC_POSTHOG_HOST=https://app.posthog.com
 
 # === OPTIONAL: Error Monitoring ===
 VITE_SENTRY_DSN=https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@xxxxx.ingest.sentry.io/xxxxxxx
+# Set to 'true' only if you have explicit user consent to collect PII data
+VITE_SENTRY_SEND_PII=false
+# Set to 'true' only if you want to enable screenshot capture in feedback widget
+VITE_SENTRY_ENABLE_SCREENSHOTS=false
 
 # === REQUIRED: Polar.sh Billing ===
 POLAR_ACCESS_TOKEN=polar_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

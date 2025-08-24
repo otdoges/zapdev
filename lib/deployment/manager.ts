@@ -414,7 +414,7 @@ export class ZapdevDeploymentManager {
         name: string;
         url: string;
         platform: DeploymentPlatform;
-        status: import('./types.js').DeploymentStatus;
+        status: import('./types').DeploymentStatus;
         createdAt: Date;
       }> = [];
       

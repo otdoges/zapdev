@@ -394,12 +394,18 @@ const Pricing = () => {
     if (params.get('billing') === 'success') {
       const id = localStorage.getItem('convexUserId');
       if (id) {
-        fetch(`/api/success?userId=${encodeURIComponent(id)}`, { method: 'POST' })
+        fetch('/api/success', { 
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId: id })
+        })
           .catch((error) => {
             console.error('Failed to sync billing success:', error);
             Sentry.captureException(error, {
               tags: { feature: 'pricing', action: 'billing_success_sync' },
-              extra: { userId: id }
+              extra: { userId: 'redacted' } // Avoid logging raw userId
             });
           });
       }
