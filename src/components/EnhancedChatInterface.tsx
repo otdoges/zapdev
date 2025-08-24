@@ -16,6 +16,7 @@ import { ChatMessage } from './chat/ChatMessage';
 import { ChatInput } from './chat/ChatInput';
 import { WelcomeScreen } from './chat/WelcomeScreen';
 import { ErrorBoundary } from './ErrorBoundary';
+import { SubscriptionUpgradeModal } from './SubscriptionUpgradeModal';
 
 // Import utilities
 import { validateInput, MAX_MESSAGE_LENGTH, sanitizeText, validateResponse, MAX_RESPONSE_LENGTH } from '@/utils/security';
@@ -39,6 +40,7 @@ interface ConvexMessage {
 const EnhancedChatInterface: React.FC = () => {
   // Hook declarations (must be at the top)
   const { user, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -46,6 +48,7 @@ const EnhancedChatInterface: React.FC = () => {
   const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<BraveSearchResult[]>([]);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -90,7 +93,13 @@ const EnhancedChatInterface: React.FC = () => {
       setInput('');
     } catch (error) {
       logger.error('Failed to create new chat:', error);
-      toast.error('Failed to create new chat');
+      
+      // Check if it's a subscription limit error
+      if (error instanceof Error && error.message.includes('Free plan limit reached')) {
+        setShowUpgradeModal(true);
+      } else {
+        toast.error('Failed to create new chat');
+      }
     }
   }, [user, createChatMutation]);
 
@@ -249,7 +258,12 @@ const EnhancedChatInterface: React.FC = () => {
 
     } catch (error) {
       logger.error('Chat error:', error);
-      toast.error('Failed to send message');
+      
+      // Check if it's a subscription limit error
+      if (error instanceof Error && error.message.includes('Free plan limit reached')) {
+        setShowUpgradeModal(true);
+      } else {
+        toast.error('Failed to send message');
       
       // Create fallback assistant message if processing failed
       try {
@@ -266,10 +280,21 @@ const EnhancedChatInterface: React.FC = () => {
       } catch (fallbackError) {
         logger.error('Failed to create fallback message:', fallbackError);
       }
+      }
     } finally {
       setIsTyping(false);
     }
   }, [input, isTyping, user, selectedChatId, messages, createChatMutation, createMessageMutation]);
+
+  // Subscription upgrade handlers
+  const handleUpgrade = useCallback(() => {
+    setShowUpgradeModal(false);
+    navigate('/pricing');
+  }, [navigate]);
+
+  const handleCloseUpgradeModal = useCallback(() => {
+    setShowUpgradeModal(false);
+  }, []);
 
   // Effects and memoized values
   useEffect(() => {
@@ -454,6 +479,15 @@ const EnhancedChatInterface: React.FC = () => {
             </div>
           )}
         </AnimatePresence>
+        
+        {/* Subscription Upgrade Modal */}
+        <SubscriptionUpgradeModal
+          isOpen={showUpgradeModal}
+          onClose={handleCloseUpgradeModal}
+          onUpgrade={handleUpgrade}
+          title="Chat Limit Reached"
+          message="You've reached your free plan limit of 5 chats. Upgrade to Pro to create unlimited chats and access advanced features."
+        />
       </div>
     </ErrorBoundary>
   );
