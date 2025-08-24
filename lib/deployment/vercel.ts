@@ -568,10 +568,27 @@ export class VercelDeploymentService implements IDeploymentService {
   }
 
   private extractGitProvider(url: string): string {
-    if (url.includes('github.com')) return 'github';
-    if (url.includes('gitlab.com')) return 'gitlab';
-    if (url.includes('bitbucket.org')) return 'bitbucket';
-    return 'github'; // default
+    try {
+      // Secure URL parsing to prevent domain spoofing attacks
+      let hostname = '';
+      try {
+        // Handle web and git URLs (e.g., https://github.com/..., git://github.com/...)
+        hostname = new URL(url).hostname.toLowerCase();
+      } catch {
+        // Fallback for git@github.com:owner/repo.git
+        // E.g. git@github.com:owner/repo.git or ssh://git@github.com/owner/repo.git
+        const match = url.match(/@([a-zA-Z0-9.-]+)[/:]/);
+        if (match) hostname = match[1].toLowerCase();
+      }
+      if (hostname === 'github.com') return 'github';
+      if (hostname === 'gitlab.com') return 'gitlab';
+      if (hostname === 'bitbucket.org') return 'bitbucket';
+      return 'github'; // default
+    } catch {
+      // Secure fallback - no substring matching to prevent spoofing
+      // Only return 'github' as default if we cannot parse the URL securely
+      return 'github';
+    }
   }
 
   private extractRepoPath(url: string): string {

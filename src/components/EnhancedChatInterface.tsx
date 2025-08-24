@@ -249,7 +249,7 @@ const EnhancedChatInterface: React.FC = () => {
       });
 
       // Auto-generate chat title if first message
-      if (messages && 'messages' in messages && messages.messages.length === 0) {
+      if (messages && typeof messages === 'object' && 'messages' in messages && Array.isArray(messages.messages) && messages.messages.length === 0) {
         await generateChatTitleFromMessages([
           { content: userInput, role: 'user' },
           { content: responseContent, role: 'assistant' }
@@ -307,8 +307,8 @@ const EnhancedChatInterface: React.FC = () => {
   }, [messages]);
 
   const memoizedMessages = useMemo(() => {
-    if (messages && 'messages' in messages) {
-      return messages.messages || [];
+    if (messages && typeof messages === 'object' && 'messages' in messages && Array.isArray(messages.messages)) {
+      return messages.messages;
     }
     return [];
   }, [messages]);
@@ -378,7 +378,7 @@ const EnhancedChatInterface: React.FC = () => {
               <ChatSidebar
                 sidebarExpanded={sidebarExpanded}
                 setSidebarExpanded={setSidebarExpanded}
-                chats={chats && 'chats' in chats ? chats.chats : []}
+                chats={chats && typeof chats === 'object' && 'chats' in chats && Array.isArray(chats.chats) ? chats.chats : []}
                 selectedChatId={selectedChatId}
                 startNewChat={startNewChat}
                 selectChat={selectChat}

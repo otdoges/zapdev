@@ -7,15 +7,42 @@ import os from 'os';
 import { createHash } from 'crypto';
 import { logger } from './src/lib/error-handler.js';
 
+
+// Helper to strictly validate CORS origin format and whitelist inclusion
+function isValidOrigin(origin: string): boolean {
+  if (!origin) return false;
+  // Disallow wildcards and null origins
+  if (origin === '*' || origin === 'null') return false;
+  try {
+    // Must be a well-formed URL with http(s)
+    const u = new URL(origin);
+    if (!['http:', 'https:'].includes(u.protocol)) return false;
+    // Only allow known hardcoded origins (add all trusted origins here)
+    const ALLOWED_ORIGINS = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:8080',
+      'https://zapdev.vercel.app',
+      'https://zapdev.link'
+    ];
+    return ALLOWED_ORIGINS.includes(origin);
+  } catch {
+    return false;
+  }
+}
 // Security-first configuration with PostHog Analytics
 const CONFIG = {
   PORT: Number(process.env.PORT) || 3000,
   NODE_ENV: process.env.NODE_ENV || 'development',
   ENABLE_CLUSTERING: process.env.ENABLE_CLUSTERING === 'true',
-  ENABLE_ANALYTICS: !!process.env.POSTHOG_API_KEY,
+  ENABLE_ANALYTICS: process.env.NODE_ENV !== 'production' ? false : (process.env.POSTHOG_API_KEY ? true : false),
   MAX_WORKERS: Number(process.env.MAX_WORKERS) || Math.min(4, os.cpus().length),
   TIMEOUT: Number(process.env.REQUEST_TIMEOUT) || 30000,
-  CORS_ORIGINS: (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000').split(','),
+  // Sanitize: Only allow explicitly whitelisted, valid origins (no "*", no "null", no malformed origins)
+  CORS_ORIGINS: (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000')
+    .split(',')
+    .map(o => o.trim())
+    .filter(o => isValidOrigin(o)),
   RATE_LIMIT: {
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 1000, // per IP
@@ -186,7 +213,7 @@ class PostHogAnalytics {
   }
   
   private hashIP(ip: string): string {
-    // Use SHA-256 for proper anonymization
+    // Use SHA-256 for proper anonymization (security improvement from dev-branch)
     return createHash('sha256').update(ip).digest('hex').substring(0, 16);
   }
 }
@@ -203,39 +230,54 @@ function sanitizeErrorForClient(error: Error | unknown, isDevelopment: boolean =
   
   // In development, provide more details (but still sanitized)
   if (isDevelopment && CONFIG.NODE_ENV === 'development') {
-    // Remove sensitive paths and internal details but keep useful info
+    // Remove ALL sensitive information including paths, stack traces, and internal details (enhanced security from dev-branch)
     const sanitized = errorMessage
-      .replace(/\/[^/\s]*\/([^/\s]*\/)*[^/\s]*(\.(js|ts|json))/g, '[FILE_PATH]')
+      .replace(/\/[^/\s]*\/([^/\s]*\/)*[^/\s]*(\.(js|ts|json|jsx|tsx|mjs|cjs))/g, '[FILE_PATH]')
       .replace(/at\s+[^\s]+\s+\([^)]+\)/g, '[STACK_TRACE]')
+      .replace(/\/home\/[^/\s]*\/[^\s]*\s*/g, '[USER_PATH]')
+      .replace(/\/Users\/[^/\s]*\/[^\s]*\s*/g, '[USER_PATH]')
+      .replace(/\/var\/[^\s]*\s*/g, '[SYSTEM_PATH]')
+      .replace(/\/tmp\/[^\s]*\s*/g, '[TEMP_PATH]')
+      .replace(/process\.env\.[A-Z_]+/g, '[ENV_VAR]')
+      .replace(/password[:=][^\s]*/gi, 'password=[REDACTED]')
+      .replace(/token[:=][^\s]*/gi, 'token=[REDACTED]')
+      .replace(/key[:=][^\s]*/gi, 'key=[REDACTED]')
+      .replace(/secret[:=][^\s]*/gi, 'secret=[REDACTED]')
       .replace(/ENOENT.*'/g, 'File not found')
       .replace(/EACCES.*'/g, 'Permission denied')
       .replace(/Error:\s*/g, '');
     
     return { 
-      error: sanitized.length > 200 ? sanitized.substring(0, 200) + '...' : sanitized,
+      error: sanitized.length > 150 ? sanitized.substring(0, 150) + '...' : sanitized,
       code: 'DEVELOPMENT_ERROR'
     };
   }
   
-  // In production, return generic errors for security
+  // In production, return only generic errors for maximum security
   const commonErrors: Record<string, string> = {
     'Request timeout': 'Request timed out',
     'Invalid API handler export': 'Service temporarily unavailable',
     'ENOENT': 'Resource not found',
     'EACCES': 'Access denied',
     'ETIMEDOUT': 'Request timed out',
-    'ECONNRESET': 'Connection interrupted'
+    'ECONNRESET': 'Connection interrupted',
+    'Module not found': 'Service temporarily unavailable',
+    'Cannot resolve module': 'Service temporarily unavailable',
+    'Permission denied': 'Access denied',
+    'File not found': 'Resource not found'
   };
   
-  // Check for known error patterns
+  // Check for known error patterns (case insensitive) - enhanced security from dev-branch
+  const errorLower = errorMessage.toLowerCase();
   for (const [pattern, safeMessage] of Object.entries(commonErrors)) {
-    if (errorMessage.includes(pattern)) {
-      return { error: safeMessage };
+    if (errorLower.includes(pattern.toLowerCase())) {
+      return { error: safeMessage, code: 'SERVICE_ERROR' };
     }
   }
   
-  // Default safe error message
-  return { error: 'Internal server error' };
+  // For ALL other production errors, return completely generic message
+  // This prevents ANY internal information leakage
+  return { error: 'Service temporarily unavailable', code: 'GENERIC_ERROR' };
 }
 
 // Rate limiting with secure IP validation and bounded storage
@@ -679,24 +721,32 @@ class EnhancedVercelResponse implements VercelResponse {
 
 // Production-Ready Server with PostHog Analytics
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-  // Enhanced CORS
+  // Enhanced CORS with secure credentials handling (security improvement from dev-branch)
   const origin = req.headers.origin;
-  // Strict CORS origin whitelist (never allow "*", never allow "null")
-  let allowedOrigin = null;
-  if (
-    origin &&
-    CONFIG.CORS_ORIGINS.includes(origin) && 
-    origin !== 'null' && 
-    origin !== '*' &&
-    /^https?:\/\/[\w.-]+(:\d+)?$/.test(origin) // basic syntax validation
-  ) {
-    allowedOrigin = origin;
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  
+  // Define trusted origins that can use credentials
+  const TRUSTED_ORIGINS_FOR_CREDENTIALS = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:8080',
+    'https://zapdev.vercel.app',
+    'https://zapdev.link'
+  ];
+  
+  // Origin must be strictly validated for both credentials and general header
+  const isTrustedOrigin = origin && TRUSTED_ORIGINS_FOR_CREDENTIALS.includes(origin) && isValidOrigin(origin);
+  const isAllowedOrigin = origin && CONFIG.CORS_ORIGINS.includes(origin) && isValidOrigin(origin);
+  
+  if (isAllowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    
+    // Only enable credentials for trusted origins to prevent credential hijacking
+    if (isTrustedOrigin) {
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
   }
-  // Always only set credentials if a specific, trusted origin is matched
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
