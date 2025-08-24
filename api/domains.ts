@@ -6,13 +6,13 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ZapdevDeploymentManager } from '../../lib/deployment/manager.js';
+import { ZapdevDeploymentManager } from '../lib/deployment/manager';
 import {
   DeploymentPlatform,
   ZapdevDeploymentConfig,
   DomainConfigurationError,
   DeploymentAnalyticsEvent
-} from '../../lib/deployment/types.js';
+} from '../lib/deployment/types';
 
 // PostHog Analytics Integration
 class PostHogAnalytics {
@@ -78,6 +78,16 @@ const logger = {
 // Initialize analytics
 const analytics = new PostHogAnalytics();
 
+// Security constants for subdomain validation
+const SUBDOMAIN_MIN_LENGTH = 3;
+const SUBDOMAIN_MAX_LENGTH = 63;
+// Simple safe regex pattern - no quantifiers with potential backtracking
+const SUBDOMAIN_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/i;
+const RESERVED_SUBDOMAINS = [
+  'api', 'www', 'mail', 'ftp', 'admin', 'app', 'dev', 'test', 'staging',
+  'blog', 'docs', 'help', 'support', 'status', 'portal', 'dashboard'
+];
+
 // Deployment manager configuration
 const deploymentConfig: ZapdevDeploymentConfig = {
   baseDomain: 'zapdev.link',
@@ -108,14 +118,55 @@ try {
   });
 } catch (error) {
   logger.error('Failed to initialize deployment manager', error);
+  // Will handle error in the main handler function
 }
-
 interface DomainRequest {
   action: 'check' | 'setup' | 'verify' | 'instructions' | 'validate' | 'suggestions';
   subdomain?: string;
   platform?: DeploymentPlatform;
   projectId?: string;
   siteId?: string;
+}
+
+// Validation function to safely parse request body
+function validateRequestBody(body: unknown): DomainRequest | null {
+  if (!body || typeof body !== 'object') {
+    return null;
+  }
+  
+  const obj = body as Record<string, unknown>;
+  
+  // Action is required and must be one of the valid actions
+  const validActions = ['check', 'setup', 'verify', 'instructions', 'validate', 'suggestions'] as const;
+  if (!obj.action || typeof obj.action !== 'string' || !(validActions as readonly string[]).includes(obj.action)) {
+    return null;
+  }
+  
+  // Validate optional fields with proper type checking
+  const request: DomainRequest = {
+    action: obj.action as DomainRequest['action']
+  };
+  
+  if (obj.subdomain && typeof obj.subdomain === 'string') {
+    request.subdomain = obj.subdomain;
+  }
+  
+  if (obj.platform && typeof obj.platform === 'string') {
+    const validPlatforms = ['netlify', 'vercel'];
+    if (validPlatforms.includes(obj.platform)) {
+      request.platform = obj.platform as DeploymentPlatform;
+    }
+  }
+  
+  if (obj.projectId && typeof obj.projectId === 'string') {
+    request.projectId = obj.projectId;
+  }
+  
+  if (obj.siteId && typeof obj.siteId === 'string') {
+    request.siteId = obj.siteId;
+  }
+  
+  return request;
 }
 
 interface SubdomainSuggestion {
@@ -137,14 +188,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
+  
+  // Check if deployment manager is initialized
+  if (!deploymentManager) {
+    return res.status(503).json({
+      error: 'Service temporarily unavailable',
+      message: 'Deployment manager initialization failed. Please check server configuration.'
+    });
+  }
   try {
-    if (!deploymentManager) {
-      throw new Error('Deployment manager not initialized. Please check environment variables.');
-    }
-
-    const body = req.method === 'POST' ? req.body as DomainRequest : null;
+    const body = req.method === 'POST' ? validateRequestBody(req.body) : null;
     const action = body?.action || (req.query.action as string);
+    
+    // If POST method but body validation failed, return 400 error
+    if (req.method === 'POST' && !body) {
+      return res.status(400).json({ 
+        error: 'Invalid request body format',
+        details: 'Request body must be a valid JSON object with required fields'
+      });
+    }
 
     if (!action) {
       return res.status(400).json({ 
@@ -165,10 +227,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return await handleCheckSubdomain(req, res, body || { action: 'check' });
       
       case 'setup':
-        return await handleSetupDomain(req, res, body!);
+        if (!body) {
+          return res.status(400).json({ error: 'Setup action requires POST method with body' });
+        }
+        return await handleSetupDomain(req, res, body);
       
       case 'verify':
-        return await handleVerifyDomain(req, res, body!);
+        if (!body) {
+          return res.status(400).json({ error: 'Verify action requires POST method with body' });
+        }
+        return await handleVerifyDomain(req, res, body);
       
       case 'instructions':
         return await handleGetInstructions(req, res, body || { action: 'instructions' });
@@ -355,31 +423,24 @@ async function handleSuggestions(req: VercelRequest, res: VercelResponse, body: 
 
 // Helper functions
 function isValidSubdomain(subdomain: string): boolean {
-  if (subdomain.length < 3 || subdomain.length > 63) return false;
-  if (subdomain.startsWith('-') || subdomain.endsWith('-')) return false;
-  
-  const validPattern = /^[a-z0-9-]+$/i;
-  return validPattern.test(subdomain);
+  if (subdomain.length < SUBDOMAIN_MIN_LENGTH || subdomain.length > SUBDOMAIN_MAX_LENGTH) return false;
+  return SUBDOMAIN_PATTERN.test(subdomain);
 }
 
 function validateSubdomainDetailed(subdomain: string) {
   const errors: string[] = [];
   const warnings: string[] = [];
   
-  if (subdomain.length < 3) {
-    errors.push('Subdomain must be at least 3 characters long');
+  if (subdomain.length < SUBDOMAIN_MIN_LENGTH) {
+    errors.push(`Subdomain must be at least ${SUBDOMAIN_MIN_LENGTH} characters long`);
   }
   
-  if (subdomain.length > 63) {
-    errors.push('Subdomain cannot exceed 63 characters');
+  if (subdomain.length > SUBDOMAIN_MAX_LENGTH) {
+    errors.push(`Subdomain cannot exceed ${SUBDOMAIN_MAX_LENGTH} characters`);
   }
   
-  if (subdomain.startsWith('-') || subdomain.endsWith('-')) {
-    errors.push('Subdomain cannot start or end with hyphens');
-  }
-  
-  if (!/^[a-z0-9-]+$/i.test(subdomain)) {
-    errors.push('Subdomain can only contain letters, numbers, and hyphens');
+  if (!SUBDOMAIN_PATTERN.test(subdomain)) {
+    errors.push('Subdomain can only contain letters, numbers, and hyphens, and cannot start or end with hyphens');
   }
   
   if (subdomain.includes('--')) {
@@ -390,10 +451,9 @@ function validateSubdomainDetailed(subdomain: string) {
     warnings.push('Numeric-only subdomains may be confusing');
   }
   
-  // Check for reserved words
-  const reservedWords = ['api', 'www', 'mail', 'ftp', 'admin', 'app', 'dev', 'test', 'staging'];
+  // Check for reserved words using constants
   const lowerSubdomain = subdomain.toLowerCase();
-  if (reservedWords.includes(lowerSubdomain)) {
+  if (RESERVED_SUBDOMAINS.includes(lowerSubdomain)) {
     warnings.push('This subdomain uses a reserved word and may cause conflicts');
   }
   
@@ -407,8 +467,8 @@ function validateSubdomainDetailed(subdomain: string) {
 
 function getSubdomainRules() {
   return {
-    minLength: 3,
-    maxLength: 63,
+    minLength: SUBDOMAIN_MIN_LENGTH,
+    maxLength: SUBDOMAIN_MAX_LENGTH,
     allowedCharacters: 'letters (a-z), numbers (0-9), and hyphens (-)',
     restrictions: [
       'Cannot start or end with hyphens',
@@ -425,13 +485,8 @@ async function checkSubdomainAvailability(subdomain: string): Promise<boolean> {
   // 2. Query DNS to see if the subdomain already exists
   // 3. Check both Netlify and Vercel for existing projects
   
-  // For now, we'll just check against some common/reserved names
-  const reservedSubdomains = [
-    'api', 'www', 'mail', 'ftp', 'admin', 'app', 'dev', 'test', 'staging',
-    'blog', 'docs', 'help', 'support', 'status', 'portal', 'dashboard'
-  ];
-  
-  return !reservedSubdomains.includes(subdomain.toLowerCase());
+  // For now, we'll just check against reserved subdomains using constants
+  return !RESERVED_SUBDOMAINS.includes(subdomain.toLowerCase());
 }
 
 async function generateSubdomainSuggestions(baseSubdomain: string): Promise<SubdomainSuggestion[]> {
@@ -528,9 +583,16 @@ function generatePlatformInstructions(platform: DeploymentPlatform, subdomain?: 
   
   const safePlatform: Platform = isPlatform(platform) ? platform : 'netlify';
   
-  return baseInstructions[safePlatform] || {
-    title: 'Platform not supported',
-    steps: [],
-    dnsConfiguration: null
-  };
+  // Use explicit mapping to prevent object injection
+  if (safePlatform === 'netlify') {
+    return baseInstructions.netlify;
+  } else if (safePlatform === 'vercel') {
+    return baseInstructions.vercel;
+  } else {
+    return {
+      title: 'Platform not supported',
+      steps: [],
+      dnsConfiguration: null
+    };
+  }
 }

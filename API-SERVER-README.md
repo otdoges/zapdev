@@ -15,9 +15,8 @@ This enhanced API server transforms the original development-only server into a 
 - **Clustering Support**: Multi-core processing with automatic worker management
 - **Rate Limiting**: Configurable request limits per IP (default: 1000/min)
 - **Health Checks**: Built-in `/health` endpoint for monitoring
-- **Security Headers**: HSTS, XSS protection, content type sniffing prevention
-- **Request Timeout**: Configurable timeout protection (default: 30s)
-- **Graceful Shutdown**: Clean shutdown with analytics reporting
+- **Security Headers**: HSTS, Content Security Policy (CSP), Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy (COOP), Cross-Origin-Resource-Policy (CORP), and X-Content-Type-Options=nosniff
+- **Request Timeout**: Configurable timeout protection (default: 30s)- **Graceful Shutdown**: Clean shutdown with analytics reporting
 
 ### 🛡️ **Enhanced Security**
 - **CORS Configuration**: Configurable origins (supports wildcards)

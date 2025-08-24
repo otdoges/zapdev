@@ -1393,7 +1393,7 @@ app.listen(PORT, () => {
   }
 });
 
-export const templates = {
+export const templates: Record<string, () => WebContainerTemplate> = {
   nextjs: createNextJsTemplate,
   basic: createBasicExpressTemplate,
   landing: createLandingPageTemplate,

@@ -202,7 +202,7 @@ export class BraveSearchService {
       if (!['http:', 'https:'].includes(urlObj.protocol)) {
         throw new Error('Only HTTP and HTTPS URLs are supported');
       }
-    } catch (error) {
+    } catch {
       throw new Error('Invalid URL format');
     }
 

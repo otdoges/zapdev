@@ -19,6 +19,7 @@ import UserSync from "./components/UserSync";
 import { AuthWrapper } from "./components/AuthWrapper";
 import { AuthErrorBoundary } from "./components/AuthErrorBoundary";
 import { PageErrorBoundary } from "./components/ErrorBoundary";
+import PrivacyConsentBanner from "./components/PrivacyConsentBanner";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
                 <div className="min-h-screen bg-background">
                   <Toaster />
                   <Sonner />
+                  <PrivacyConsentBanner />
                   <BrowserRouter>
                     <Routes>
                       {/* Public routes - no auth required */}

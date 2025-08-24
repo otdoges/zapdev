@@ -3,27 +3,40 @@ import { verifyAuth } from './_utils/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Secure CORS with origin allowlist
-  const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,https://zapdev.link').split(',');
+  const allowedOriginsEnv = process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,https://zapdev.link';
+  const allowedOrigins = allowedOriginsEnv
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(origin => 
+      origin.length > 0 && 
+      (origin.startsWith('http://') || origin.startsWith('https://'))
+    );
+
   const requestOrigin = req.headers.origin;
   
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
-    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else if (requestOrigin) {
-    // Disallowed origin - return 403
-    return res.status(403).json({ message: 'Origin not allowed' });
-  }
-  
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
+  // Helper function to validate origin
+  const isOriginAllowed = (origin: string | undefined): boolean => {
+    return Boolean(origin && allowedOrigins.includes(origin));
+  };
+
   if (req.method === 'OPTIONS') {
-    // Only return 204 for allowed origins
-    if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    if (isOriginAllowed(requestOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       return res.status(204).end();
     } else {
       return res.status(403).json({ message: 'Origin not allowed' });
     }
+  }
+
+  // Main CORS logic
+  if (isOriginAllowed(requestOrigin)) {
+    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else if (requestOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', 'null');
   }
   
   if (req.method !== 'POST') {

@@ -15,7 +15,8 @@ export type DeploymentStatus = 'pending' | 'building' | 'ready' | 'error' | 'can
 export interface BaseDeploymentConfig {
   platform: DeploymentPlatform;
   projectName: string;
-  subdomain: string; // e.g., "myproject" for "myproject.zapdev.link"
+  // Optional to allow platform defaults; validated where used
+  subdomain?: string; // e.g., "myproject" for "myproject.zapdev.link"
   gitRepo?: {
     url: string;
     branch?: string;
@@ -163,8 +164,17 @@ export interface DeploymentAnalyticsEvent {
   };
 }
 
-// Configuration for zapdev deployment service (non-sensitive settings)
+// Configuration for zapdev deployment service (non-sensitive settings)  
 export interface ZapdevDeploymentConfig {
+  // Include sensitive deployment configuration
+  netlify: {
+    accessToken: string;
+    teamId?: string;
+  };
+  vercel: {
+    accessToken: string;
+    teamId?: string;
+  };
   // Main domain for custom subdomains
   baseDomain: string; // "zapdev.link"
   

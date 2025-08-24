@@ -1,9 +1,10 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { join } from 'path';
 import * as path from 'path';
-import { existsSync, readdirSync } from 'fs';
+import { readdirSync, statSync } from 'fs';
 import cluster from 'cluster';
 import os from 'os';
+import { createHash } from 'crypto';
 import { logger } from './src/lib/error-handler.js';
 
 // Security-first configuration with PostHog Analytics
@@ -11,7 +12,7 @@ const CONFIG = {
   PORT: Number(process.env.PORT) || 3000,
   NODE_ENV: process.env.NODE_ENV || 'development',
   ENABLE_CLUSTERING: process.env.ENABLE_CLUSTERING === 'true',
-  ENABLE_ANALYTICS: process.env.NODE_ENV !== 'production' ? false : (process.env.POSTHOG_API_KEY ? true : false),
+  ENABLE_ANALYTICS: !!process.env.POSTHOG_API_KEY,
   MAX_WORKERS: Number(process.env.MAX_WORKERS) || Math.min(4, os.cpus().length),
   TIMEOUT: Number(process.env.REQUEST_TIMEOUT) || 30000,
   CORS_ORIGINS: (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000').split(','),
@@ -185,8 +186,8 @@ class PostHogAnalytics {
   }
   
   private hashIP(ip: string): string {
-    // Simple hash for privacy
-    return Buffer.from(ip).toString('base64').substring(0, 8);
+    // Use SHA-256 for proper anonymization
+    return createHash('sha256').update(ip).digest('hex').substring(0, 16);
   }
 }
 
@@ -250,73 +251,69 @@ setInterval(() => {
     }
   }
 }, 60000); // Cleanup every minute
-
 function validateAndNormalizeIP(ip: string): string | null {
   if (!ip || typeof ip !== 'string') return null;
   
   const trimmedIP = ip.trim();
   
-  // Safe IPv4 validation using split and numeric validation
-  if (validateIPv4(trimmedIP)) {
+  // Validate IPv4 format (simple and safe)
+  if (isValidIPv4(trimmedIP)) {
     return trimmedIP;
   }
   
-  // Safe IPv6 validation using split and hex validation
-  if (validateIPv6(trimmedIP)) {
+  // Validate IPv6 format (simple check)
+  if (isValidIPv6(trimmedIP)) {
     return trimmedIP;
   }
   
   return null;
 }
 
-// Safe IPv4 validation without regex DoS vulnerability
-function validateIPv4(ip: string): boolean {
+function isValidIPv4(ip: string): boolean {
   const parts = ip.split('.');
   if (parts.length !== 4) return false;
   
-  return parts.every(part => {
-    if (!/^\d+$/.test(part)) return false; // Only digits allowed
+  for (const part of parts) {
     const num = parseInt(part, 10);
-    return num >= 0 && num <= 255 && part === num.toString(); // No leading zeros
-  });
+    if (isNaN(num) || num < 0 || num > 255 || part !== num.toString()) {
+      return false;
+    }
+  }
+  return true;
 }
 
-// Safe IPv6 validation without regex DoS vulnerability
-function validateIPv6(ip: string): boolean {
-  // Handle special cases
-  if (ip === '::1' || ip === '::') return true;
+function isValidIPv6(ip: string): boolean {
+  // Simple IPv6 validation - check for valid characters and structure
+  if (ip.length > 39) return false; // Max IPv6 length
+  if (!/^[0-9a-fA-F:]+$/.test(ip)) return false;
   
-  // Basic IPv6 structure validation without complex regex
-  if (ip.includes('::')) {
-    // Double colon can only appear once
-    if (ip.split('::').length !== 2) return false;
-    
-    const parts = ip.split('::');
-    const leftParts = parts[0] ? parts[0].split(':') : [];
-    const rightParts = parts[1] ? parts[1].split(':') : [];
-    
-    // Total parts should not exceed 8
-    if (leftParts.length + rightParts.length > 7) return false;
-    
-    return [...leftParts, ...rightParts].every(part => 
-      part === '' || (part.length <= 4 && /^[0-9a-fA-F]+$/.test(part))
-    );
-  } else {
-    // Standard IPv6 format (8 groups of 4 hex digits)
-    const parts = ip.split(':');
-    if (parts.length !== 8) return false;
-    
-    return parts.every(part => 
-      part.length >= 1 && part.length <= 4 && /^[0-9a-fA-F]+$/.test(part)
-    );
+  const parts = ip.split(':');
+  if (parts.length < 3 || parts.length > 8) return false;
+  
+  for (const part of parts) {
+    if (part.length > 4) return false;
+    if (part.length > 0 && !/^[0-9a-fA-F]+$/.test(part)) return false;
   }
+  
+  return true;
+}
+
+function extractClientIP(req: IncomingMessage): string {
+  // Extract the client IP, preferring X-Forwarded-For if present (it may list multiple IPs)
+  let rawIP = req.socket.remoteAddress || 'unknown';
+  const forwardedFor = req.headers['x-forwarded-for'];
+  if (forwardedFor) {
+    // X-Forwarded-For can contain multiple IPs; the first one is the original client
+    const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+    rawIP = ips.split(',')[0].trim();
+  }
+  return rawIP;
 }
 
 function checkRateLimit(req: IncomingMessage): boolean {
   // Use trusted IP sources - prefer socket.remoteAddress over headers
-  const rawIP = req.socket.remoteAddress || req.headers['x-forwarded-for'] as string || 'unknown';
-  const validIP = validateAndNormalizeIP(Array.isArray(rawIP) ? rawIP[0] : rawIP);
-  
+  const rawIP = extractClientIP(req);
+  const validIP = validateAndNormalizeIP(rawIP);  
   if (!validIP) {
     logger.warn('Invalid IP for rate limiting', { rawIP });
     return false; // Reject requests with invalid IPs
@@ -426,7 +423,7 @@ class EnhancedVercelRequest implements VercelRequest {
   }
   
   private parseCookies(cookieHeader?: string): Record<string, string> {
-    const cookies = Object.create(null) as Record<string, string>;
+    const cookies: Record<string, string> = Object.create(null);
     if (!cookieHeader) return cookies;
     
     const COOKIE_NAME_PATTERN = /^[A-Za-z0-9_.-]+$/;
@@ -456,8 +453,17 @@ class EnhancedVercelRequest implements VercelRequest {
         // Attempt decoding, skip if it fails
         try {
           const decodedValue = decodeURIComponent(rawValue);
-          // eslint-disable-next-line security/detect-object-injection
-          cookies[trimmedName] = decodedValue;
+          // Additional security: prevent prototype pollution
+          if (trimmedName !== '__proto__' && trimmedName !== 'constructor' && trimmedName !== 'prototype') {
+            Object.defineProperty(cookies, trimmedName, {
+              value: decodedValue,
+              writable: true,
+              enumerable: true,
+              configurable: true
+            });
+          } else {
+            skippedCount++;
+          }
         } catch {
           // Skip malformed cookies - do not use raw value
           skippedCount++;
@@ -474,23 +480,38 @@ class EnhancedVercelRequest implements VercelRequest {
   }
 
   private parseQuery(searchParams: URLSearchParams): { [key: string]: string | string[] } {
-    const query: { [key: string]: string | string[] } = {};
+    const query: { [key: string]: string | string[] } = Object.create(null);
     for (const [key, value] of searchParams.entries()) {
       const safeKey = String(key);
-      const existingValue = query[safeKey];
+      // Prevent prototype pollution
+      if (safeKey === '__proto__' || safeKey === 'constructor' || safeKey === 'prototype') {
+        continue;
+      }
+      
+      const existingValue = Object.prototype.hasOwnProperty.call(query, safeKey) ? Object.getOwnPropertyDescriptor(query, safeKey)?.value : undefined;
       if (existingValue) {
         if (Array.isArray(existingValue)) {
           (existingValue as string[]).push(value);
         } else {
-          query[safeKey] = [existingValue as string, value];
+          Object.defineProperty(query, safeKey, {
+            value: [existingValue as string, value],
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
         }
       } else {
-        query[safeKey] = value;
+        Object.defineProperty(query, safeKey, {
+          value: value,
+          writable: true,
+          enumerable: true,
+          configurable: true
+        });
       }
     }
     return query;
   }
-
+  
   private parseBody(body: string, contentType?: string): unknown {
     if (!body) return undefined;
     try {
@@ -499,10 +520,18 @@ class EnhancedVercelRequest implements VercelRequest {
       }
       if (contentType?.includes('application/x-www-form-urlencoded')) {
         const params = new URLSearchParams(body);
-        const result: Record<string, string> = {};
+        const result: Record<string, string> = Object.create(null);
         for (const [key, value] of params.entries()) {
           const safeKey = String(key);
-          result[safeKey] = value;
+          // Prevent prototype pollution
+          if (safeKey !== '__proto__' && safeKey !== 'constructor' && safeKey !== 'prototype') {
+            Object.defineProperty(result, safeKey, {
+              value: value,
+              writable: true,
+              enumerable: true,
+              configurable: true
+            });
+          }
         }
         return result;
       }
@@ -517,7 +546,7 @@ class EnhancedVercelRequest implements VercelRequest {
 class EnhancedVercelResponse implements VercelResponse {
   private res: ServerResponse;
   private statusCode: number = 200;
-  private headers: { [key: string]: string } = {};
+  private headers: { [key: string]: string } = Object.create(null);
   private startTime: number;
   private endpoint: string;
   
@@ -542,7 +571,19 @@ class EnhancedVercelResponse implements VercelResponse {
   setHeader(name: string, value: string | number | readonly string[]): this {
     const headerName = String(name);
     const headerValue = String(value);
-    this.headers[headerName] = headerValue;
+    
+    // Prevent header injection and prototype pollution
+    if (headerName.includes('\r') || headerName.includes('\n') || 
+        headerName === '__proto__' || headerName === 'constructor' || headerName === 'prototype') {
+      return this;
+    }
+    
+    Object.defineProperty(this.headers, headerName, {
+      value: headerValue,
+      writable: true,
+      enumerable: true,
+      configurable: true
+    });
     this.res.setHeader(headerName, value);
     return this;
   }
@@ -623,7 +664,7 @@ class EnhancedVercelResponse implements VercelResponse {
         statusCode: this.statusCode,
         duration,
         userAgent: this.res.req?.headers['user-agent'] as string,
-        ip: this.res.req?.socket.remoteAddress,
+        ip: this.res.req ? extractClientIP(this.res.req) : 'unknown',
       });
     }
     
@@ -640,10 +681,19 @@ class EnhancedVercelResponse implements VercelResponse {
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   // Enhanced CORS
   const origin = req.headers.origin;
-  const allowedOrigin = CONFIG.CORS_ORIGINS.includes('*') || 
-    (origin && CONFIG.CORS_ORIGINS.includes(origin)) ? (origin || '*') : null;
-  
-  if (allowedOrigin) res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  // Strict CORS origin whitelist (never allow "*", never allow "null")
+  let allowedOrigin = null;
+  if (
+    origin &&
+    CONFIG.CORS_ORIGINS.includes(origin) && 
+    origin !== 'null' && 
+    origin !== '*' &&
+    /^https?:\/\/[\w.-]+(:\d+)?$/.test(origin) // basic syntax validation
+  ) {
+    allowedOrigin = origin;
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  }
+  // Always only set credentials if a specific, trusted origin is matched
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
@@ -656,7 +706,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   
   // Rate limiting with secure IP validation
   if (!checkRateLimit(req)) {
-    const ip = req.socket.remoteAddress || 'unknown';
+    const ip = extractClientIP(req);
     logger.warn('Rate limit exceeded', { ip, url: req.url });
     res.writeHead(429, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Rate limit exceeded' }));
@@ -689,28 +739,41 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   
   const endpoint = url.pathname.replace('/api/', '');
   
-  // Strict endpoint validation - only allow safe characters
-  if (!/^[A-Za-z0-9_-]+$/.test(endpoint)) {
+  // Safe URL decode - prevent encoded path traversal attacks
+  let decodedEndpoint: string;
+  try {
+    decodedEndpoint = decodeURIComponent(endpoint);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Invalid URL encoding in endpoint' }));
+    return;
+  }
+  
+  // Normalize by removing leading slashes (handles encoded slashes consistently)
+  decodedEndpoint = decodedEndpoint.replace(/^\/+/, '');
+  
+  // Reject any input with null bytes or path separators (check decoded value)
+  if (decodedEndpoint.includes('\0') || decodedEndpoint.includes('/') || decodedEndpoint.includes('\\') || decodedEndpoint.includes('..')) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Invalid characters in endpoint path' }));
+    return;
+  }
+  
+  // Strict endpoint validation - only allow safe characters (check decoded value)
+  if (!/^[A-Za-z0-9_-]+$/.test(decodedEndpoint)) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Invalid endpoint name' }));
     return;
   }
   
-  // Reject any input with null bytes or path separators
-  if (endpoint.includes('\0') || endpoint.includes('/') || endpoint.includes('\\') || endpoint.includes('..')) {
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: `API endpoint not found: ${endpoint}` }));
-    return;
-  }
-  
   // Secure path resolution with validation
   const validApiPath = path.resolve(join(__dirname, 'api'));
-  const resolvedApiPath = path.resolve(validApiPath, `${endpoint}.ts`);
+  const resolvedApiPath = path.resolve(validApiPath, `${decodedEndpoint}.ts`);
   
   // Ensure the resolved path starts with the valid API path
   if (!resolvedApiPath.startsWith(validApiPath + path.sep) && resolvedApiPath !== validApiPath) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: `API endpoint not found: ${endpoint}` }));
+    res.end(JSON.stringify({ error: `API endpoint not found: ${decodedEndpoint}` }));
     return;
   }
   
@@ -718,15 +781,22 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   const relativePath = path.relative(validApiPath, resolvedApiPath);
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: `API endpoint not found: ${endpoint}` }));
+    res.end(JSON.stringify({ error: `API endpoint not found: ${decodedEndpoint}` }));
     return;
   }
   
-  // Safe file existence check
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
-  if (!existsSync(resolvedApiPath)) {
+  // Safe file existence check with validation
+  try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const stats = statSync(resolvedApiPath);
+    if (!stats.isFile()) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `API endpoint not found: ${decodedEndpoint}` }));
+      return;
+    }
+  } catch {
     res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: `API endpoint not found: ${endpoint}` }));
+    res.end(JSON.stringify({ error: `API endpoint not found: ${decodedEndpoint}` }));
     return;
   }
   
@@ -742,16 +812,16 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   req.on('end', async () => {
     try {
       const mockReq = new EnhancedVercelRequest(req, body);
-      const mockRes = new EnhancedVercelResponse(res, endpoint);
+      const mockRes = new EnhancedVercelResponse(res, decodedEndpoint);
       
-      logger.info('API Request', { method: req.method, endpoint, ip: req.socket.remoteAddress || 'unknown' });
+      logger.info('API Request', { method: req.method, endpoint: decodedEndpoint, ip: extractClientIP(req) });
       
       const moduleUrl = CONFIG.NODE_ENV === 'development' 
         ? `file://${resolvedApiPath}?t=${Date.now()}`
         : `file://${resolvedApiPath}`;
         
       const module = await import(moduleUrl);
-      const handler = module.default;
+      const handler = module.default || module.handler;
       
       if (typeof handler !== 'function') {
         throw new Error('Invalid API handler export');
@@ -765,14 +835,13 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      const ip = req.socket.remoteAddress || 'unknown';
-      
-      logger.error('API Handler Error', error, { endpoint, method: req.method, ip });
+      const ip = extractClientIP(req);
+      logger.error(`API Handler Error - ${decodedEndpoint} ${req.method} from ${ip}`, error);
       
       if (CONFIG.ENABLE_ANALYTICS) {
         analytics.capture({
           event: 'api_error',
-          properties: { endpoint, error_message: errorMsg, method: req.method, ip_address: ip },
+          properties: { endpoint: decodedEndpoint, error_message: errorMsg, method: req.method, ip_address: ip },
         });
       }
       
@@ -803,36 +872,22 @@ if (CONFIG.ENABLE_CLUSTERING && cluster.isPrimary) {
       clustering: CONFIG.ENABLE_CLUSTERING,
     });
     
-    // List endpoints with additional security validation
-    const apiDir = path.resolve(join(__dirname, 'api'));
-    const validApiBaseDir = path.resolve(__dirname);
-    
-    // Ensure apiDir is within the expected directory structure
-    if (typeof apiDir === 'string' && apiDir.length > 0 && 
-        // eslint-disable-next-line security/detect-non-literal-fs-filename
-        apiDir.startsWith(validApiBaseDir) && existsSync(apiDir)) {
-      try {
+    // List endpoints safely
+    const apiDir = join(__dirname, 'api');
+    try {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      const stats = statSync(apiDir);
+      if (stats.isDirectory()) {
         // eslint-disable-next-line security/detect-non-literal-fs-filename
         const endpoints = readdirSync(apiDir)
-          .filter(file => {
-            // Enhanced filtering for security
-            return typeof file === 'string' &&
-                   file.endsWith('.ts') && 
-                   !file.startsWith('_') && 
-                   !file.includes('..') &&
-                   /^[A-Za-z0-9_-]+\.ts$/.test(file);
-          })
-          .map(file => file.replace('.ts', ''));
-        
+        .filter(file => file.endsWith('.ts') && !file.startsWith('_'))
+        .map(file => file.replace('.ts', ''));
+      
         console.log('\n📊 Available Endpoints:');
-        endpoints.forEach(endpoint => {
-          if (typeof endpoint === 'string' && /^[A-Za-z0-9_-]+$/.test(endpoint)) {
-            console.log(`  • http://localhost:${CONFIG.PORT}/api/${endpoint}`);
-          }
-        });
-      } catch (error) {
-        logger.warn('Failed to list API endpoints safely', error);
+        endpoints.forEach(endpoint => console.log(`  • http://localhost:${CONFIG.PORT}/api/${endpoint}`));
       }
+    } catch {
+      console.log('\n📊 API directory not found or inaccessible');
     }
     
     console.log(`\n🔍 Health: http://localhost:${CONFIG.PORT}/health`);

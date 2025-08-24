@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   CreditCard, User, Settings as SettingsIcon, Shield,
   ArrowUpRight, CheckCircle, XCircle, AlertTriangle, Activity, Trash2,
-  Download, Key, Eye, EyeOff
+  Download, Key, Eye, EyeOff, Info
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
@@ -22,6 +22,7 @@ import Navigation from "@/components/Navigation";
 import { setSecureApiKey, getSecureApiKey, clearSecureApiKey, hasUserApiKey } from "@/lib/secure-storage";
 import { z } from "zod";
 import { toast } from "sonner";
+import { privacyConsent, getDefaultConsent } from "@/lib/privacy-consent";
 
 // Types and Constants
 interface SubscriptionData {
@@ -161,6 +162,7 @@ const Settings = () => {
     period_end: number | null;
   }>>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [privacySettings, setPrivacySettings] = useState(getDefaultConsent());
 
   // Utility Functions
   const formatCurrency = (amount: number, currency: string) => 
@@ -392,7 +394,7 @@ const Settings = () => {
       }
     }
     loadInvoices();
-  }, [user?._id]);
+  }, [user]);
 
   // Tab Components
   const ProfileTab = () => (
@@ -657,55 +659,163 @@ const Settings = () => {
     </div>
   );
 
-  const PrivacyTab = () => (
-    <div className="space-y-6">
-      <Card className="bg-gray-900 border-gray-800">
-        <CardHeader>
-          <CardTitle>Data Management</CardTitle>
-          <CardDescription>Control your data and privacy settings</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-            <div>
-              <h4 className="font-medium">Export Data</h4>
-              <p className="text-sm text-gray-400">Download a copy of your data</p>
-            </div>
-            <Button onClick={exportData} variant="outline" className="border-gray-700">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
-          </div>
+  const PrivacyTab = () => {
+    const updatePrivacySetting = (key: keyof typeof privacySettings, value: boolean) => {
+      setPrivacySettings(prev => ({
+        ...prev,
+        [key]: value,
+      }));
+    };
 
-          <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-            <div>
-              <h4 className="font-medium">Usage Analytics</h4>
-              <p className="text-sm text-gray-400">Help improve our service with usage data</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-        </CardContent>
-      </Card>
+    const savePrivacySettings = () => {
+      const success = privacyConsent.setConsent(privacySettings);
+      if (success) {
+        toast.success('Privacy preferences saved successfully');
+        // Reload if error monitoring consent changed to apply new Sentry configuration
+        if (privacySettings.errorMonitoring !== privacyConsent.hasErrorMonitoringConsent()) {
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        }
+      } else {
+        toast.error('Failed to save privacy preferences');
+      }
+    };
 
-      <Card className="bg-red-900/10 border-red-500/20">
-        <CardHeader>
-          <CardTitle className="text-red-400">Danger Zone</CardTitle>
-          <CardDescription className="text-red-300/70">Irreversible and destructive actions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between p-4 bg-red-900/20 rounded-lg border border-red-500/20">
-            <div>
-              <h4 className="font-medium text-red-400">Delete Account</h4>
-              <p className="text-sm text-red-300/70">Permanently delete your account and all data</p>
+    // Load current privacy settings
+    React.useEffect(() => {
+      const currentConsent = privacyConsent.getConsent();
+      if (currentConsent) {
+        setPrivacySettings({
+          errorMonitoring: currentConsent.errorMonitoring,
+          analytics: currentConsent.analytics,
+          performance: currentConsent.performance,
+          screenshots: currentConsent.screenshots,
+        });
+      }
+    }, []);
+
+    return (
+      <div className="space-y-6">
+        <Card className="bg-gray-900 border-gray-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-400" />
+              Privacy Preferences
+            </CardTitle>
+            <CardDescription>
+              Control what data we collect to improve ZapDev. Your privacy matters to us.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <ToggleSection
+                label="Error Monitoring & Diagnostics"
+                description="Helps us detect and fix bugs. May include error details and user actions leading to errors. This may include some personal information."
+                checked={privacySettings.errorMonitoring}
+                onChange={(checked) => updatePrivacySetting('errorMonitoring', checked)}
+              />
+
+              <ToggleSection
+                label="Usage Analytics"
+                description="Anonymous data about how you use ZapDev to improve features and user experience."
+                checked={privacySettings.analytics}
+                onChange={(checked) => updatePrivacySetting('analytics', checked)}
+              />
+
+              <ToggleSection
+                label="Performance Monitoring"
+                description="Monitor app performance to identify and fix slow operations."
+                checked={privacySettings.performance}
+                onChange={(checked) => updatePrivacySetting('performance', checked)}
+              />
+
+              <ToggleSection
+                label="Feedback Screenshots"
+                description="Allow screenshot capture when providing feedback. Screenshots may contain personal information and require explicit consent."
+                checked={privacySettings.screenshots}
+                onChange={(checked) => updatePrivacySetting('screenshots', checked)}
+              />
             </div>
-            <Button onClick={deleteAccount} variant="destructive" className="bg-red-600 hover:bg-red-700">
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete Account
+
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-300">
+                  <p className="font-medium mb-1">Privacy Protection</p>
+                  <p>
+                    We implement additional safeguards to protect your data regardless of your choices. 
+                    Error monitoring requires both this setting and the environment flag VITE_SENTRY_SEND_PII to be enabled.
+                    Screenshot capture additionally requires the VITE_SENTRY_ENABLE_SCREENSHOTS environment flag.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Button onClick={savePrivacySettings} className="bg-blue-600 hover:bg-blue-700">
+              Save Privacy Preferences
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-900 border-gray-800">
+          <CardHeader>
+            <CardTitle>Data Management</CardTitle>
+            <CardDescription>Access and manage your personal data</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+              <div>
+                <h4 className="font-medium">Export Data</h4>
+                <p className="text-sm text-gray-400">Download a copy of your data</p>
+              </div>
+              <Button onClick={exportData} variant="outline" className="border-gray-700">
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+              <div>
+                <h4 className="font-medium">Clear Privacy Consent</h4>
+                <p className="text-sm text-gray-400">Reset all privacy preferences to defaults</p>
+              </div>
+              <Button 
+                onClick={() => {
+                  privacyConsent.clearConsent();
+                  setPrivacySettings(getDefaultConsent());
+                  toast.success('Privacy consent cleared');
+                }} 
+                variant="outline" 
+                className="border-gray-700"
+              >
+                Reset
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-red-900/10 border-red-500/20">
+          <CardHeader>
+            <CardTitle className="text-red-400">Danger Zone</CardTitle>
+            <CardDescription className="text-red-300/70">Irreversible and destructive actions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-4 bg-red-900/20 rounded-lg border border-red-500/20">
+              <div>
+                <h4 className="font-medium text-red-400">Delete Account</h4>
+                <p className="text-sm text-red-300/70">Permanently delete your account and all data</p>
+              </div>
+              <Button onClick={deleteAccount} variant="destructive" className="bg-red-600 hover:bg-red-700">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Account
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   const ApiTab = () => (
     <div className="space-y-6">

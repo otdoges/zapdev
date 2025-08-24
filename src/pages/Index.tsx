@@ -20,7 +20,13 @@ const Index = () => {
       try {
         const convexUserId = user?._id; // Only use session-based user ID for security
         if (convexUserId) {
-          fetch(`/api/success?userId=${encodeURIComponent(convexUserId)}`, { method: 'POST' })
+          fetch('/api/success', { 
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ userId: convexUserId })
+          })
             .catch((error) => {
               console.error('Failed to handle success redirect:', error);
               // Optionally show user notification about partial failure

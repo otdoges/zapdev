@@ -18,7 +18,7 @@ import { WelcomeScreen } from './chat/WelcomeScreen';
 import { ErrorBoundary } from './ErrorBoundary';
 
 // Import utilities
-import { validateInput, MAX_MESSAGE_LENGTH } from '@/utils/security';
+import { validateInput, MAX_MESSAGE_LENGTH, sanitizeText, validateResponse, MAX_RESPONSE_LENGTH } from '@/utils/security';
 
 // Import additional required modules
 import { searchWithBrave, type BraveSearchResult } from '@/lib/search-service';
@@ -27,7 +27,7 @@ import { logger } from '@/lib/error-handler';
 interface ConvexMessage {
   _id: string;
   content: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   createdAt: number;
   metadata?: {
     model?: string;
@@ -36,32 +36,37 @@ interface ConvexMessage {
   };
 }
 
-
 const EnhancedChatInterface: React.FC = () => {
-  const { user } = useAuth();
+  // Hook declarations (must be at the top)
+  const { user, isLoading: authLoading } = useAuth();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
-
-  // Enhanced UI state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<BraveSearchResult[]>([]);
-  const [isSubmittingDiagram, setIsSubmittingDiagram] = useState(false);
 
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Convex queries and mutations
-  const chats = useQuery(api.chats.getUserChats, user ? {} : 'skip');
-  const messages = useQuery(api.messages.getChatMessages, selectedChatId ? { chatId: selectedChatId as Id<'chats'> } : 'skip');
+  // Convex hooks (always called)
+  const chats = useQuery(
+    api.chats.getUserChats,
+    user ? {} : 'skip'
+  );
+  const messages = useQuery(
+    api.messages.getChatMessages,
+    selectedChatId
+      ? { chatId: selectedChatId as Id<'chats'> }
+      : 'skip'
+  );
   const createChatMutation = useMutation(api.chats.createChat);
   const createMessageMutation = useMutation(api.messages.createMessage);
   const deleteChatMutation = useMutation(api.chats.deleteChat);
 
-  // Utility functions
+  // All callbacks and effects
   const formatTimestamp = useCallback((timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -74,7 +79,6 @@ const EnhancedChatInterface: React.FC = () => {
     return date.toLocaleDateString();
   }, []);
 
-  // Chat management
   const startNewChat = useCallback(async () => {
     try {
       if (!user) return;
@@ -107,18 +111,27 @@ const EnhancedChatInterface: React.FC = () => {
     }
   }, [deleteChatMutation, selectedChatId]);
 
-  // Message handling
+  // Enhanced message handling with comprehensive security
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isTyping || !user) return;
 
+    // Step 1: Validate input
     const validation = validateInput(input, MAX_MESSAGE_LENGTH);
     if (!validation.isValid) {
+      logger.error('Input validation failed:', validation.error);
       toast.error(validation.error);
       return;
     }
 
-    const userInput = input.trim();
+    // Step 2: Sanitize input
+    const sanitizedInput = sanitizeText(input.trim());
+    
+    // Step 3: Enforce length by truncating to MAX_MESSAGE_LENGTH
+    const userInput = sanitizedInput.length > MAX_MESSAGE_LENGTH 
+      ? sanitizedInput.substring(0, MAX_MESSAGE_LENGTH)
+      : sanitizedInput;
+    
     setInput('');
     setIsTyping(true);
 
@@ -133,34 +146,96 @@ const EnhancedChatInterface: React.FC = () => {
         setSelectedChatId(currentChatId);
       }
 
-      // Create user message
+      // Create user message with sanitized input
       await createMessageMutation({
         chatId: currentChatId as Id<'chats'>,
         content: userInput,
         role: 'user'
       });
 
-      // Generate AI response
+      // Generate AI response with sanitized input
       const aiResponse = await streamAIResponse(userInput);
       let responseContent = '';
       
-      // Handle the streaming response
+      // Handle the streaming response with enhanced security
       if (typeof aiResponse === 'string') {
-        responseContent = aiResponse;
-      } else if (aiResponse && typeof aiResponse === 'object') {
-        // Handle streaming response - convert to string
+        // Direct string response
+        responseContent = (aiResponse as string).trim();
+      } else if (aiResponse && typeof aiResponse === 'object' && 'textStream' in aiResponse) {
+        // Handle streaming response with incremental length tracking
+        let cumulativeLength = 0;
+        const chunks: string[] = [];
+        
+        try {
+          const streamResponse = aiResponse as { textStream: AsyncIterable<string> };
+          for await (const delta of streamResponse.textStream) {
+            const piece = String(delta || '').trim();
+            
+            // Skip empty pieces
+            if (!piece) continue;
+            
+            // Check if adding this piece would exceed the limit
+            if (cumulativeLength + piece.length > MAX_RESPONSE_LENGTH) {
+              // Take only what fits within the limit
+              const remainingSpace = MAX_RESPONSE_LENGTH - cumulativeLength;
+              if (remainingSpace > 0) {
+                chunks.push(piece.substring(0, remainingSpace));
+                cumulativeLength += remainingSpace;
+              }
+              logger.warn('AI response truncated due to length limit');
+              break;
+            }
+            
+            chunks.push(piece);
+            cumulativeLength += piece.length;
+          }
+          
+          responseContent = chunks.join('').trim();
+        } catch (streamError) {
+          logger.error('Error reading AI stream:', streamError);
+          responseContent = 'AI response generated with streaming issues';
+        }
+      } else {
+        // Fallback for unexpected response format
+        logger.warn('Unexpected AI response format:', typeof aiResponse);
         responseContent = 'AI response generated successfully';
       }
       
-      // Create assistant message
+      // Step 4: Validate the assembled response
+      const responseValidation = validateResponse(responseContent);
+      if (!responseValidation.isValid) {
+        logger.error('AI response validation failed:', {
+          error: responseValidation.error,
+          responseLength: responseContent.length,
+          responsePreview: responseContent.substring(0, 100)
+        });
+        responseContent = 'AI response contained invalid content. Please try rephrasing your question.';
+      }
+      
+      // Ensure we have valid content
+      if (!responseContent || responseContent.trim().length === 0) {
+        responseContent = 'AI response was empty. Please try again.';
+      }
+      
+      // Final validation before database storage
+      if (typeof responseContent !== 'string') {
+        logger.error('Invalid content type for message creation:', typeof responseContent);
+        throw new Error('Invalid response content type');
+      }
+      
+      if (responseContent.trim().length === 0) {
+        logger.error('Empty response content for message creation');
+        throw new Error('Empty response content');
+      }
+      
       await createMessageMutation({
         chatId: currentChatId as Id<'chats'>,
         content: responseContent,
         role: 'assistant',
         metadata: {
           model: 'ai-assistant',
-          tokens: undefined,
-          cost: undefined
+          tokens: Math.ceil(responseContent.length / 4),
+          cost: 0.01
         }
       });
 
@@ -170,54 +245,42 @@ const EnhancedChatInterface: React.FC = () => {
           { content: userInput, role: 'user' },
           { content: responseContent, role: 'assistant' }
         ]);
-        // Update chat title (would need a mutation for this)
       }
 
     } catch (error) {
       logger.error('Chat error:', error);
       toast.error('Failed to send message');
+      
+      // Create fallback assistant message if processing failed
+      try {
+        if (selectedChatId) {
+          await createMessageMutation({
+            chatId: selectedChatId as Id<'chats'>,
+            content: 'I apologize, but I encountered an error processing your request. Please try again.',
+            role: 'assistant',
+            metadata: {
+              model: 'error-fallback'
+            }
+          });
+        }
+      } catch (fallbackError) {
+        logger.error('Failed to create fallback message:', fallbackError);
+      }
     } finally {
       setIsTyping(false);
     }
   }, [input, isTyping, user, selectedChatId, messages, createChatMutation, createMessageMutation]);
 
-  // Diagram handlers
-  const handleApproveDiagram = useCallback(async () => {
-    setIsSubmittingDiagram(true);
-    try {
-      toast.success('Diagram approved! You can proceed with implementation.');
-    } catch (error) {
-      logger.error('Failed to approve diagram:', error);
-      toast.error('Failed to approve diagram. Please try again.');
-    } finally {
-      setIsSubmittingDiagram(false);
-    }
-  }, []);
-
-  const handleRequestDiagramChanges = useCallback(async () => {
-    setIsSubmittingDiagram(true);
-    try {
-      toast.success('Diagram updated successfully!');
-    } catch (error) {
-      logger.error('Failed to update diagram:', error);
-      toast.error('Failed to update diagram. Please try again.');
-    } finally {
-      setIsSubmittingDiagram(false);
-    }
-  }, []);
-
-  // Optimized auto-scroll to bottom
+  // Effects and memoized values
   useEffect(() => {
     const element = messagesEndRef.current;
     if (element) {
-      // Use requestAnimationFrame for better performance
       requestAnimationFrame(() => {
         element.scrollIntoView({ behavior: 'smooth' });
       });
     }
-  }, [messages]); // Only trigger on message change
+  }, [messages]);
 
-  // Memoized message list to prevent unnecessary re-renders
   const memoizedMessages = useMemo(() => {
     if (messages && 'messages' in messages) {
       return messages.messages || [];
@@ -225,7 +288,6 @@ const EnhancedChatInterface: React.FC = () => {
     return [];
   }, [messages]);
 
-  // Memoized typing indicator
   const typingIndicator = useMemo(() => {
     if (!isTyping) return null;
     return (
@@ -248,10 +310,32 @@ const EnhancedChatInterface: React.FC = () => {
     );
   }, [isTyping]);
 
+  // Early returns after all hooks
+  if (authLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Sign in required</h2>
+          <p className="text-muted-foreground">
+            Please sign in to access the chat interface
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Main render
   return (
     <ErrorBoundary>
       <div className="h-full bg-[var(--color-chat-bg)] text-white relative overflow-hidden">
-
         <AnimatePresence mode="wait">
           {!selectedChatId ? (
             <WelcomeScreen 
@@ -278,28 +362,34 @@ const EnhancedChatInterface: React.FC = () => {
                 user={user || null}
               />
 
-              {/* Main chat area */}
               <div className="flex-1 flex flex-col relative">
-                {/* Messages area */}
                 <ScrollArea className="flex-1 custom-scrollbar">
                   <div className="p-6 space-y-6 max-w-4xl mx-auto">
-                    {memoizedMessages.map((message) => (
-                      <ChatMessage
-                        key={message._id}
-                        message={message as ConvexMessage}
-                        isUser={message.role === 'user'}
-                        formatTimestamp={formatTimestamp}
-                        copyToClipboard={async (content: string, id: string) => {
-                          await navigator.clipboard.writeText(content);
-                          setCopiedMessage(id);
-                          setTimeout(() => setCopiedMessage(null), 2000);
-                        }}
-                        copiedMessage={copiedMessage}
-                        onApproveDiagram={handleApproveDiagram}
-                        onRequestDiagramChanges={handleRequestDiagramChanges}
-                        isSubmittingDiagram={isSubmittingDiagram}
-                      />
-                    ))}
+                    {memoizedMessages.map((message, index: number) => {
+                      const convexMessage = message as ConvexMessage;
+                      const prevMessage = index > 0 ? memoizedMessages[index - 1] as ConvexMessage : null;
+                      const isFirstInGroup = !prevMessage || prevMessage.role !== convexMessage.role;
+                      
+                      return (
+                        <ChatMessage
+                          key={convexMessage._id}
+                          message={{
+                            ...convexMessage,
+                            role: convexMessage.role as 'user' | 'assistant'
+                          }}
+                          user={user || null}
+                          isUser={convexMessage.role === 'user'}
+                          isFirstInGroup={isFirstInGroup}
+                          formatTimestamp={formatTimestamp}
+                          copiedMessage={copiedMessage}
+                          copyToClipboard={async (content: string, id: string) => {
+                            await navigator.clipboard.writeText(content);
+                            setCopiedMessage(id);
+                            setTimeout(() => setCopiedMessage(null), 2000);
+                          }}
+                        />
+                      );
+                    })}
                     
                     {typingIndicator}
                     
@@ -307,7 +397,6 @@ const EnhancedChatInterface: React.FC = () => {
                   </div>
                 </ScrollArea>
 
-                {/* Input area */}
                 <ChatInput
                   input={input}
                   setInput={setInput}
@@ -318,7 +407,6 @@ const EnhancedChatInterface: React.FC = () => {
                   setIsSearchOpen={setIsSearchOpen}
                 />
 
-                {/* Search Dialog */}
                 <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
                   <DialogContent className="sm:max-w-[600px] glass-card border-white/10">
                     <DialogHeader>
@@ -328,10 +416,16 @@ const EnhancedChatInterface: React.FC = () => {
                       <Input
                         placeholder="Search query..."
                         className="glass-input"
-                        onKeyDown={async (e) => {
+                        onKeyDown={async (e: React.KeyboardEvent<HTMLInputElement>) => {
                           if (e.key === 'Enter') {
+                            const searchQuery = e.currentTarget.value.trim();
+                            const validation = validateInput(searchQuery, 200);
+                            if (!validation.isValid) {
+                              toast.error(validation.error);
+                              return;
+                            }
                             try {
-                              const results = await searchWithBrave(e.currentTarget.value);
+                              const results = await searchWithBrave(searchQuery);
                               setSearchResults(results);
                             } catch {
                               toast.error('Search failed');
@@ -356,7 +450,6 @@ const EnhancedChatInterface: React.FC = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
-
               </div>
             </div>
           )}

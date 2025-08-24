@@ -58,7 +58,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       lg: sizeClasses.lg,
       xl: sizeClasses.xl
     };
-    return sizeMap[safeSize] || sizeClasses.md;
+    return Object.prototype.hasOwnProperty.call(sizeMap, safeSize) ? sizeMap[safeSize as keyof typeof sizeMap] : sizeClasses.md;
   };
 
   if (variant === 'dots') {

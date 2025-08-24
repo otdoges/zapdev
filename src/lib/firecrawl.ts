@@ -97,7 +97,7 @@ export async function crawlSite(url: string, options: FirecrawlOptions = {}): Pr
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       throw new Error('Only HTTP/HTTPS URLs are supported')
     }
-  } catch (e) {
+  } catch {
     throw new Error('Invalid URL')
   }
 
@@ -178,7 +178,7 @@ export async function scrapePage(url: string): Promise<FirecrawlPageResult> {
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       throw new Error('Only HTTP/HTTPS URLs are supported')
     }
-  } catch (e) {
+  } catch {
     throw new Error('Invalid URL')
   }
 
@@ -298,7 +298,7 @@ async function analyzeWebsiteContent(mainPage: FirecrawlPageResult, allPages: Fi
     .join('\n\n')
 
   return {
-    technologies: detectTechnologies(combinedHtml, combinedContent),
+    technologies: detectTechnologies(combinedHtml),
     layout: analyzeLayoutPatterns(combinedHtml),
     colorScheme: extractColorScheme(combinedHtml),
     components: identifyUIComponents(combinedHtml, combinedContent),
@@ -311,10 +311,10 @@ async function analyzeWebsiteContent(mainPage: FirecrawlPageResult, allPages: Fi
   }
 }
 
-function detectTechnologies(html: string, content: string): string[] {
+function detectTechnologies(html: string): string[] {
   const technologies: string[] = []
   const htmlLower = html.toLowerCase()
-  const contentLower = content.toLowerCase()
+  // _content parameter is reserved for future use
 
   // Frontend Frameworks
   if (htmlLower.includes('react') || htmlLower.includes('__react') || htmlLower.includes('_reactinternalinstance')) {
@@ -623,7 +623,16 @@ function analyzeSEO(page: FirecrawlPageResult): { metaTags: string[]; headings: 
   // Extract headings
   const headings: HeadingInfo[] = []
   for (let i = 1; i <= 6; i++) {
-    const headingRegex = new RegExp(`<h${i}[^>]*>(.*?)</h${i}>`, 'gi')
+    // Use predefined safe regex patterns for headings
+    const headingPatterns: Record<number, RegExp> = {
+      1: /<h1[^>]*>(.*?)<\/h1>/gi,
+      2: /<h2[^>]*>(.*?)<\/h2>/gi,
+      3: /<h3[^>]*>(.*?)<\/h3>/gi,
+      4: /<h4[^>]*>(.*?)<\/h4>/gi,
+      5: /<h5[^>]*>(.*?)<\/h5>/gi,
+      6: /<h6[^>]*>(.*?)<\/h6>/gi,
+    };
+    const headingRegex = Object.prototype.hasOwnProperty.call(headingPatterns, i) ? headingPatterns[i as keyof typeof headingPatterns] : /<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi
     let headingMatch
     while ((headingMatch = headingRegex.exec(html)) !== null) {
       headings.push({

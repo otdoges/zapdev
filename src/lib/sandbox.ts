@@ -181,7 +181,8 @@ export async function getSandboxInfo(): Promise<{
     // Log the error for debugging purposes
     console.warn('Failed to get sandbox info:', error);
     return { isAlive: false }
-  }}
+  }
+}
 
 /**
  * Start sandbox proactively (useful for warming up)
