@@ -7,6 +7,8 @@ import * as Sentry from '@sentry/react'
 import { convex } from './lib/convex'
 import { initializeApiKeySecurity } from './lib/api-key-validator'
 import { shouldSendPII, shouldEnableScreenshots } from './lib/privacy-consent'
+import ResourcePreloader from './components/ResourcePreloader'
+import CriticalCSS from './components/ui/CriticalCSS'
 import App from './App.tsx'
 import './index.css'
 
@@ -335,6 +337,8 @@ VITE_CONVEX_URL=https://your-app.convex.cloud
 
 root.render(
   <StrictMode>
+    <ResourcePreloader />
+    <CriticalCSS />
     {PUBLISHABLE_KEY ? (
       <PostHogProvider 
         apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
