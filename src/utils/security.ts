@@ -92,7 +92,7 @@ export const validateResponse = (content: string): { isValid: boolean; error?: s
   
   // Check for potentially malicious patterns
   const maliciousPatterns = [
-    /<script[^>]*>[\s\S]*?<\/script>/is,
+    /<script[^>]*>[\s\S]*?<\/script[^<]*>/is,
     /\bjavascript:/i,
     // quoted or unquoted inline handlers
     /\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i,
