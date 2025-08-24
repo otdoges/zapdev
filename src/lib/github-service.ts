@@ -129,9 +129,9 @@ class GitHubService {
       
       // Handle various GitHub URL formats with domain validation - using safer patterns
       const patterns = [
-        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
-        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)\.git$/,
-        /^git@github\.com:([^/]+)\/([^/]+)\.git$/,
+        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)(?:\/.*)?$/,
+        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\.git$/,
+        /^git@github\.com:([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\.git$/,
       ];
       const cleanUrl = url.trim();
       

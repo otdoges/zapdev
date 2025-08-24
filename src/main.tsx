@@ -12,16 +12,16 @@ import './index.css'
 
 // PII scrubbing patterns
 const PII_PATTERNS = [
-  // Email addresses
-  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
-  // Phone numbers (various formats)
-  /\b(?:\+?1[-.]?)?\(?[0-9]{3}\)?[-.]?[0-9]{3}[-.]?[0-9]{4}\b/g,
+  // Email addresses - simplified
+  /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+  // Phone numbers - US format only
+  /\d{3}-\d{3}-\d{4}/g,
   // Social Security Numbers
-  /\b\d{3}-\d{2}-\d{4}\b/g,
-  // Credit card numbers (basic pattern)
-  /\b(?:\d{4}[-\s]?){3}\d{4}\b/g,
-  // IP addresses
-  /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g,
+  /\d{3}-\d{2}-\d{4}/g,
+  // Credit card numbers - basic 16 digits
+  /\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}/g,
+  // IP addresses - simple format
+  /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/g,
 ];
 
 // Sensitive headers to remove
@@ -63,11 +63,22 @@ function scrubHeaders(headers: { [key: string]: string } | undefined): { [key: s
   
   for (const header of SENSITIVE_HEADERS) {
     // Check both lowercase and original case
-    if (header in scrubbed) {
-      scrubbed[header] = '[REDACTED]';
+    if (Object.prototype.hasOwnProperty.call(scrubbed, header)) {
+      Object.defineProperty(scrubbed, header, {
+        value: '[REDACTED]',
+        writable: true,
+        enumerable: true,
+        configurable: true
+      });
     }
-    if (header.toLowerCase() in scrubbed) {
-      scrubbed[header.toLowerCase()] = '[REDACTED]';
+    const lowerHeader = header.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(scrubbed, lowerHeader)) {
+      Object.defineProperty(scrubbed, lowerHeader, {
+        value: '[REDACTED]',
+        writable: true,
+        enumerable: true,
+        configurable: true
+      });
     }
   }
   
@@ -192,7 +203,12 @@ if (import.meta.env.VITE_SENTRY_DSN && import.meta.env.VITE_SENTRY_DSN !== 'put_
               // Scrub any string values for PII
               for (const [key, value] of Object.entries(data)) {
                 if (typeof value === 'string') {
-                  data[key] = scrubPII(value);
+                  Object.defineProperty(data, key, {
+                    value: scrubPII(value),
+                    writable: true,
+                    enumerable: true,
+                    configurable: true
+                  });
                 }
               }
             }

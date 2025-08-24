@@ -25,7 +25,12 @@ const HTML_ESCAPE_MAP: Record<string, string> = {
  * @returns HTML-escaped string
  */
 export function escapeHtml(text: string): string {
-  return text.replace(/[&<>"'`=/]/g, (match) => HTML_ESCAPE_MAP[match] || match);
+  return text.replace(/[&<>"'`=/]/g, (match) => {
+    const escaped = Object.prototype.hasOwnProperty.call(HTML_ESCAPE_MAP, match) 
+      ? HTML_ESCAPE_MAP[match as keyof typeof HTML_ESCAPE_MAP] 
+      : match;
+    return escaped;
+  });
 }
 
 /**

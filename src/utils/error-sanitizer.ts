@@ -3,7 +3,7 @@
  * Sanitizes error objects and strings to prevent sensitive data leaks in logs
  */
 
-import { sanitizeApiKeyForLogging } from '../lib/api-key-validator';
+// Note: sanitizeApiKeyForLogging is available but not currently used in this module
 
 interface SanitizedError {
   message: string;
@@ -31,8 +31,8 @@ const SENSITIVE_PATTERNS = [
   { pattern: /\b\d{3}-\d{3}-\d{4}\b/g, replacement: '[PHONE_REDACTED]' },
   { pattern: /\b\(\d{3}\)\s*\d{3}-\d{4}\b/g, replacement: '[PHONE_REDACTED]' },
   
-  // Credit card patterns
-  { pattern: /\b(?:\d{4}[-\s]?){3}\d{4}\b/g, replacement: '[CARD_REDACTED]' },
+  // Credit card patterns - simplified
+  { pattern: /\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}/g, replacement: '[CARD_REDACTED]' },
   
   // SSN patterns
   { pattern: /\b\d{3}-\d{2}-\d{4}\b/g, replacement: '[SSN_REDACTED]' },
@@ -117,7 +117,7 @@ export function sanitizeError(error: unknown): SanitizedError {
   
   // Handle Error objects and error-like objects
   if (typeof error === 'object') {
-    const errorObj = error as Record<string, any>;
+    const errorObj = error as Record<string, unknown>;
     const sanitized: SanitizedError = {
       message: 'An error occurred',
       timestamp,
@@ -160,7 +160,7 @@ export function sanitizeError(error: unknown): SanitizedError {
 /**
  * Sanitizes an entire object by removing sensitive fields and sanitizing values
  */
-export function sanitizeObject(obj: any): any {
+export function sanitizeObject(obj: unknown): unknown {
   if (!obj || typeof obj !== 'object') {
     return sanitizeString(String(obj));
   }
@@ -169,23 +169,41 @@ export function sanitizeObject(obj: any): any {
     return obj.map(item => sanitizeObject(item));
   }
   
-  const sanitized: any = {};
+  const sanitized: Record<string, unknown> = Object.create(null);
   
   for (const [key, value] of Object.entries(obj)) {
+    // Prevent prototype pollution
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      continue;
+    }
+    
     // Skip sensitive fields entirely
     if (SENSITIVE_FIELDS.includes(key.toLowerCase())) {
-      sanitized[key] = '[REDACTED]';
+      Object.defineProperty(sanitized, key, {
+        value: '[REDACTED]',
+        writable: true,
+        enumerable: true,
+        configurable: true
+      });
       continue;
     }
     
     // Recursively sanitize nested objects
+    let sanitizedValue: unknown;
     if (typeof value === 'object' && value !== null) {
-      sanitized[key] = sanitizeObject(value);
+      sanitizedValue = sanitizeObject(value);
     } else if (typeof value === 'string') {
-      sanitized[key] = sanitizeString(value);
+      sanitizedValue = sanitizeString(value);
     } else {
-      sanitized[key] = value;
+      sanitizedValue = value;
     }
+    
+    Object.defineProperty(sanitized, key, {
+      value: sanitizedValue,
+      writable: true,
+      enumerable: true,
+      configurable: true
+    });
   }
   
   return sanitized;
@@ -197,7 +215,7 @@ export function sanitizeObject(obj: any): any {
 export function createSanitizedErrorLog(message: string, error: unknown): {
   message: string;
   error: SanitizedError;
-  context?: any;
+  context?: Record<string, unknown>;
 } {
   return {
     message: sanitizeString(message),

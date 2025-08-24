@@ -204,7 +204,7 @@ export const WebsiteCloneDialog: React.FC<WebsiteCloneDialogProps> = ({
       toast.error(`Analysis failed: ${errorMessage}`);
       
       // Mark current step as error
-      const currentStepData = Array.isArray(steps) && steps.length > currentStep && currentStep >= 0 ? steps[currentStep] : null;
+      const currentStepData = Array.isArray(steps) && steps.length > currentStep && currentStep >= 0 ? steps.at(currentStep) : null;
       if (currentStepData) {
         updateStepStatus(currentStepData.id, 'error');
       }
