@@ -130,9 +130,9 @@ const startDevelopment = async () => {
     await import('./api-dev-server.js');
     log('API', 'Universal API server started successfully', colors.green);
   } catch (error) {
-    log('API', `Failed to start API server: ${error}`, colors.red);
-  }
-  
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    log('API', `Failed to start API server: ${errorMessage}`, colors.red);
+  }  
   log('DEV', '✨ All services started!', colors.green);
   log('DEV', '📍 Frontend: http://localhost:5173', colors.cyan);
   log('DEV', '📍 API Server: http://localhost:3000', colors.cyan);

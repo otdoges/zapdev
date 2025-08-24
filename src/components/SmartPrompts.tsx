@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { sanitizeText } from '@/components/ui/SafeText';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -125,11 +126,12 @@ export function SmartPrompts({ onPromptSelect, isVisible }: SmartPromptsProps) {
   }, [selectedCategory, smartPrompts]);
 
   const handlePromptClick = (prompt: SmartPrompt) => {
-    onPromptSelect(prompt.prompt);
+    onPromptSelect(sanitizeText(prompt.prompt).slice(0, 2000));
   };
 
   const handleQuickExample = (example: string) => {
-    onPromptSelect(`Create ${example} with modern design and best practices. Include proper styling, responsive design, and TypeScript support.`);
+    const clean = sanitizeText(example).replace(/\s+/g, ' ').trim();
+    onPromptSelect(`Create ${clean} with modern design and best practices. Include proper styling, responsive design, and TypeScript support.`);
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -286,8 +288,9 @@ export function SmartPrompts({ onPromptSelect, isVisible }: SmartPromptsProps) {
               />
               <Button
                 onClick={() => {
-                  if (customPrompt.trim()) {
-                    onPromptSelect(customPrompt);
+                  const normalized = sanitizeText(customPrompt).trim();
+                  if (normalized) {
+                    onPromptSelect(normalized.slice(0, 4000));
                     setCustomPrompt('');
                   }
                 }}

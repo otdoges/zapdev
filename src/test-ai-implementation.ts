@@ -281,7 +281,7 @@ class AITester {
     try {
       await generateAIResponse(longInput);
       this.log('Long input handled without throwing', 'INFO');
-    } catch (error) {
+    } catch {
       this.log('Long input properly rejected or handled', 'INFO');
     }
     
@@ -348,7 +348,7 @@ class AITester {
         if (executionResult.stdout) {
           this.log(`Code output: ${executionResult.stdout}`, 'INFO');
         }
-      } catch (error) {
+      } catch {
         this.log('AI-generated code execution failed, but this might be expected', 'WARN');
       }
     }

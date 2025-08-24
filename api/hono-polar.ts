@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
+import type { Context } from 'hono';
 import { Checkout, Webhooks } from '@polar-sh/hono';
 import { verifyClerkToken } from './_utils/auth';
 import { Polar } from '@polar-sh/sdk';
@@ -12,7 +13,7 @@ const app = new Hono();
 const getPolarClient = () => {
   const accessToken = process.env.POLAR_ACCESS_TOKEN;
   if (!accessToken) {
-    throw new Error('POLAR_ACCESS_TOKEN environment variable is required');
+    throw new Error('POLAR_ACCESS_TOKEN environment variable is required. Please check your .env.local file.');
   }
   
   return new Polar({
@@ -21,6 +22,30 @@ const getPolarClient = () => {
   });
 };
 
+// Helper function to validate Polar.sh environment variables
+const validatePolarEnvironment = (): void => {
+  const envMap = {
+    POLAR_ACCESS_TOKEN: process.env.POLAR_ACCESS_TOKEN,
+    POLAR_PRODUCT_STARTER_MONTH_ID: process.env.POLAR_PRODUCT_STARTER_MONTH_ID,
+    POLAR_PRODUCT_STARTER_YEAR_ID: process.env.POLAR_PRODUCT_STARTER_YEAR_ID,
+    POLAR_PRODUCT_PRO_MONTH_ID: process.env.POLAR_PRODUCT_PRO_MONTH_ID,
+    POLAR_PRODUCT_PRO_YEAR_ID: process.env.POLAR_PRODUCT_PRO_YEAR_ID,
+  } as const;
+
+  const missingVars: string[] = [];
+  if (!envMap.POLAR_ACCESS_TOKEN || envMap.POLAR_ACCESS_TOKEN.trim() === '') missingVars.push('POLAR_ACCESS_TOKEN');
+  if (!envMap.POLAR_PRODUCT_STARTER_MONTH_ID || envMap.POLAR_PRODUCT_STARTER_MONTH_ID.trim() === '') missingVars.push('POLAR_PRODUCT_STARTER_MONTH_ID');
+  if (!envMap.POLAR_PRODUCT_STARTER_YEAR_ID || envMap.POLAR_PRODUCT_STARTER_YEAR_ID.trim() === '') missingVars.push('POLAR_PRODUCT_STARTER_YEAR_ID');
+  if (!envMap.POLAR_PRODUCT_PRO_MONTH_ID || envMap.POLAR_PRODUCT_PRO_MONTH_ID.trim() === '') missingVars.push('POLAR_PRODUCT_PRO_MONTH_ID');
+  if (!envMap.POLAR_PRODUCT_PRO_YEAR_ID || envMap.POLAR_PRODUCT_PRO_YEAR_ID.trim() === '') missingVars.push('POLAR_PRODUCT_PRO_YEAR_ID');
+
+  if (missingVars.length > 0) {
+    throw new Error(
+      `Missing required Polar.sh environment variables: ${missingVars.join(', ')}. ` +
+      'Please check your .env.local file and ensure all Polar.sh configuration is set up correctly.'
+    );
+  }
+};
 // Helper function to get Convex client
 const getConvexClient = () => {
   const convexUrl = process.env.CONVEX_URL;
@@ -144,7 +169,7 @@ async function verifyClerkAuth(authHeader: string): Promise<{ id: string; email?
 }
 
 // Authentication middleware  
-const authenticateUser = async (c: { req: { header: (name: string) => string | undefined }; json: (data: unknown, status?: number) => unknown; set: (key: string, value: unknown) => void }, next: () => Promise<void>) => {
+const authenticateUser = async (c: Context, next: () => Promise<void>) => {
   const authHeader = c.req.header('Authorization');
   
   if (!authHeader) {
@@ -158,6 +183,16 @@ const authenticateUser = async (c: { req: { header: (name: string) => string | u
   
   c.set('user', user);
   await next();
+};
+
+// Helper to get authenticated user from context
+type AuthenticatedUser = { id: string; email?: string };
+const getAuthenticatedUser = (c: Context): AuthenticatedUser => {
+  const user = c.get('user') as AuthenticatedUser | undefined;
+  if (!user) {
+    throw new Error('Authentication required: user not found in context');
+  }
+  return user;
 };
 
 // Health check endpoint
@@ -177,7 +212,10 @@ app.get('/health', (c) => {
 // Polar.sh Checkout endpoint - GET for redirects, POST for API responses
 app.get('/checkout', authenticateUser, async (c) => {
   try {
-    const user = c.get('user') as { id: string; email?: string };
+    // Validate environment variables first
+    validatePolarEnvironment();
+    
+    const user = getAuthenticatedUser(c);
     const planId = c.req.query('planId');
     const period = c.req.query('period') || 'month';
     
@@ -185,23 +223,38 @@ app.get('/checkout', authenticateUser, async (c) => {
       return c.json({ error: 'planId query parameter is required' }, 400);
     }
 
-    // Map plan IDs to Polar.sh product IDs
-    const productIdMap: Record<string, Record<string, string>> = {
-      'starter': {
-        'month': process.env.POLAR_PRODUCT_STARTER_MONTH_ID || '',
-        'year': process.env.POLAR_PRODUCT_STARTER_YEAR_ID || '',
-      },
-      'pro': {
-        'month': process.env.POLAR_PRODUCT_PRO_MONTH_ID || '',
-        'year': process.env.POLAR_PRODUCT_PRO_YEAR_ID || '',
-      },
+    // Replace ad-hoc mapping with a type-safe lookup
+    type PlanId = 'starter' | 'pro';
+    type PeriodType = 'month' | 'year';
+
+    const getProductId = (planId: string, period: string): string | null => {
+      const productIdMap: Record<PlanId, Record<PeriodType, string>> = {
+        starter: {
+          month: process.env.POLAR_PRODUCT_STARTER_MONTH_ID || '',
+          year:  process.env.POLAR_PRODUCT_STARTER_YEAR_ID  || '',
+        },
+        pro: {
+          month: process.env.POLAR_PRODUCT_PRO_MONTH_ID || '',
+          year:  process.env.POLAR_PRODUCT_PRO_YEAR_ID  || '',
+        },
+      };
+
+      // Validate inputs against our defined keys
+      if (!Object.keys(productIdMap).includes(planId) ||
+          !Object.keys(productIdMap.starter).includes(period)) {
+        return null;
+      }
+
+      const planMap = productIdMap[planId as PlanId];
+      return planMap[period as PeriodType] || null;
     };
-    
-    const planMap = productIdMap[planId as keyof typeof productIdMap];
-    const productId = planMap?.[period as keyof typeof planMap];
-    
+
+    const productId = getProductId(planId, period);
+
     if (!productId) {
-      return c.json({ error: `Plan ${planId} with period ${period} is not supported` }, 400);
+      return c.json({
+        error: `Plan ${planId} with period ${period} is not supported. Available plans: starter, pro`
+      }, 400);
     }
 
     // For GET requests, return JSON response with checkout URL instead of redirect
@@ -226,7 +279,7 @@ app.get('/checkout', authenticateUser, async (c) => {
 // Alternative GET endpoint for direct checkout redirects (browser navigation)
 app.get('/checkout-redirect', authenticateUser, async (c) => {
   try {
-    const user = c.get('user') as { id: string; email?: string };
+    const user = getAuthenticatedUser(c);
     const planId = c.req.query('planId');
     const period = c.req.query('period') || 'month';
     
@@ -273,8 +326,17 @@ app.get('/checkout-redirect', authenticateUser, async (c) => {
 // JSON-based checkout endpoint for programmatic clients (POST)
 app.post('/checkout', authenticateUser, async (c) => {
   try {
-    const user = c.get('user') as { id: string; email?: string };
-    const body = await c.req.json<{ planId?: string; period?: 'month' | 'year' }>().catch(() => ({} as Record<string, unknown>));
+    // Validate environment variables first
+    validatePolarEnvironment();
+    
+    const user = getAuthenticatedUser(c);
+    let body: { planId?: string; period?: 'month' | 'year' };
+    try {
+      body = await c.req.json<{ planId?: string; period?: 'month' | 'year' }>();
+    } catch (error) {
+      console.error('Invalid JSON in request body:', error);
+      return c.json({ message: 'Invalid JSON in request body' }, 400);
+    }
     const planId = body?.planId;
     const period = body?.period || 'month';
 
@@ -328,7 +390,7 @@ app.get('/checkout-polar', Checkout({
 // Customer portal endpoint
 app.get('/portal', authenticateUser, async (c) => {
   try {
-    const user = c.get('user') as { id: string; email?: string };
+    const user = getAuthenticatedUser(c);
     
     // For now, redirect to Polar.sh dashboard since we need the customer ID mapping
     // In production, you'd want to store the Polar customer ID in your database
@@ -351,7 +413,7 @@ app.get('/portal', authenticateUser, async (c) => {
 // Get subscription status endpoint
 app.get('/subscription', authenticateUser, async (c) => {
   try {
-    const user = c.get('user') as { id: string; email?: string };
+    const user = getAuthenticatedUser(c);
     console.log('Getting subscription for user:', user.id);
     
     try {

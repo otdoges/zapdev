@@ -119,7 +119,7 @@ export const CheckoutProvider: React.FC<{
     } finally {
       setFetchStatus("idle");
     }
-  }, [resolvedPlan.id, user?.id, user?.primaryEmailAddress?.emailAddress]);
+  }, [resolvedPlan.id, user?.id, user?.primaryEmailAddress?.emailAddress, getToken, planPeriod]);
 
   const value: CheckoutContextValue = {
     checkout: {

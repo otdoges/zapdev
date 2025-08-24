@@ -394,12 +394,18 @@ const Pricing = () => {
     if (params.get('billing') === 'success') {
       const id = localStorage.getItem('convexUserId');
       if (id) {
-        fetch(`/api/success?userId=${encodeURIComponent(id)}`, { method: 'POST' })
+        fetch('/api/success', { 
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId: id })
+        })
           .catch((error) => {
             console.error('Failed to sync billing success:', error);
             Sentry.captureException(error, {
               tags: { feature: 'pricing', action: 'billing_success_sync' },
-              extra: { userId: id }
+              extra: { userId: 'redacted' } // Avoid logging raw userId
             });
           });
       }
@@ -424,8 +430,7 @@ const Pricing = () => {
   );
 };
 
-export default Sentry.withErrorBoundary(Pricing, {
-  fallback: ({ resetError }) => (
+const PricingErrorFallback = ({ resetError }: { resetError: () => void }) => (
     <div className="min-h-screen bg-black text-white flex items-center justify-center">
       <div className="text-center">
         <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
@@ -435,5 +440,11 @@ export default Sentry.withErrorBoundary(Pricing, {
         </Button>
       </div>
     </div>
-  ),
+);
+
+export default Sentry.withErrorBoundary(Pricing, {
+  fallback: PricingErrorFallback,
+  beforeCapture: (scope) => {
+    scope.setTag('page', 'pricing');
+  },
 }); 

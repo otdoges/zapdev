@@ -1,4 +1,5 @@
-import { toast } from 'sonner';
+// Remove unused import
+// import { toast } from 'sonner';
 import * as Sentry from '@sentry/react';
 import { getGitHubToken as getSecureGitHubToken, validateGitHubToken as validateSecureGitHubToken, migrateFromLocalStorage } from './github-token-storage';
 
@@ -128,9 +129,9 @@ class GitHubService {
       
       // Handle various GitHub URL formats with domain validation - using safer patterns
       const patterns = [
-        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
-        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)\.git$/,
-        /^git@github\.com:([^/]+)\/([^/]+)\.git$/,
+        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)(?:\/.*)?$/,
+        /^(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\.git$/,
+        /^git@github\.com:([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\.git$/,
       ];
       const cleanUrl = url.trim();
       
@@ -257,7 +258,7 @@ class GitHubService {
                 `/repos/${owner}/${repo}/contents/${file.path}?ref=${branch}`
               );
               body.sha = fileData.sha;
-            } catch (error) {
+            } catch {
               // File might not exist, create it instead
               logger.info(`File ${file.path} not found, creating new file`, { filePath: file.path, action: 'create' });
             }

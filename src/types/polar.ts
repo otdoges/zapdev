@@ -207,7 +207,7 @@ export class PolarWebhookError extends PolarError {
 
 // Helper function to get plan features
 export function getPlanFeatures(planId: PlanType): readonly string[] {
-  return PLAN_FEATURES[planId] || PLAN_FEATURES.free;
+  return Object.prototype.hasOwnProperty.call(PLAN_FEATURES, planId) ? PLAN_FEATURES[planId as keyof typeof PLAN_FEATURES] : PLAN_FEATURES.free;
 }
 
 // Helper function to get plan display name
@@ -218,7 +218,7 @@ export function getPlanDisplayName(planId: PlanType): string {
     pro: 'Pro',
     enterprise: 'Enterprise',
   };
-  return names[planId] || 'Free';
+  return Object.prototype.hasOwnProperty.call(names, planId) ? names[planId as keyof typeof names] : 'Free';
 }
 
 // Helper function to validate plan ID
@@ -231,22 +231,32 @@ export function convertPolarSubscription(
   polarSub: PolarSubscription,
   planId: PlanType
 ): UserSubscription {
+  // Guard against invalid Date objects
+  const start = polarSub.currentPeriodStart instanceof Date ? polarSub.currentPeriodStart : new Date(polarSub.currentPeriodStart);
+  const end = polarSub.currentPeriodEnd instanceof Date ? polarSub.currentPeriodEnd : new Date(polarSub.currentPeriodEnd);
+  const safeStart = isNaN(start.getTime()) ? new Date() : start;
+  const safeEnd = isNaN(end.getTime()) ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : end;
+
   return {
     planId,
     planName: getPlanDisplayName(planId),
     status: polarSub.status,
     features: getPlanFeatures(planId),
-    currentPeriodStart: polarSub.currentPeriodStart.getTime(),
-    currentPeriodEnd: polarSub.currentPeriodEnd.getTime(),
+    currentPeriodStart: safeStart.getTime(),
+    currentPeriodEnd: safeEnd.getTime(),
     cancelAtPeriodEnd: polarSub.cancelAtPeriodEnd,
   };
 }
 
 // Type guards
-export function isPolarSubscription(obj: any): obj is PolarSubscription {
-  return obj && typeof obj.id === 'string' && typeof obj.status === 'string';
+export function isPolarSubscription(obj: unknown): obj is PolarSubscription {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+  return typeof o.id === 'string' && typeof o.status === 'string';
 }
 
-export function isPolarCheckoutSession(obj: any): obj is PolarCheckoutSession {
-  return obj && typeof obj.id === 'string' && typeof obj.url === 'string';
+export function isPolarCheckoutSession(obj: unknown): obj is PolarCheckoutSession {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+  return typeof o.id === 'string' && typeof o.url === 'string';
 }

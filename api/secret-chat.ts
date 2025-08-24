@@ -2,6 +2,7 @@ import { google } from '@ai-sdk/google';
 import { generateText, streamText } from 'ai';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifyAuth } from './_utils/auth';
+import { logSanitizedError } from '../src/utils/error-sanitizer';
 
 export const runtime = 'edge';
 
@@ -91,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Secret chat API error:', error);
+    logSanitizedError('Secret chat API error', error);
     
     // Handle specific API errors
     if (errorMessage.includes('API key')) {

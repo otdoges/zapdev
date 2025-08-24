@@ -23,8 +23,10 @@ export class PerformanceMonitor {
   // Measure memory usage
   measureMemory(label: string): void {
     if ('memory' in performance) {
-      const memory = (performance as any).memory;
-      this.addMetric(`memory-${label}`, memory.usedJSHeapSize);
+      const memory = (performance as { memory?: { usedJSHeapSize: number } }).memory;
+      if (memory) {
+        this.addMetric(`memory-${label}`, memory.usedJSHeapSize);
+      }
     }
   }
 

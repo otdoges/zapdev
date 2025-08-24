@@ -53,8 +53,16 @@ const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
 
 // Input sanitization helpers
 const sanitizeContent = (content: string): string => {
-  if (!content || typeof content !== 'string') {
-    throw new Error("Content is required and must be a string");
+  if (!content) {
+    throw new Error("Content is required");
+  }
+  
+  if (typeof content !== 'string') {
+    // Check if it's a Promise object which is the source of the error
+    if (content && typeof content === 'object' && 'then' in content) {
+      throw new Error("Promise {} is not a supported Convex type. Content must be a resolved string value, not a Promise object.");
+    }
+    throw new Error("Content must be a string, received: " + typeof content);
   }
   
   const trimmed = content.trim();
