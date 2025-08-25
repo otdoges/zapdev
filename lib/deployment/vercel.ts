@@ -594,9 +594,29 @@ export class VercelDeploymentService implements IDeploymentService {
   private extractRepoPath(url: string): string {
     // Extract owner/repo from git URL
     const sanitized = url.trim();
-    const match = sanitized.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?(?:[?#]|$)/);
-    const repo = match?.[1] || sanitized;
-    // Basic allowlist to avoid path traversal or invalid characters
-    return repo.replace(/[^A-Za-z0-9._/-]/g, '');
-  }
+    // Try robust URL parsing first (supports https and ssh://)
+    try {
+      const normalized = sanitized.startsWith('git@')
+        // Convert scp-like git@host:owner/repo.git to ssh://git@host/owner/repo.git for URL parsing
+        ? sanitized.replace(/^git@/, 'ssh://git@').replace(':', '/')
+        : sanitized;
+      const u = new URL(normalized);
+      const parts = u.pathname.replace(/^\/+/, '').split('/');
+      const owner = parts[0];
+      const repo = parts[1]?.replace(/\.git$/, '');
+      if (owner && repo) {
+        return `${owner}/${repo}`.replace(/[^A-Za-z0-9._/-]/g, '');
+      }
+    } catch {
+      // fall through to regex fallback
+    }
+    // Fallback: accept trailing slash or extra segments after owner/repo
+    const match = sanitized.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?(?:\/|[?#]|$)/);
+    if (match?.[1]) {
+      return match[1].replace(/[^A-Za-z0-9._/-]/g, '');
+    }
+    
+    // If no match found, return empty string as fallback instead of sanitized input
+    // to prevent potential injection of malformed repo paths
+    return '';
 }

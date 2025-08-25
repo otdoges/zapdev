@@ -11,6 +11,7 @@ import {
   BaseDeploymentConfig,
   DeploymentPlatform,
   ZapdevDeploymentConfig,
+  ZapdevDeploymentSecrets,
   DeploymentError,
   DomainConfigurationError,
   DeploymentAnalyticsEvent
@@ -121,27 +122,13 @@ const validateEnvironmentVariables = (): {
 // Validate environment variables
 const validatedEnv = validateEnvironmentVariables();
 
-// Extended configuration interface that includes runtime secrets
-interface ZapdevDeploymentConfigWithSecrets extends ZapdevDeploymentConfig {
-  netlify: {
-    accessToken: string;
-    teamId?: string;
-  };
-  vercel: {
-    accessToken: string;
-    teamId?: string;
-  };
-}
-
-// Deployment manager configuration (with runtime secrets)
-const deploymentConfig: ZapdevDeploymentConfigWithSecrets = {
+// Deployment configuration (non-sensitive)
+const deploymentConfig: ZapdevDeploymentConfig = {
   baseDomain: 'zapdev.link',
   netlify: {
-    accessToken: validatedEnv.netlifyAccessToken,
     teamId: process.env.NETLIFY_TEAM_ID,
   },
   vercel: {
-    accessToken: validatedEnv.vercelAccessToken,
     teamId: process.env.VERCEL_TEAM_ID,
   },
   defaults: {
@@ -149,6 +136,18 @@ const deploymentConfig: ZapdevDeploymentConfigWithSecrets = {
     buildCommand: process.env.DEFAULT_BUILD_COMMAND || 'npm run build',
     outputDirectory: process.env.DEFAULT_OUTPUT_DIR || 'dist',
     nodeVersion: process.env.DEFAULT_NODE_VERSION || '18.x',
+  },
+};
+
+// Deployment secrets (sensitive data)
+const deploymentSecrets: ZapdevDeploymentSecrets = {
+  netlify: {
+    accessToken: validatedEnv.netlifyAccessToken,
+    teamId: process.env.NETLIFY_TEAM_ID,
+  },
+  vercel: {
+    accessToken: validatedEnv.vercelAccessToken,
+    teamId: process.env.VERCEL_TEAM_ID,
   },
 };
 // Deployment manager will be initialized in the handler
@@ -159,6 +158,7 @@ function getDeploymentManager(): ZapdevDeploymentManager {
   if (!deploymentManager) {
     deploymentManager = new ZapdevDeploymentManager({
       config: deploymentConfig,
+      secrets: deploymentSecrets,
       analytics: { track: analytics.track.bind(analytics) },
       logger,
     });

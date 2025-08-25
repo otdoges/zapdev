@@ -7,11 +7,9 @@ const API_CACHE = 'zapdev-api-v1.0.0';
 // Resources to cache immediately
 const CRITICAL_RESOURCES = [
   '/',
-  '/src/main.tsx',
-  '/src/index.css',
-  '/assets/js/react-vendor-*.js',
-  '/assets/js/ui-vendor-*.js',
-  '/assets/css/index-*.css',
+const CRITICAL_RESOURCES = [
+  '/',           // SPA entry
+  '/index.html', // optional, if served
 ];
 
 // Resources to cache on first request

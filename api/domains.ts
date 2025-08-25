@@ -10,6 +10,7 @@ import { ZapdevDeploymentManager } from '../lib/deployment/manager';
 import {
   DeploymentPlatform,
   ZapdevDeploymentConfig,
+  ZapdevDeploymentSecrets,
   DomainConfigurationError,
   DeploymentAnalyticsEvent
 } from '../lib/deployment/types';
@@ -88,15 +89,13 @@ const RESERVED_SUBDOMAINS = [
   'blog', 'docs', 'help', 'support', 'status', 'portal', 'dashboard'
 ];
 
-// Deployment manager configuration
+// Deployment manager configuration (non-sensitive)
 const deploymentConfig: ZapdevDeploymentConfig = {
   baseDomain: 'zapdev.link',
   netlify: {
-    accessToken: process.env.NETLIFY_ACCESS_TOKEN || '',
     teamId: process.env.NETLIFY_TEAM_ID,
   },
   vercel: {
-    accessToken: process.env.VERCEL_ACCESS_TOKEN || '',
     teamId: process.env.VERCEL_TEAM_ID,
   },
   defaults: {
@@ -107,12 +106,25 @@ const deploymentConfig: ZapdevDeploymentConfig = {
   },
 };
 
+// Deployment secrets (sensitive data)
+const deploymentSecrets: ZapdevDeploymentSecrets = {
+  netlify: {
+    accessToken: process.env.NETLIFY_ACCESS_TOKEN || '',
+    teamId: process.env.NETLIFY_TEAM_ID,
+  },
+  vercel: {
+    accessToken: process.env.VERCEL_ACCESS_TOKEN || '',
+    teamId: process.env.VERCEL_TEAM_ID,
+  },
+};
+
 // Initialize deployment manager
 let deploymentManager: ZapdevDeploymentManager;
 
 try {
   deploymentManager = new ZapdevDeploymentManager({
     config: deploymentConfig,
+    secrets: deploymentSecrets,
     analytics: { track: analytics.track.bind(analytics) },
     logger,
   });

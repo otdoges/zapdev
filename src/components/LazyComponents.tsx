@@ -1,5 +1,7 @@
-import { lazy, Suspense } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { cn } from '@/lib/utils';
+import type { WebsiteAnalysis } from '@/lib/firecrawl';
+import type { LivePreviewProps } from './LivePreview';
 
 // Lazy load heavy components to improve initial bundle size
 export const LazyEnhancedChatInterface = lazy(() => 
@@ -8,10 +10,6 @@ export const LazyEnhancedChatInterface = lazy(() =>
 
 export const LazyWebsiteCloneDialog = lazy(() => 
   import('./WebsiteCloneDialog').then(module => ({ default: module.WebsiteCloneDialog }))
-);
-
-export const LazyLoadingStates = lazy(() => 
-  import('./LoadingStates').then(module => ({ default: module.LoadingStates }))
 );
 
 export const LazySmartPrompts = lazy(() => 
@@ -33,40 +31,38 @@ const OptimizedFallback = ({ className, children }: { className?: string; childr
 );
 
 // Wrapper components with optimized suspense boundaries
-export const SuspendedChatInterface = (props: any) => (
-  <Suspense fallback={<OptimizedFallback className="min-h-[400px]" />}>
-    <LazyEnhancedChatInterface {...props} />
-  </Suspense>
-);
+interface WebsiteCloneDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCloneRequest: (analysis: WebsiteAnalysis, clonePrompt: string) => void;
+}
 
-export const SuspendedWebsiteCloneDialog = (props: any) => (
+interface SmartPromptsProps {
+  onPromptSelect: (prompt: string) => void;
+  isVisible: boolean;
+}
+
+
+export const SuspendedWebsiteCloneDialog: React.FC<WebsiteCloneDialogProps> = (props) => (
   <Suspense fallback={<OptimizedFallback className="min-h-[200px]" />}>
     <LazyWebsiteCloneDialog {...props} />
   </Suspense>
 );
 
-export const SuspendedLoadingStates = (props: any) => (
-  <Suspense fallback={<OptimizedFallback className="min-h-[100px]" />}>
-    <LazyLoadingStates {...props} />
-  </Suspense>
-);
-
-export const SuspendedSmartPrompts = (props: any) => (
+export const SuspendedSmartPrompts: React.FC<SmartPromptsProps> = (props) => (
   <Suspense fallback={<OptimizedFallback className="min-h-[150px]" />}>
     <LazySmartPrompts {...props} />
   </Suspense>
 );
 
-export const SuspendedLivePreview = (props: any) => (
+export const SuspendedLivePreview: React.FC<LivePreviewProps> = (props) => (
   <Suspense fallback={<OptimizedFallback className="min-h-[300px]" />}>
     <LazyLivePreview {...props} />
   </Suspense>
 );
 
 export default {
-  SuspendedChatInterface,
   SuspendedWebsiteCloneDialog,
-  SuspendedLoadingStates,
   SuspendedSmartPrompts,
   SuspendedLivePreview,
 };

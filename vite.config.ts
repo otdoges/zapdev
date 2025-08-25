@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
+import type { PreRenderedAsset } from 'rollup';
 
 let componentTagger: (() => unknown) | null = null;
 try {
@@ -61,7 +62,15 @@ export default defineConfig(({ mode }) => {
           clientsClaim: true,
           runtimeCaching: [
             {
-              urlPattern: /^https:\/\/api\./,
+              // Only cache specific public API endpoints, not all api.* domains
+              urlPattern: ({ url }) => {
+                const publicEndpoints = [
+                  '/api/health',
+                  '/hono/health',
+                ];
+                return publicEndpoints.some(endpoint => url.pathname === endpoint);
+              },
+              method: 'GET',
               handler: 'NetworkFirst',
               options: { 
                 cacheName: 'api-cache',
@@ -69,6 +78,26 @@ export default defineConfig(({ mode }) => {
                   maxEntries: 50,
                   maxAgeSeconds: 5 * 60, // 5 minutes
                 },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                  headers: {
+                    'Cache-Control': /^(?!.*no-store).*/,
+                  },
+                },
+                plugins: [
+                  {
+                    cacheWillUpdate: async ({ request, response }) => {
+                      // Never cache authenticated requests or responses with sensitive headers
+                      if (request.headers.get('Authorization') ||
+                          request.headers.get('Cookie') ||
+                          response.headers.get('Cache-Control')?.includes('no-store') ||
+                          response.headers.get('Set-Cookie')) {
+                        return null;
+                      }
+                      return response;
+                    },
+                  },
+                ],
               }
             },
             {
@@ -161,22 +190,16 @@ export default defineConfig(({ mode }) => {
             // Keep heavy libraries separate
             'chart-vendor': ['recharts'],
             'auth-vendor': ['@clerk/clerk-react', '@clerk/backend'],
-            'radix-vendor': [
-              '@radix-ui/react-dialog',
-              '@radix-ui/react-dropdown-menu',
-              '@radix-ui/react-popover',
-              '@radix-ui/react-toast',
-              '@radix-ui/react-tooltip',
-            ],
           },
           // Optimize asset handling
-          assetFileNames: (assetInfo) => {
-            const info = assetInfo.name.split('.');
+          assetFileNames: (assetInfo: PreRenderedAsset) => {
+            const safeName = assetInfo.name ?? 'unknown';
+            const info = safeName.split('.');
             const ext = info[info.length - 1];
-            if (/\.(png|jpe?g|svg|gif|tiff|bmp|ico)$/i.test(assetInfo.name)) {
+            if (/\.(png|jpe?g|svg|gif|tiff|bmp|ico)$/i.test(safeName)) {
               return `assets/images/[name]-[hash][extname]`;
             }
-            if (/\.(woff2?|eot|ttf|otf)$/i.test(assetInfo.name)) {
+            if (/\.(woff2?|eot|ttf|otf)$/i.test(safeName)) {
               return `assets/fonts/[name]-[hash][extname]`;
             }
             return `assets/${ext}/[name]-[hash][extname]`;

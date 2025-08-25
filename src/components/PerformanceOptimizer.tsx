@@ -226,7 +226,6 @@ export const PerformanceOptimizer: React.FC<PerformanceOptimizerProps> = ({
   const optimizeBundleLoading = useCallback(() => {
     // Add modulepreload for critical scripts
     const criticalScripts = [
-      '/src/main.tsx',
       'https://cdn.gpteng.co/gptengineer.js'
     ];
 

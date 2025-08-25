@@ -54,7 +54,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
     setIsLoading(false);
   }, []);
 
-  const { srcSet } = generateSrcSet(src);
+  const { webpSrcSet, avifSrcSet } = generateSrcSet(src);
 
   if (error) {
     return (

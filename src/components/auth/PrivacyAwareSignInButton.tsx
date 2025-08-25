@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import type { FC } from 'react';
 import { SignInButton, useClerk } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
 import PrivacyConsentBanner from '../PrivacyConsentBanner';
@@ -19,14 +20,14 @@ interface PrivacyAwareSignInButtonProps {
   signUpFallbackRedirectUrl?: string;
 }
 
-export function PrivacyAwareSignInButton({
+export const PrivacyAwareSignInButton: FC<PrivacyAwareSignInButtonProps> = ({
   children,
   mode = 'modal',
   forceRedirectUrl,
   fallbackRedirectUrl,
   signUpForceRedirectUrl,
   signUpFallbackRedirectUrl,
-}: PrivacyAwareSignInButtonProps) {
+) => {
   const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
   const { openSignIn, openSignUp } = useClerk();
 
@@ -77,10 +78,6 @@ export function PrivacyAwareSignInButton({
     });
   };
 
-  const handlePrivacyConsentClose = () => {
-    setShowPrivacyConsent(false);
-  };
-
   // If using redirect mode, use original SignInButton
   if (mode === 'redirect') {
     return (
@@ -101,6 +98,15 @@ export function PrivacyAwareSignInButton({
     <>
       <motion.div
         onClick={handleSignInClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleSignInClick();
+          }
+        }}
+        aria-label="Sign in"
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         style={{ cursor: 'pointer' }}
@@ -110,13 +116,11 @@ export function PrivacyAwareSignInButton({
       
       {showPrivacyConsent && (
         <PrivacyConsentBanner
-          showDuringSignup={true}
           onConsentChange={handlePrivacyConsentComplete}
-          onClose={handlePrivacyConsentClose}
         />
       )}
     </>
   );
-}
+};
 
 export default PrivacyAwareSignInButton;

@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import type { FC } from 'react';
 import { Shield, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +17,7 @@ interface PrivacyConsentBannerProps {
   onConsentChange?: (hasConsent: boolean) => void;
 }
 
-export function PrivacyConsentBanner({ onConsentChange }: PrivacyConsentBannerProps) {
+export const PrivacyConsentBanner: FC<PrivacyConsentBannerProps> = ({ onConsentChange }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [preferences, setPreferences] = useState(getDefaultConsent());
   const [isExpanded, setIsExpanded] = useState(false);
@@ -61,6 +62,11 @@ export function PrivacyConsentBanner({ onConsentChange }: PrivacyConsentBannerPr
     privacyConsent.setConsent(getDefaultConsent());
     setIsVisible(false);
     onConsentChange?.(false);
+  };
+
+  // Helper to safely convert CheckedState to boolean
+  const checkedStateToBoolean = (checked: boolean | 'indeterminate'): boolean => {
+    return checked === true;
   };
 
   const updatePreference = (key: keyof typeof preferences, value: boolean) => {
@@ -111,7 +117,7 @@ export function PrivacyConsentBanner({ onConsentChange }: PrivacyConsentBannerPr
                   <Checkbox
                     id="errorMonitoring"
                     checked={preferences.errorMonitoring}
-                    onCheckedChange={(checked) => updatePreference('errorMonitoring', checked as boolean)}
+                    onCheckedChange={(checked) => updatePreference('errorMonitoring', checkedStateToBoolean(checked))}
                     className="mt-1"
                   />
                   <div className="flex-1">
@@ -129,7 +135,7 @@ export function PrivacyConsentBanner({ onConsentChange }: PrivacyConsentBannerPr
                   <Checkbox
                     id="analytics"
                     checked={preferences.analytics}
-                    onCheckedChange={(checked) => updatePreference('analytics', checked as boolean)}
+                    onCheckedChange={(checked) => updatePreference('analytics', checkedStateToBoolean(checked))}
                     className="mt-1"
                   />
                   <div className="flex-1">
@@ -146,7 +152,7 @@ export function PrivacyConsentBanner({ onConsentChange }: PrivacyConsentBannerPr
                   <Checkbox
                     id="performance"
                     checked={preferences.performance}
-                    onCheckedChange={(checked) => updatePreference('performance', checked as boolean)}
+                    onCheckedChange={(checked) => updatePreference('performance', checkedStateToBoolean(checked))}
                     className="mt-1"
                   />
                   <div className="flex-1">
@@ -163,7 +169,7 @@ export function PrivacyConsentBanner({ onConsentChange }: PrivacyConsentBannerPr
                   <Checkbox
                     id="screenshots"
                     checked={preferences.screenshots}
-                    onCheckedChange={(checked) => updatePreference('screenshots', checked as boolean)}
+                    onCheckedChange={(checked) => updatePreference('screenshots', checkedStateToBoolean(checked))}
                     className="mt-1"
                   />
                   <div className="flex-1">
@@ -249,6 +255,6 @@ export function PrivacyConsentBanner({ onConsentChange }: PrivacyConsentBannerPr
       </Card>
     </div>
   );
-}
+};
 
 export default PrivacyConsentBanner;
