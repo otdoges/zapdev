@@ -8,8 +8,6 @@ interface Resource {
 }
 
 const CRITICAL_RESOURCES: Resource[] = [
-  // Critical CSS
-const CRITICAL_RESOURCES: Resource[] = [
   // Font stylesheet (safe cross-origin hint; actual font files are fetched by the stylesheet)
   { href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap', as: 'style' },
 ];
@@ -57,10 +55,15 @@ export const ResourcePreloader: React.FC = () => {
       document.head.appendChild(link);
     });
 
+    // Optimize resource hints
+    const modulePreload = document.createElement('link');
+    modulePreload.rel = 'modulepreload';
+    modulePreload.href = '/src/main.tsx';
+    document.head.appendChild(modulePreload);
 
     // Service Worker registration with performance optimizations
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw-custom.js', {
+      navigator.serviceWorker.register('/sw.js', {
         scope: '/',
         updateViaCache: 'none'
       }).catch(() => {
