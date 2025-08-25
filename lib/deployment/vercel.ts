@@ -619,4 +619,5 @@ export class VercelDeploymentService implements IDeploymentService {
     // If no match found, return empty string as fallback instead of sanitized input
     // to prevent potential injection of malformed repo paths
     return '';
+  }
 }

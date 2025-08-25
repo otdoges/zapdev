@@ -164,8 +164,17 @@ export interface DeploymentAnalyticsEvent {
   };
 }
 
-// Main deployment configuration (non-sensitive only)
+// Configuration for zapdev deployment service (non-sensitive settings)
 export interface ZapdevDeploymentConfig {
+  // Include sensitive deployment configuration
+  netlify: {
+    accessToken: string;
+    teamId?: string;
+  };
+  vercel: {
+    accessToken: string;
+    teamId?: string;
+  };
   // Main domain for custom subdomains
   baseDomain: string; // "zapdev.link"
   

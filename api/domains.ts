@@ -89,7 +89,7 @@ const RESERVED_SUBDOMAINS = [
   'blog', 'docs', 'help', 'support', 'status', 'portal', 'dashboard'
 ];
 
-// Deployment manager configuration (non-sensitive)
+// Deployment manager configuration
 const deploymentConfig: ZapdevDeploymentConfig = {
   baseDomain: 'zapdev.link',
   netlify: {

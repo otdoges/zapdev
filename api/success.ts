@@ -40,7 +40,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      logSanitizedError('Subscription fetch failed', new Error(errorText));
+      logSanitizedError('Subscription fetch failed', new Error(errorText), {
+        status: response.status,
+        endpoint: '/api/get-subscription'
+      });
       
       // Return a basic success response even if subscription fetch fails
       return res.status(200).json({
@@ -61,7 +64,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (error) {
-    logSanitizedError('Success endpoint error', error instanceof Error ? error : new Error(String(error)));
+    logSanitizedError('Success endpoint error', error instanceof Error ? error : new Error(String(error)), {
+      method: req.method,
+      url: req.url,
+      hasAuth: !!authorization
+    });
 
     return res.status(500).json({
       error: 'Internal server error',

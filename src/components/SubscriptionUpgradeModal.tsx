@@ -1,6 +1,5 @@
 import React from 'react';
 import { X, Zap, CheckCircle } from 'lucide-react';
-import { SafeText } from '@/components/ui/SafeText';
 
 interface SubscriptionUpgradeModalProps {
   isOpen: boolean;
@@ -60,7 +59,7 @@ export const SubscriptionUpgradeModal: React.FC<SubscriptionUpgradeModalProps> =
             {features.map((feature, index) => (
               <li key={index} className="flex items-center gap-2">
                 <CheckCircle size={16} className="text-success flex-shrink-0" />
-                <SafeText className="text-sm text-base-content opacity-80">{feature}</SafeText>
+                <span className="text-sm text-base-content opacity-80">{feature}</span>
               </li>
             ))}
           </ul>

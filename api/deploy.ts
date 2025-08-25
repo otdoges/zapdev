@@ -122,13 +122,27 @@ const validateEnvironmentVariables = (): {
 // Validate environment variables
 const validatedEnv = validateEnvironmentVariables();
 
-// Deployment configuration (non-sensitive)
-const deploymentConfig: ZapdevDeploymentConfig = {
+// Extended configuration interface that includes runtime secrets
+interface ZapdevDeploymentConfigWithSecrets extends ZapdevDeploymentConfig {
+  netlify: {
+    accessToken: string;
+    teamId?: string;
+  };
+  vercel: {
+    accessToken: string;
+    teamId?: string;
+  };
+}
+
+// Deployment manager configuration (with runtime secrets)
+const deploymentConfig: ZapdevDeploymentConfigWithSecrets = {
   baseDomain: 'zapdev.link',
   netlify: {
+    accessToken: validatedEnv.netlifyAccessToken,
     teamId: process.env.NETLIFY_TEAM_ID,
   },
   vercel: {
+    accessToken: validatedEnv.vercelAccessToken,
     teamId: process.env.VERCEL_TEAM_ID,
   },
   defaults: {
@@ -138,27 +152,15 @@ const deploymentConfig: ZapdevDeploymentConfig = {
     nodeVersion: process.env.DEFAULT_NODE_VERSION || '18.x',
   },
 };
-
-// Deployment secrets (sensitive data)
-const deploymentSecrets: ZapdevDeploymentSecrets = {
-  netlify: {
-    accessToken: validatedEnv.netlifyAccessToken,
-    teamId: process.env.NETLIFY_TEAM_ID,
-  },
-  vercel: {
-    accessToken: validatedEnv.vercelAccessToken,
-    teamId: process.env.VERCEL_TEAM_ID,
-  },
-};
 // Deployment manager will be initialized in the handler
 let deploymentManager: ZapdevDeploymentManager | null = null;
+
 
 // Helper function to get or initialize deployment manager
 function getDeploymentManager(): ZapdevDeploymentManager {
   if (!deploymentManager) {
     deploymentManager = new ZapdevDeploymentManager({
       config: deploymentConfig,
-      secrets: deploymentSecrets,
       analytics: { track: analytics.track.bind(analytics) },
       logger,
     });

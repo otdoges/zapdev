@@ -7,8 +7,6 @@ import * as Sentry from '@sentry/react'
 import { convex } from './lib/convex'
 import { initializeApiKeySecurity } from './lib/api-key-validator'
 import { shouldSendPII, shouldEnableScreenshots } from './lib/privacy-consent'
-import ResourcePreloader from './components/ResourcePreloader'
-import CriticalCSS from './components/ui/CriticalCSS'
 import App from './App.tsx'
 import './index.css'
 

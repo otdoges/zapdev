@@ -6,7 +6,6 @@
  */
 
 import { z } from 'zod';
-
 /**
  * HTML escape characters mapping
  */
@@ -45,6 +44,7 @@ export function validateInput(text: unknown): ValidationResult {
   const parsed = safeTextSchema.safeParse(text);
   return parsed.success ? { isValid: true } : { isValid: false, error: parsed.error.issues[0]?.message };
 }
+
 
 /**
  * Escapes HTML characters in a string to prevent XSS attacks
