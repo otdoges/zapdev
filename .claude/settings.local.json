@@ -93,7 +93,8 @@
       "Bash(ss:*)",
       "Bash(git config:*)",
       "Bash(git fetch:*)",
-      "Bash(timeout 30 bun run build)"
+      "Bash(timeout 30 bun run build)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

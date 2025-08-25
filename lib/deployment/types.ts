@@ -164,7 +164,7 @@ export interface DeploymentAnalyticsEvent {
   };
 }
 
-// Configuration for zapdev deployment service (non-sensitive settings)  
+// Configuration for zapdev deployment service (non-sensitive settings)
 export interface ZapdevDeploymentConfig {
   // Include sensitive deployment configuration
   netlify: {
@@ -181,6 +181,17 @@ export interface ZapdevDeploymentConfig {
   // Reference to secure credential storage
   // Secrets must be retrieved from ZapdevDeploymentSecrets at runtime
   secretsRef?: string; // Optional reference to secret storage key
+  
+  // Non-sensitive platform configuration
+  netlify?: {
+    teamId?: string; // Team ID is generally not secret
+    // Note: accessToken must be retrieved from ZapdevDeploymentSecrets
+  };
+  
+  vercel?: {
+    teamId?: string; // Team ID is generally not secret  
+    // Note: accessToken must be retrieved from ZapdevDeploymentSecrets
+  };
   
   // Default deployment settings
   defaults: {

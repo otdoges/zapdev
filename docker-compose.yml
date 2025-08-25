@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  zapdev-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zapdev-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - ENABLE_CLUSTERING=false
+      - ENABLE_ANALYTICS=true
+      - POSTHOG_API_KEY=${POSTHOG_API_KEY}
+      - POSTHOG_HOST=${POSTHOG_HOST:-https://app.posthog.com}
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://zapdev.link,https://www.zapdev.link}
+      - RATE_LIMIT=${RATE_LIMIT:-1000}
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-30000}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - zapdev-network
+
+  zapdev-api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: zapdev-api-dev
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - ENABLE_CLUSTERING=false
+      - ENABLE_ANALYTICS=false
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    volumes:
+      - .:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      - zapdev-network
+
+networks:
+  zapdev-network:
+    driver: bridge
+
+volumes:
+  logs:

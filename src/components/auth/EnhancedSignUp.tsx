@@ -13,10 +13,9 @@ import { Shield, Sparkles, Code, Zap } from 'lucide-react';
 
 interface EnhancedSignUpProps {
   redirectUrl?: string;
-  onComplete?: () => void;
 }
 
-export function EnhancedSignUp({ redirectUrl = '/chat', onComplete }: EnhancedSignUpProps) {
+export function EnhancedSignUp({ redirectUrl = '/chat' }: EnhancedSignUpProps) {
   const [step, setStep] = useState<'privacy' | 'signup' | 'welcome'>('privacy');
   const { showConsent, hasConsent, PrivacyConsentStep, closeConsent } = useSignupPrivacyConsent();
   const { openSignUp } = useClerk();

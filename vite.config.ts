@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
+import type { PreRenderedAsset } from 'rollup';
 
 let componentTagger: (() => unknown) | null = null;
 try {
@@ -42,19 +43,80 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
-      react(),
+      react({
+        // Enable Fast Refresh optimizations
+        devTarget: 'es2020',
+      }),
       mode === 'development' && componentTagger ? componentTagger() : null,
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'auto',
+        strategies: mode === 'production' ? 'generateSW' : 'injectManifest',
+        srcDir: 'public',
+        filename: mode === 'production' ? 'sw.js' : 'sw-custom.js',
         workbox: {
-          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // Reduced to 3MB
           navigateFallbackDenylist: [/^\/api\//, /^\/hono\//, /^\/convex\//, /^\/_/],
-          runtimeCaching: [{
-            urlPattern: /^https:\/\/api\./,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'api-cache' }
-          }]
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
+          runtimeCaching: [
+            {
+              // Only cache specific public API endpoints, not all api.* domains
+              urlPattern: ({ url }) => {
+                const publicEndpoints = [
+                  '/api/health',
+                  '/hono/health',
+                ];
+                return publicEndpoints.some(endpoint => url.pathname === endpoint);
+              },
+              method: 'GET',
+              handler: 'NetworkFirst',
+              options: { 
+                cacheName: 'api-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 5 * 60, // 5 minutes
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                  headers: {
+                    'Cache-Control': /^(?!.*no-store).*/,
+                  },
+                },
+                plugins: [
+                  {
+                    cacheWillUpdate: async ({ request, response }) => {
+                      // Never cache authenticated requests or responses with sensitive headers
+                      if (request.headers.get('Authorization') ||
+                          request.headers.get('Cookie') ||
+                          response.headers.get('Cache-Control')?.includes('no-store') ||
+                          response.headers.get('Set-Cookie')) {
+                        return null;
+                      }
+                      return response;
+                    },
+                  },
+                ],
+              }
+            },
+            {
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
+              handler: 'StaleWhileRevalidate',
+              options: { 
+                cacheName: 'google-fonts-stylesheets',
+                expiration: { maxAgeSeconds: 60 * 60 * 24 * 365 } // 1 year
+              }
+            },
+            {
+              urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
+              handler: 'CacheFirst',
+              options: { 
+                cacheName: 'google-fonts-webfonts',
+                expiration: { maxAgeSeconds: 60 * 60 * 24 * 365 } // 1 year
+              }
+            }
+          ]
         },
         devOptions: {
           enabled: mode === 'development',
@@ -113,41 +175,49 @@ export default defineConfig(({ mode }) => {
       ),
     },
     build: {
+      target: 'es2020',
+      minify: 'esbuild',
+      cssMinify: true,
       rollupOptions: {
         output: {
-          manualChunks(id) {
-            if (!id || !id.includes('node_modules')) return;
-            const normalized = id.replace(/\\/g, '/');
-            const lastIndex = normalized.lastIndexOf('node_modules');
-            if (lastIndex === -1) return;
-
-            let start = lastIndex + 'node_modules'.length;
-            if (normalized.charAt(start) === '/') start += 1;
-
-            const after = normalized.slice(start);
-            if (!after) return;
-
-            const segments = after.split('/');
-            if (segments.length === 0 || !segments[0]) return;
-
-            const isScoped = segments[0].startsWith('@');
-            let pkg = '';
-            if (isScoped && segments.length > 1) {
-              pkg = `${segments[0]}/${segments[1]}`;
-            } else if (!isScoped) {
-              pkg = segments[0];
-            }
-
-            if (!pkg) return;
-
-            const safe = pkg.replace(/@/g, '').replace(/\//g, '-');
-            if (!safe) return;
-
-            return `vendor-${safe}`;
+          manualChunks: {
+            // Core vendor chunks
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'ui-vendor': ['@headlessui/react', 'lucide-react', 'framer-motion'],
+            'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
+            'query-vendor': ['@tanstack/react-query', 'convex'],
+            'ai-vendor': ['@ai-sdk/groq', 'groq-sdk', '@e2b/code-interpreter'],
+            // Keep heavy libraries separate
+            'chart-vendor': ['recharts'],
+            'auth-vendor': ['@clerk/clerk-react', '@clerk/backend'],
           },
+          // Optimize asset handling
+          assetFileNames: (assetInfo: PreRenderedAsset) => {
+            const safeName = assetInfo.name ?? 'unknown';
+            const info = safeName.split('.');
+            const ext = info[info.length - 1];
+            if (/\.(png|jpe?g|svg|gif|tiff|bmp|ico)$/i.test(safeName)) {
+              return `assets/images/[name]-[hash][extname]`;
+            }
+            if (/\.(woff2?|eot|ttf|otf)$/i.test(safeName)) {
+              return `assets/fonts/[name]-[hash][extname]`;
+            }
+            return `assets/${ext}/[name]-[hash][extname]`;
+          },
+          chunkFileNames: 'assets/js/[name]-[hash].js',
+          entryFileNames: 'assets/js/[name]-[hash].js',
+        },
+        treeshake: {
+          moduleSideEffects: false,
+          propertyReadSideEffects: false,
+          tryCatchDeoptimization: false,
         },
       },
-      chunkSizeWarningLimit: 1600,
+      chunkSizeWarningLimit: 1000,
+      // Enable source maps only in development
+      sourcemap: mode === 'development',
+      // Optimize CSS
+      cssCodeSplit: true,
     },
   };
 });
