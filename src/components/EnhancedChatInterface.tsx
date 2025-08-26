@@ -1,496 +1,378 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Send, 
+  User, 
+  Bot, 
+  Plus, 
+  MessageSquare, 
+  Trash2,
+  Loader2,
+  Play
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { AnimatePresence, motion } from 'framer-motion';
+import { Badge } from '@/components/ui/badge';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { streamAIResponse, generateChatTitleFromMessages } from '@/lib/ai';
+import { streamAIResponse } from '@/lib/ai';
 import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
 
-// Import extracted components
-import { ChatSidebar } from './chat/ChatSidebar';
-import { ChatMessage } from './chat/ChatMessage';
-import { ChatInput } from './chat/ChatInput';
-import { WelcomeScreen } from './chat/WelcomeScreen';
-import { ErrorBoundary } from './ErrorBoundary';
-import { SubscriptionUpgradeModal } from './SubscriptionUpgradeModal';
+// Remove unused interfaces and use Convex types directly
 
-// Import utilities
-import { validateInput, MAX_MESSAGE_LENGTH, sanitizeText, validateResponse, MAX_RESPONSE_LENGTH } from '@/utils/security';
-
-// Import additional required modules
-import { searchWithBrave, type BraveSearchResult } from '@/lib/search-service';
-import { logger } from '@/lib/error-handler';
-
-interface ConvexMessage {
-  _id: string;
-  content: string;
-  role: 'user' | 'assistant' | 'system';
-  createdAt: number;
-  metadata?: {
-    model?: string;
-    tokens?: number;
-    cost?: number;
-  };
-}
-
-const EnhancedChatInterface: React.FC = () => {
-  // Hook declarations (must be at the top)
-  const { user, isLoading: authLoading } = useAuth();
-  const navigate = useNavigate();
+const EnhancedChatInterface = () => {
+  const { user } = useAuth();
+  const [currentChatId, setCurrentChatId] = useState<Id<"chats"> | null>(null);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
-  const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchResults, setSearchResults] = useState<BraveSearchResult[]>([]);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-
-  // Refs
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Convex hooks (always called)
-  const chats = useQuery(
-    api.chats.getUserChats,
-    user ? {} : 'skip'
-  );
+  // Convex queries and mutations
+  const chats = useQuery(api.chats.getUserChats);
   const messages = useQuery(
     api.messages.getChatMessages,
-    selectedChatId
-      ? { chatId: selectedChatId as Id<'chats'> }
-      : 'skip'
+    currentChatId ? { chatId: currentChatId } : "skip"
   );
-  const createChatMutation = useMutation(api.chats.createChat);
-  const createMessageMutation = useMutation(api.messages.createMessage);
-  const deleteChatMutation = useMutation(api.chats.deleteChat);
+  const createChat = useMutation(api.chats.createChat);
+  const addMessage = useMutation(api.messages.sendMessage);
+  const deleteChat = useMutation(api.chats.deleteChat);
 
-  // All callbacks and effects
-  const formatTimestamp = useCallback((timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d ago`;
-    return date.toLocaleDateString();
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  const startNewChat = useCallback(async () => {
-    try {
-      if (!user) return;
-      
-      const chatId = await createChatMutation({
-        title: "New Chat"
-      });
-      setSelectedChatId(chatId);
-      setInput('');
-    } catch (error) {
-      logger.error('Failed to create new chat:', error);
-      
-      // Check if it's a subscription limit error
-      if (error instanceof Error && error.message.includes('Free plan limit reached')) {
-        setShowUpgradeModal(true);
-      } else {
-        toast.error('Failed to create new chat');
-      }
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (chats?.chats && chats.chats.length > 0 && !currentChatId) {
+      setCurrentChatId(chats.chats[0]._id);
     }
-  }, [user, createChatMutation]);
+  }, [chats, currentChatId]);
 
-  const selectChat = useCallback((chatId: string) => {
-    setSelectedChatId(chatId);
-  }, []);
-
-  const deleteChat = useCallback(async (chatId: string) => {
+  const handleCreateChat = async () => {
     try {
-      await deleteChatMutation({ chatId: chatId as Id<'chats'> });
-      if (selectedChatId === chatId) {
-        setSelectedChatId(null);
-      }
-      toast.success('Chat deleted');
+      const newChatId = await createChat({ title: "New Chat" });
+      setCurrentChatId(newChatId);
     } catch (error) {
-      logger.error('Failed to delete chat:', error);
-      toast.error('Failed to delete chat');
+      console.error('Error creating chat:', error);
     }
-  }, [deleteChatMutation, selectedChatId]);
+  };
 
-  // Enhanced message handling with comprehensive security
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const handleDeleteChat = async (chatId: Id<"chats">) => {
+    try {
+      await deleteChat({ chatId });
+      if (currentChatId === chatId) {
+        setCurrentChatId(chats?.chats && chats.chats.length > 1 ? chats.chats[0]._id : null);
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isTyping || !user) return;
+    if (!input.trim() || isLoading || !user) return;
 
-    // Step 1: Validate input
-    const validation = validateInput(input, MAX_MESSAGE_LENGTH);
-    if (!validation.isValid) {
-      logger.error('Input validation failed:', validation.error);
-      toast.error(validation.error);
-      return;
-    }
-
-    // Step 2: Sanitize input
-    const sanitizedInput = sanitizeText(input.trim());
-    
-    // Step 3: Enforce length by truncating to MAX_MESSAGE_LENGTH
-    const userInput = sanitizedInput.length > MAX_MESSAGE_LENGTH 
-      ? sanitizedInput.substring(0, MAX_MESSAGE_LENGTH)
-      : sanitizedInput;
-    
+    const userInput = input.trim();
     setInput('');
-    setIsTyping(true);
+    setIsLoading(true);
 
     try {
-      let currentChatId = selectedChatId;
+      let chatId = currentChatId;
       
-      // Create new chat if none selected
-      if (!currentChatId) {
-        currentChatId = await createChatMutation({
-          title: "New Chat"
-        });
-        setSelectedChatId(currentChatId);
+      // Create new chat if none exists
+      if (!chatId) {
+        chatId = await createChat({ title: userInput.slice(0, 50) });
+        setCurrentChatId(chatId);
       }
 
-      // Create user message with sanitized input
-      await createMessageMutation({
-        chatId: currentChatId as Id<'chats'>,
+      // Add user message
+      await addMessage({
+        chatId,
         content: userInput,
-        role: 'user'
+        role: 'user',
       });
 
-      // Generate AI response with sanitized input
-      const aiResponse = await streamAIResponse(userInput);
-      let responseContent = '';
-      
-      // Handle the streaming response with enhanced security
-      if (typeof aiResponse === 'string') {
-        // Direct string response
-        responseContent = (aiResponse as string).trim();
-      } else if (aiResponse && typeof aiResponse === 'object' && 'textStream' in aiResponse) {
-        // Handle streaming response with incremental length tracking
-        let cumulativeLength = 0;
-        const chunks: string[] = [];
-        
-        try {
-          const streamResponse = aiResponse as { textStream: AsyncIterable<string> };
-          for await (const delta of streamResponse.textStream) {
-            const piece = String(delta || '').trim();
-            
-            // Skip empty pieces
-            if (!piece) continue;
-            
-            // Check if adding this piece would exceed the limit
-            if (cumulativeLength + piece.length > MAX_RESPONSE_LENGTH) {
-              // Take only what fits within the limit
-              const remainingSpace = MAX_RESPONSE_LENGTH - cumulativeLength;
-              if (remainingSpace > 0) {
-                chunks.push(piece.substring(0, remainingSpace));
-                cumulativeLength += remainingSpace;
-              }
-              logger.warn('AI response truncated due to length limit');
-              break;
-            }
-            
-            chunks.push(piece);
-            cumulativeLength += piece.length;
-          }
-          
-          responseContent = chunks.join('').trim();
-        } catch (streamError) {
-          logger.error('Error reading AI stream:', streamError);
-          responseContent = 'AI response generated with streaming issues';
-        }
-      } else {
-        // Fallback for unexpected response format
-        logger.warn('Unexpected AI response format:', typeof aiResponse);
-        responseContent = 'AI response generated successfully';
-      }
-      
-      // Step 4: Validate the assembled response
-      const responseValidation = validateResponse(responseContent);
-      if (!responseValidation.isValid) {
-        logger.error('AI response validation failed:', {
-          error: responseValidation.error,
-          responseLength: responseContent.length,
-          responsePreview: responseContent.substring(0, 100)
-        });
-        responseContent = 'AI response contained invalid content. Please try rephrasing your question.';
-      }
-      
-      // Ensure we have valid content
-      if (!responseContent || responseContent.trim().length === 0) {
-        responseContent = 'AI response was empty. Please try again.';
-      }
-      
-      // Final validation before database storage
-      if (typeof responseContent !== 'string') {
-        logger.error('Invalid content type for message creation:', typeof responseContent);
-        throw new Error('Invalid response content type');
-      }
-      
-      if (responseContent.trim().length === 0) {
-        logger.error('Empty response content for message creation');
-        throw new Error('Empty response content');
-      }
-      
-      await createMessageMutation({
-        chatId: currentChatId as Id<'chats'>,
-        content: responseContent,
+      // Get AI response
+      const previousMessages = messages?.messages || [];
+      const conversationHistory = [
+        ...previousMessages.map((m: any) => ({ role: m.role, content: m.content })),
+        { role: 'user' as const, content: userInput }
+      ];
+
+      const response = await streamAIResponse(conversationHistory);
+
+      // Add AI response
+      await addMessage({
+        chatId,
+        content: response,
         role: 'assistant',
-        metadata: {
-          model: 'ai-assistant',
-          tokens: Math.ceil(responseContent.length / 4),
-          cost: 0.01
-        }
       });
-
-      // Auto-generate chat title if first message
-      if (messages && typeof messages === 'object' && 'messages' in messages && Array.isArray(messages.messages) && messages.messages.length === 0) {
-        await generateChatTitleFromMessages([
-          { content: userInput, role: 'user' },
-          { content: responseContent, role: 'assistant' }
-        ]);
-      }
-
     } catch (error) {
-      logger.error('Chat error:', error);
-      
-      // Check if it's a subscription limit error
-      if (error instanceof Error && error.message.includes('Free plan limit reached')) {
-        setShowUpgradeModal(true);
-      } else {
-        toast.error('Failed to send message');
-      
-      // Create fallback assistant message if processing failed
-      try {
-        if (selectedChatId) {
-          await createMessageMutation({
-            chatId: selectedChatId as Id<'chats'>,
-            content: 'I apologize, but I encountered an error processing your request. Please try again.',
+      console.error('Error sending message:', error);
+      // Add error message
+      if (currentChatId) {
+        await addMessage({
+          chatId: currentChatId,
+          content: 'Sorry, I encountered an error. Please try again.',
             role: 'assistant',
-            metadata: {
-              model: 'error-fallback'
-            }
           });
-        }
-      } catch (fallbackError) {
-        logger.error('Failed to create fallback message:', fallbackError);
-      }
       }
     } finally {
-      setIsTyping(false);
+      setIsLoading(false);
     }
-  }, [input, isTyping, user, selectedChatId, messages, createChatMutation, createMessageMutation]);
+  };
 
-  // Subscription upgrade handlers
-  const handleUpgrade = useCallback(() => {
-    setShowUpgradeModal(false);
-    navigate('/pricing');
-  }, [navigate]);
-
-  const handleCloseUpgradeModal = useCallback(() => {
-    setShowUpgradeModal(false);
-  }, []);
-
-  // Effects and memoized values
-  useEffect(() => {
-    const element = messagesEndRef.current;
-    if (element) {
-      requestAnimationFrame(() => {
-        element.scrollIntoView({ behavior: 'smooth' });
-      });
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
     }
-  }, [messages]);
+  };
 
-  const memoizedMessages = useMemo(() => {
-    if (messages && typeof messages === 'object' && 'messages' in messages && Array.isArray(messages.messages)) {
-      return messages.messages;
-    }
-    return [];
-  }, [messages]);
+  const currentChat = chats?.chats?.find((chat: any) => chat._id === currentChatId);
 
-  const typingIndicator = useMemo(() => {
-    if (!isTyping) return null;
     return (
+    <div className="flex h-full bg-[#0A0A0A] text-white">
+      {/* Sidebar */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ x: -320, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -320, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="w-80 border-r border-white/10 bg-black/20 backdrop-blur-sm"
+          >
+            <div className="p-4 border-b border-white/10">
+              <Button
+                onClick={handleCreateChat}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Chat
+              </Button>
+            </div>
+            
+            <ScrollArea className="h-[calc(100%-80px)]">
+              <div className="p-2 space-y-1">
+                {chats?.chats?.map((chat: any) => (
+                  <motion.div
+                    key={chat._id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    whileHover={{ x: 4 }}
+                    className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                      currentChatId === chat._id
+                        ? 'bg-white/10 border border-white/20'
+                        : 'hover:bg-white/5'
+                    }`}
+                    onClick={() => setCurrentChatId(chat._id)}
+                  >
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-300 truncate">
+                        {chat.title}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-red-500/20"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteChat(chat._id);
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3 text-red-400" />
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            </ScrollArea>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/20 backdrop-blur-sm">
+          <div className="flex items-center space-x-3">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="text-gray-400 hover:text-white"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </Button>
+            <h2 className="text-lg font-semibold">
+              {currentChat?.title || 'ZapDev Chat'}
+            </h2>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30">
+              <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse" />
+              Online
+            </Badge>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <ScrollArea className="flex-1 p-4">
+          <div className="space-y-6 max-w-4xl mx-auto">
+            {(!messages?.messages || messages.messages.length === 0) && !isLoading && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex gap-4 p-6 rounded-2xl bg-gradient-to-r from-gray-800/40 to-gray-700/30 border border-gray-600/20 mr-12"
-      >
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600/30 flex items-center justify-center">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full"
-          />
+                className="text-center py-12"
+              >
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Bot className="w-10 h-10 text-blue-400" />
         </div>
-        <div className="flex-1">
-          <p className="text-muted-foreground">ZapDev AI is thinking...</p>
+                <h3 className="text-xl font-semibold mb-3">Welcome to ZapDev Chat</h3>
+                <p className="text-gray-400 max-w-md mx-auto mb-6">
+                  Describe any website you'd like to build and I'll help you create it with modern technologies.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {[
+                    "Build a landing page",
+                    "Create a dashboard",
+                    "Design a blog",
+                    "Make an e-commerce site"
+                  ].map((suggestion) => (
+                    <Button
+                      key={suggestion}
+                      size="sm"
+                      variant="outline"
+                      className="border-white/20 text-gray-300 hover:bg-white/5"
+                      onClick={() => setInput(suggestion)}
+                    >
+                      {suggestion}
+                    </Button>
+                  ))}
         </div>
       </motion.div>
-    );
-  }, [isTyping]);
+            )}
 
-  // Early returns after all hooks
-  if (authLoading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            {messages?.messages?.map((message: any, index: number) => (
+              <motion.div
+                key={message._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`flex items-start space-x-3 max-w-3xl ${
+                  message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+                }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    message.role === 'user' 
+                      ? 'bg-gradient-to-br from-blue-500 to-purple-500' 
+                      : 'bg-gradient-to-br from-gray-700 to-gray-600'
+                  }`}>
+                    {message.role === 'user' ? (
+                      <User className="w-4 h-4 text-white" />
+                    ) : (
+                      <Bot className="w-4 h-4 text-white" />
+                    )}
       </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Sign in required</h2>
-          <p className="text-muted-foreground">
-            Please sign in to access the chat interface
+                  
+                  <Card className={`p-4 border-white/10 ${
+                    message.role === 'user'
+                      ? 'bg-gradient-to-br from-blue-600/20 to-purple-600/20'
+                      : 'bg-black/40 backdrop-blur-sm'
+                  }`}>
+                    <div className="prose prose-invert max-w-none">
+                      <p className="whitespace-pre-wrap text-gray-200 leading-relaxed">
+                        {message.content}
           </p>
         </div>
-      </div>
-    );
-  }
-
-  // Main render
-  return (
-    <ErrorBoundary>
-      <div className="h-full bg-[var(--color-chat-bg)] text-white relative overflow-hidden">
-        <AnimatePresence mode="wait">
-          {!selectedChatId ? (
-            <WelcomeScreen 
-              onStartNewChat={startNewChat}
-              input={input}
-              setInput={setInput}
-              textareaRef={textareaRef as React.RefObject<HTMLTextAreaElement>}
-              handleSubmit={handleSubmit}
-              isTyping={isTyping}
-              isSearchOpen={isSearchOpen}
-              setIsSearchOpen={setIsSearchOpen}
-            />
-          ) : (
-            <div className="h-full flex">
-              <ChatSidebar
-                sidebarExpanded={sidebarExpanded}
-                setSidebarExpanded={setSidebarExpanded}
-                chats={chats && typeof chats === 'object' && 'chats' in chats && Array.isArray(chats.chats) ? chats.chats : []}
-                selectedChatId={selectedChatId}
-                startNewChat={startNewChat}
-                selectChat={selectChat}
-                deleteChat={deleteChat}
-                formatTimestamp={formatTimestamp}
-                user={user || null}
-              />
-
-              <div className="flex-1 flex flex-col relative">
-                <ScrollArea className="flex-1 custom-scrollbar">
-                  <div className="p-6 space-y-6 max-w-4xl mx-auto">
-                    {memoizedMessages.map((message, index: number) => {
-                      const convexMessage = message as ConvexMessage;
-                      const prevMessage = index > 0 ? memoizedMessages[index - 1] as ConvexMessage : null;
-                      const isFirstInGroup = !prevMessage || prevMessage.role !== convexMessage.role;
-                      
-                      return (
-                        <ChatMessage
-                          key={convexMessage._id}
-                          message={{
-                            ...convexMessage,
-                            role: convexMessage.role as 'user' | 'assistant'
-                          }}
-                          user={user || null}
-                          isUser={convexMessage.role === 'user'}
-                          isFirstInGroup={isFirstInGroup}
-                          formatTimestamp={formatTimestamp}
-                          copiedMessage={copiedMessage}
-                          copyToClipboard={async (content: string, id: string) => {
-                            await navigator.clipboard.writeText(content);
-                            setCopiedMessage(id);
-                            setTimeout(() => setCopiedMessage(null), 2000);
-                          }}
-                        />
-                      );
-                    })}
                     
-                    {typingIndicator}
+                    {message.role === 'assistant' && message.content.includes('```') && (
+                      <div className="mt-3 pt-3 border-t border-white/10">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-white/20 text-gray-300 hover:bg-white/5"
+                        >
+                          <Play className="w-3 h-3 mr-1" />
+                          Run Code
+                        </Button>
+                      </div>
+                    )}
+                  </Card>
+                </div>
+              </motion.div>
+            ))}
+
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex justify-start"
+              >
+                <div className="flex items-start space-x-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-white" />
+                  </div>
+                  <Card className="p-4 bg-black/40 backdrop-blur-sm border-white/10">
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                      <span className="text-gray-400">Thinking...</span>
+                    </div>
+                  </Card>
+                </div>
+              </motion.div>
+            )}
                     
                     <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
 
-                <ChatInput
-                  input={input}
-                  setInput={setInput}
-                  textareaRef={textareaRef as React.RefObject<HTMLTextAreaElement>}
-                  handleSubmit={handleSubmit}
-                  isTyping={isTyping}
-                  isSearchOpen={isSearchOpen}
-                  setIsSearchOpen={setIsSearchOpen}
+        {/* Input Area */}
+        <div className="p-4 border-t border-white/10 bg-black/20 backdrop-blur-sm">
+          <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
+            <div className="flex items-end space-x-3">
+              <div className="flex-1 relative">
+                <Textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Describe a website you'd like to build..."
+                  className="resize-none bg-white/5 border-white/20 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20 min-h-[60px] max-h-[120px] pr-12"
+                  rows={1}
                 />
-
-                <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
-                  <DialogContent className="sm:max-w-[600px] glass-card border-white/10">
-                    <DialogHeader>
-                      <DialogTitle className="text-gradient-static">Search the Web</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <Input
-                        placeholder="Search query..."
-                        className="glass-input"
-                        onKeyDown={async (e: React.KeyboardEvent<HTMLInputElement>) => {
-                          if (e.key === 'Enter') {
-                            const searchQuery = e.currentTarget.value.trim();
-                            const validation = validateInput(searchQuery, 200);
-                            if (!validation.isValid) {
-                              toast.error(validation.error);
-                              return;
-                            }
-                            try {
-                              const results = await searchWithBrave(searchQuery);
-                              setSearchResults(results);
-                            } catch {
-                              toast.error('Search failed');
-                            }
-                          }
-                        }}
-                      />
-                      {searchResults.length > 0 && (
-                        <ScrollArea className="h-64">
-                          {searchResults.map((result, index) => (
-                            <div key={index} className="p-3 border-b border-white/10 last:border-0">
-                              <h4 className="font-medium text-sm">{result.title}</h4>
-                              <p className="text-xs text-muted-foreground mt-1">{result.description}</p>
-                              <a href={result.url} target="_blank" rel="noopener noreferrer" 
-                                 className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
-                                {result.url}
-                              </a>
-                            </div>
-                          ))}
-                        </ScrollArea>
-                      )}
+                <div className="absolute right-3 bottom-3 text-xs text-gray-500">
+                  {input.length}/2000
                     </div>
-                  </DialogContent>
-                </Dialog>
               </div>
+              <Button
+                type="submit"
+                size="lg"
+                disabled={!input.trim() || isLoading}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-6"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
             </div>
-          )}
-        </AnimatePresence>
-        
-        {/* Subscription Upgrade Modal */}
-        <SubscriptionUpgradeModal
-          isOpen={showUpgradeModal}
-          onClose={handleCloseUpgradeModal}
-          onUpgrade={handleUpgrade}
-          title="Chat Limit Reached"
-          message="You've reached your free plan limit of 5 chats. Upgrade to Pro to create unlimited chats and access advanced features."
-        />
+          </form>
+        </div>
       </div>
-    </ErrorBoundary>
+    </div>
   );
 };
 
