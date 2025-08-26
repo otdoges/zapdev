@@ -321,7 +321,7 @@ async function handleCheckSubdomain(req: VercelRequest, res: VercelResponse, bod
   });
 }
 
-async function handleSetupDomain(req: VercelRequest, res: VercelResponse, body: DomainRequest) {
+async function handleSetupDomain(_req: VercelRequest, res: VercelResponse, body: DomainRequest) {
   const { subdomain, platform, projectId, siteId } = body;
 
   if (!subdomain || !platform) {
@@ -353,7 +353,7 @@ async function handleSetupDomain(req: VercelRequest, res: VercelResponse, body: 
   });
 }
 
-async function handleVerifyDomain(req: VercelRequest, res: VercelResponse, body: DomainRequest) {
+async function handleVerifyDomain(_req: VercelRequest, res: VercelResponse, body: DomainRequest) {
   const { subdomain, platform, projectId, siteId } = body;
   
   if (!subdomain || !platform) {

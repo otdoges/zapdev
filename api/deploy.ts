@@ -159,8 +159,20 @@ let deploymentManager: ZapdevDeploymentManager | null = null;
 // Helper function to get or initialize deployment manager
 function getDeploymentManager(): ZapdevDeploymentManager {
   if (!deploymentManager) {
+    const secrets = {
+      netlify: {
+        accessToken: validatedEnv.netlifyAccessToken,
+        teamId: process.env.NETLIFY_TEAM_ID,
+      },
+      vercel: {
+        accessToken: validatedEnv.vercelAccessToken,
+        teamId: process.env.VERCEL_TEAM_ID,
+      },
+    };
+    
     deploymentManager = new ZapdevDeploymentManager({
       config: deploymentConfig,
+      secrets,
       analytics: { track: analytics.track.bind(analytics) },
       logger,
     });
@@ -378,7 +390,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-async function handleDeploy(req: VercelRequest, res: VercelResponse, body: DeployRequest) {
+async function handleDeploy(_req: VercelRequest, res: VercelResponse, body: DeployRequest) {
   const { platform, projectName, subdomain, files, gitRepo, environment } = body;
 
   if (!platform || !projectName) {
@@ -446,7 +458,7 @@ async function handleStatus(req: VercelRequest, res: VercelResponse, body: Deplo
   });
 }
 
-async function handleSetupDomain(req: VercelRequest, res: VercelResponse, body: DeployRequest) {
+async function handleSetupDomain(_req: VercelRequest, res: VercelResponse, body: DeployRequest) {
   const { subdomain, platform, projectId } = body;
 
   if (!subdomain || !platform) {
@@ -465,7 +477,7 @@ async function handleSetupDomain(req: VercelRequest, res: VercelResponse, body: 
   });
 }
 
-async function handleVerifyDomain(req: VercelRequest, res: VercelResponse, body: DeployRequest) {
+async function handleVerifyDomain(_req: VercelRequest, res: VercelResponse, body: DeployRequest) {
   const { subdomain, platform, projectId } = body;
   
   if (!subdomain || !platform) {
@@ -485,7 +497,7 @@ async function handleVerifyDomain(req: VercelRequest, res: VercelResponse, body:
   });
 }
 
-async function handleDelete(req: VercelRequest, res: VercelResponse, body: DeployRequest) {
+async function handleDelete(_req: VercelRequest, res: VercelResponse, body: DeployRequest) {
   const { platform, deploymentId } = body;
 
   if (!platform || !deploymentId) {

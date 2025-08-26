@@ -45,9 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Configure the Google provider with the user's API key
-    const gemini = google({
-      apiKey: apiKey,
-    });
+    const gemini = google({ apiKey });
 
     // Check if this is a streaming request
     const isStreaming = req.headers['accept']?.includes('text/stream') || 
@@ -62,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           content: msg.content,
         })),
         temperature: 0.7,
-        maxTokens: 4000,
+        maxCompletionTokens: 4000,
       });
 
       return result.toTextStreamResponse();
@@ -75,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           content: msg.content,
         })),
         temperature: 0.7,
-        maxTokens: 4000,
+        maxCompletionTokens: 4000,
       });
 
       return res.status(200).json({
