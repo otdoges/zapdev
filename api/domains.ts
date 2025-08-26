@@ -93,11 +93,9 @@ const RESERVED_SUBDOMAINS = [
 const deploymentConfig: ZapdevDeploymentConfig = {
   baseDomain: 'zapdev.link',
   netlify: {
-    accessToken: process.env.NETLIFY_ACCESS_TOKEN || '',
     teamId: process.env.NETLIFY_TEAM_ID,
   },
   vercel: {
-    accessToken: process.env.VERCEL_ACCESS_TOKEN || '',
     teamId: process.env.VERCEL_TEAM_ID,
   },
   defaults: {
