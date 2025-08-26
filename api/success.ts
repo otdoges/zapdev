@@ -16,12 +16,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Require authentication
+  const rawAuthHeader = Array.isArray(req.headers['authorization'])
+    ? req.headers['authorization'][0]
+    : req.headers['authorization'];
+  const authorization = typeof rawAuthHeader === 'string' ? rawAuthHeader : undefined;
+  
   try {
-    // Require authentication
-    const rawAuthHeader = Array.isArray(req.headers['authorization'])
-      ? req.headers['authorization'][0]
-      : req.headers['authorization'];
-    const authorization = typeof rawAuthHeader === 'string' ? rawAuthHeader : undefined;
     if (!authorization) {
       return res.status(401).json({ error: 'Unauthorized' });
     }

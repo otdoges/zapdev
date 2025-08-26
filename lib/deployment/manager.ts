@@ -252,6 +252,7 @@ export class ZapdevDeploymentManager {
           event: 'domain_configured',
           properties: {
             platform,
+            project_name: projectId || 'unknown',
             subdomain,
             custom_domain: fullDomain,
             project_id: projectId,
@@ -278,6 +279,7 @@ export class ZapdevDeploymentManager {
           event: 'domain_configured',
           properties: {
             platform,
+            project_name: projectId || 'unknown',
             subdomain,
             custom_domain: fullDomain,
             project_id: projectId,
@@ -330,6 +332,8 @@ export class ZapdevDeploymentManager {
         event: 'domain_verified',
         properties: {
           platform,
+          project_name: projectId || 'unknown',
+          subdomain: domain.replace('.zapdev.link', ''),
           custom_domain: domain,
           project_id: projectId,
           success: result.success,

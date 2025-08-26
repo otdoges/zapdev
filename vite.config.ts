@@ -80,9 +80,6 @@ export default defineConfig(({ mode }) => {
                 },
                 cacheableResponse: {
                   statuses: [0, 200],
-                  headers: {
-                    'Cache-Control': /^(?!.*no-store).*/,
-                  },
                 },
                 plugins: [
                   {

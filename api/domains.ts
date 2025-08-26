@@ -93,9 +93,11 @@ const RESERVED_SUBDOMAINS = [
 const deploymentConfig: ZapdevDeploymentConfig = {
   baseDomain: 'zapdev.link',
   netlify: {
+    accessToken: process.env.NETLIFY_ACCESS_TOKEN || '',
     teamId: process.env.NETLIFY_TEAM_ID,
   },
   vercel: {
+    accessToken: process.env.VERCEL_ACCESS_TOKEN || '',
     teamId: process.env.VERCEL_TEAM_ID,
   },
   defaults: {
@@ -321,7 +323,7 @@ async function handleCheckSubdomain(req: VercelRequest, res: VercelResponse, bod
   });
 }
 
-async function handleSetupDomain(req: VercelRequest, res: VercelResponse, body: DomainRequest) {
+async function handleSetupDomain(_req: VercelRequest, res: VercelResponse, body: DomainRequest) {
   const { subdomain, platform, projectId, siteId } = body;
 
   if (!subdomain || !platform) {
@@ -353,7 +355,7 @@ async function handleSetupDomain(req: VercelRequest, res: VercelResponse, body: 
   });
 }
 
-async function handleVerifyDomain(req: VercelRequest, res: VercelResponse, body: DomainRequest) {
+async function handleVerifyDomain(_req: VercelRequest, res: VercelResponse, body: DomainRequest) {
   const { subdomain, platform, projectId, siteId } = body;
   
   if (!subdomain || !platform) {
