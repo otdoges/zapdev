@@ -182,6 +182,17 @@ export interface ZapdevDeploymentConfig {
   // Secrets must be retrieved from ZapdevDeploymentSecrets at runtime
   secretsRef?: string; // Optional reference to secret storage key
   
+  // Non-sensitive platform configuration
+  netlify?: {
+    teamId?: string; // Team ID is generally not secret
+    // Note: accessToken must be retrieved from ZapdevDeploymentSecrets
+  };
+  
+  vercel?: {
+    teamId?: string; // Team ID is generally not secret  
+    // Note: accessToken must be retrieved from ZapdevDeploymentSecrets
+  };
+  
   // Default deployment settings
   defaults: {
     platform: DeploymentPlatform;

@@ -11,6 +11,7 @@ import {
   BaseDeploymentConfig,
   DeploymentPlatform,
   ZapdevDeploymentConfig,
+  ZapdevDeploymentSecrets,
   DeploymentError,
   DomainConfigurationError,
   DeploymentAnalyticsEvent
