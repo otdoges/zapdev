@@ -9,6 +9,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 import { streamAIResponse, generateChatTitleFromMessages } from '@/lib/ai';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 // Import extracted components
 import { ChatSidebar } from './chat/ChatSidebar';
