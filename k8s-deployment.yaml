@@ -1,0 +1,215 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zapdev
+  labels:
+    name: zapdev
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zapdev-api-config
+  namespace: zapdev
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  ENABLE_CLUSTERING: "false"
+  ENABLE_ANALYTICS: "true"
+  POSTHOG_HOST: "https://app.posthog.com"
+  CORS_ORIGINS: "https://zapdev.link,https://www.zapdev.link"
+  RATE_LIMIT: "1000"
+  REQUEST_TIMEOUT: "30000"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zapdev-api-secrets
+  namespace: zapdev
+type: Opaque
+data:
+  POSTHOG_API_KEY: "" # Base64 encoded value
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zapdev-api
+  namespace: zapdev
+  labels:
+    app: zapdev-api
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: zapdev-api
+  template:
+    metadata:
+      labels:
+        app: zapdev-api
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: api
+        image: zapdev/api:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        envFrom:
+        - configMapRef:
+            name: zapdev-api-config
+        - secretRef:
+            name: zapdev-api-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: logs
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zapdev-api-service
+  namespace: zapdev
+  labels:
+    app: zapdev-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: zapdev-api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zapdev-api-ingress
+  namespace: zapdev
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+spec:
+  tls:
+  - hosts:
+    - api.zapdev.link
+    secretName: zapdev-api-tls
+  rules:
+  - host: api.zapdev.link
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: zapdev-api-service
+            port:
+              number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: zapdev-api-hpa
+  namespace: zapdev
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: zapdev-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: zapdev-api-pdb
+  namespace: zapdev
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: zapdev-api

@@ -17,38 +17,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Parse request body
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const { userId } = body || {};
-
-    // Validate userId in request body
-    if (!userId || typeof userId !== 'string') {
-      return res.status(400).json({ 
-        error: 'Missing or invalid userId in request body' 
-      });
+    // Require authentication
+    const rawAuthHeader = Array.isArray(req.headers['authorization'])
+      ? req.headers['authorization'][0]
+      : req.headers['authorization'];
+    const authorization = typeof rawAuthHeader === 'string' ? rawAuthHeader : undefined;
+    if (!authorization) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
-
-    // Verify authentication (optional - for additional security)
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-      const authResult = await verifyAuth({ 
-        headers: new Headers(req.headers as Record<string, string>) 
-      });
-      
-      if (!authResult.success) {
-        return res.status(401).json({ error: 'Invalid authentication' });
-      }
-
-      // Verify the authenticated user matches the provided userId
-      if (authResult.userId !== userId) {
-        return res.status(403).json({ error: 'User ID mismatch' });
-      }
+    const authResult = await verifyAuth({
+      headers: new Headers({ authorization })
+    });
+    if (!authResult.success || !authResult.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     // Get subscription status from Polar.sh API
     const baseUrl = process.env.PUBLIC_ORIGIN || 'http://localhost:3000';
     const response = await fetch(`${baseUrl}/api/get-subscription`, {
-      headers: authHeader ? { Authorization: authHeader } : {},
+      headers: { Authorization: authorization },
     });
 
     if (!response.ok) {
@@ -80,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     logSanitizedError('Success endpoint error', error instanceof Error ? error : new Error(String(error)), {
       method: req.method,
       url: req.url,
-      hasUserId: !!(typeof req.body === 'object' && req.body?.userId)
+      hasAuth: !!authorization
     });
 
     return res.status(500).json({

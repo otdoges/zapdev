@@ -11,6 +11,7 @@ import {
   BaseDeploymentConfig,
   DeploymentPlatform,
   ZapdevDeploymentConfig,
+  ZapdevDeploymentSecrets,
   DeploymentError,
   DomainConfigurationError,
   DeploymentAnalyticsEvent
@@ -153,6 +154,7 @@ const deploymentConfig: ZapdevDeploymentConfigWithSecrets = {
 };
 // Deployment manager will be initialized in the handler
 let deploymentManager: ZapdevDeploymentManager | null = null;
+
 
 // Helper function to get or initialize deployment manager
 function getDeploymentManager(): ZapdevDeploymentManager {

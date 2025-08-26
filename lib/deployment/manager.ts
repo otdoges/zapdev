@@ -11,6 +11,7 @@ import {
   DeploymentResult,
   CustomDomainConfig,
   ZapdevDeploymentConfig,
+  ZapdevDeploymentSecrets,
   DeploymentAnalyticsEvent,
   DeploymentError,
   DomainConfigurationError
@@ -21,6 +22,7 @@ import { VercelDeploymentService } from './vercel.js';
 
 interface DeploymentManagerOptions {
   config: ZapdevDeploymentConfig;
+  secrets: ZapdevDeploymentSecrets;
   analytics?: {
     track: (event: DeploymentAnalyticsEvent) => Promise<void>;
   };
@@ -34,11 +36,13 @@ interface DeploymentManagerOptions {
 export class ZapdevDeploymentManager {
   private services: Map<DeploymentPlatform, IDeploymentService> = new Map();
   private config: ZapdevDeploymentConfig;
+  private secrets: ZapdevDeploymentSecrets;
   private analytics?: DeploymentManagerOptions['analytics'];
   private logger?: DeploymentManagerOptions['logger'];
 
   constructor(options: DeploymentManagerOptions) {
     this.config = options.config;
+    this.secrets = options.secrets;
     this.analytics = options.analytics;
     this.logger = options.logger;
 
@@ -48,20 +52,20 @@ export class ZapdevDeploymentManager {
 
   private initializeServices(): void {
     // Initialize Netlify service
-    if (this.config.netlify.accessToken) {
+    if (this.secrets.netlify.accessToken) {
       const netlifyService = new NetlifyDeploymentService(
-        this.config.netlify.accessToken,
-        this.config.netlify.teamId
+        this.secrets.netlify.accessToken,
+        this.config.netlify?.teamId || this.secrets.netlify.teamId
       );
       this.services.set('netlify', netlifyService);
       this.logger?.info('Netlify deployment service initialized');
     }
 
     // Initialize Vercel service
-    if (this.config.vercel.accessToken) {
+    if (this.secrets.vercel.accessToken) {
       const vercelService = new VercelDeploymentService(
-        this.config.vercel.accessToken,
-        this.config.vercel.teamId
+        this.secrets.vercel.accessToken,
+        this.config.vercel?.teamId || this.secrets.vercel.teamId
       );
       this.services.set('vercel', vercelService);
       this.logger?.info('Vercel deployment service initialized');

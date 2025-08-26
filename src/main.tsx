@@ -335,6 +335,8 @@ VITE_CONVEX_URL=https://your-app.convex.cloud
 
 root.render(
   <StrictMode>
+    <ResourcePreloader />
+    <CriticalCSS />
     {PUBLISHABLE_KEY ? (
       <PostHogProvider 
         apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}

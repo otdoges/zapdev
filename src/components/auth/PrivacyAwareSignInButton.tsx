@@ -77,6 +77,7 @@ export function PrivacyAwareSignInButton({
     });
   };
 
+
   const handlePrivacyConsentClose = () => {
     setShowPrivacyConsent(false);
   };
@@ -110,9 +111,7 @@ export function PrivacyAwareSignInButton({
       
       {showPrivacyConsent && (
         <PrivacyConsentBanner
-          showDuringSignup={true}
           onConsentChange={handlePrivacyConsentComplete}
-          onClose={handlePrivacyConsentClose}
         />
       )}
     </>
