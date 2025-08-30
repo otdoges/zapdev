@@ -25,6 +25,7 @@
     "@convex-dev/auth": "^0.0.88",
     "@e2b/code-interpreter": "^1.5.1",
     "@paralleldrive/cuid2": "^2.2.2",
+    "@posthog/wizard": "^1.13.1",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-switch": "^1.2.5",
     "@stripe/react-stripe-js": "^3.9.2",

@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://zapdev.com/sitemap.xml
+Sitemap: https://zapdev.com/sitemap-blog.xml
+Sitemap: https://zapdev.com/sitemap-pages.xml
+
+# Disallow sensitive areas
+Disallow: /api/
+Disallow: /admin/
+Disallow: /_next/
+Disallow: /convex/
