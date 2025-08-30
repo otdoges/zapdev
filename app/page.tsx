@@ -82,8 +82,6 @@ function AISandboxPage() {
   const [homeUrlInput, setHomeUrlInput] = useState('');
   const [homeContextInput, setHomeContextInput] = useState('');
   const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'search' | 'chats' | 'design'>('preview');
-  const [showStyleSelector, setShowStyleSelector] = useState(false);
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [urlScreenshot, setUrlScreenshot] = useState<string | null>(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
@@ -1589,7 +1587,220 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     return null;
   };
 
+  // Core AI message processing logic (shared between chat and home screen)
+  const processAIMessage = async (message: string) => {
+    if (!message.trim()) return;
+    
+    // Check if user is signed in
+    if (!isSignedIn) {
+      addChatMessage('Please sign in to start chatting with AI.', 'system');
+      return;
+    }
+    
+    if (!aiEnabled) {
+      addChatMessage('AI is disabled. Please enable it first.', 'system');
+      return;
+    }
+    
+    // Check if message contains URLs and offer to scrape them
+    const urlRegex = /https?:\/\/[^\s]+|(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/gi;
+    const urls = message.match(urlRegex);
+    
+    if (urls && urls.length > 0) {
+      addChatMessage(`I found a URL in your message: ${urls[0]}. Let me scrape it and incorporate the content into your request.`, 'system');
+      
+      try {
+        let url = urls[0];
+        if (!url.match(/^https?:\/\//i)) {
+          url = 'https://' + url;
+        }
+        
+        const scrapeResponse = await fetch('/api/scrape-url-enhanced', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        
+        if (scrapeResponse.ok) {
+          const scrapeData = await scrapeResponse.json();
+          if (scrapeData.success) {
+            // Store scraped data in conversation context
+            setConversationContext(prev => ({
+              ...prev,
+              scrapedWebsites: [...prev.scrapedWebsites, {
+                url: url,
+                content: scrapeData,
+                timestamp: new Date()
+              }]
+            }));
+            
+            addChatMessage(`Successfully scraped content from ${url}. Now I'll use this context for your request.`, 'system');
+            
+            // Update the message to include scraped context
+            message = `${message}\n\nSCRAPED CONTENT FROM ${url}:\n${JSON.stringify(scrapeData, null, 2)}`;
+          }
+        }
+      } catch (error) {
+        addChatMessage('Failed to scrape URL, but I\'ll process your request without the scraped content.', 'system');
+      }
+    }
+    
+    // Check for special commands
+    const lowerMessage = message.toLowerCase().trim();
+    if (lowerMessage === 'check packages' || lowerMessage === 'install packages' || lowerMessage === 'npm install') {
+      if (!sandboxData) {
+        addChatMessage('No active sandbox. Create a sandbox first!', 'system');
+        return;
+      }
+      await checkAndInstallPackages();
+      return;
+    }
+    
+    // Start sandbox creation in parallel if needed
+    let sandboxPromise: Promise<void> | null = null;
+    let sandboxCreating = false;
+    
+    if (!sandboxData) {
+      sandboxCreating = true;
+      addChatMessage('Creating sandbox while I plan your app...', 'system');
+      sandboxPromise = createSandbox(true).catch((error: any) => {
+        addChatMessage(`Failed to create sandbox: ${error.message}`, 'system');
+        throw error;
+      });
+    }
+    
+    // Determine if this is an edit
+    const isEdit = conversationContext.appliedCode.length > 0;
+    
+    try {
+      setGenerationProgress(prev => ({
+        ...prev,
+        isGenerating: true,
+        status: 'Thinking...',
+        components: [],
+        currentComponent: 0,
+        streamedCode: '',
+        isStreaming: true,
+        isThinking: true,
+        thinkingText: undefined,
+        thinkingDuration: undefined,
+        files: prev.files || [],
+        currentFile: undefined,
+        lastProcessedPosition: 0,
+        isEdit
+      }));
+      
+      const aiResponse = await fetch('/api/generate-ai-code-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          prompt: message,
+          model: aiModel,
+          context: {
+            sandboxId: sandboxData?.sandboxId,
+            structure: structureContent,
+            conversationContext: conversationContext
+          }
+        })
+      });
+      
+      if (!aiResponse.ok || !aiResponse.body) {
+        throw new Error('Failed to generate AI response');
+      }
+      
+      const reader = aiResponse.body.getReader();
+      const decoder = new TextDecoder();
+      let generatedCode = '';
+      let explanation = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.substring(6));
+              
+              if (data.type === 'thinking') {
+                setGenerationProgress(prev => ({
+                  ...prev,
+                  isThinking: true,
+                  thinkingText: data.content,
+                  thinkingDuration: data.duration
+                }));
+              } else if (data.type === 'code') {
+                generatedCode += data.content;
+                setGenerationProgress(prev => ({
+                  ...prev,
+                  isThinking: false,
+                  streamedCode: prev.streamedCode + data.content,
+                  isStreaming: true
+                }));
+              } else if (data.type === 'explanation') {
+                explanation += data.content;
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e);
+            }
+          }
+        }
+      }
+      
+      if (generatedCode) {
+        // Wait for sandbox to be ready if it was being created
+        if (sandboxCreating && sandboxPromise) {
+          try {
+            await sandboxPromise;
+          } catch {
+            addChatMessage('Sandbox creation failed. Cannot apply code.', 'system');
+            return;
+          }
+        }
+        
+        if (sandboxData && generatedCode) {
+          await applyGeneratedCode(generatedCode, isEdit);
+        }
+      }
+      
+      if (explanation) {
+        addChatMessage(explanation, 'ai');
+      }
+      
+    } catch (error: any) {
+      setChatMessages(prev => prev.filter(msg => msg.content !== 'Thinking...'));
+      addChatMessage(`Error: ${error.message}`, 'system');
+      setGenerationProgress({
+        isGenerating: false,
+        status: '',
+        components: [],
+        currentComponent: 0,
+        streamedCode: '',
+        isStreaming: false,
+        isThinking: false,
+        thinkingText: undefined,
+        thinkingDuration: undefined,
+        files: [],
+        currentFile: undefined,
+        lastProcessedPosition: 0
+      });
+    }
+  };
+
   const sendChatMessage = async () => {
+    const message = aiChatInput.trim();
+    if (!message) return;
+    
+    addChatMessage(message, 'user');
+    setAiChatInput('');
+    
+    await processAIMessage(message);
+  };
+  // OLD FUNCTION REMOVED - FUNCTIONALITY MOVED TO processAIMessage
+  const sendChatMessageOld_REMOVED = async () => {
     const message = aiChatInput.trim();
     if (!message) return;
     
@@ -2482,54 +2693,56 @@ Focus on the key sections and content, making it clean and modern while preservi
     
     // Check if user is signed in before allowing URL submission
     if (!isSignedIn) {
-      addChatMessage('Please sign in to start cloning websites.', 'system');
+      addChatMessage('Please sign in to start building.', 'system');
       return;
     }
     
     setHomeScreenFading(true);
     
-    // Clear messages and immediately show the cloning message
+    // Clear messages
     setChatMessages([]);
-    let displayUrl = homeUrlInput.trim();
-    if (!displayUrl.match(/^https?:\/\//i)) {
-      displayUrl = 'https://' + displayUrl;
-    }
-    // Remove protocol for cleaner display
-    const cleanUrl = displayUrl.replace(/^https?:\/\//i, '');
-    addChatMessage(`Starting to clone ${cleanUrl}...`, 'system');
+    const userInput = homeUrlInput.trim();
     
-    // Start creating sandbox and capturing screenshot immediately in parallel
-    const sandboxPromise = !sandboxData ? createSandbox(true) : Promise.resolve();
+    // Check if input contains a URL
+    const urlRegex = /https?:\/\/[^\s]+|(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/gi;
+    const urls = userInput.match(urlRegex);
     
-    // Only capture screenshot if we don't already have a sandbox (first generation)
-    // After sandbox is set up, skip the screenshot phase for faster generation
-    if (!sandboxData) {
-      captureUrlScreenshot(displayUrl);
-    }
-    
-    // Set loading stage immediately before hiding home screen
-    setLoadingStage('gathering');
-    // Also ensure we're on preview tab to show the loading overlay
-    setActiveTab('preview');
-    
-    setTimeout(async () => {
-      setShowHomeScreen(false);
-      setHomeScreenFading(false);
+    if (urls && urls.length > 0) {
+      // Handle URL-based generation
+      let displayUrl = urls[0];
+      if (!displayUrl.match(/^https?:\/\//i)) {
+        displayUrl = 'https://' + displayUrl;
+      }
+      const cleanUrl = displayUrl.replace(/^https?:\/\//i, '');
+      addChatMessage(`Starting to clone ${cleanUrl}...`, 'system');
       
-      // Wait for sandbox to be ready (if it's still creating)
-      await sandboxPromise;
+      // Start creating sandbox and capturing screenshot immediately in parallel
+      const sandboxPromise = !sandboxData ? createSandbox(true) : Promise.resolve();
       
-      // Now start the clone process which will stream the generation
-      setUrlInput(homeUrlInput);
-      setUrlOverlayVisible(false); // Make sure overlay is closed
-      // setUrlStatus(['Scraping website content...']);
+      // Only capture screenshot if we don't already have a sandbox (first generation)
+      if (!sandboxData) {
+        captureUrlScreenshot(displayUrl);
+      }
       
-      try {
-        // Scrape the website
-        let url = homeUrlInput.trim();
-        if (!url.match(/^https?:\/\//i)) {
-          url = 'https://' + url;
-        }
+      // Set loading stage immediately before hiding home screen
+      setLoadingStage('gathering');
+      // Also ensure we're on preview tab to show the loading overlay
+      setActiveTab('preview');
+      
+      setTimeout(async () => {
+        setShowHomeScreen(false);
+        setHomeScreenFading(false);
+        
+        // Wait for sandbox to be ready (if it's still creating)
+        await sandboxPromise;
+      
+        // Now start the clone process which will stream the generation
+        setUrlOverlayVisible(false); // Make sure overlay is closed
+        // setUrlStatus(['Scraping website content...']);
+        
+        try {
+          // Scrape the website
+          let url = displayUrl;
         
         // Screenshot is already being captured in parallel above
         
@@ -2869,6 +3082,31 @@ Focus on the key sections and content, making it clean and modern.`;
         }));
       }
     }, 500);
+    } else {
+      // Handle non-URL input (regular chat message)
+      addChatMessage(`Let's build: ${userInput}`, 'system');
+      
+      setTimeout(async () => {
+        setShowHomeScreen(false);
+        setHomeScreenFading(false);
+        
+        // Start creating sandbox if needed
+        const sandboxPromise = !sandboxData ? createSandbox(true) : Promise.resolve();
+        
+        // Wait for sandbox to be ready
+        await sandboxPromise;
+        
+        // Add user's message to chat and trigger AI response
+        addChatMessage(userInput, 'user');
+        setActiveTab('generation');
+        
+        // Trigger AI response directly by mimicking sendChatMessage logic
+        setTimeout(async () => {
+          await processAIMessage(userInput);
+        }, 100);
+        
+      }, 300);
+    }
   };
 
   return (
@@ -2991,11 +3229,11 @@ Focus on the key sections and content, making it clean and modern.`;
                 <motion.p 
                   className="text-base lg:text-lg max-w-lg mx-auto mt-2.5 text-zinc-500 text-center text-balance"
                   animate={{
-                    opacity: showStyleSelector ? 0.7 : 1
+                    opacity: 1
                   }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
                 >
-                  Build React apps with AI, enhanced with web search and smart automation.
+                  Tell me what to build, or paste a URL to clone. I'll handle the rest with AI.
                 </motion.p>
               </div>
               
@@ -3005,21 +3243,10 @@ Focus on the key sections and content, making it clean and modern.`;
                     type="text"
                     value={homeUrlInput}
                     onChange={(e) => {
-                      const value = e.target.value;
-                      setHomeUrlInput(value);
-                      
-                      // Check if it's a valid domain
-                      const domainRegex = /^(https?:\/\/)?(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,})(\/?.*)?$/;
-                      if (domainRegex.test(value) && value.length > 5) {
-                        // Small delay to make the animation feel smoother
-                        setTimeout(() => setShowStyleSelector(true), 100);
-                      } else {
-                        setShowStyleSelector(false);
-                        setSelectedStyle(null);
-                      }
+                      setHomeUrlInput(e.target.value);
                     }}
                     placeholder=" "
-                    aria-placeholder="https://firecrawl.dev"
+                    aria-placeholder="Build me a landing page, or https://example.com to clone"
                     className="h-[3.25rem] w-full resize-none focus-visible:outline-none focus-visible:ring-orange-500 focus-visible:ring-2 rounded-[18px] text-sm text-[#36322F] px-4 pr-12 border-[.75px] border-border bg-white"
                     style={{
                       boxShadow: '0 0 0 1px #e3e1de66, 0 1px 2px #5f4a2e14, 0 4px 6px #5f4a2e0a, 0 40px 40px -24px #684b2514',
@@ -3034,14 +3261,14 @@ Focus on the key sections and content, making it clean and modern.`;
                     }`}
                   >
                     <span className="text-[#605A57]/50" style={{ fontFamily: 'monospace' }}>
-                      https://firecrawl.dev
+                      Build me a landing page, or https://example.com to clone
                     </span>
                   </div>
                   <button
                     type="submit"
                     disabled={!homeUrlInput.trim()}
                     className="absolute top-1/2 transform -translate-y-1/2 right-2 flex h-10 items-center justify-center rounded-md px-3 text-sm font-medium text-zinc-500 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title={selectedStyle ? `Clone with ${selectedStyle} Style` : 'Clone Website'}
+                    title="Start Building"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                       <polyline points="9 10 4 15 9 20"></polyline>
@@ -3050,8 +3277,8 @@ Focus on the key sections and content, making it clean and modern.`;
                   </button>
                 </div>
                   
-                  {/* Style Selector - Slides out when valid domain is entered */}
-                  {showStyleSelector && (
+                  {/* Style Selector - REMOVED FOR SIMPLICITY */}
+                  {false && (
                     <div className="overflow-hidden mt-4">
                       <div className={`transition-all duration-500 ease-out transform ${
                         showStyleSelector ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
