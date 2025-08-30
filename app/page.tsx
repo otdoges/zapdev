@@ -98,6 +98,7 @@ function AISandboxPage() {
   const [showReactScanModal, setShowReactScanModal] = useState(false);
   const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
   const [showHistorySidebar, setShowHistorySidebar] = useState(true);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
   
   const [conversationContext, setConversationContext] = useState<{
@@ -3266,10 +3267,22 @@ Focus on the key sections and content, making it clean and modern.`;
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Sidebar Hover Trigger */}
+        <div 
+          className="absolute left-0 top-0 w-4 h-full z-20 hover:bg-orange-500/5 transition-colors duration-200"
+          onMouseEnter={() => setSidebarHovered(true)}
+          onMouseLeave={() => setSidebarHovered(false)}
+        />
+        
         {/* Conversation History Sidebar */}
-        {showHistorySidebar && (
+        <div
+          className="relative z-10"
+          onMouseEnter={() => setSidebarHovered(true)}
+          onMouseLeave={() => setSidebarHovered(false)}
+        >
           <ConversationHistorySidebar
+            isVisible={showHistorySidebar || sidebarHovered}
             onChatSelect={(chatId) => {
               console.log('Selected chat:', chatId);
               // TODO: Load chat messages and integrate with existing chat system
@@ -3279,7 +3292,7 @@ Focus on the key sections and content, making it clean and modern.`;
               // TODO: Reset current conversation
             }}
           />
-        )}
+        </div>
         
         {/* Center Panel - AI Chat (1/3 of remaining width) */}
         <div className="flex-1 max-w-[400px] flex flex-col border-r border-border bg-background">

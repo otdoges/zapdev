@@ -45,6 +45,18 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_username", ["username"]),
 
+  // User profiles for JWT authentication examples
+  userProfiles: defineTable({
+    userId: v.string(), // Reference to authenticated user ID
+    email: v.string(),
+    displayName: v.string(),
+    bio: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_email", ["email"]),
+
   // Chat conversations
   chats: defineTable({
     userId: v.string(), // Reference to the user who owns this chat
