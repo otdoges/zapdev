@@ -46,7 +46,7 @@
     "framer-motion": "^12.23.12",
     "groq-sdk": "^0.29.0",
     "lucide-react": "^0.532.0",
-    "next": "15.4.3",
+    "next": "15.5.2",
     "posthog-js": "^1.261.0",
     "posthog-node": "^5.8.1",
     "react": "19.1.0",
