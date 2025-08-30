@@ -4,9 +4,9 @@ import { auth } from '@clerk/nextjs/server';
 
 const optimizer = PerformanceOptimizer.getInstance();
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = auth();
+    await auth();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, metrics });
 
       case 'recommendations':
-        const status = searchParams.get('status') as any;
+        const statusParam = searchParams.get('status');
+        const status = statusParam as 'pending' | 'approved' | 'implementing' | 'completed' | 'rejected' | undefined;
         const recommendations = optimizer.getRecommendations(status);
         return NextResponse.json({ success: true, recommendations });
 
@@ -30,7 +31,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, benchmarks });
 
       case 'alerts':
-        const level = searchParams.get('level') as any;
+        const levelParam = searchParams.get('level');
+        const level = levelParam as 'info' | 'warning' | 'error' | 'critical' | undefined;
         const alerts = optimizer.getAlerts(level);
         return NextResponse.json({ success: true, alerts });
 
@@ -56,9 +58,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = auth();
+    await auth();
     const body = await request.json();
     const { action, ...data } = body;
 

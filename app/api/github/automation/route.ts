@@ -4,9 +4,17 @@ import { auth } from '@clerk/nextjs/server';
 
 const github = GitHubAutomation.getInstance();
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = auth();
+    // CRITICAL SECURITY FIX: Require authentication
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
@@ -50,9 +58,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = auth();
+    // CRITICAL SECURITY FIX: Require authentication
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
     const body = await request.json();
     const { action, ...data } = body;
 
@@ -61,6 +77,14 @@ export async function POST(request: NextRequest) {
         if (!data.owner || !data.repo || !data.token) {
           return NextResponse.json(
             { success: false, error: 'GitHub owner, repo, and token are required' },
+            { status: 400 }
+          );
+        }
+        
+        // CRITICAL SECURITY FIX: Validate GitHub token format
+        if (typeof data.token !== 'string' || !data.token.startsWith('ghp_') && !data.token.startsWith('github_pat_')) {
+          return NextResponse.json(
+            { success: false, error: 'Invalid GitHub token format' },
             { status: 400 }
           );
         }

@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 
 // Get active sandbox from global state (in production, use a proper state management solution)
 declare global {
   var activeSandbox: any;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // 🚨 CRITICAL SECURITY FIX: Require authentication for command execution
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required for command execution' },
+        { status: 401 }
+      );
+    }
+    
     const { command } = await request.json();
     
     if (!command) {

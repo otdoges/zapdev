@@ -4,9 +4,17 @@ import { auth } from '@clerk/nextjs/server';
 
 const feedbackSystem = UserFeedbackSystem.getInstance();
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = auth();
+    // CRITICAL SECURITY FIX: Require authentication
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
@@ -17,9 +25,9 @@ export async function GET(request: NextRequest) {
           const feedback = feedbackSystem.getFeedback(feedbackId);
           return NextResponse.json({ success: true, feedback });
         } else {
-          // Get feedback list with filters
+          // Get feedback list with filters - SECURITY: Only allow user's own feedback
           const filters = {
-            userId: searchParams.get('userId') || undefined,
+            userId: userId, // Force to authenticated user's ID only
             type: searchParams.get('type') as any,
             category: searchParams.get('category') as any,
             status: searchParams.get('status') as any,
@@ -65,9 +73,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = auth();
+    // CRITICAL SECURITY FIX: Require authentication
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
     const body = await request.json();
     const { action, ...data } = body;
 

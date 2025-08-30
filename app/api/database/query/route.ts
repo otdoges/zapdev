@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/database/connection';
+import { auth } from '@clerk/nextjs/server';
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // CRITICAL SECURITY FIX: Require authentication for database access
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Authentication required for database access' },
+        { status: 401 }
+      );
+    }
+
     const { query } = await request.json();
     
     if (!query || typeof query !== 'string') {

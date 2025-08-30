@@ -1,18 +1,44 @@
 import { AutonomousPipeline, AutonomousTask, AutonomousAgent } from './autonomous-pipeline';
 import { BackgroundOrchestrator, BackgroundJob } from './background-orchestrator';
 import { trackAIAgentUsage } from './posthog';
+import { v4 as uuidv4 } from 'uuid';
+
+export interface MessagePayload {
+  taskId?: string;
+  data?: any;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  requiresResponse?: boolean;
+  collaborationId?: string;
+  role?: string;
+  tasks?: string[];
+  coordinationType?: string;
+  conflictId?: string;
+  type?: string;
+  description?: string;
+  requestType?: string;
+  resolution?: any;
+  domain?: string;
+  knowledge?: any;
+  confidence?: number;
+  status?: string;
+  results?: any;
+  [key: string]: any; // Allow additional properties
+}
+
+export interface SuccessPattern {
+  agentId: string;
+  agentType: string;
+  avgCompletionTime: number;
+  taskTypes: string[];
+  successIndicators: string[];
+}
 
 export interface AgentCommunication {
   id: string;
   fromAgentId: string;
   toAgentId: string;
   messageType: 'request_assistance' | 'share_knowledge' | 'coordinate_task' | 'report_status' | 'conflict_resolution';
-  content: {
-    taskId?: string;
-    data: any;
-    priority: 'low' | 'medium' | 'high' | 'urgent';
-    requiresResponse: boolean;
-  };
+  content: MessagePayload;
   timestamp: Date;
   status: 'pending' | 'delivered' | 'acknowledged' | 'resolved';
   response?: {
@@ -82,7 +108,7 @@ export interface LearningInsight {
   insightType: 'pattern_recognition' | 'optimization_opportunity' | 'common_mistake' | 'best_practice';
   description: string;
   evidence: {
-    dataPoints: any[];
+    dataPoints: any[]; // Changed to any[] to match usage
     confidence: number;
     validation: 'empirical' | 'theoretical' | 'peer_reviewed';
   };
@@ -166,7 +192,7 @@ export class MultiAgentCoordinator {
     const optimalAgents = await this.selectOptimalAgents(taskIds, coordinationType);
     
     const collaboration: AgentCollaboration = {
-      id: `collab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `collab_${uuidv4()}`,
       name,
       description,
       participatingAgents: optimalAgents,
@@ -192,12 +218,12 @@ export class MultiAgentCoordinator {
     fromAgentId: string,
     toAgentId: string,
     messageType: AgentCommunication['messageType'],
-    content: any,
+    content: MessagePayload,
     priority: AgentCommunication['content']['priority'] = 'medium',
     requiresResponse: boolean = false
   ): Promise<string> {
     const communication: AgentCommunication = {
-      id: `comm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `comm_${uuidv4()}`,
       fromAgentId,
       toAgentId,
       messageType,
@@ -281,7 +307,7 @@ export class MultiAgentCoordinator {
     description: string
   ): string {
     const conflict: ConflictResolution = {
-      id: `conflict_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `conflict_${uuidv4()}`,
       type,
       involvedAgents,
       taskId,
@@ -863,7 +889,7 @@ export class MultiAgentCoordinator {
    */
   private generateInsightFromPattern(pattern: any) {
     const insight: LearningInsight = {
-      id: `insight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `insight_${uuidv4()}`,
       agentId: pattern.agentId,
       taskId: 'pattern_analysis',
       insightType: 'pattern_recognition',

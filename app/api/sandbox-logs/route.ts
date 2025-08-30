@@ -1,10 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-
+import { headers } from 'next/headers';
+import { auth } from '@clerk/nextjs/server';
 declare global {
   var activeSandbox: any;
 }
 
-export async function GET() {
+// app/api/sandbox-logs/route.ts
+
+export async function GET(): Promise<NextResponse> {
+  try {
+    const { userId } = auth();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // …rest of existing logic…
+  } catch (err) {
+    // handle/log error without leaking details
+    return NextResponse.json(
+      { success: false, error: 'Internal Server Error' },
+      { status: 500 }
+    )
+  }
+}
   try {
     if (!global.activeSandbox) {
       return NextResponse.json({ 

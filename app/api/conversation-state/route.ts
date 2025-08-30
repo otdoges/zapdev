@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import type { ConversationState } from '@/types/conversation';
 
 declare global {
@@ -6,7 +7,16 @@ declare global {
 }
 
 // GET: Retrieve current conversation state
-export async function GET() {
+export async function GET(): Promise<NextResponse> {
+  try {
+    // CRITICAL SECURITY FIX: Require authentication
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
   try {
     if (!global.conversationState) {
       return NextResponse.json({
@@ -30,8 +40,17 @@ export async function GET() {
 }
 
 // POST: Reset or update conversation state
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // CRITICAL SECURITY FIX: Require authentication
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
     const { action, data } = await request.json();
     
     switch (action) {
@@ -124,8 +143,17 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE: Clear conversation state
-export async function DELETE() {
+export async function DELETE(): Promise<NextResponse> {
   try {
+    // CRITICAL SECURITY FIX: Require authentication
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
     global.conversationState = null;
     
     console.log('[conversation-state] Cleared conversation state');

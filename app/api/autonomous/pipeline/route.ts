@@ -4,9 +4,9 @@ import { auth } from '@clerk/nextjs/server';
 
 const pipeline = AutonomousPipeline.getInstance();
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = auth();
+    await auth();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
@@ -16,9 +16,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, stats });
 
       case 'tasks':
-        const status = searchParams.get('status') as any;
-        const type = searchParams.get('type') as any;
-        const priority = searchParams.get('priority') as any;
+        const status = searchParams.get('status') as 'pending' | 'analyzing' | 'implementing' | 'testing' | 'completed' | 'failed' | null;
+        const type = searchParams.get('type') as 'feature-development' | 'bug-fix' | 'optimization' | 'testing' | 'documentation' | null;
+        const priority = searchParams.get('priority') as 'low' | 'medium' | 'high' | 'critical' | null;
         
         const tasks = pipeline.getTasks({
           ...(status && { status }),
@@ -50,9 +50,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = auth();
+    await auth();
     const body = await request.json();
     const { action, ...data } = body;
 

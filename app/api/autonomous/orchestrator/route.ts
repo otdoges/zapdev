@@ -4,9 +4,9 @@ import { auth } from '@clerk/nextjs/server';
 
 const orchestrator = BackgroundOrchestrator.getInstance();
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, stats });
 
       case 'jobs':
-        const status = searchParams.get('status') as any;
-        const type = searchParams.get('type') as any;
+        const status = searchParams.get('status') as 'pending' | 'running' | 'completed' | 'failed' | 'paused' | null;
+        const type = searchParams.get('type') as 'scheduled' | 'triggered' | 'manual' | null;
         
         const jobs = orchestrator.getJobs({
           ...(status && { status }),
@@ -57,9 +57,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     const body = await request.json();
     const { action, ...data } = body;
 
