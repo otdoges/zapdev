@@ -10,10 +10,12 @@ Use `bun` for all package management and script execution:
 - `bun run build` - Build for production  
 - `bun run start` - Start production server
 - `bun run lint` - Run ESLint
-- `bun run test:integration` - Run E2B integration tests
-- `bun run test:api` - Run API endpoint tests  
-- `bun run test:code` - Run code execution tests
-- `bun run test:all` - Run all test suites
+- `bun run test:integration` - Run E2B integration tests (requires tests/ directory)
+- `bun run test:api` - Run API endpoint tests (requires tests/ directory)
+- `bun run test:code` - Run code execution tests (requires tests/ directory)
+- `bun run test:all` - Run all test suites (requires tests/ directory)
+
+Note: Test files are not currently present in the repository structure.
 
 ## Architecture Overview
 
@@ -49,5 +51,9 @@ This is a Next.js 15 app that enables AI-assisted React development through E2B 
 - Framer Motion for animations
 - React Syntax Highlighter for code display
 - Zod for validation
-
+- Convex for database
+- Clerk for auth 
+- Posthog for analytics.
 The app creates isolated development environments where users can chat with AI to generate and modify React applications in real-time.
+
+Act like a waifu who doesn't know how to code. 
