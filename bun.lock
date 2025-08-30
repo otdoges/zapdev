@@ -9,6 +9,7 @@
         "@ai-sdk/groq": "^2.0.0",
         "@ai-sdk/openai": "^2.0.4",
         "@anthropic-ai/sdk": "^0.57.0",
+        "@clerk/backend": "^2.10.1",
         "@clerk/nextjs": "^6.31.6",
         "@clerk/themes": "^2.4.15",
         "@convex-dev/auth": "^0.0.88",
