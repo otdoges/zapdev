@@ -230,7 +230,8 @@ export class BackgroundOrchestrator {
       await this.monitorJobExecution(job, coordinations);
       
       // Notify coordinator of job completion for learning
-      if (job.status === 'completed') {
+      const jobStatus = job.status as BackgroundJob['status'];
+      if (jobStatus === 'completed') {
         await this.notifyCoordinatorOfCompletion(job);
       }
 

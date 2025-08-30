@@ -146,9 +146,9 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       userId,
       planId: subscription.items.data[0]?.price.id || 'pro',
       status: subscription.status as any,
-      currentPeriodStart: subscription.current_period_start,
-      currentPeriodEnd: subscription.current_period_end,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      currentPeriodStart: (subscription as any).current_period_start,
+      currentPeriodEnd: (subscription as any).current_period_end,
+      cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
     });
 
     console.log(`Subscription created for user: ${userId}, status: ${subscription.status}`);
@@ -172,9 +172,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       userId,
       planId: subscription.items.data[0]?.price.id || 'pro',
       status: subscription.status as any,
-      currentPeriodStart: subscription.current_period_start,
-      currentPeriodEnd: subscription.current_period_end,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      currentPeriodStart: (subscription as any).current_period_start,
+      currentPeriodEnd: (subscription as any).current_period_end,
+      cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
     });
 
     console.log(`Subscription updated for user: ${userId}, status: ${subscription.status}`);
@@ -198,8 +198,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       userId,
       planId: 'free',
       status: 'canceled',
-      currentPeriodStart: subscription.current_period_start,
-      currentPeriodEnd: subscription.current_period_end,
+      currentPeriodStart: (subscription as any).current_period_start,
+      currentPeriodEnd: (subscription as any).current_period_end,
       cancelAtPeriodEnd: true,
     });
 
