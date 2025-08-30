@@ -22,6 +22,10 @@ import {
 } from '@/lib/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
+import { UserButton, SignInButton, useUser } from '@clerk/nextjs';
+import BraveSearch from '@/components/BraveSearch';
+import ScoutFeatures from '@/components/ScoutFeatures';
+import ConvexChat from '@/components/ConvexChat';
 
 interface SandboxData {
   sandboxId: string;
@@ -43,6 +47,7 @@ interface ChatMessage {
 }
 
 export default function AISandboxPage() {
+  const { isSignedIn, user, isLoaded } = useUser();
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: 'Not connected', active: false });
@@ -73,7 +78,7 @@ export default function AISandboxPage() {
   const [homeScreenFading, setHomeScreenFading] = useState(false);
   const [homeUrlInput, setHomeUrlInput] = useState('');
   const [homeContextInput, setHomeContextInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'generation' | 'preview'>('preview');
+  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'search' | 'chats'>('preview');
   const [showStyleSelector, setShowStyleSelector] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [showLoadingBackground, setShowLoadingBackground] = useState(false);
@@ -85,6 +90,9 @@ export default function AISandboxPage() {
   const [loadingStage, setLoadingStage] = useState<'gathering' | 'planning' | 'generating' | null>(null);
   const [sandboxFiles, setSandboxFiles] = useState<Record<string, string>>({});
   const [fileStructure, setFileStructure] = useState<string>('');
+  const [aiMode, setAiMode] = useState<'fast' | 'deep'>('fast');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [searchSubTab, setSearchSubTab] = useState<'search' | 'scout'>('search');
   
   const [conversationContext, setConversationContext] = useState<{
     scrapedWebsites: Array<{ url: string; content: any; timestamp: Date }>;
@@ -1463,6 +1471,93 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           )}
         </div>
       );
+    } else if (activeTab === 'search') {
+      return (
+        <div className="h-full bg-gray-900 flex flex-col">
+          {/* Sub-tab selector */}
+          <div className="flex border-b border-gray-700 bg-gray-800">
+            <button
+              onClick={() => setSearchSubTab('search')}
+              className={`px-4 py-3 text-sm font-medium transition-colors ${
+                searchSubTab === 'search'
+                  ? 'text-blue-400 border-b-2 border-blue-400'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              🔍 Web Search
+            </button>
+            <button
+              onClick={() => setSearchSubTab('scout')}
+              className={`px-4 py-3 text-sm font-medium transition-colors ${
+                searchSubTab === 'scout'
+                  ? 'text-purple-400 border-b-2 border-purple-400'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              🎯 Scout Features
+            </button>
+          </div>
+          
+          {/* Sub-tab content */}
+          <div className="flex-1 overflow-hidden">
+            {searchSubTab === 'search' ? (
+              <BraveSearch 
+                onResultSelect={(result) => {
+                  // Add search result to conversation context for AI
+                  setConversationContext(prev => ({
+                    ...prev,
+                    scrapedWebsites: [...prev.scrapedWebsites, {
+                      url: result.url,
+                      content: {
+                        title: result.title,
+                        description: result.description,
+                        url: result.url
+                      },
+                      timestamp: new Date()
+                    }]
+                  }));
+                  
+                  // Add a message about the selected result
+                  addChatMessage(
+                    `🔍 Selected search result: "${result.title}"\n\nURL: ${result.url}\n\nDescription: ${result.description}`,
+                    'system'
+                  );
+                }}
+              />
+            ) : (
+              <div className="h-full overflow-y-auto">
+                <ScoutFeatures
+                  currentMode={aiMode}
+                  onModeSelect={(mode) => {
+                    setAiMode(mode);
+                    addChatMessage(`AI mode switched to: ${mode === 'fast' ? '⚡ Fast AF' : '🧠 Max Vibes'}`, 'system');
+                  }}
+                  onTemplateSelect={(template) => {
+                    setSelectedTemplate(template);
+                    setAiChatInput(template);
+                    addChatMessage(`Template selected: ${template}`, 'system');
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    } else if (activeTab === 'chats') {
+      return (
+        <div className="h-full">
+          <ConvexChat
+            onChatSelect={(chatId) => {
+              // Handle chat selection
+              console.log('Selected chat:', chatId);
+            }}
+            onMessageAdd={(message, type) => {
+              // Sync with local chat if needed
+              addChatMessage(message, type);
+            }}
+          />
+        </div>
+      );
     }
     return null;
   };
@@ -1470,6 +1565,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
   const sendChatMessage = async () => {
     const message = aiChatInput.trim();
     if (!message) return;
+    
+    // Check if user is signed in before allowing messages
+    if (!isSignedIn) {
+      addChatMessage('Please sign in to start chatting with AI.', 'system');
+      return;
+    }
     
     if (!aiEnabled) {
       addChatMessage('AI is disabled. Please enable it first.', 'system');
@@ -2352,6 +2453,12 @@ Focus on the key sections and content, making it clean and modern while preservi
     e.preventDefault();
     if (!homeUrlInput.trim()) return;
     
+    // Check if user is signed in before allowing URL submission
+    if (!isSignedIn) {
+      addChatMessage('Please sign in to start cloning websites.', 'system');
+      return;
+    }
+    
     setHomeScreenFading(true);
     
     // Clear messages and immediately show the cloning message
@@ -2791,15 +2898,20 @@ Focus on the key sections and content, making it clean and modern.`;
               alt="Firecrawl"
               className="h-8 w-auto"
             />
-            <a 
-              href="https://github.com/mendableai/open-lovable" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-[#36322F] text-white px-3 py-2 rounded-[10px] text-sm font-medium [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#171310,_0px_1px_3px_0px_rgba(58,_33,_8,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#171310,_0px_1px_2px_0px_rgba(58,_33,_8,_30%)] transition-all duration-200"
-            >
-              <FiGithub className="w-4 h-4" />
-              <span>Use this template</span>
-            </a>
+            <div className="flex items-center gap-3">
+              {isLoaded && !isSignedIn ? (
+                <SignInButton mode="modal">
+                  <button className="inline-flex items-center gap-2 bg-[#36322F] text-white px-3 py-2 rounded-[10px] text-sm font-medium [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#171310,_0px_1px_3px_0px_rgba(58,_33,_8,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#171310,_0px_1px_2px_0px_rgba(58,_33,_8,_30%)] transition-all duration-200">
+                    Sign In
+                  </button>
+                </SignInButton>
+              ) : isSignedIn ? (
+                <>
+                  <span className="text-sm text-gray-600">Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress}</span>
+                  <UserButton />
+                </>
+              ) : null}
+            </div>
           </div>
           
           {/* Main content */}
@@ -2808,8 +2920,8 @@ Focus on the key sections and content, making it clean and modern.`;
               {/* Firecrawl-style Header */}
               <div className="text-center">
                 <h1 className="text-[2.5rem] lg:text-[3.8rem] text-center text-[#36322F] font-semibold tracking-tight leading-[0.9] animate-[fadeIn_0.8s_ease-out]">
-                  <span className="hidden md:inline">Open Lovable</span>
-                  <span className="md:hidden">Open Lovable</span>
+                  <span className="hidden md:inline">Zapdev</span>
+                  <span className="md:hidden">Zapdev</span>
                 </h1>
                 <motion.p 
                   className="text-base lg:text-lg max-w-lg mx-auto mt-2.5 text-zinc-500 text-center text-balance"
@@ -2818,7 +2930,7 @@ Focus on the key sections and content, making it clean and modern.`;
                   }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
                 >
-                  Re-imagine any website, in seconds.
+                  Build React apps with AI, enhanced with web search and smart automation.
                 </motion.p>
               </div>
               
@@ -3365,6 +3477,32 @@ Focus on the key sections and content, making it clean and modern.`;
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setActiveTab('search')}
+                  className={`p-2 rounded-md transition-all ${
+                    activeTab === 'search' 
+                      ? 'bg-black text-white' 
+                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                  }`}
+                  title="Web Search"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setActiveTab('chats')}
+                  className={`p-2 rounded-md transition-all ${
+                    activeTab === 'chats' 
+                      ? 'bg-black text-white' 
+                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                  }`}
+                  title="Chat History"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </button>
               </div>

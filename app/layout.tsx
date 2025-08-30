@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { ClerkProvider, useAuth } from '@clerk/nextjs';
+import { dark } from '@clerk/themes';
+import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { ConvexReactClient } from "convex/react";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
+const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export const metadata: Metadata = {
-  title: "Open Lovable",
-  description: "Re-imagine any website in seconds with AI-powered website builder.",
+  title: "Zapdev",
+  description: "Chat with AI to build React apps instantly with advanced features inspired by scout.new.",
 };
 
 export default function RootLayout({
@@ -15,10 +20,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        {children}
-      </body>
-    </html>
+    <ClerkProvider
+      appearance={{
+        baseTheme: dark,
+        variables: {
+          colorPrimary: '#3b82f6',
+        },
+      }}
+    >
+      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+        <html lang="en">
+          <body className={inter.className}>
+            {children}
+          </body>
+        </html>
+      </ConvexProviderWithClerk>
+    </ClerkProvider>
   );
 }
