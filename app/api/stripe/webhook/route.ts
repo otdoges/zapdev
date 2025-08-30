@@ -11,8 +11,6 @@ if (!webhookSecret) {
   throw new Error('STRIPE_WEBHOOK_SECRET is not set in environment variables');
 }
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text();
@@ -116,6 +114,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   }
 
   try {
+    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+    
     // Update user subscription in Convex
     await convex.mutation(api.users.upsertUserSubscription, {
       userId,
@@ -142,6 +142,8 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   }
 
   try {
+    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+    
     await convex.mutation(api.users.upsertUserSubscription, {
       userId,
       planId: subscription.items.data[0]?.price.id || 'pro',
@@ -168,6 +170,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
 
   try {
+    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+    
     await convex.mutation(api.users.upsertUserSubscription, {
       userId,
       planId: subscription.items.data[0]?.price.id || 'pro',
@@ -194,6 +198,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   }
 
   try {
+    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+    
     await convex.mutation(api.users.upsertUserSubscription, {
       userId,
       planId: 'free',

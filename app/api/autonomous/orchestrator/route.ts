@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { BackgroundOrchestrator } from '@/lib/background-orchestrator';
 import { auth } from '@clerk/nextjs/server';
 
-const orchestrator = BackgroundOrchestrator.getInstance();
-
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { userId } = await auth();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
+    
+    const orchestrator = BackgroundOrchestrator.getInstance();
 
     switch (action) {
       case 'stats':
@@ -62,6 +62,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { userId } = await auth();
     const body = await request.json();
     const { action, ...data } = body;
+    
+    const orchestrator = BackgroundOrchestrator.getInstance();
 
     switch (action) {
       case 'schedule-job':

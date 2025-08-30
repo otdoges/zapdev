@@ -129,8 +129,8 @@ export interface LearningInsight {
 
 export class MultiAgentCoordinator {
   private static instance: MultiAgentCoordinator;
-  private pipeline: AutonomousPipeline;
-  private orchestrator: BackgroundOrchestrator;
+  private pipeline!: AutonomousPipeline;
+  private orchestrator!: BackgroundOrchestrator;
   
   private communications: Map<string, AgentCommunication> = new Map();
   private agentKnowledge: Map<string, AgentKnowledge[]> = new Map();
@@ -142,10 +142,13 @@ export class MultiAgentCoordinator {
   private learningInterval?: NodeJS.Timeout;
 
   constructor() {
-    this.pipeline = AutonomousPipeline.getInstance();
-    this.orchestrator = BackgroundOrchestrator.getInstance();
-    this.startCoordination();
-    this.startLearning();
+    // Initialize dependencies lazily to avoid circular dependency
+    setTimeout(() => {
+      this.pipeline = AutonomousPipeline.getInstance();
+      this.orchestrator = BackgroundOrchestrator.getInstance();
+      this.startCoordination();
+      this.startLearning();
+    }, 0);
   }
 
   public static getInstance(): MultiAgentCoordinator {

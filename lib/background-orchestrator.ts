@@ -52,8 +52,8 @@ export interface AgentCoordination {
 
 export class BackgroundOrchestrator {
   private static instance: BackgroundOrchestrator;
-  private pipeline: AutonomousPipeline;
-  private coordinator: MultiAgentCoordinator;
+  private pipeline!: AutonomousPipeline;
+  private coordinator!: MultiAgentCoordinator;
   private jobs: Map<string, BackgroundJob> = new Map();
   private coordinations: Map<string, AgentCoordination> = new Map();
   private config: OrchestratorConfig;
@@ -61,8 +61,6 @@ export class BackgroundOrchestrator {
   private healthCheckInterval?: NodeJS.Timeout;
 
   constructor() {
-    this.pipeline = AutonomousPipeline.getInstance();
-    this.coordinator = MultiAgentCoordinator.getInstance();
     this.config = {
       maxConcurrentJobs: 3,
       maxBackgroundAgents: 8,
@@ -72,8 +70,17 @@ export class BackgroundOrchestrator {
       proFeaturesEnabled: true
     };
     
-    this.startScheduler();
-    this.startHealthCheck();
+    // Initialize dependencies lazily to avoid circular dependency
+    setTimeout(() => {
+      this.pipeline = AutonomousPipeline.getInstance();
+      this.coordinator = MultiAgentCoordinator.getInstance();
+      this.startScheduler();
+      this.startHealthCheck();
+    }, 0);
+  }
+
+  private ensureInitialized(): boolean {
+    return this.pipeline !== undefined && this.coordinator !== undefined;
   }
 
   public static getInstance(): BackgroundOrchestrator {
@@ -119,6 +126,10 @@ export class BackgroundOrchestrator {
     userId: string,
     subscriptionType: 'free' | 'pro' | 'enterprise'
   ): Promise<string> {
+    if (!this.ensureInitialized()) {
+      throw new Error('BackgroundOrchestrator dependencies not yet initialized');
+    }
+
     if (subscriptionType === 'free' && features.length > 2) {
       throw new Error('Free tier limited to 2 parallel features. Upgrade to Pro for unlimited parallel development.');
     }

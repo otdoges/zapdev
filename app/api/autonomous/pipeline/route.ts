@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AutonomousPipeline } from '@/lib/autonomous-pipeline';
 import { auth } from '@clerk/nextjs/server';
 
-const pipeline = AutonomousPipeline.getInstance();
-
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     await auth();
     const { searchParams } = new URL(request.url);
+    
+    const pipeline = AutonomousPipeline.getInstance();
     const action = searchParams.get('action');
 
     switch (action) {
@@ -55,6 +55,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     await auth();
     const body = await request.json();
     const { action, ...data } = body;
+    
+    const pipeline = AutonomousPipeline.getInstance();
 
     switch (action) {
       case 'submit-task':
