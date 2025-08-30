@@ -75,6 +75,10 @@ export async function POST(req: NextRequest) {
         await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
         break;
 
+      case 'payment_intent.created':
+        await handlePaymentIntentCreated(event.data.object as Stripe.PaymentIntent);
+        break;
+
       case 'payment_intent.payment_failed':
         await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
         break;
@@ -229,6 +233,17 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   // - Activate purchased features
 
   console.log(`Payment intent succeeded for user: ${userId}, amount: ${paymentIntent.amount}`);
+}
+
+async function handlePaymentIntentCreated(paymentIntent: Stripe.PaymentIntent) {
+  console.log('Payment intent created:', paymentIntent.id);
+  
+  const userId = paymentIntent.metadata?.userId;
+  if (userId) {
+    console.log(`Payment intent created for user: ${userId}, amount: ${paymentIntent.amount}`);
+  } else {
+    console.log(`Payment intent created: ${paymentIntent.id}, amount: ${paymentIntent.amount}`);
+  }
 }
 
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
