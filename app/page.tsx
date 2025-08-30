@@ -2893,11 +2893,14 @@ Focus on the key sections and content, making it clean and modern.`;
           
           {/* Header */}
           <div className="absolute top-0 left-0 right-0 z-20 px-6 py-4 flex items-center justify-between animate-[fadeIn_0.8s_ease-out]">
-            <img
-              src="/firecrawl-logo-with-fire.webp"
-              alt="Firecrawl"
-              className="h-8 w-auto"
-            />
+            <div className="flex items-center gap-2">
+              <div className="text-yellow-400">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                </svg>
+              </div>
+              <span className="text-xl font-bold text-white">zapdev</span>
+            </div>
             <div className="flex items-center gap-3">
               {isLoaded && !isSignedIn ? (
                 <SignInButton mode="modal">
@@ -3117,32 +3120,34 @@ Focus on the key sections and content, making it clean and modern.`;
                   )}
               </form>
               
-              {/* Model Selector */}
-              <div className="mt-6 flex items-center justify-center animate-[fadeIn_1s_ease-out]">
-                <select
-                  value={aiModel}
-                  onChange={(e) => {
-                    const newModel = e.target.value;
-                    setAiModel(newModel);
-                    const params = new URLSearchParams(searchParams);
-                    params.set('model', newModel);
-                    if (sandboxData?.sandboxId) {
-                      params.set('sandbox', sandboxData.sandboxId);
-                    }
-                    router.push(`/?${params.toString()}`);
-                  }}
-                  className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#36322F] focus:border-transparent"
-                  style={{
-                    boxShadow: '0 0 0 1px #e3e1de66, 0 1px 2px #5f4a2e14'
-                  }}
-                >
-                  {appConfig.ai.availableModels.map(model => (
-                    <option key={model} value={model}>
-                      {(appConfig.ai.modelDisplayNames as Record<string, string>)[model] || model}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Model Selector - Hidden per config */}
+              {appConfig.ui.showModelSelector && (
+                <div className="mt-6 flex items-center justify-center animate-[fadeIn_1s_ease-out]">
+                  <select
+                    value={aiModel}
+                    onChange={(e) => {
+                      const newModel = e.target.value;
+                      setAiModel(newModel);
+                      const params = new URLSearchParams(searchParams);
+                      params.set('model', newModel);
+                      if (sandboxData?.sandboxId) {
+                        params.set('sandbox', sandboxData.sandboxId);
+                      }
+                      router.push(`/?${params.toString()}`);
+                    }}
+                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#36322F] focus:border-transparent"
+                    style={{
+                      boxShadow: '0 0 0 1px #e3e1de66, 0 1px 2px #5f4a2e14'
+                    }}
+                  >
+                    {appConfig.ai.availableModels.map(model => (
+                      <option key={model} value={model}>
+                        {(appConfig.ai.modelDisplayNames as Record<string, string>)[model] || model}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3150,34 +3155,39 @@ Focus on the key sections and content, making it clean and modern.`;
       
       <div className="bg-card px-4 py-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <img
-            src="/firecrawl-logo-with-fire.webp"
-            alt="Firecrawl"
-            className="h-8 w-auto"
-          />
+          <div className="flex items-center gap-2">
+            <div className="text-yellow-400">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+            </div>
+            <span className="text-xl font-bold text-foreground">zapdev</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Model Selector - Left side */}
-          <select
-            value={aiModel}
-            onChange={(e) => {
-              const newModel = e.target.value;
-              setAiModel(newModel);
-              const params = new URLSearchParams(searchParams);
-              params.set('model', newModel);
-              if (sandboxData?.sandboxId) {
-                params.set('sandbox', sandboxData.sandboxId);
-              }
-              router.push(`/?${params.toString()}`);
-            }}
-            className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#36322F] focus:border-transparent"
-          >
-            {appConfig.ai.availableModels.map(model => (
-              <option key={model} value={model}>
-                {(appConfig.ai.modelDisplayNames as Record<string, string>)[model] || model}
-              </option>
-            ))}
-          </select>
+          {/* Model Selector - Hidden per config */}
+          {appConfig.ui.showModelSelector && (
+            <select
+              value={aiModel}
+              onChange={(e) => {
+                const newModel = e.target.value;
+                setAiModel(newModel);
+                const params = new URLSearchParams(searchParams);
+                params.set('model', newModel);
+                if (sandboxData?.sandboxId) {
+                  params.set('sandbox', sandboxData.sandboxId);
+                }
+                router.push(`/?${params.toString()}`);
+              }}
+              className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#36322F] focus:border-transparent"
+            >
+              {appConfig.ai.availableModels.map(model => (
+                <option key={model} value={model}>
+                  {(appConfig.ai.modelDisplayNames as Record<string, string>)[model] || model}
+                </option>
+              ))}
+            </select>
+          )}
           <Button 
             variant="code"
             onClick={() => createSandbox()}

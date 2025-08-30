@@ -99,6 +99,13 @@ export class IntegratedAISystem {
   }
 
   /**
+   * Gets chat system prompt for conversational interactions
+   */
+  public getChatSystemPrompt(): string {
+    return this.decisionSystem.getChatSystemPrompt();
+  }
+
+  /**
    * Validates if a model is suitable for a task
    */
   public validateModelForTask(modelId: string, taskContext: TaskContext): boolean {

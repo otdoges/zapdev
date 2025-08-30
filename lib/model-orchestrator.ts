@@ -1,4 +1,5 @@
 import { appConfig } from '@/config/app.config';
+import { getSystemPrompt, getDecisionMakingPrompt, SystemPromptOptions } from './system-prompts';
 
 export type TaskType = 
   | 'code-generation' 
@@ -71,68 +72,56 @@ export class ModelOrchestrator {
   }
   
   /**
-   * Gets the specialized system prompt for a task type
+   * Gets the specialized system prompt for a task type using ZapDev prompts
    */
-  public getSystemPrompt(taskType: TaskType): string {
-    const basePrompts = {
-      'code-generation': `You are an expert software developer specializing in clean, efficient code generation. Focus on:
-- Writing production-ready, well-structured code
-- Following best practices and design patterns
-- Implementing robust error handling
-- Creating maintainable and scalable solutions
-- Using modern frameworks and libraries effectively`,
-
-      'security-review': `You are a cybersecurity expert reviewing code for vulnerabilities and security best practices. Focus on:
-- Identifying security vulnerabilities (XSS, SQL injection, CSRF, etc.)
-- Reviewing authentication and authorization mechanisms  
-- Checking input validation and sanitization
-- Ensuring secure data handling and storage
-- Recommending security improvements and fixes`,
-
-      'architecture-planning': `You are a senior system architect designing scalable, maintainable solutions. Focus on:
-- Creating well-structured system architectures
-- Designing for scalability and performance
-- Planning component interactions and dependencies
-- Considering maintainability and extensibility
-- Balancing trade-offs and making informed decisions`,
-
-      'decision-making': `You are a technical decision maker evaluating options and trade-offs. Focus on:
-- Analyzing pros and cons of different approaches
-- Considering technical constraints and requirements
-- Evaluating performance, cost, and complexity impacts
-- Making data-driven recommendations
-- Explaining reasoning behind decisions`,
-
-      'comprehensive-analysis': `You are a comprehensive technical analyst providing detailed insights. Focus on:
-- Thorough analysis of complex systems and requirements
-- Identifying patterns, issues, and opportunities
-- Providing detailed explanations and documentation
-- Considering multiple perspectives and use cases
-- Delivering actionable insights and recommendations`,
-
-      'prompt-optimization': `You are a prompt engineering expert optimizing AI interactions. Focus on:
-- Analyzing existing prompts for clarity and effectiveness
-- Improving prompt structure and specificity
-- Adding relevant context and constraints
-- Optimizing for better AI responses
-- Creating clear, actionable instructions`,
-
-      'creative-enhancement': `You are a creative technologist enhancing solutions with innovation. Focus on:
-- Adding creative and innovative elements
-- Improving user experience and design
-- Suggesting modern, engaging approaches
-- Balancing creativity with functionality
-- Creating visually appealing and intuitive solutions`,
-
-      'fast-iteration': `You are focused on rapid development and quick iterations. Focus on:
-- Delivering working solutions quickly
-- Prioritizing essential features and functionality
-- Using efficient development patterns
-- Minimizing complexity while maintaining quality
-- Getting to MVP as fast as possible`
+  public getSystemPrompt(taskType: TaskType, subscriptionType: 'free' | 'pro' | 'enterprise' = 'free'): string {
+    const systemPromptOptions: SystemPromptOptions = {
+      performanceFocus: subscriptionType === 'pro',
+      includeTeamLead: subscriptionType === 'pro',
+      allowLongCodeByDefault: taskType === 'code-generation'
     };
 
-    return basePrompts[taskType] || basePrompts['code-generation'];
+    const basePrompt = getSystemPrompt(systemPromptOptions);
+    
+    // Add task-specific specialization
+    const taskSpecialization = this.getTaskSpecialization(taskType);
+    
+    // Add decision-making context for complex tasks
+    const decisionPrompt = this.requiresDecisionMaking(taskType) ? 
+      `\n\n${getDecisionMakingPrompt()}` : '';
+    
+    return `${basePrompt}${decisionPrompt}\n\n${taskSpecialization}`;
+  }
+
+  /**
+   * Gets task-specific specialization prompts
+   */
+  private getTaskSpecialization(taskType: TaskType): string {
+    const specializations = {
+      'code-generation': 'Focus on writing production-ready, well-structured code with proper error handling and modern patterns.',
+      'security-review': 'Focus on identifying security vulnerabilities, authentication issues, and ensuring secure coding practices.',
+      'architecture-planning': 'Focus on creating scalable, maintainable system architectures with proper component design.',
+      'decision-making': 'Focus on analyzing trade-offs, evaluating options, and making data-driven technical decisions.',
+      'comprehensive-analysis': 'Focus on thorough analysis of systems, identifying patterns, and providing actionable insights.',
+      'prompt-optimization': 'Focus on improving prompt clarity, structure, and effectiveness for better AI responses.',
+      'creative-enhancement': 'Focus on innovative solutions that balance creativity with functionality and user experience.',
+      'fast-iteration': 'Focus on rapid development and quick delivery while maintaining essential quality standards.'
+    };
+
+    return specializations[taskType] || specializations['code-generation'];
+  }
+
+  /**
+   * Determines if a task type requires decision-making prompts
+   */
+  private requiresDecisionMaking(taskType: TaskType): boolean {
+    const decisionRequiredTasks: TaskType[] = [
+      'architecture-planning',
+      'decision-making',
+      'comprehensive-analysis',
+      'security-review'
+    ];
+    return decisionRequiredTasks.includes(taskType);
   }
 
   /**

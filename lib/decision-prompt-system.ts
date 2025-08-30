@@ -1,5 +1,6 @@
 import { AIModelSelector, TaskContext, ModelRecommendation } from './ai-model-selector';
 import { trackFeatureUsage } from './posthog';
+import { getSystemPrompt, getDecisionMakingPrompt, getDecisionMakingPromptNext, CHAT_SYSTEM_PROMPT, SystemPromptOptions } from './system-prompts';
 
 export interface DecisionContext {
   userQuery: string;
@@ -112,11 +113,51 @@ export class DecisionPromptSystem {
    * Gets specialized system prompt for a specific step
    */
   public getSystemPromptForStep(step: DecisionStep, plan: DecisionPlan, context: DecisionContext): string {
-    const basePrompt = this.getBaseSystemPrompt();
+    // Use the new ZapDev system prompt as base
+    const systemPromptOptions: SystemPromptOptions = {
+      performanceFocus: context.subscriptionType === 'pro',
+      includeTeamLead: context.subscriptionType === 'pro',
+      allowLongCodeByDefault: step.type === 'code-generation'
+    };
+    
+    const basePrompt = getSystemPrompt(systemPromptOptions);
+    const decisionPrompt = this.getDecisionMakingPromptForStep(step, plan, context);
     const specializationPrompt = this.getStepSpecializationPrompt(step, plan, context);
     const contextPrompt = this.getContextualPrompt(context);
     
-    return `${basePrompt}\n\n${specializationPrompt}\n\n${contextPrompt}`;
+    return `${basePrompt}\n\n${decisionPrompt}\n\n${specializationPrompt}\n\n${contextPrompt}`;
+  }
+
+  /**
+   * Gets decision-making prompt for a specific step
+   */
+  private getDecisionMakingPromptForStep(step: DecisionStep, plan: DecisionPlan, context: DecisionContext): string {
+    // Determine if this is a frontend-only task
+    const isFrontendOnly = this.isFrontendOnlyTask(context.userQuery, context);
+    
+    if (isFrontendOnly) {
+      return getDecisionMakingPromptNext();
+    } else {
+      return getDecisionMakingPrompt();
+    }
+  }
+
+  /**
+   * Determines if the task is frontend-only based on context
+   */
+  private isFrontendOnlyTask(userQuery: string, _context: DecisionContext): boolean {
+    const query = userQuery.toLowerCase();
+    const frontendKeywords = ['ui', 'component', 'button', 'layout', 'style', 'css', 'react', 'frontend', 'design'];
+    const backendKeywords = ['api', 'database', 'server', 'backend', 'sql', 'auth', 'authentication'];
+    
+    const hasFrontendKeywords = frontendKeywords.some(keyword => query.includes(keyword));
+    const hasBackendKeywords = backendKeywords.some(keyword => query.includes(keyword));
+    
+    // If explicitly mentions backend, use general decision prompt
+    if (hasBackendKeywords) return false;
+    
+    // If mentions frontend or no clear indication, assume frontend-only
+    return hasFrontendKeywords || !hasBackendKeywords;
   }
 
   /**
@@ -196,7 +237,7 @@ export class DecisionPromptSystem {
   /**
    * Detects framework from context
    */
-  private detectFramework(userQuery: string, context: DecisionContext): string | undefined {
+  private detectFramework(userQuery: string, _context: DecisionContext): string | undefined {
     const query = userQuery.toLowerCase();
     const frameworks = ['nextjs', 'react', 'vue', 'angular', 'express', 'fastapi', 'django'];
     
@@ -212,11 +253,11 @@ export class DecisionPromptSystem {
    */
   private determineStrategy(
     taskAnalysis: any, 
-    context: DecisionContext, 
+    _context: DecisionContext, 
     subscriptionType: string
   ): DecisionPlan['strategy'] {
     const { complexity } = taskAnalysis;
-    const { urgency = 'medium' } = context;
+    const { urgency = 'medium' } = _context;
 
     if (urgency === 'high' && complexity === 'simple') {
       return 'direct-implementation';
@@ -238,8 +279,8 @@ export class DecisionPromptSystem {
    */
   private generateSteps(
     strategy: DecisionPlan['strategy'], 
-    taskAnalysis: any, 
-    context: DecisionContext
+    _taskAnalysis: any, 
+    _context: DecisionContext
   ): DecisionStep[] {
     const steps: DecisionStep[] = [];
 
@@ -388,20 +429,14 @@ export class DecisionPromptSystem {
     return reasoning;
   }
 
-  private getBaseSystemPrompt(): string {
-    return `You are an expert AI software engineer with deep knowledge of modern web development, databases, and software architecture. You provide high-quality, production-ready code that follows best practices.
-
-Key principles:
-- Write clean, maintainable, and well-documented code
-- Follow TypeScript/JavaScript best practices
-- Use modern React patterns and hooks
-- Implement proper error handling
-- Consider performance implications
-- Ensure code is accessible and responsive
-- Follow security best practices`;
+  /**
+   * Gets chat system prompt for conversational interactions
+   */
+  public getChatSystemPrompt(): string {
+    return CHAT_SYSTEM_PROMPT;
   }
 
-  private getStepSpecializationPrompt(step: DecisionStep, plan: DecisionPlan, context: DecisionContext): string {
+  private getStepSpecializationPrompt(step: DecisionStep, _plan: DecisionPlan, _context: DecisionContext): string {
     switch (step.type) {
       case 'analysis':
         return `Focus on thorough analysis. Examine the codebase structure, identify potential issues, and plan the optimal implementation approach. Consider dependencies, side effects, and integration points.`;

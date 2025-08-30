@@ -10,6 +10,7 @@ import { executeSearchPlan, formatSearchResultsForAI, selectTargetFile } from '@
 import { FileManifest } from '@/types/file-manifest';
 import type { ConversationState, ConversationMessage, ConversationEdit } from '@/types/conversation';
 import { appConfig } from '@/config/app.config';
+import { getSystemPrompt, getDecisionMakingPrompt, SystemPromptOptions } from '@/lib/system-prompts';
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -546,8 +547,21 @@ Remember: You are a SURGEON making a precise incision, not an artist repainting 
           }
         }
         
-        // Build system prompt with conversation awareness
-        const systemPrompt = `You are an expert React developer with perfect memory of the conversation. You maintain context across messages and remember scraped websites, generated components, and applied code. Generate clean, modern React code for Vite applications.
+        // Build system prompt with conversation awareness using ZapDev prompts
+        
+        // Use ZapDev system prompt as base
+        const systemPromptOptions: SystemPromptOptions = {
+          performanceFocus: true,
+          includeTeamLead: false, // Keep it simple for free tier
+          allowLongCodeByDefault: true // Code generation needs full implementation
+        };
+        
+        const baseSystemPrompt = getSystemPrompt(systemPromptOptions);
+        const decisionPrompt = isEdit ? `\n\n${getDecisionMakingPrompt()}` : '';
+        
+        const systemPrompt = `${baseSystemPrompt}${decisionPrompt}
+
+CONVERSATION CONTEXT:
 ${conversationContext}
 
 🚨 CRITICAL RULES - YOUR MOST IMPORTANT INSTRUCTIONS:
