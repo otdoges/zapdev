@@ -11,6 +11,8 @@ import { FileManifest } from '@/types/file-manifest';
 import type { ConversationState, ConversationMessage, ConversationEdit } from '@/types/conversation';
 import { appConfig } from '@/config/app.config';
 import { getSystemPrompt, getDecisionMakingPrompt, SystemPromptOptions } from '@/lib/system-prompts';
+import { DesignWorkflowEngine } from '@/lib/design-workflow-engine';
+import { DesignTeamRequest } from '@/lib/design-character-system';
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -66,6 +68,41 @@ function analyzeUserPreferences(messages: ConversationMessage[]): {
     commonPatterns: [...new Set(patterns)].slice(0, 3), // Top 3 unique patterns
     preferredEditStyle: targetedEditCount > comprehensiveEditCount ? 'targeted' : 'comprehensive'
   };
+}
+
+// Helper function to infer project type from context
+function inferProjectTypeFromContext(context: any): DesignTeamRequest['projectType'] {
+  if (!context) return 'web-app';
+  
+  // Check current files for project type indicators
+  const files = context.currentFiles ? Object.keys(context.currentFiles) : [];
+  
+  if (files.some(f => f.includes('dashboard') || f.includes('admin'))) return 'dashboard';
+  if (files.some(f => f.includes('landing') || f.includes('home'))) return 'landing-page';
+  if (files.some(f => f.includes('mobile') || f.includes('native'))) return 'mobile-app';
+  
+  return 'web-app'; // default
+}
+
+// Helper function to extract target audience from prompt
+function extractTargetAudience(prompt: string): string | undefined {
+  const audienceKeywords = [
+    'users', 'customers', 'clients', 'developers', 'business', 'professionals', 
+    'students', 'beginners', 'experts', 'team', 'audience', 'visitors'
+  ];
+  
+  const sentences = prompt.split(/[.!?]/);
+  
+  for (const sentence of sentences) {
+    for (const keyword of audienceKeywords) {
+      if (sentence.toLowerCase().includes(keyword)) {
+        // Extract the sentence that mentions the audience
+        return sentence.trim();
+      }
+    }
+  }
+  
+  return undefined;
 }
 
 declare global {
@@ -556,8 +593,53 @@ Remember: You are a SURGEON making a precise incision, not an artist repainting 
           allowLongCodeByDefault: true // Code generation needs full implementation
         };
         
-        const baseSystemPrompt = getSystemPrompt(systemPromptOptions);
-        const decisionPrompt = isEdit ? `\n\n${getDecisionMakingPrompt()}` : '';
+        // Check if this should use design team workflow
+        const designEngine = DesignWorkflowEngine.getInstance();
+        const shouldUseDesignTeam = designEngine.shouldUseDesignWorkflow(prompt);
+        
+        let baseSystemPrompt = getSystemPrompt(systemPromptOptions);
+        let decisionPrompt = isEdit ? `\n\n${getDecisionMakingPrompt()}` : '';
+        
+        // If design team workflow is detected, modify system prompt
+        if (shouldUseDesignTeam) {
+          await sendProgress({ 
+            type: 'status', 
+            message: '🎨 Activating design team collaboration...' 
+          });
+          
+          // Process with design team
+          const designRequest: DesignTeamRequest = {
+            designBrief: prompt,
+            projectType: inferProjectTypeFromContext(context),
+            targetAudience: extractTargetAudience(prompt),
+            discussionStyle: 'collaborative'
+          };
+          
+          const designResult = await designEngine.processDesignRequest(prompt, designRequest);
+          
+          if (designResult.useDesignWorkflow) {
+            await sendProgress({ 
+              type: 'status', 
+              message: `👥 Design team assembled: ${designResult.selectedCharacters?.map(id => 
+                designEngine['characterSystem'].getCharacter(id)?.name
+              ).join(', ')}` 
+            });
+            
+            baseSystemPrompt = `${baseSystemPrompt}
+
+🎨 DESIGN TEAM MODE ACTIVATED 🎨
+You are now part of a multi-character design team using specialized personas.
+Selected characters: ${designResult.selectedCharacters?.join(', ')}
+Estimated workflow time: ${designResult.estimatedTime} minutes
+This request will be processed using collaborative design thinking with multiple perspectives.
+
+The design team approach means:
+- Multiple specialized design perspectives will be considered
+- Character-based expertise areas will guide the response
+- Collaborative design discussion patterns will be used
+- Design decisions will be validated by team consensus`;
+          }
+        }
         
         const systemPrompt = `${baseSystemPrompt}${decisionPrompt}
 

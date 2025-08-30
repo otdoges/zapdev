@@ -1,4 +1,5 @@
 import { AutonomousPipeline, AutonomousTask, AutonomousAgent } from './autonomous-pipeline';
+import { MultiAgentCoordinator } from './multi-agent-coordinator';
 import { trackAIAgentUsage } from './posthog';
 
 export interface BackgroundJob {
@@ -52,6 +53,7 @@ export interface AgentCoordination {
 export class BackgroundOrchestrator {
   private static instance: BackgroundOrchestrator;
   private pipeline: AutonomousPipeline;
+  private coordinator: MultiAgentCoordinator;
   private jobs: Map<string, BackgroundJob> = new Map();
   private coordinations: Map<string, AgentCoordination> = new Map();
   private config: OrchestratorConfig;
@@ -60,6 +62,7 @@ export class BackgroundOrchestrator {
 
   constructor() {
     this.pipeline = AutonomousPipeline.getInstance();
+    this.coordinator = MultiAgentCoordinator.getInstance();
     this.config = {
       maxConcurrentJobs: 3,
       maxBackgroundAgents: 8,
@@ -152,6 +155,16 @@ export class BackgroundOrchestrator {
       }
     });
 
+    // Create multi-agent collaboration for parallel development
+    if (features.length >= 2) {
+      await this.coordinator.createCollaboration(
+        `Parallel Development: ${features.join(', ')}`,
+        `Multi-agent parallel development of ${features.length} features`,
+        taskIds,
+        'parallel'
+      );
+    }
+
     return jobId;
   }
 
@@ -213,8 +226,13 @@ export class BackgroundOrchestrator {
         coordinations.push(coordination);
       }
 
-      // Monitor job execution
+      // Monitor job execution and coordinate with multi-agent system
       await this.monitorJobExecution(job, coordinations);
+      
+      // Notify coordinator of job completion for learning
+      if (job.status === 'completed') {
+        await this.notifyCoordinatorOfCompletion(job);
+      }
 
     } catch (error) {
       console.error(`Job ${job.id} execution failed:`, error);
@@ -339,6 +357,81 @@ export class BackgroundOrchestrator {
       } catch (error) {
         console.error(`Failed to start scheduled job ${job.id}:`, error);
       }
+    }
+
+    // Check for automatic collaboration opportunities
+    await this.checkForCollaborationOpportunities();
+  }
+
+  /**
+   * Check for tasks that would benefit from automatic collaboration
+   */
+  private async checkForCollaborationOpportunities() {
+    const runningJobs = Array.from(this.jobs.values()).filter(j => j.status === 'running');
+    
+    for (const job of runningJobs) {
+      // Get tasks for this job
+      const tasks = job.tasks.map(id => this.pipeline.getTask(id)).filter(Boolean);
+      
+      // Check if this job would benefit from collaboration
+      if (this.shouldCreateCollaboration(tasks)) {
+        const existingCollaborations = this.coordinator.getActiveCollaborations();
+        const hasExistingCollaboration = existingCollaborations.some(c => 
+          c.taskIds.some(taskId => job.tasks.includes(taskId))
+        );
+        
+        if (!hasExistingCollaboration) {
+          await this.coordinator.createCollaboration(
+            `Auto-Collaboration: ${job.name}`,
+            `Automatic collaboration created for job: ${job.description}`,
+            job.tasks,
+            this.determineOptimalCoordinationType(tasks)
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * Determine if tasks should have a collaboration created
+   */
+  private shouldCreateCollaboration(tasks: any[]): boolean {
+    if (tasks.length < 2) return false;
+    
+    // Check for high complexity indicators
+    const hasHighPriorityTasks = tasks.some(task => 
+      task && ['high', 'critical'].includes(task.priority)
+    );
+    
+    const hasLongEstimatedTime = tasks.some(task => 
+      task && task.estimatedTime > 30
+    );
+    
+    const hasFeatureDevelopment = tasks.some(task => 
+      task && task.type === 'feature-development'
+    );
+    
+    return hasHighPriorityTasks || hasLongEstimatedTime || hasFeatureDevelopment;
+  }
+
+  /**
+   * Determine optimal coordination type based on tasks
+   */
+  private determineOptimalCoordinationType(tasks: any[]): 'parallel' | 'sequential' | 'hierarchical' | 'peer-to-peer' {
+    const hasArchitecturalTasks = tasks.some(task => 
+      task && (task.type === 'feature-development' || task.description.toLowerCase().includes('system'))
+    );
+    
+    const hasDependencies = tasks.some(task => 
+      task && task.dependencies && task.dependencies.length > 0
+    );
+    
+    if (hasArchitecturalTasks) {
+      return 'hierarchical'; // Need coordination for system-level changes
+    } else if (hasDependencies) {
+      return 'sequential'; // Tasks have dependencies
+    } else {
+      return 'parallel'; // Independent tasks can run in parallel
     }
   }
 
@@ -544,6 +637,75 @@ export class BackgroundOrchestrator {
       agentCoordinations: this.coordinations.size,
       systemHealth
     };
+  }
+
+  /**
+   * Notify coordinator of job completion for learning
+   */
+  private async notifyCoordinatorOfCompletion(job: BackgroundJob) {
+    try {
+      // Share knowledge about successful job patterns
+      const tasks = job.tasks.map(id => this.pipeline.getTask(id)).filter(Boolean);
+      const successfulTasks = tasks.filter(task => task?.status === 'completed');
+      
+      if (successfulTasks.length > 0) {
+        // Extract patterns and add to coordinator knowledge
+        const patterns = this.extractJobPatterns(job, successfulTasks);
+        
+        for (const pattern of patterns) {
+          this.coordinator.addAgentKnowledge(
+            'background-orchestrator',
+            pattern.domain,
+            pattern.knowledge,
+            pattern.confidence
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to notify coordinator of completion:', error);
+    }
+  }
+
+  /**
+   * Extract patterns from successful jobs
+   */
+  private extractJobPatterns(job: BackgroundJob, tasks: any[]): Array<{
+    domain: string;
+    knowledge: any;
+    confidence: number;
+  }> {
+    const patterns = [];
+    
+    // Pattern: Job type success indicators
+    if (job.type === 'manual' && tasks.length > 1) {
+      patterns.push({
+        domain: 'parallel-development',
+        knowledge: {
+          patterns: [`${tasks.length}-task parallel execution`],
+          solutions: [`Successfully coordinated ${tasks.length} parallel tasks`],
+          bestPractices: ['Use parallel coordination for independent features'],
+          commonIssues: []
+        },
+        confidence: 0.8
+      });
+    }
+    
+    // Pattern: Task complexity handling
+    const avgEstimatedTime = tasks.reduce((sum, task) => sum + (task?.estimatedTime || 30), 0) / tasks.length;
+    if (avgEstimatedTime > 45) {
+      patterns.push({
+        domain: 'complex-task-management',
+        knowledge: {
+          patterns: ['Long-running task coordination'],
+          solutions: ['Break complex tasks into smaller subtasks'],
+          bestPractices: ['Use hierarchical coordination for complex features'],
+          commonIssues: ['Task timeout with complex implementations']
+        },
+        confidence: 0.7
+      });
+    }
+    
+    return patterns;
   }
 
   /**

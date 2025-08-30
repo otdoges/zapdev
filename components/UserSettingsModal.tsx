@@ -14,7 +14,11 @@ import {
   X,
   Check,
   AlertCircle,
-  Gauge
+  Gauge,
+  GitBranch,
+  Users,
+  Clock,
+  Activity
 } from 'lucide-react';
 
 interface UserSettingsModalProps {
@@ -35,6 +39,26 @@ interface UserSettings {
     mode: 'manual' | 'auto' | 'scheduled';
     triggers: string[];
     restrictions: string[];
+    coordination: {
+      enableMultiAgent: boolean;
+      maxAgents: number;
+      coordinationType: 'parallel' | 'sequential' | 'hierarchical';
+      autoCollaboration: boolean;
+    };
+    backgroundJobs: {
+      enabled: boolean;
+      maxConcurrentJobs: number;
+      schedule: string;
+      autoRetry: boolean;
+    };
+  };
+  gitIntegration: {
+    enabled: boolean;
+    autoCommit: boolean;
+    autoPR: boolean;
+    branchPrefix: string;
+    commitTemplate: string;
+    repositories: string[];
   };
   performance: {
     reactScanEnabled: boolean;
@@ -62,7 +86,27 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
       enabled: true,
       mode: 'auto',
       triggers: ['error_detected', 'performance_issue'],
-      restrictions: ['no_destructive_changes', 'require_approval']
+      restrictions: ['no_destructive_changes', 'require_approval'],
+      coordination: {
+        enableMultiAgent: true,
+        maxAgents: 4,
+        coordinationType: 'parallel',
+        autoCollaboration: true
+      },
+      backgroundJobs: {
+        enabled: true,
+        maxConcurrentJobs: 3,
+        schedule: '0 */1 * * *', // Every hour
+        autoRetry: true
+      }
+    },
+    gitIntegration: {
+      enabled: false,
+      autoCommit: true,
+      autoPR: false,
+      branchPrefix: 'ai-feature/',
+      commitTemplate: '🤖 AI-Generated: {description}',
+      repositories: []
     },
     performance: {
       reactScanEnabled: true,
@@ -76,7 +120,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
     }
   });
   
-  const [activeTab, setActiveTab] = useState<'general' | 'ai' | 'performance' | 'privacy'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'ai' | 'git' | 'performance' | 'privacy'>('general');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -151,6 +195,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
               {[
                 { id: 'general', label: 'General', icon: User },
                 { id: 'ai', label: 'AI Agent', icon: Zap },
+                { id: 'git', label: 'Git Integration', icon: GitBranch },
                 { id: 'performance', label: 'Performance', icon: Gauge },
                 { id: 'privacy', label: 'Privacy', icon: Shield }
               ].map(({ id, label, icon: Icon }) => (
@@ -337,7 +382,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                       </div>
 
                       {/* Restrictions */}
-                      <div>
+                      <div className="mb-6">
                         <label className="block text-sm font-medium text-gray-700 mb-3">
                           Safety Restrictions
                         </label>
@@ -365,6 +410,327 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                               </span>
                             </label>
                           ))}
+                        </div>
+                      </div>
+
+                      {/* Multi-Agent Coordination */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          <Users className="w-4 h-4 inline mr-2" />
+                          Multi-Agent Coordination
+                        </label>
+                        
+                        <div className="space-y-4">
+                          <label className="flex items-center justify-between">
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Enable Multi-Agent</span>
+                              <p className="text-xs text-gray-500">Allow multiple AI agents to collaborate on complex tasks</p>
+                            </div>
+                            <button
+                              onClick={() => updateSetting('aiAgent.coordination.enableMultiAgent', !settings.aiAgent.coordination.enableMultiAgent)}
+                              className={`w-12 h-6 rounded-full p-1 transition-colors ${
+                                settings.aiAgent.coordination.enableMultiAgent ? 'bg-blue-600' : 'bg-gray-200'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                                settings.aiAgent.coordination.enableMultiAgent ? 'translate-x-6' : 'translate-x-0'
+                              }`} />
+                            </button>
+                          </label>
+
+                          {settings.aiAgent.coordination.enableMultiAgent && (
+                            <>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Max Agents: {settings.aiAgent.coordination.maxAgents}
+                                </label>
+                                <input
+                                  type="range"
+                                  min="2"
+                                  max="8"
+                                  value={settings.aiAgent.coordination.maxAgents}
+                                  onChange={(e) => updateSetting('aiAgent.coordination.maxAgents', parseInt(e.target.value))}
+                                  className="w-full"
+                                />
+                                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                  <span>2</span>
+                                  <span>8</span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Coordination Type
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {(['parallel', 'sequential', 'hierarchical'] as const).map((type) => (
+                                    <button
+                                      key={type}
+                                      onClick={() => updateSetting('aiAgent.coordination.coordinationType', type)}
+                                      className={`p-2 text-xs border rounded text-center capitalize transition-colors ${
+                                        settings.aiAgent.coordination.coordinationType === type
+                                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                          : 'border-gray-200 hover:border-gray-300'
+                                      }`}
+                                    >
+                                      {type}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <label className="flex items-center justify-between">
+                                <div>
+                                  <span className="text-sm font-medium text-gray-700">Auto Collaboration</span>
+                                  <p className="text-xs text-gray-500">Automatically create collaborations for complex tasks</p>
+                                </div>
+                                <button
+                                  onClick={() => updateSetting('aiAgent.coordination.autoCollaboration', !settings.aiAgent.coordination.autoCollaboration)}
+                                  className={`w-12 h-6 rounded-full p-1 transition-colors ${
+                                    settings.aiAgent.coordination.autoCollaboration ? 'bg-blue-600' : 'bg-gray-200'
+                                  }`}
+                                >
+                                  <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                                    settings.aiAgent.coordination.autoCollaboration ? 'translate-x-6' : 'translate-x-0'
+                                  }`} />
+                                </button>
+                              </label>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Background Jobs */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          <Clock className="w-4 h-4 inline mr-2" />
+                          Background Jobs
+                        </label>
+                        
+                        <div className="space-y-4">
+                          <label className="flex items-center justify-between">
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Enable Background Jobs</span>
+                              <p className="text-xs text-gray-500">Run AI tasks in the background on a schedule</p>
+                            </div>
+                            <button
+                              onClick={() => updateSetting('aiAgent.backgroundJobs.enabled', !settings.aiAgent.backgroundJobs.enabled)}
+                              className={`w-12 h-6 rounded-full p-1 transition-colors ${
+                                settings.aiAgent.backgroundJobs.enabled ? 'bg-blue-600' : 'bg-gray-200'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                                settings.aiAgent.backgroundJobs.enabled ? 'translate-x-6' : 'translate-x-0'
+                              }`} />
+                            </button>
+                          </label>
+
+                          {settings.aiAgent.backgroundJobs.enabled && (
+                            <>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Max Concurrent Jobs: {settings.aiAgent.backgroundJobs.maxConcurrentJobs}
+                                </label>
+                                <input
+                                  type="range"
+                                  min="1"
+                                  max="10"
+                                  value={settings.aiAgent.backgroundJobs.maxConcurrentJobs}
+                                  onChange={(e) => updateSetting('aiAgent.backgroundJobs.maxConcurrentJobs', parseInt(e.target.value))}
+                                  className="w-full"
+                                />
+                                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                  <span>1</span>
+                                  <span>10</span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Schedule (Cron Format)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={settings.aiAgent.backgroundJobs.schedule}
+                                  onChange={(e) => updateSetting('aiAgent.backgroundJobs.schedule', e.target.value)}
+                                  placeholder="0 */1 * * * (every hour)"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Examples: 0 */1 * * * (hourly), 0 0 * * * (daily), 0 0 * * 1 (weekly)
+                                </p>
+                              </div>
+
+                              <label className="flex items-center justify-between">
+                                <div>
+                                  <span className="text-sm font-medium text-gray-700">Auto Retry Failed Jobs</span>
+                                  <p className="text-xs text-gray-500">Automatically retry failed background jobs</p>
+                                </div>
+                                <button
+                                  onClick={() => updateSetting('aiAgent.backgroundJobs.autoRetry', !settings.aiAgent.backgroundJobs.autoRetry)}
+                                  className={`w-12 h-6 rounded-full p-1 transition-colors ${
+                                    settings.aiAgent.backgroundJobs.autoRetry ? 'bg-blue-600' : 'bg-gray-200'
+                                  }`}
+                                >
+                                  <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                                    settings.aiAgent.backgroundJobs.autoRetry ? 'translate-x-6' : 'translate-x-0'
+                                  }`} />
+                                </button>
+                              </label>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'git' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Git Integration</h3>
+                  
+                  {/* Git Integration Enable/Disable */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-green-900">Git Workflow Automation</h4>
+                        <p className="text-sm text-green-700">Clone repos, auto-commit changes, and create PRs</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('gitIntegration.enabled', !settings.gitIntegration.enabled)}
+                        className={`w-12 h-6 rounded-full p-1 transition-colors ${
+                          settings.gitIntegration.enabled ? 'bg-green-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                          settings.gitIntegration.enabled ? 'translate-x-6' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+                    {!settings.gitIntegration.enabled && (
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <AlertCircle className="w-4 h-4" />
+                        <span>Requires GitHub CLI (gh) to be installed and authenticated</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {settings.gitIntegration.enabled && (
+                    <>
+                      {/* Auto Actions */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Automation Settings
+                        </label>
+                        <div className="space-y-4">
+                          <label className="flex items-center justify-between">
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Auto Commit</span>
+                              <p className="text-xs text-gray-500">Automatically commit changes when background jobs complete</p>
+                            </div>
+                            <button
+                              onClick={() => updateSetting('gitIntegration.autoCommit', !settings.gitIntegration.autoCommit)}
+                              className={`w-12 h-6 rounded-full p-1 transition-colors ${
+                                settings.gitIntegration.autoCommit ? 'bg-blue-600' : 'bg-gray-200'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                                settings.gitIntegration.autoCommit ? 'translate-x-6' : 'translate-x-0'
+                              }`} />
+                            </button>
+                          </label>
+
+                          <label className="flex items-center justify-between">
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Auto Pull Requests</span>
+                              <p className="text-xs text-gray-500">Automatically create PRs for completed features</p>
+                            </div>
+                            <button
+                              onClick={() => updateSetting('gitIntegration.autoPR', !settings.gitIntegration.autoPR)}
+                              className={`w-12 h-6 rounded-full p-1 transition-colors ${
+                                settings.gitIntegration.autoPR ? 'bg-blue-600' : 'bg-gray-200'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                                settings.gitIntegration.autoPR ? 'translate-x-6' : 'translate-x-0'
+                              }`} />
+                            </button>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Branch Settings */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Branch Configuration
+                        </label>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Branch Prefix
+                            </label>
+                            <input
+                              type="text"
+                              value={settings.gitIntegration.branchPrefix}
+                              onChange={(e) => updateSetting('gitIntegration.branchPrefix', e.target.value)}
+                              placeholder="ai-feature/"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Prefix for AI-generated branches (e.g., "ai-feature/")
+                            </p>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Commit Message Template
+                            </label>
+                            <input
+                              type="text"
+                              value={settings.gitIntegration.commitTemplate}
+                              onChange={(e) => updateSetting('gitIntegration.commitTemplate', e.target.value)}
+                              placeholder="🤖 AI-Generated: {description}"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Template for commit messages. Use {"{description}"} for dynamic content.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Repository Management */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Repository Management
+                        </label>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-medium text-gray-700">
+                              Connected Repositories: {settings.gitIntegration.repositories.length}
+                            </span>
+                            <Button size="sm" variant="outline">
+                              Add Repository
+                            </Button>
+                          </div>
+                          
+                          {settings.gitIntegration.repositories.length === 0 ? (
+                            <p className="text-sm text-gray-500">
+                              No repositories connected. Use the main interface to clone and work with repositories.
+                            </p>
+                          ) : (
+                            <div className="space-y-2">
+                              {settings.gitIntegration.repositories.map((repo, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 bg-white rounded border text-sm">
+                                  <span>{repo}</span>
+                                  <Button size="sm" variant="ghost">Remove</Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </>

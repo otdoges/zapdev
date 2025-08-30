@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '@/convex/_generated/api';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 if (!webhookSecret) {
   throw new Error('STRIPE_WEBHOOK_SECRET is not set in environment variables');
 }
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,6 +87,10 @@ export async function POST(req: NextRequest) {
         await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
         break;
 
+      case 'charge.updated':
+        await handleChargeUpdated(event.data.object as Stripe.Charge);
+        break;
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
@@ -107,14 +115,21 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     return;
   }
 
-  // TODO: Update your database here
-  // For example, if using Convex:
-  // - Mark payment as successful
-  // - Activate premium features
-  // - Send confirmation email
-  // - Update user's subscription status
+  try {
+    // Update user subscription in Convex
+    await convex.mutation(api.users.upsertUserSubscription, {
+      userId,
+      planId: session.metadata?.planId || 'pro',
+      status: 'active',
+      currentPeriodStart: Math.floor(Date.now() / 1000),
+      currentPeriodEnd: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60), // 30 days
+    });
 
-  console.log(`Payment successful for user: ${userId}, amount: ${session.amount_total}`);
+    console.log(`Payment successful for user: ${userId}, amount: ${session.amount_total}`);
+  } catch (error) {
+    console.error('Failed to update subscription in Convex:', error);
+    throw error;
+  }
 }
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
@@ -126,12 +141,21 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     return;
   }
 
-  // TODO: Update your database here
-  // - Create subscription record
-  // - Activate premium features
-  // - Send welcome email
+  try {
+    await convex.mutation(api.users.upsertUserSubscription, {
+      userId,
+      planId: subscription.items.data[0]?.price.id || 'pro',
+      status: subscription.status as any,
+      currentPeriodStart: subscription.current_period_start,
+      currentPeriodEnd: subscription.current_period_end,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    });
 
-  console.log(`Subscription created for user: ${userId}, status: ${subscription.status}`);
+    console.log(`Subscription created for user: ${userId}, status: ${subscription.status}`);
+  } catch (error) {
+    console.error('Failed to create subscription in Convex:', error);
+    throw error;
+  }
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
@@ -143,12 +167,21 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     return;
   }
 
-  // TODO: Update your database here
-  // - Update subscription status
-  // - Handle plan changes
-  // - Update feature access
+  try {
+    await convex.mutation(api.users.upsertUserSubscription, {
+      userId,
+      planId: subscription.items.data[0]?.price.id || 'pro',
+      status: subscription.status as any,
+      currentPeriodStart: subscription.current_period_start,
+      currentPeriodEnd: subscription.current_period_end,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    });
 
-  console.log(`Subscription updated for user: ${userId}, status: ${subscription.status}`);
+    console.log(`Subscription updated for user: ${userId}, status: ${subscription.status}`);
+  } catch (error) {
+    console.error('Failed to update subscription in Convex:', error);
+    throw error;
+  }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -160,26 +193,30 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     return;
   }
 
-  // TODO: Update your database here
-  // - Deactivate premium features
-  // - Update subscription status
-  // - Send cancellation email
+  try {
+    await convex.mutation(api.users.upsertUserSubscription, {
+      userId,
+      planId: 'free',
+      status: 'canceled',
+      currentPeriodStart: subscription.current_period_start,
+      currentPeriodEnd: subscription.current_period_end,
+      cancelAtPeriodEnd: true,
+    });
 
-  console.log(`Subscription cancelled for user: ${userId}`);
+    console.log(`Subscription cancelled for user: ${userId}`);
+  } catch (error) {
+    console.error('Failed to cancel subscription in Convex:', error);
+    throw error;
+  }
 }
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   console.log('Invoice payment succeeded:', invoice.id);
   
   const subscriptionId = (invoice as any).subscription;
-  if (!subscriptionId) {
+  if (!subscriptionId || !invoice.customer_email) {
     return;
   }
-
-  // TODO: Update your database here
-  // - Record successful payment
-  // - Extend service period
-  // - Send receipt email
 
   console.log(`Payment succeeded for subscription: ${subscriptionId}, amount: ${invoice.amount_paid}`);
 }
@@ -192,30 +229,16 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     return;
   }
 
-  // TODO: Update your database here
-  // - Handle failed payment
-  // - Send payment failed notification
-  // - Potentially suspend service
-
   console.log(`Payment failed for subscription: ${subscriptionId}`);
 }
 
 async function handleCustomerCreated(customer: Stripe.Customer) {
   console.log('Customer created:', customer.id);
-  
-  // TODO: Update your database here
-  // - Store customer ID
-  // - Send welcome email
-
   console.log(`Customer created: ${customer.email}`);
 }
 
 async function handleCustomerUpdated(customer: Stripe.Customer) {
   console.log('Customer updated:', customer.id);
-  
-  // TODO: Update your database here
-  // - Sync customer data
-  
   console.log(`Customer updated: ${customer.email}`);
 }
 
@@ -227,10 +250,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     console.error('No userId found in payment intent metadata');
     return;
   }
-
-  // TODO: Update your database here
-  // - Record successful payment
-  // - Activate purchased features
 
   console.log(`Payment intent succeeded for user: ${userId}, amount: ${paymentIntent.amount}`);
 }
@@ -255,11 +274,12 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     return;
   }
 
-  // TODO: Update your database here
-  // - Record failed payment
-  // - Send failure notification
-
   console.log(`Payment intent failed for user: ${userId}`);
+}
+
+async function handleChargeUpdated(charge: Stripe.Charge) {
+  console.log('Charge updated:', charge.id);
+  console.log(`Charge status: ${charge.status}, amount: ${charge.amount}`);
 }
 
 export async function GET() {

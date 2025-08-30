@@ -54,9 +54,9 @@ export const appConfig = {
     // Model capabilities and specializations
     modelCapabilities: {
       'moonshotai/kimi-k2-instruct': {
-        strengths: ['code-generation', 'quality', 'thoroughness', 'versatility'],
-        specialty: 'Universal Code Generation & Development',
-        useCase: 'High-quality development with specialized system prompts',
+        strengths: ['code-generation', 'quality', 'thoroughness', 'versatility', 'multi-character-roleplay'],
+        specialty: 'Universal Code Generation & Development with Design Team Personas',
+        useCase: 'High-quality development with specialized system prompts and multi-character design collaboration',
         speed: 'thorough',
         maxTokens: 8192,
         supportsTools: false,
@@ -65,7 +65,8 @@ export const appConfig = {
           'code-generation': 'Expert code generator focused on clean, efficient implementation',
           'security-review': 'Security analyst reviewing code for vulnerabilities and best practices',
           'architecture-planning': 'System architect designing scalable, maintainable solutions',
-          'decision-making': 'Technical decision maker evaluating options and trade-offs'
+          'decision-making': 'Technical decision maker evaluating options and trade-offs',
+          'multi-character-design': 'Multi-character design team with specialized personas for collaborative design work'
         }
       },
       'google/gemini-2.5-flash': {

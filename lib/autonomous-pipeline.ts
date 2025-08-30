@@ -1,4 +1,5 @@
 import { IntegratedAISystem, AIRequest } from './integrated-ai-system';
+import { MultiAgentCoordinator } from './multi-agent-coordinator';
 import { trackAIAgentUsage } from './posthog';
 
 export interface AutonomousTask {
@@ -54,6 +55,7 @@ export interface PipelineConfig {
 export class AutonomousPipeline {
   private static instance: AutonomousPipeline;
   private aiSystem: IntegratedAISystem;
+  private coordinator: MultiAgentCoordinator;
   private tasks: Map<string, AutonomousTask> = new Map();
   private agents: Map<string, AutonomousAgent> = new Map();
   private config: PipelineConfig;
@@ -61,6 +63,7 @@ export class AutonomousPipeline {
 
   constructor() {
     this.aiSystem = IntegratedAISystem.getInstance();
+    this.coordinator = MultiAgentCoordinator.getInstance();
     this.config = {
       maxConcurrentTasks: 5,
       maxAgentsPerTask: 2,
@@ -160,6 +163,11 @@ export class AutonomousPipeline {
     // Track task submission
     if (task.metadata?.subscriptionType) {
       trackAIAgentUsage('anonymous', 'autonomous-pipeline', 'task-submitted');
+    }
+
+    // Check if task requires multi-agent collaboration
+    if (this.isComplexTask(task)) {
+      await this.createMultiAgentCollaboration(task);
     }
 
     return task.id;
@@ -459,6 +467,40 @@ export class AutonomousPipeline {
         task.assignedAgent = undefined;
         this.tasks.set(task.id, task);
       }, 30000); // Retry after 30 seconds
+    }
+  }
+
+  /**
+   * Check if task requires multi-agent collaboration
+   */
+  private isComplexTask(task: AutonomousTask): boolean {
+    return (
+      task.type === 'feature-development' && 
+      task.estimatedTime > 45
+    ) || (
+      task.priority === 'critical'
+    ) || (
+      task.description.toLowerCase().includes('full stack') ||
+      task.description.toLowerCase().includes('end-to-end') ||
+      task.description.toLowerCase().includes('complete system')
+    );
+  }
+
+  /**
+   * Create multi-agent collaboration for complex tasks
+   */
+  private async createMultiAgentCollaboration(task: AutonomousTask): Promise<void> {
+    try {
+      const collaborationId = await this.coordinator.createCollaboration(
+        `Complex Task: ${task.title}`,
+        `Multi-agent collaboration for ${task.type}: ${task.description}`,
+        [task.id],
+        task.type === 'feature-development' ? 'hierarchical' : 'parallel'
+      );
+      
+      console.log(`Created multi-agent collaboration ${collaborationId} for task ${task.id}`);
+    } catch (error) {
+      console.error('Failed to create multi-agent collaboration:', error);
     }
   }
 

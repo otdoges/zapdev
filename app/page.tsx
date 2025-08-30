@@ -28,6 +28,10 @@ import ConvexChat from '@/components/ConvexChat';
 import AutonomousDashboard from '@/components/AutonomousDashboard';
 import UserSettingsModal from '@/components/UserSettingsModal';
 import ReactScanDashboard from '@/components/ReactScanDashboard';
+import ConversationHistorySidebar from '@/components/ConversationHistorySidebar';
+import UsageLimitModal from '@/components/UsageLimitModal';
+import GitWorkflowDemo from '@/components/GitWorkflowDemo';
+import { DesignTeamInterface } from '@/components/DesignTeamInterface';
 
 interface SandboxData {
   sandboxId: string;
@@ -77,7 +81,7 @@ function AISandboxPage() {
   const [homeScreenFading, setHomeScreenFading] = useState(false);
   const [homeUrlInput, setHomeUrlInput] = useState('');
   const [homeContextInput, setHomeContextInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'search' | 'chats'>('preview');
+  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'search' | 'chats' | 'design'>('preview');
   const [showStyleSelector, setShowStyleSelector] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [urlScreenshot, setUrlScreenshot] = useState<string | null>(null);
@@ -89,10 +93,12 @@ function AISandboxPage() {
   const [fileStructure, setFileStructure] = useState<string>('');
   const [aiMode, setAiMode] = useState<'fast' | 'deep'>('fast');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [searchSubTab, setSearchSubTab] = useState<'search' | 'scout'>('search');
+  const [searchSubTab, setSearchSubTab] = useState<'search' | 'scout' | 'git'>('search');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReactScanModal, setShowReactScanModal] = useState(false);
   const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
+  const [showHistorySidebar, setShowHistorySidebar] = useState(true);
+  const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
   
   const [conversationContext, setConversationContext] = useState<{
     scrapedWebsites: Array<{ url: string; content: any; timestamp: Date }>;
@@ -1496,6 +1502,16 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             >
               🎯 Scout Features
             </button>
+            <button
+              onClick={() => setSearchSubTab('git')}
+              className={`px-4 py-3 text-sm font-medium transition-colors ${
+                searchSubTab === 'git'
+                  ? 'text-green-400 border-b-2 border-green-400'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              🔗 Git Workflow
+            </button>
           </div>
           
           {/* Sub-tab content */}
@@ -1524,7 +1540,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                   );
                 }}
               />
-            ) : (
+            ) : searchSubTab === 'scout' ? (
               <div className="h-full overflow-y-auto">
                 <ScoutFeatures
                   currentMode={aiMode}
@@ -1538,6 +1554,10 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                     addChatMessage(`Template selected: ${template}`, 'system');
                   }}
                 />
+              </div>
+            ) : (
+              <div className="h-full overflow-y-auto p-4">
+                <GitWorkflowDemo />
               </div>
             )}
           </div>
@@ -1556,6 +1576,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
               addChatMessage(message, type);
             }}
           />
+        </div>
+      );
+    } else if (activeTab === 'design') {
+      return (
+        <div className="h-full overflow-y-auto">
+          <DesignTeamInterface />
         </div>
       );
     }
@@ -3165,6 +3191,19 @@ Focus on the key sections and content, making it clean and modern.`;
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* History Sidebar Toggle */}
+          <Button 
+            variant="outline"
+            onClick={() => setShowHistorySidebar(!showHistorySidebar)}
+            size="sm"
+            title="Toggle conversation history"
+            className="border-gray-300"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </Button>
+          
           {/* Model Selector - Hidden per config */}
           {appConfig.ui.showModelSelector && (
             <select
@@ -3228,6 +3267,20 @@ Focus on the key sections and content, making it clean and modern.`;
       </div>
 
       <div className="flex-1 flex overflow-hidden">
+        {/* Conversation History Sidebar */}
+        {showHistorySidebar && (
+          <ConversationHistorySidebar
+            onChatSelect={(chatId) => {
+              console.log('Selected chat:', chatId);
+              // TODO: Load chat messages and integrate with existing chat system
+            }}
+            onNewChat={() => {
+              console.log('New chat created');
+              // TODO: Reset current conversation
+            }}
+          />
+        )}
+        
         {/* Center Panel - AI Chat (1/3 of remaining width) */}
         <div className="flex-1 max-w-[400px] flex flex-col border-r border-border bg-background">
           {conversationContext.scrapedWebsites.length > 0 && (
@@ -3550,6 +3603,19 @@ Focus on the key sections and content, making it clean and modern.`;
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </button>
+                <button
+                  onClick={() => setActiveTab('design')}
+                  className={`p-2 rounded-md transition-all ${
+                    activeTab === 'design' 
+                      ? 'bg-black text-white' 
+                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                  }`}
+                  title="Design Team"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </button>
               </div>
             </div>
             <div className="flex gap-2 items-center">
@@ -3604,9 +3670,13 @@ Focus on the key sections and content, making it clean and modern.`;
         </div>
       </div>
 
-
-
-
+      {/* Usage Limit Modal */}
+      <UsageLimitModal
+        isOpen={showUsageLimitModal}
+        onClose={() => setShowUsageLimitModal(false)}
+        currentUsage={3}
+        limit={5}
+      />
     </div>
   );
 }

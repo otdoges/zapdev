@@ -14,7 +14,7 @@ export interface ModelCapabilities {
 }
 
 export interface TaskContext {
-  type: 'code-generation' | 'debugging' | 'explanation' | 'optimization' | 'database' | 'ui-design' | 'analysis';
+  type: 'code-generation' | 'debugging' | 'explanation' | 'optimization' | 'database' | 'ui-design' | 'analysis' | 'multi-character-design';
   complexity: 'simple' | 'medium' | 'complex';
   priority: 'low' | 'normal' | 'high';
   language?: string;
@@ -45,13 +45,14 @@ const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     contextWindow: 128000,
     maxOutputTokens: 8000,
     supportedLanguages: ['typescript', 'javascript', 'python', 'react', 'nextjs', 'html', 'css'],
-    specialties: ['code-generation', 'debugging', 'optimization', 'react-development'],
+    specialties: ['code-generation', 'debugging', 'optimization', 'react-development', 'multi-character-design'],
     bestFor: [
       'Full-stack web development',
       'React/Next.js applications', 
       'Database operations',
       'API development',
-      'Code refactoring'
+      'Code refactoring',
+      'Multi-character design collaboration'
     ],
     limitations: [
       'May be less optimal for very complex reasoning tasks',
@@ -109,6 +110,8 @@ export class AIModelSelector {
         score += capabilities.codeGeneration * 0.4;
       } else if (type === 'analysis' || type === 'optimization') {
         score += capabilities.reasoning * 0.4;
+      } else if (type === 'multi-character-design') {
+        score += (capabilities.codeGeneration + capabilities.reasoning) * 0.3; // Design needs both creativity and logic
       } else {
         score += (capabilities.codeGeneration + capabilities.reasoning) * 0.2;
       }

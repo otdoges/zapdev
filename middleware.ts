@@ -1,11 +1,21 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
+const isPublicRoute = createRouteMatcher([
+  '/api/sandbox-status',
+  '/api/create-ai-sandbox',
+  '/api/conversation-state',
+  '/api/apply-ai-code-stream',
+  '/api/generate-ai-code-stream',
+  '/api/get-sandbox-files',
+  '/api/stripe/webhook'
+]);
+
 const isProtectedRoute = createRouteMatcher([
   '/api(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
+  if (isProtectedRoute(req) && !isPublicRoute(req)) {
     await auth.protect();
   }
 });

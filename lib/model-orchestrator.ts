@@ -9,7 +9,8 @@ export type TaskType =
   | 'comprehensive-analysis'
   | 'decision-making'
   | 'creative-enhancement'
-  | 'fast-iteration';
+  | 'fast-iteration'
+  | 'multi-character-design';
 
 export type TaskComplexity = 'simple' | 'medium' | 'complex';
 
@@ -61,6 +62,17 @@ export class ModelOrchestrator {
       };
     }
 
+    // Multi-character design gets special handling
+    if (type === 'multi-character-design') {
+      return {
+        primaryModel: 'moonshotai/kimi-k2-instruct',
+        reasoning: 'Using Kimi K2 with multi-character design team personas for collaborative design work',
+        confidence: 0.90,
+        estimatedSpeed: 'medium',
+        estimatedCost: 'low'
+      };
+    }
+
     // All other tasks use Kimi K2 with specialized system prompts
     return {
       primaryModel: 'moonshotai/kimi-k2-instruct',
@@ -105,7 +117,8 @@ export class ModelOrchestrator {
       'comprehensive-analysis': 'Focus on thorough analysis of systems, identifying patterns, and providing actionable insights.',
       'prompt-optimization': 'Focus on improving prompt clarity, structure, and effectiveness for better AI responses.',
       'creative-enhancement': 'Focus on innovative solutions that balance creativity with functionality and user experience.',
-      'fast-iteration': 'Focus on rapid development and quick delivery while maintaining essential quality standards.'
+      'fast-iteration': 'Focus on rapid development and quick delivery while maintaining essential quality standards.',
+      'multi-character-design': 'Focus on collaborative design work using multiple specialized design personas with distinct expertise and communication styles.'
     };
 
     return specializations[taskType] || specializations['code-generation'];
@@ -146,6 +159,16 @@ export class ModelOrchestrator {
         type: 'architecture-planning',
         complexity: 'complex',
         priority: 'quality',
+        context: { requiresMultistep: true }
+      };
+    }
+    
+    // Design team keywords
+    if (this.containsDesignTeamKeywords(prompt)) {
+      return {
+        type: 'multi-character-design',
+        complexity: 'medium',
+        priority: 'creativity',
         context: { requiresMultistep: true }
       };
     }
@@ -217,6 +240,15 @@ export class ModelOrchestrator {
       'make better', 'improve quality', 'more effective', 'refine'
     ];
     return optimizationKeywords.some(keyword => prompt.includes(keyword));
+  }
+  
+  private containsDesignTeamKeywords(prompt: string): boolean {
+    const designTeamKeywords = [
+      'design team', 'multi character', 'multiple designer', 'design personas',
+      'design collaboration', 'design critique', 'design brainstorm', 'design discussion',
+      'team design', 'collaborative design', 'design roles', 'design characters'
+    ];
+    return designTeamKeywords.some(keyword => prompt.includes(keyword));
   }
   
   private assessComplexity(prompt: string): TaskComplexity {

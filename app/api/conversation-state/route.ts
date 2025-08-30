@@ -9,13 +9,14 @@ declare global {
 // GET: Retrieve current conversation state
 export async function GET(): Promise<NextResponse> {
   try {
-    // CRITICAL SECURITY FIX: Require authentication
+    // Check authentication but allow unauthenticated access for initial state
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: true,
+        state: null,
+        message: 'No active conversation (unauthenticated)'
+      });
     }
     
     try {
@@ -50,11 +51,11 @@ export async function GET(): Promise<NextResponse> {
 // POST: Reset or update conversation state
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // CRITICAL SECURITY FIX: Require authentication
+    // Check authentication but allow unauthenticated access for basic operations
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Authentication required' },
+        { success: false, error: 'Authentication required for conversation state updates' },
         { status: 401 }
       );
     }
