@@ -1026,7 +1026,7 @@ export class UserFeedbackSystem {
       });
       
       const averageSentiment = sentimentScores.length > 0 
-        ? sentimentScores.reduce((sum, score) => sum + score, 0) / sentimentScores.length
+        ? sentimentScores.reduce((sum: number, score) => sum + score, 0) / sentimentScores.length
         : 0;
 
       const categories = this.groupByField(groupFeedback, 'category');

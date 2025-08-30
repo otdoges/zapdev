@@ -17,25 +17,33 @@ export async function GET(): Promise<NextResponse> {
         { status: 401 }
       );
     }
-  try {
-    if (!global.conversationState) {
+    
+    try {
+      if (!global.conversationState) {
+        return NextResponse.json({
+          success: true,
+          state: null,
+          message: 'No active conversation'
+        });
+      }
+      
       return NextResponse.json({
         success: true,
-        state: null,
-        message: 'No active conversation'
+        state: global.conversationState
       });
+    } catch (error) {
+      console.error('[conversation-state] Error getting state:', error);
+      return NextResponse.json({
+        success: false,
+        error: (error as Error).message
+      }, { status: 500 });
     }
-    
-    return NextResponse.json({
-      success: true,
-      state: global.conversationState
-    });
   } catch (error) {
-    console.error('[conversation-state] Error getting state:', error);
+    console.error('[conversation-state] Error in authentication:', error);
     return NextResponse.json({
       success: false,
-      error: (error as Error).message
-    }, { status: 500 });
+      error: 'Authentication failed'
+    }, { status: 401 });
   }
 }
 

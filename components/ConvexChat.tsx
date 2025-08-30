@@ -66,9 +66,13 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
 
   const handleDeleteChat = async (chatId: Id<"chats">) => {
     try {
-      await deleteChat({ chatId, confirmDelete: true });
-      if (selectedChatId === chatId) {
-        setSelectedChatId(null);
+      // Get the chat title for confirmation
+      const chat = chats?.chats?.find(c => c._id === chatId);
+      if (chat) {
+        await deleteChat({ chatId, confirmTitle: chat.title });
+        if (selectedChatId === chatId) {
+          setSelectedChatId(null);
+        }
       }
     } catch (error: any) {
       console.error('Failed to delete chat:', error);
@@ -147,7 +151,7 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <AnimatePresence>
-                {messages?.map((message) => (
+                {messages?.messages?.map((message) => (
                   <motion.div
                     key={message._id}
                     initial={{ opacity: 0, y: 20 }}

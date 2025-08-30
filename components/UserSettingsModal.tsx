@@ -190,7 +190,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                        {user?.publicMetadata?.subscriptionType || 'Free'} Plan
+                        {String(user?.publicMetadata?.subscriptionType || 'Free')} Plan
                       </span>
                     </div>
                   </div>

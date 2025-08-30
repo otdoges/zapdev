@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { stripe, getOrCreateStripeCustomer } from '@/lib/stripe';
 import { z } from 'zod';
+import Stripe from 'stripe';
 
 const checkoutSessionSchema = z.object({
   priceId: z.string().optional(),
@@ -56,20 +57,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get the origin URL for redirects
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     
-    // Get or create Stripe customer
-    const customer = await getOrCreateStripeCustomer(userId, '', ''); // Email will be collected by Stripe
+    const customer = await getOrCreateStripeCustomer(userId, '', '');
 
-    // Build line items
-    let lineItems;
+    if (!customer) {
+      return NextResponse.json(
+        { error: 'Failed to create or retrieve customer' },
+        { status: 500 }
+      );
+    }
+
+    const stripeCustomer: Stripe.Customer = customer;
+
+    let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
     if (priceId) {
       lineItems = [{
         price: priceId,
         quantity,
       }];
     } else if (customAmount) {
+      const recurring = mode === 'subscription' ? { interval: 'month' as const } : undefined;
       lineItems = [{
         price_data: {
           currency: customAmount.currency,
@@ -78,19 +86,15 @@ export async function POST(req: NextRequest) {
             description: customAmount.description,
           },
           unit_amount: customAmount.amount,
-          ...(mode === 'subscription' && {
-            recurring: {
-              interval: 'month' as const,
-            },
-          }),
+          ...(recurring ? { recurring } : {}),
         },
         quantity,
       }];
     }
 
-    const sessionParams = {
-      customer: customer.id,
-      payment_method_types: ['card'] as any,
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
+      customer: stripeCustomer.id,
+      payment_method_types: ['card'],
       line_items: lineItems,
       mode,
       allow_promotion_codes: allowPromotionCodes,

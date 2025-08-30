@@ -190,7 +190,7 @@ export class ModelOrchestrator {
    * Gets model capabilities for display purposes
    */
   public getModelCapabilities(modelId: string) {
-    return appConfig.ai.modelCapabilities[modelId] || null;
+    return (appConfig.ai.modelCapabilities as Record<string, any>)[modelId] || null;
   }
   
   /**
@@ -199,7 +199,7 @@ export class ModelOrchestrator {
   public getAllModelsWithCapabilities() {
     return appConfig.ai.availableModels.map(modelId => ({
       id: modelId,
-      displayName: appConfig.ai.modelDisplayNames[modelId] || modelId,
+      displayName: (appConfig.ai.modelDisplayNames as Record<string, string>)[modelId] || modelId,
       capabilities: this.getModelCapabilities(modelId)
     }));
   }

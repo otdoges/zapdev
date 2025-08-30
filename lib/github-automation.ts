@@ -456,7 +456,7 @@ This PR was generated automatically by Zapdev AI. Please review carefully before
         prs = prs.filter(pr => pr.author === filter.author);
       }
       if (filter.branch) {
-        prs = prs.filter(pr => pr.branch.includes(filter.branch));
+        prs = prs.filter(pr => pr.branch.includes(filter.branch!));
       }
     }
 

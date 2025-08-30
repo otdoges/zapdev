@@ -104,6 +104,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
         
         const feedbackId = await feedbackSystem.submitFeedback(userId, {
+          userId: userId,
           type: data.type,
           category: data.category || 'general',
           title: data.title,

@@ -1,4 +1,4 @@
-import { IntegratedAISystem } from './integrated-ai-system';
+import { IntegratedAISystem, AIRequest } from './integrated-ai-system';
 import { trackAIAgentUsage } from './posthog';
 
 export interface AutonomousTask {
@@ -346,10 +346,10 @@ export class AutonomousPipeline {
     this.tasks.set(task.id, task);
 
     // Prepare AI request based on task type and agent capabilities
-    const aiRequest = {
+    const aiRequest: AIRequest = {
       userQuery: this.formatTaskForAI(task, agent),
       subscriptionType: task.metadata?.subscriptionType || 'free',
-      urgency: task.priority === 'critical' ? 'high' : 'medium',
+      urgency: (task.priority === 'critical' ? 'high' : 'medium') as 'low' | 'medium' | 'high',
       projectType: 'web-app' as const,
       codebaseContext: task.metadata?.codebaseContext
     };

@@ -56,11 +56,8 @@ export class ReactScanMonitor {
       scan({
         enabled: true,
         log: false, // We'll handle logging ourselves
-        onRender: (fiber: any, renderTime: number) => {
-          this.recordRender(fiber, renderTime);
-        },
-        onCommit: (fiber: any) => {
-          this.analyzeCommit(fiber);
+        onRender: (fiber: any, renders: any[]) => {
+          this.recordRender(fiber, renders);
         }
       });
 
@@ -76,7 +73,7 @@ export class ReactScanMonitor {
   /**
    * Record a component render
    */
-  private recordRender(fiber: any, renderTime: number) {
+  private recordRender(fiber: any, renders: any[]) {
     if (!fiber?.type?.name && !fiber?.type?.displayName) return;
 
     const componentName = fiber.type.name || fiber.type.displayName || 'Anonymous';
@@ -85,7 +82,7 @@ export class ReactScanMonitor {
     const metric: ReactScanMetrics = {
       componentName,
       renderCount: 1,
-      renderTime,
+      renderTime: renders.length > 0 ? renders[0] : 0,
       wastedRenders: this.isWastedRender(fiber) ? 1 : 0,
       timestamp: new Date(),
       props: this.sanitizeProps(fiber.memoizedProps),

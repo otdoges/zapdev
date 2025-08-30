@@ -194,7 +194,7 @@ export class AIModelSelector {
   }
 
   private generateReasoning(modelId: string, context: TaskContext, capabilities: ModelCapabilities): string {
-    const modelName = appConfig.ai.modelDisplayNames[modelId] || modelId;
+    const modelName = (appConfig.ai.modelDisplayNames as Record<string, string>)[modelId] || modelId;
     
     let reasoning = `${modelName} selected for ${context.type}`;
     

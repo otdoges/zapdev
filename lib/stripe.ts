@@ -5,35 +5,43 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-12-18.acacia',
   typescript: true,
 });
 
-export const getStripeCustomer = async (clerkUserId: string) => {
-  const customers = await stripe.customers.list({
-    metadata: { clerkUserId },
-    limit: 1,
-  });
-  
-  return customers.data.length > 0 ? customers.data[0] : null;
-};
-
-export const createStripeCustomer = async (clerkUserId: string, email: string, name?: string) => {
-  return await stripe.customers.create({
-    email,
-    name,
-    metadata: { clerkUserId },
-  });
-};
-
-export const getOrCreateStripeCustomer = async (clerkUserId: string, email: string, name?: string) => {
-  let customer = await getStripeCustomer(clerkUserId);
-  
-  if (!customer) {
-    customer = await createStripeCustomer(clerkUserId, email, name);
+export const getStripeCustomer = async (clerkUserId: string): Promise<Stripe.Customer | null> => {
+  try {
+    const searchResult = await stripe.customers.search({
+      query: `metadata['clerkUserId']:'${clerkUserId}'`,
+    });
+    const customer = searchResult.data[0];
+    return customer ?? null;
+  } catch (error) {
+    console.warn('getStripeCustomer search failed, returning null', error);
+    return null;
   }
-  
-  return customer;
+};
+
+export const createStripeCustomer = async (
+  clerkUserId: string,
+  email: string,
+  name?: string
+): Promise<Stripe.Customer> => {
+  return await stripe.customers.create({
+    email: email || undefined,
+    name: name || undefined,
+    metadata: { clerkUserId },
+  });
+};
+
+export const getOrCreateStripeCustomer = async (
+  clerkUserId: string,
+  email: string,
+  name?: string
+): Promise<Stripe.Customer> => {
+  const existing = await getStripeCustomer(clerkUserId);
+  if (existing) return existing;
+  const created = await createStripeCustomer(clerkUserId, email, name);
+  return created;
 };
 
 export const formatAmountForDisplay = (amount: number, currency: string): string => {
@@ -42,7 +50,6 @@ export const formatAmountForDisplay = (amount: number, currency: string): string
     currency,
     currencyDisplay: 'symbol',
   });
-  
   return numberFormat.format(amount / 100);
 };
 
@@ -52,10 +59,10 @@ export const formatAmountForStripe = (amount: number, currency: string): number 
     currency,
     currencyDisplay: 'symbol',
   });
-  
+
   const parts = numberFormat.formatToParts(amount);
   let zeroDecimalCurrency = false;
-  
+
   for (const part of parts) {
     if (part.type === 'decimal') {
       zeroDecimalCurrency = false;
@@ -64,7 +71,7 @@ export const formatAmountForStripe = (amount: number, currency: string): number 
       zeroDecimalCurrency = ['JPY', 'KRW', 'VND', 'CLP'].includes(currency.toUpperCase());
     }
   }
-  
+
   return zeroDecimalCurrency ? Math.round(amount) : Math.round(amount * 100);
 };
 

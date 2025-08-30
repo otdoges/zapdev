@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { appConfig } from '@/config/app.config';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ interface ChatMessage {
   };
 }
 
-export default function AISandboxPage() {
+function AISandboxPage() {
   const { isSignedIn, user, isLoaded } = useUser();
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -92,6 +92,7 @@ export default function AISandboxPage() {
   const [searchSubTab, setSearchSubTab] = useState<'search' | 'scout'>('search');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReactScanModal, setShowReactScanModal] = useState(false);
+  const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
   
   const [conversationContext, setConversationContext] = useState<{
     scrapedWebsites: Array<{ url: string; content: any; timestamp: Date }>;
@@ -3137,7 +3138,7 @@ Focus on the key sections and content, making it clean and modern.`;
                 >
                   {appConfig.ai.availableModels.map(model => (
                     <option key={model} value={model}>
-                      {appConfig.ai.modelDisplayNames[model] || model}
+                      {(appConfig.ai.modelDisplayNames as Record<string, string>)[model] || model}
                     </option>
                   ))}
                 </select>
@@ -3173,7 +3174,7 @@ Focus on the key sections and content, making it clean and modern.`;
           >
             {appConfig.ai.availableModels.map(model => (
               <option key={model} value={model}>
-                {appConfig.ai.modelDisplayNames[model] || model}
+                {(appConfig.ai.modelDisplayNames as Record<string, string>)[model] || model}
               </option>
             ))}
           </select>
@@ -3597,5 +3598,17 @@ Focus on the key sections and content, making it clean and modern.`;
 
 
     </div>
+  );
+}
+
+export default function WrappedAISandboxPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    }>
+      <AISandboxPage />
+    </Suspense>
   );
 }
