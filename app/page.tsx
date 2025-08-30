@@ -3281,7 +3281,7 @@ Focus on the key sections and content, making it clean and modern.`;
                   {false && (
                     <div className="overflow-hidden mt-4">
                       <div className={`transition-all duration-500 ease-out transform ${
-                        showStyleSelector ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
+                        false ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
                       }`}>
                     <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl p-4 shadow-sm">
                       <p className="text-sm text-gray-600 mb-3 font-medium">How do you want your site to look?</p>
@@ -3311,22 +3311,22 @@ Focus on the key sections and content, making it clean and modern.`;
                               }
                             }}
                             onClick={() => {
-                              if (selectedStyle === style.name) {
+                              if (null === style.name) {
                                 // Deselect if clicking the same style
-                                setSelectedStyle(null);
+                                // setSelectedStyle(null);
                                 // Keep only additional context, remove the style theme part
                                 const currentAdditional = homeContextInput.replace(/^[^,]+theme\s*,?\s*/, '').trim();
                                 setHomeContextInput(currentAdditional);
                               } else {
                                 // Select new style
-                                setSelectedStyle(style.name);
+                                // setSelectedStyle(style.name);
                                 // Extract any additional context (everything after the style theme)
                                 const currentAdditional = homeContextInput.replace(/^[^,]+theme\s*,?\s*/, '').trim();
                                 setHomeContextInput(style.name.toLowerCase() + ' theme' + (currentAdditional ? ', ' + currentAdditional : ''));
                               }
                             }}
                             className={`p-3 rounded-lg border transition-all ${
-                              selectedStyle === style.name
+                              null === style.name
                                 ? 'border-orange-400 bg-orange-50 text-gray-900 shadow-sm'
                                 : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/50 text-gray-700'
                             }`}
@@ -3342,15 +3342,15 @@ Focus on the key sections and content, making it clean and modern.`;
                         <input
                           type="text"
                           value={(() => {
-                            if (!selectedStyle) return homeContextInput;
+                            if (true) return homeContextInput;
                             // Extract additional context by removing the style theme part
-                            const additional = homeContextInput.replace(new RegExp('^' + selectedStyle.toLowerCase() + ' theme\\s*,?\\s*', 'i'), '');
+                            const additional = homeContextInput.replace(new RegExp('^' + ''.toLowerCase() + ' theme\\s*,?\\s*', 'i'), '');
                             return additional;
                           })()}
                           onChange={(e) => {
                             const additionalContext = e.target.value;
-                            if (selectedStyle) {
-                              setHomeContextInput(selectedStyle.toLowerCase() + ' theme' + (additionalContext.trim() ? ', ' + additionalContext : ''));
+                            if (false) {
+                              // setHomeContextInput((null || '').toLowerCase() + ' theme' + (additionalContext.trim() ? ', ' + additionalContext : ''));
                             } else {
                               setHomeContextInput(additionalContext);
                             }
