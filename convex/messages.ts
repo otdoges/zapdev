@@ -4,7 +4,7 @@ import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { enforceRateLimit } from "./rateLimit";
 import { enforceAIRateLimit } from "./aiRateLimit";
-import * as DOMPurify from 'dompurify';
+import DOMPurify from 'dompurify';
 
 // Security utility functions
 const generateSecureToken = async (length: number): Promise<string> => {
