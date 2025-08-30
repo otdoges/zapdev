@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = stripe.webhooks.constructEvent(body, signature, webhookSecret!);
     } catch (err) {
       console.error('Webhook signature verification failed:', err);
       return NextResponse.json(
@@ -167,7 +167,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   console.log('Invoice payment succeeded:', invoice.id);
   
-  const subscriptionId = invoice.subscription as string;
+  const subscriptionId = (invoice as any).subscription;
   if (!subscriptionId) {
     return;
   }
@@ -183,7 +183,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   console.log('Invoice payment failed:', invoice.id);
   
-  const subscriptionId = invoice.subscription as string;
+  const subscriptionId = (invoice as any).subscription;
   if (!subscriptionId) {
     return;
   }

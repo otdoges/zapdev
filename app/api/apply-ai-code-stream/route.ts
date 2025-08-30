@@ -463,7 +463,7 @@ export async function POST(request: NextRequest) {
                       if (data.type === 'success' && data.installedPackages) {
                         results.packagesInstalled = data.installedPackages;
                       }
-                    } catch (e) {
+                    } catch {
                       // Ignore parse errors
                     }
                   }

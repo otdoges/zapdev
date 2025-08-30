@@ -65,7 +65,6 @@ export async function POST(request: NextRequest) {
       if (builtins.includes(imp)) return false;
       
       // Extract package name (handle scoped packages and subpaths)
-      const parts = imp.split('/');
       if (imp.startsWith('@')) {
         // Scoped package like @vitejs/plugin-react
         return true;

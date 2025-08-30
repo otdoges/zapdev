@@ -32,18 +32,14 @@ export const appConfig = {
     
     // Available models
     availableModels: [
-      'openai/gpt-5',
       'moonshotai/kimi-k2-instruct',
-      'anthropic/claude-sonnet-4-20250514',
-      'google/gemini-2.5-pro'
+      'google/gemini-2.5-flash'
     ],
     
     // Model display names
     modelDisplayNames: {
-      'openai/gpt-5': 'GPT-5',
       'moonshotai/kimi-k2-instruct': 'Kimi K2 Instruct',
-      'anthropic/claude-sonnet-4-20250514': 'Sonnet 4',
-      'google/gemini-2.5-pro': 'Gemini 2.5 Pro'
+      'google/gemini-2.5-flash': 'Gemini 2.5 Flash Lite'
     },
     
     // Temperature settings for non-reasoning models
@@ -54,6 +50,34 @@ export const appConfig = {
     
     // Max tokens for truncation recovery
     truncationRecoveryMaxTokens: 4000,
+    
+    // Model capabilities and specializations
+    modelCapabilities: {
+      'moonshotai/kimi-k2-instruct': {
+        strengths: ['code-generation', 'quality', 'thoroughness', 'versatility'],
+        specialty: 'Universal Code Generation & Development',
+        useCase: 'High-quality development with specialized system prompts',
+        speed: 'thorough',
+        maxTokens: 8192,
+        supportsTools: false,
+        cost: 'premium',
+        systemPrompts: {
+          'code-generation': 'Expert code generator focused on clean, efficient implementation',
+          'security-review': 'Security analyst reviewing code for vulnerabilities and best practices',
+          'architecture-planning': 'System architect designing scalable, maintainable solutions',
+          'decision-making': 'Technical decision maker evaluating options and trade-offs'
+        }
+      },
+      'google/gemini-2.5-flash': {
+        strengths: ['prompt-optimization', 'enhancement', 'creativity', 'speed'],
+        specialty: 'Prompt Enhancement & Optimization',
+        useCase: 'Improving and optimizing prompts for better AI responses',
+        speed: 'fast',
+        maxTokens: 8192,
+        supportsTools: true,
+        cost: 'low'
+      }
+    },
   },
   
   // Code Application Configuration
@@ -74,7 +98,7 @@ export const appConfig = {
   // UI Configuration
   ui: {
     // Show/hide certain UI elements
-    showModelSelector: true,
+    showModelSelector: false,
     showStatusIndicator: true,
     
     // Animation durations (milliseconds)

@@ -40,7 +40,7 @@ An advanced AI-powered development platform inspired by scout.new, featuring int
 
 1. **Clone & Install**
 ```bash
-git clone https://github.com/mendableai/zapdev.git
+git clone https://github.com/otdoges/zapdev.git
 cd zapdev
 bun install
 ```
@@ -152,5 +152,5 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🙏 Acknowledgments
 
 - Inspired by [scout.new](https://scout.new) - AI agent with autonomous execution
-- Built on [open-lovable](https://github.com/mendableai/open-lovable) foundation
+- Built on [open-lovable](https://github.com/firecrawl/open-lovable) foundation
 - Powered by [Firecrawl](https://firecrawl.dev) for web scraping capabilities

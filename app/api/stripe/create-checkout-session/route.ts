@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
           unit_amount: customAmount.amount,
           ...(mode === 'subscription' && {
             recurring: {
-              interval: 'month',
+              interval: 'month' as const,
             },
           }),
         },
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
     const sessionParams = {
       customer: customer.id,
-      payment_method_types: ['card'] as const,
+      payment_method_types: ['card'] as any,
       line_items: lineItems,
       mode,
       allow_promotion_codes: allowPromotionCodes,

@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { query, count = 10, offset = 0, searchType = 'web' } = await req.json();
+    const { query, count = 10, offset = 0 } = await req.json();
 
     if (!query) {
       return NextResponse.json({ error: 'Query parameter is required' }, { status: 400 });

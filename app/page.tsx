@@ -12,7 +12,6 @@ import {
   FiFile, 
   FiChevronRight, 
   FiChevronDown,
-  FiGithub,
   BsFolderFill, 
   BsFolder2Open,
   SiJavascript, 
@@ -20,12 +19,15 @@ import {
   SiCss3, 
   SiJson 
 } from '@/lib/icons';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
 import { UserButton, SignInButton, useUser } from '@clerk/nextjs';
 import BraveSearch from '@/components/BraveSearch';
 import ScoutFeatures from '@/components/ScoutFeatures';
 import ConvexChat from '@/components/ConvexChat';
+import AutonomousDashboard from '@/components/AutonomousDashboard';
+import UserSettingsModal from '@/components/UserSettingsModal';
+import ReactScanDashboard from '@/components/ReactScanDashboard';
 
 interface SandboxData {
   sandboxId: string;
@@ -51,7 +53,6 @@ export default function AISandboxPage() {
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: 'Not connected', active: false });
-  const [responseArea, setResponseArea] = useState<string[]>([]);
   const [structureContent, setStructureContent] = useState('No sandbox created yet');
   const [promptInput, setPromptInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -69,9 +70,7 @@ export default function AISandboxPage() {
     const modelParam = searchParams.get('model');
     return appConfig.ai.availableModels.includes(modelParam || '') ? modelParam! : appConfig.ai.defaultModel;
   });
-  const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
   const [urlInput, setUrlInput] = useState('');
-  const [urlStatus, setUrlStatus] = useState<string[]>([]);
   const [showHomeScreen, setShowHomeScreen] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['app', 'src', 'src/components']));
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -81,18 +80,18 @@ export default function AISandboxPage() {
   const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'search' | 'chats'>('preview');
   const [showStyleSelector, setShowStyleSelector] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
-  const [showLoadingBackground, setShowLoadingBackground] = useState(false);
   const [urlScreenshot, setUrlScreenshot] = useState<string | null>(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
   const [isPreparingDesign, setIsPreparingDesign] = useState(false);
   const [targetUrl, setTargetUrl] = useState<string>('');
   const [loadingStage, setLoadingStage] = useState<'gathering' | 'planning' | 'generating' | null>(null);
-  const [sandboxFiles, setSandboxFiles] = useState<Record<string, string>>({});
   const [fileStructure, setFileStructure] = useState<string>('');
   const [aiMode, setAiMode] = useState<'fast' | 'deep'>('fast');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [searchSubTab, setSearchSubTab] = useState<'search' | 'scout'>('search');
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showReactScanModal, setShowReactScanModal] = useState(false);
   
   const [conversationContext, setConversationContext] = useState<{
     scrapedWebsites: Array<{ url: string; content: any; timestamp: Date }>;
@@ -250,7 +249,7 @@ export default function AISandboxPage() {
   };
 
   const log = (message: string, type: 'info' | 'error' | 'command' = 'info') => {
-    setResponseArea(prev => [...prev, `[${type}] ${message}`]);
+    console.log(`[${type}] ${message}`);
   };
 
   const addChatMessage = (content: string, type: ChatMessage['type'], metadata?: ChatMessage['metadata']) => {
@@ -380,9 +379,9 @@ export default function AISandboxPage() {
   const createSandbox = async (fromHomeScreen = false) => {
     console.log('[createSandbox] Starting sandbox creation...');
     setLoading(true);
-    setShowLoadingBackground(true);
+    // showLoadingBackground set to true
     updateStatus('Creating sandbox...', false);
-    setResponseArea([]);
+    // responseArea cleared
     setScreenshotError(null);
     
     try {
@@ -410,7 +409,7 @@ export default function AISandboxPage() {
         
         // Fade out loading background after sandbox loads
         setTimeout(() => {
-          setShowLoadingBackground(false);
+          // setShowLoadingBackground(false);
         }, 3000);
         
         if (data.structure) {
@@ -538,7 +537,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                   } else if (data.message.includes('Creating files') || data.message.includes('Applying')) {
                     setCodeApplicationState({ 
                       stage: 'applying',
-                      filesGenerated: results.filesCreated 
+                      filesGenerated: data.filesCreated || [] 
                     });
                   }
                   break;
@@ -699,22 +698,22 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           log(data.explanation);
         }
         
-        if (data.autoCompleted) {
+        if ((data as any).autoCompleted) {
           log('Auto-generating missing components...', 'command');
           
-          if (data.autoCompletedComponents) {
+          if ((data as any).autoCompletedComponents) {
             setTimeout(() => {
               log('Auto-generated missing components:', 'info');
-              data.autoCompletedComponents.forEach((comp: string) => {
+              (data as any).autoCompletedComponents.forEach((comp: string) => {
                 log(`  ${comp}`, 'command');
               });
             }, 1000);
           }
-        } else if (data.warning) {
-          log(data.warning, 'error');
+        } else if ((data as any).warning) {
+          log((data as any).warning, 'error');
           
-          if (data.missingImports && data.missingImports.length > 0) {
-            const missingList = data.missingImports.join(', ');
+          if ((data as any).missingImports && (data as any).missingImports.length > 0) {
+            const missingList = (data as any).missingImports.join(', ');
             addChatMessage(
               `Ask me to "create the missing components: ${missingList}" to fix these import errors.`,
               'system'
@@ -724,7 +723,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         
         log('Code applied successfully!');
         console.log('[applyGeneratedCode] Response data:', data);
-        console.log('[applyGeneratedCode] Debug info:', data.debug);
+        console.log('[applyGeneratedCode] Debug info:', (data as any).debug);
         console.log('[applyGeneratedCode] Current sandboxData:', sandboxData);
         console.log('[applyGeneratedCode] Current iframe element:', iframeRef.current);
         console.log('[applyGeneratedCode] Current iframe src:', iframeRef.current?.src);
@@ -913,8 +912,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          setSandboxFiles(data.files || {});
-          setFileStructure(data.structure || '');
+          // setSandboxFiles(data.files || {});
+          // setFileStructure(data.structure || '');
           console.log('[fetchSandboxFiles] Updated file list:', Object.keys(data.files || {}).length, 'files');
         }
       }
@@ -1019,7 +1018,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                       // Create a map of edited files
                       const editedFiles = new Set(
                         generationProgress.files
-                          .filter(f => f.edited)
+                          .filter(f => (f as any).edited)
                           .map(f => f.path)
                       );
                       
@@ -1032,7 +1031,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                         if (!fileTree[dir]) fileTree[dir] = [];
                         fileTree[dir].push({
                           name: fileName,
-                          edited: file.edited || false
+                          edited: (file as any).edited || false
                         });
                       });
                       
@@ -1750,7 +1749,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                               content: fileContent.trim(),
                               type: fileType,
                               completed: true,
-                              edited: true
+                              // edited: true
                             },
                             ...updatedState.files.slice(existingFileIndex + 1)
                           ];
@@ -1761,7 +1760,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                             content: fileContent.trim(),
                             type: fileType,
                             completed: true,
-                            edited: false
+                            // edited: false
                           }];
                         }
                         
@@ -2095,7 +2094,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
   const cloneWebsite = async () => {
     let url = urlInput.trim();
     if (!url) {
-      setUrlStatus(prev => [...prev, 'Please enter a URL']);
+      // setUrlStatus(prev => [...prev, 'Please enter a URL']);
       return;
     }
     
@@ -2103,7 +2102,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       url = 'https://' + url;
     }
     
-    setUrlStatus([`Using: ${url}`, 'Starting to scrape...']);
+    // setUrlStatus([`Using: ${url}`, 'Starting to scrape...']);
     
     setUrlOverlayVisible(false);
     
@@ -2369,7 +2368,7 @@ Focus on the key sections and content, making it clean and modern while preservi
         );
         
         setUrlInput('');
-        setUrlStatus([]);
+        // setUrlStatus([]);
         setHomeContextInput('');
         
         // Clear generation progress and all screenshot/design states
@@ -2397,7 +2396,7 @@ Focus on the key sections and content, making it clean and modern while preservi
       
     } catch (error: any) {
       addChatMessage(`Failed to clone website: ${error.message}`, 'system');
-      setUrlStatus([]);
+      // setUrlStatus([]);
       setIsPreparingDesign(false);
       // Clear all states on error
       setUrlScreenshot(null);
@@ -2495,7 +2494,7 @@ Focus on the key sections and content, making it clean and modern while preservi
       // Now start the clone process which will stream the generation
       setUrlInput(homeUrlInput);
       setUrlOverlayVisible(false); // Make sure overlay is closed
-      setUrlStatus(['Scraping website content...']);
+      // setUrlStatus(['Scraping website content...']);
       
       try {
         // Scrape the website
@@ -2522,7 +2521,7 @@ Focus on the key sections and content, making it clean and modern while preservi
           throw new Error(scrapeData.error || 'Failed to scrape website');
         }
         
-        setUrlStatus(['Website scraped successfully!', 'Generating React app...']);
+        // setUrlStatus(['Website scraped successfully!', 'Generating React app...']);
         
         // Clear preparing design state and switch to generation tab
         setIsPreparingDesign(false);
@@ -2693,7 +2692,7 @@ Focus on the key sections and content, making it clean and modern.`;
                               content: fileContent.trim(),
                               type: fileType,
                               completed: true,
-                              edited: true
+                              // edited: true
                             },
                             ...updatedState.files.slice(existingFileIndex + 1)
                           ];
@@ -2704,7 +2703,7 @@ Focus on the key sections and content, making it clean and modern.`;
                             content: fileContent.trim(),
                             type: fileType,
                             completed: true,
-                            edited: false
+                            // edited: false
                           }];
                         }
                         
@@ -2805,7 +2804,7 @@ Focus on the key sections and content, making it clean and modern.`;
         }
         
         setUrlInput('');
-        setUrlStatus([]);
+        // setUrlStatus([]);
         setHomeContextInput('');
         
         // Clear generation progress and all screenshot/design states
@@ -2829,7 +2828,7 @@ Focus on the key sections and content, making it clean and modern.`;
         }, 1000); // Show completion briefly then switch
       } catch (error: any) {
         addChatMessage(`Failed to clone website: ${error.message}`, 'system');
-        setUrlStatus([]);
+        // setUrlStatus([]);
         setIsPreparingDesign(false);
         // Also clear generation progress on error
         setGenerationProgress(prev => ({
@@ -2908,7 +2907,42 @@ Focus on the key sections and content, making it clean and modern.`;
               ) : isSignedIn ? (
                 <>
                   <span className="text-sm text-gray-600">Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress}</span>
-                  <UserButton />
+                  <div className="flex items-center gap-2">
+                    {process.env.NODE_ENV === 'development' && (
+                      <button
+                        onClick={() => setShowReactScanModal(true)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="React Performance Monitor"
+                      >
+                        <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                      </button>
+                    )}
+                    <UserButton 
+                      afterSignOutUrl="/"
+                      appearance={{
+                        elements: {
+                          avatarBox: "w-8 h-8",
+                          userButtonPopoverCard: "shadow-lg",
+                          userButtonPopoverActions: "space-y-1"
+                        }
+                      }}
+                      userProfileProps={{
+                        additionalOAuthScopes: {
+                          github: ['repo', 'user:email']
+                        }
+                      }}
+                    >
+                      <UserButton.MenuItems>
+                        <UserButton.Action
+                          label="Settings"
+                          labelIcon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+                          onClick={() => setShowSettingsModal(true)}
+                        />
+                      </UserButton.MenuItems>
+                    </UserButton>
+                  </div>
                 </>
               ) : null}
             </div>

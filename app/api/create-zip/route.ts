@@ -4,7 +4,7 @@ declare global {
   var activeSandbox: any;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     if (!global.activeSandbox) {
       return NextResponse.json({ 
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     console.log('[create-zip] Creating project zip...');
     
     // Create zip file in sandbox
-    const result = await global.activeSandbox.runCode(`
+    await global.activeSandbox.runCode(`
 import zipfile
 import os
 import json

@@ -4,6 +4,8 @@ import { ClerkProvider, useAuth } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
+import { PostHogProvider } from '@/components/PostHogProvider';
+import { ReactScanProvider } from '@/components/ReactScanProvider';
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -29,11 +31,15 @@ export default function RootLayout({
       }}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <html lang="en">
-          <body className={inter.className}>
-            {children}
-          </body>
-        </html>
+        <PostHogProvider>
+          <ReactScanProvider>
+            <html lang="en">
+              <body className={inter.className}>
+                {children}
+              </body>
+            </html>
+          </ReactScanProvider>
+        </PostHogProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );

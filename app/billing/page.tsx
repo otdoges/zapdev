@@ -133,7 +133,7 @@ export default function BillingPage() {
             </p>
           </div>
           
-          <SubscriptionPlans />
+          <SubscriptionPlans plans={[]} />
         </div>
 
         {/* FAQ Section */}

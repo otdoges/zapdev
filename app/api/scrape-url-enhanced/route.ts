@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to scrape content');
     }
     
-    const { markdown, html, metadata } = data.data;
+    const { markdown, metadata } = data.data;
     
     // Sanitize the markdown content
     const sanitizedMarkdown = sanitizeQuotes(markdown || '');
