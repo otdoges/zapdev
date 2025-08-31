@@ -1,5 +1,15 @@
+/**
+ * DEPRECATED: Brave Search API Route
+ * 
+ * This API route is maintained for backwards compatibility but is deprecated.
+ * New implementations should use /api/search/query which provides AI-enhanced results.
+ * 
+ * This route now uses the internal search service for consistency.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { getInternalBraveSearch } from '@/lib/search/internal-brave-search';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,47 +25,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Query parameter is required' }, { status: 400 });
     }
 
-    const braveApiKey = process.env.BRAVE_API_KEY;
-    if (!braveApiKey) {
-      return NextResponse.json({ error: 'Brave API key not configured' }, { status: 500 });
-    }
+    // Use the new internal search service for consistency
+    const internalSearch = getInternalBraveSearch();
+    
+    try {
+      const searchResult = await internalSearch.search(query, {
+        count,
+        offset,
+        language: 'en',
+        country: 'US',
+        safesearch: 'moderate'
+      });
 
-    // Make request to Brave Search API
-    const braveUrl = new URL('https://api.search.brave.com/res/v1/web/search');
-    braveUrl.searchParams.set('q', query);
-    braveUrl.searchParams.set('count', count.toString());
-    braveUrl.searchParams.set('offset', offset.toString());
-    braveUrl.searchParams.set('search_lang', 'en');
-    braveUrl.searchParams.set('country', 'US');
-    braveUrl.searchParams.set('safesearch', 'moderate');
+      // Return in the legacy format for backwards compatibility
+      return NextResponse.json({
+        success: true,
+        results: searchResult.results,
+        query: searchResult.query,
+        mixed: searchResult.mixed || null,
+        // Add deprecation notice
+        _deprecated: true,
+        _notice: 'This API is deprecated. Please use /api/search/query for enhanced AI-powered search.',
+        _newEndpoint: '/api/search/query'
+      });
 
-    const response = await fetch(braveUrl.toString(), {
-      method: 'GET',
-      headers: {
-        'X-Subscription-Token': braveApiKey,
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.error('Brave API error:', response.status, await response.text());
+    } catch (searchError) {
+      console.error('Internal search error:', searchError);
       return NextResponse.json(
-        { error: 'Failed to search', status: response.status },
-        { status: response.status }
+        { error: 'Search service unavailable', status: 503 },
+        { status: 503 }
       );
     }
 
-    const data = await response.json();
-    
-    return NextResponse.json({
-      success: true,
-      results: data.web?.results || [],
-      query: data.query,
-      mixed: data.mixed || null,
-    });
-
   } catch (error) {
-    console.error('Brave search error:', error);
+    console.error('Brave search API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

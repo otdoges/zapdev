@@ -1,5 +1,15 @@
 'use client';
 
+/**
+ * DEPRECATED: BraveSearch Component
+ * 
+ * This component has been replaced with UserSearch for better user experience.
+ * It now shows a deprecation notice and redirects users to the new search system.
+ * 
+ * The internal search functionality has been moved to lib/search/internal-brave-search.ts
+ * for AI-only usage.
+ */
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +35,7 @@ export default function BraveSearch({ onResultSelect, compact = false }: BraveSe
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDeprecationNotice, setShowDeprecationNotice] = useState(true);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -68,6 +79,38 @@ export default function BraveSearch({ onResultSelect, compact = false }: BraveSe
 
   return (
     <div className={`space-y-4 ${compact ? 'p-4' : 'p-6'}`}>
+      {/* Deprecation Notice */}
+      {showDeprecationNotice && (
+        <div className="bg-orange-950 border border-orange-700 p-4 rounded-lg">
+          <div className="flex items-start gap-3">
+            <span className="text-orange-400 text-lg">⚠️</span>
+            <div className="flex-1">
+              <h3 className="text-orange-300 font-semibold mb-2">
+                Search System Upgraded!
+              </h3>
+              <p className="text-orange-200 text-sm mb-3">
+                This search interface has been replaced with an AI-enhanced search system 
+                that provides better categorization, relevance scoring, and insights.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowDeprecationNotice(false)}
+                  className="text-xs bg-orange-800 hover:bg-orange-700 text-orange-200 px-3 py-1 rounded transition-colors"
+                >
+                  Continue with legacy search
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="text-xs bg-blue-800 hover:bg-blue-700 text-blue-200 px-3 py-1 rounded transition-colors"
+                >
+                  Switch to new search
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="flex gap-2">
         <Input
           value={query}
