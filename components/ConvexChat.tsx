@@ -356,7 +356,7 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
                           </p>
                         </div>
                       </motion.div>
-                    )))
+                    ))}
                   </AnimatePresence>
                 ) : (
                   <div className="flex items-center justify-center h-full">
@@ -409,7 +409,8 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
               </div>
             </div>
           )}
-          </div>
+        </div>
+      </div>
         </>
       )}
     </div>
