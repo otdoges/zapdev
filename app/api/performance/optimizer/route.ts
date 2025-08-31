@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PerformanceOptimizer } from '@/lib/performance-optimizer';
-import { auth } from '@clerk/nextjs/server';
+import { requireAdmin } from '@/lib/admin-auth';
 
 const optimizer = PerformanceOptimizer.getInstance();
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    await auth();
+    // Require admin authentication for performance optimization access
+    const adminUser = await requireAdmin();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
@@ -60,7 +61,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    await auth();
+    // Require admin authentication for performance optimization operations
+    const adminUser = await requireAdmin();
     const body = await request.json();
     const { action, ...data } = body;
 

@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RealtimeMonitor } from '@/lib/realtime-monitor';
-import { auth } from '@clerk/nextjs/server';
+import { requireAdmin } from '@/lib/admin-auth';
 
 const monitor = RealtimeMonitor.getInstance();
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // CRITICAL SECURITY FIX: Require authentication
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    // CRITICAL SECURITY FIX: Require admin authentication for realtime monitoring
+    const adminUser = await requireAdmin();
     
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
@@ -72,14 +66,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // CRITICAL SECURITY FIX: Require authentication  
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    // CRITICAL SECURITY FIX: Require admin authentication for realtime monitoring operations
+    const adminUser = await requireAdmin();
     
     const body = await request.json();
     const { action, ...data } = body;

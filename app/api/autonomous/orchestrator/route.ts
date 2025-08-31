@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BackgroundOrchestrator } from '@/lib/background-orchestrator';
-import { auth } from '@clerk/nextjs/server';
+import { requireAdmin } from '@/lib/admin-auth';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = await auth();
+    // Require admin authentication for orchestrator access
+    const adminUser = await requireAdmin();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         const jobs = orchestrator.getJobs({
           ...(status && { status }),
           ...(type && { type }),
-          ...(userId && { userId })
+          ...(adminUser.userId && { userId: adminUser.userId })
         });
         
         return NextResponse.json({ success: true, jobs });
@@ -59,7 +60,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = await auth();
+    // Require admin authentication for orchestrator operations
+    const adminUser = await requireAdmin();
     const body = await request.json();
     const { action, ...data } = body;
     
@@ -76,26 +78,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           schedule: data.schedule,
           trigger: data.trigger,
           metadata: {
-            userId: userId || undefined,
+            userId: adminUser.userId,
             subscriptionType: data.subscriptionType || 'free',
             maxRetries: data.maxRetries || 2,
-            timeout: data.timeout || 60
+            timeout: data.timeout || 60,
+            adminUser: adminUser.email
           }
         });
         
         return NextResponse.json({ success: true, jobId });
 
       case 'parallel-development':
-        if (!userId) {
-          return NextResponse.json(
-            { success: false, error: 'Authentication required' },
-            { status: 401 }
-          );
-        }
-        
         const parallelJobId = await orchestrator.createParallelDevelopmentJob(
           data.features || [],
-          userId,
+          adminUser.userId,
           data.subscriptionType || 'free'
         );
         

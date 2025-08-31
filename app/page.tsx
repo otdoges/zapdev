@@ -25,7 +25,7 @@ import { UserButton, SignInButton, useUser } from '@clerk/nextjs';
 import BraveSearch from '@/components/BraveSearch';
 import ScoutFeatures from '@/components/ScoutFeatures';
 import ConvexChat from '@/components/ConvexChat';
-import AutonomousDashboard from '@/components/AutonomousDashboard';
+
 import UserSettingsModal from '@/components/UserSettingsModal';
 import ReactScanDashboard from '@/components/ReactScanDashboard';
 import ConversationHistorySidebar from '@/components/ConversationHistorySidebar';
