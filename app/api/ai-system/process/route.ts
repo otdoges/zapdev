@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IntegratedAISystem, AIRequest } from '@/lib/integrated-ai-system';
-import { auth } from '@clerk/nextjs/server';
+import { requireAdmin } from '@/lib/admin-auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    // Require admin authentication for AI system processing
+    const adminUser = await requireAdmin();
     const aiSystem = IntegratedAISystem.getInstance();
     
     const body = await request.json();
     const aiRequest: AIRequest = {
       ...body,
-      userId: userId || undefined
+      userId: adminUser.userId,
+      adminUser: adminUser.email
     };
 
     // Validate required fields
