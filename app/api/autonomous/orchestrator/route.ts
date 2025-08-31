@@ -81,8 +81,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             userId: adminUser.userId,
             subscriptionType: data.subscriptionType || 'free',
             maxRetries: data.maxRetries || 2,
-            timeout: data.timeout || 60,
-            adminUser: adminUser.email
+            timeout: data.timeout || 60
           }
         });
         

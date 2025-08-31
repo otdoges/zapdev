@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { withDatabase } from './pool';
 import path from 'path';
-import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -307,7 +307,7 @@ export class DatabaseBackupManager {
       }
       
       // Write to file
-      require('fs').writeFileSync(filename, sqlDump);
+      writeFileSync(filename, sqlDump);
     });
 
     console.log(`✅ Database exported to SQL: ${filename}`);

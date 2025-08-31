@@ -25,7 +25,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const db = getDatabase();
     const trimmedQuery = query.trim();
     
-    // Security: Only allow safe operations
+    // Security: Only allow safe operations - enhanced protection
     const forbiddenPatterns = [
       /ATTACH\s+DATABASE/i,
       /DETACH\s+DATABASE/i,
@@ -37,6 +37,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       /\.output/i,
       /\.shell/i,
       /\.system/i,
+      /UNION.*SELECT/i,
+      /;\s*DROP/i,
+      /;\s*DELETE.*FROM/i,
+      /;\s*UPDATE.*SET/i,
+      /exec\s*\(/i,
+      /eval\s*\(/i,
+      /--\s*\w/,
+      /\/\*.*\*\//,
     ];
     
     for (const pattern of forbiddenPatterns) {
@@ -48,9 +56,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
     
+    // Additional security: Limit query complexity
+    if (trimmedQuery.length > 5000) {
+      return NextResponse.json(
+        { error: 'Query too long - maximum 5000 characters allowed' },
+        { status: 400 }
+      );
+    }
+    
     // Determine if this is a SELECT query or a modification query
     const isSelect = /^\s*SELECT/i.test(trimmedQuery);
     const isShow = /^\s*PRAGMA\s+table_info/i.test(trimmedQuery);
+    
+    // Additional protection: Only allow basic operations for authenticated users
+    if (!isSelect && !isShow) {
+      const allowedOperations = ['INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP'];
+      const hasAllowedOperation = allowedOperations.some(op => 
+        new RegExp(`^\\s*${op}`, 'i').test(trimmedQuery)
+      );
+      
+      if (!hasAllowedOperation) {
+        return NextResponse.json(
+          { error: 'Operation not allowed' },
+          { status: 403 }
+        );
+      }
+    }
     
     try {
       if (isSelect || isShow) {

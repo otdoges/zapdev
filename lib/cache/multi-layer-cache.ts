@@ -582,4 +582,4 @@ export function cached(options: CacheOptions & {
   };
 }
 
-export { MultiLayerCache, CacheOptions, CacheStats };
+export { CacheOptions, CacheStats };

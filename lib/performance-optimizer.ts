@@ -441,7 +441,10 @@ export class PerformanceOptimizer {
 
     const grouped: Record<string, PerformanceMetric[]> = {};
     for (const metric of recentMetrics) {
-      const key = `${metric.metricType}_${metric.tags?.component || 'system'}`;
+      // Fixed: Sanitize user input to prevent format string injection
+      const sanitizedMetricType = metric.metricType.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const sanitizedComponent = (metric.tags?.component || 'system').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const key = `${sanitizedMetricType}_${sanitizedComponent}`;
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(metric);
     }
@@ -707,7 +710,8 @@ export class PerformanceOptimizer {
       id: `benchmark_gap_${benchmark.id}_${Date.now()}`,
       type: 'code_optimization',
       title: `${benchmark.name} Below Target`,
-      description: `Current ${benchmark.name.toLowerCase()} (${currentValue.toFixed(2)} ${benchmark.unit}) is ${gap.toFixed(1)}% below target (${benchmark.target} ${benchmark.unit}).`,
+      // Fixed: Sanitize user input to prevent format string injection
+      description: `Current ${benchmark.name.toLowerCase().replace(/[<>&"']/g, '')} (${currentValue.toFixed(2)} ${benchmark.unit.replace(/[<>&"']/g, '')}) is ${gap.toFixed(1)}% below target (${benchmark.target} ${benchmark.unit.replace(/[<>&"']/g, '')}).`,
       impact: {
         performance: Math.min(gap, 50), // Up to 50% improvement
         cost: 'medium',
@@ -970,7 +974,8 @@ export class PerformanceOptimizer {
           id: `alert_${metric.metricType}_${Date.now()}`,
           level: alertLevel,
           title: `High ${metric.metricType.replace('_', ' ').toUpperCase()}`,
-          message: `${metric.metricType.replace('_', ' ')} (${metric.value.toFixed(2)} ${metric.unit}) exceeded ${alertLevel} threshold (${threshold} ${metric.unit})`,
+          // Fixed: Sanitize user input to prevent format string injection
+          message: `${metric.metricType.replace(/[^a-zA-Z0-9_-]/g, '_').replace('_', ' ')} (${metric.value.toFixed(2)} ${metric.unit.replace(/[<>&"']/g, '')}) exceeded ${alertLevel} threshold (${threshold} ${metric.unit.replace(/[<>&"']/g, '')})`,
           metricId: metric.id,
           currentValue: metric.value,
           threshold,
@@ -1167,7 +1172,10 @@ export class PerformanceOptimizer {
           break;
 
         case 'restart':
-          console.log(`Restarting ${rule.action.parameters.component} due to rule: ${rule.name}`);
+          // Fixed: Sanitize user input to prevent format string injection
+          const sanitizedComponent = rule.action.parameters.component?.replace(/[<>&"']/g, '') || 'unknown';
+          const sanitizedRuleName = rule.name?.replace(/[<>&"']/g, '') || 'unknown';
+          console.log(`Restarting ${sanitizedComponent} due to rule: ${sanitizedRuleName}`);
           break;
 
         case 'alert':
@@ -1192,7 +1200,10 @@ export class PerformanceOptimizer {
    */
   private async triggerAutoScale(direction: 'scale_up' | 'scale_down', reason: string) {
     // Implementation would depend on the actual infrastructure
-    console.log(`Auto-scaling ${direction} triggered: ${reason}`);
+    // Fixed: Sanitize user input to prevent format string injection
+    const sanitizedDirection = direction?.replace(/[<>&"']/g, '') || 'unknown';
+    const sanitizedReason = reason?.replace(/[<>&"']/g, '') || 'no reason provided';
+    console.log(`Auto-scaling ${sanitizedDirection} triggered: ${sanitizedReason}`);
     
     // Track scaling event
     trackFeatureUsage('system', 'auto-scaling', true, {

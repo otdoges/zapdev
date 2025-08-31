@@ -74,15 +74,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     switch (action) {
       case 'subscribe':
-        if (!userId) {
-          return NextResponse.json(
-            { success: false, error: 'Authentication required' },
-            { status: 401 }
-          );
-        }
-        
         const subscribed = monitor.subscribe({
-          userId,
+          userId: adminUser.userId,
           subscriptionType: data.subscriptionType || 'free',
           channels: data.channels || [],
           filters: data.filters || {},

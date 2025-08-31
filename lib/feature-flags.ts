@@ -1,4 +1,34 @@
-import { AdminUser, getUserRole } from './admin-auth';
+// Types only - avoid server imports in client code
+export type UserRole = 'user' | 'admin' | 'developer';
+
+export interface AdminUser {
+  userId: string;
+  email: string;
+  role: UserRole;
+  permissions: string[];
+}
+
+// Client-side version of getUserRole function
+function getUserRole(userId: string, email?: string): UserRole {
+  // Admin user IDs - this should be moved to environment variables in production
+  const ADMIN_USER_IDS = process.env.NEXT_PUBLIC_ADMIN_USER_IDS?.split(',') || [];
+  const DEVELOPER_USER_IDS = process.env.NEXT_PUBLIC_DEVELOPER_USER_IDS?.split(',') || [];
+  
+  // Check if user is in admin/developer lists
+  if (ADMIN_USER_IDS.includes(userId)) return 'admin';
+  if (DEVELOPER_USER_IDS.includes(userId)) return 'developer';
+  
+  // Check by email domain for development
+  if (email && (
+    email.endsWith('@zapdev.com') || 
+    email.endsWith('@lovable.dev') ||
+    email.endsWith('@admin.zapdev.com')
+  )) {
+    return email.includes('dev') ? 'developer' : 'admin';
+  }
+  
+  return 'user';
+}
 
 export interface FeatureFlag {
   key: string;

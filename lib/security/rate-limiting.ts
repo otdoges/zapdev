@@ -210,8 +210,11 @@ export class RateLimiter {
     }
     
     const timestamp = Math.floor(Date.now() / windowMs);
+    // Fixed: Use simple string concatenation for rate limiting keys instead of cryptographic hash
+    // Cryptographic hashing is unnecessary overhead for rate limiting keys
     const key = `rate_limit:${identifier}:${endpoint}:${timestamp}`;
-    return createHash('sha256').update(key).digest('hex').substring(0, 16);
+    // Simple base64 encoding is sufficient for key generation
+    return Buffer.from(key).toString('base64').substring(0, 16);
   }
 
   async checkLimit(

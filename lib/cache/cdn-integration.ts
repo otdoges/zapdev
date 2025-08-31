@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { readFileSync, existsSync, statSync } from 'fs';
+import { readFileSync, existsSync, statSync, writeFileSync } from 'fs';
 import { join, extname, basename } from 'path';
 
 interface CDNConfig {
@@ -455,7 +455,7 @@ export class CDNManager {
   saveAssetManifest(manifestPath: string): void {
     try {
       const manifestData = Object.fromEntries(this.assetManifest.entries());
-      require('fs').writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2));
+      writeFileSync(manifestPath, JSON.stringify(manifestData, null, 2));
       console.log(`Saved asset manifest with ${this.assetManifest.size} entries`);
     } catch (error) {
       console.error('Failed to save asset manifest:', error);

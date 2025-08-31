@@ -64,8 +64,8 @@ function extractImports(content: string): ImportInfo[] {
 function extractExports(content: string): string[] {
   const exports: string[] = [];
   
-  // Match default export
-  if (/export\s+default\s+/m.test(content)) {
+  // Match default export - optimized regex
+  if (content.includes('export default')) {
     // Try to find the name of the default export
     const defaultExportMatch = content.match(/export\s+default\s+(?:function\s+)?(\w+)/);
     if (defaultExportMatch) {
@@ -102,8 +102,8 @@ function extractExports(content: string): string[] {
  * Extract React component information
  */
 function extractComponentInfo(content: string, filePath: string): ComponentInfo | undefined {
-  // Check if this is likely a React component
-  const hasJSX = /<[A-Z]\w*|<[a-z]+\s+[^>]*\/?>/.test(content);
+  // Check if this is likely a React component (fixed ReDoS vulnerability)
+  const hasJSX = /<[A-Z]\w{0,50}|<[a-z]+\s+[^>]{0,200}\/?>/m.test(content);
   if (!hasJSX && !content.includes('React')) return undefined;
   
   // Try to find component name
@@ -114,8 +114,8 @@ function extractComponentInfo(content: string, filePath: string): ComponentInfo 
   if (funcComponentMatch) {
     componentName = funcComponentMatch[1];
   } else {
-    // Check for arrow function component
-    const arrowComponentMatch = content.match(/(?:export\s+)?(?:default\s+)?(?:const|let)\s+([A-Z]\w*)\s*=\s*(?:\([^)]*\)|[^=])*=>/);
+      // Check for arrow function component (fixed ReDoS vulnerability)
+    const arrowComponentMatch = content.match(/(?:export\s+)?(?:default\s+)?(?:const|let)\s+([A-Z]\w{0,50})\s*=\s*(?:\([^)]{0,200}\)|[^=]{0,100})=>/);
     if (arrowComponentMatch) {
       componentName = arrowComponentMatch[1];
     }
@@ -144,9 +144,9 @@ function extractComponentInfo(content: string, filePath: string): ComponentInfo 
   // Check if component has state
   const hasState = hooks.includes('useState') || hooks.includes('useReducer');
   
-  // Extract child components (rough approximation)
+  // Extract child components (rough approximation, fixed ReDoS vulnerability)
   const childComponents: string[] = [];
-  const componentRegex = /<([A-Z]\w*)[^>]*(?:\/?>|>)/g;
+  const componentRegex = /<([A-Z]\w{0,50})[^>]{0,200}(?:\/?>|>)/g;
   const componentMatches = content.matchAll(componentRegex);
   
   for (const match of componentMatches) {

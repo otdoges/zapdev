@@ -56,3 +56,6 @@ e2b-template-*
 *.temp
 repomix-output.txt
 bun.lockb
+
+# Sentry Config File
+.env.sentry-build-plugin

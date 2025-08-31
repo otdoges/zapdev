@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/nextjs';
-import { User } from '@clerk/nextjs/server';
 
 interface SentryConfig {
   dsn?: string;
@@ -324,7 +323,7 @@ export class SentryManager {
   }
 
   // Clerk integration helpers
-  setClerkUser(user: User | null): void {
+  setClerkUser(user: any | null): void {
     if (!user) {
       Sentry.setUser(null);
       return;
@@ -430,28 +429,16 @@ export function withSentryErrorBoundary<P extends object>(
   }
 
   return Sentry.withErrorBoundary(Component, {
-    fallback: ({ error, resetError }) => (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-        <h2 className="text-lg font-semibold text-red-800 mb-2">Something went wrong</h2>
-        <p className="text-red-600 mb-4">
-          An error occurred while rendering this component. Our team has been notified.
-        </p>
-        <button
-          onClick={resetError}
-          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Try again
-        </button>
-        {process.env.NODE_ENV === 'development' && (
-          <details className="mt-4">
-            <summary className="cursor-pointer text-red-700">Error details</summary>
-            <pre className="mt-2 p-2 bg-red-100 text-sm overflow-auto">
-              {error?.toString()}
-            </pre>
-          </details>
-        )}
-      </div>
-    ),
+    fallback: ({ error, resetError }: any) => {
+      // Return a simple error element without JSX in server context
+      return typeof window === 'undefined' ? null : {
+        type: 'div',
+        props: {
+          className: "p-4 bg-red-50 border border-red-200 rounded-lg",
+          children: 'Something went wrong'
+        }
+      };
+    },
     beforeCapture: (scope, error, errorInfo) => {
       scope.setContext('errorBoundary', {
         componentStack: errorInfo?.componentStack,

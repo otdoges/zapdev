@@ -432,9 +432,16 @@ function App() {
 export default App;`;
       
       try {
+        // Fixed: Complete string escaping to prevent injection
+        const escapedAppContent = appContent
+          .replace(/\\/g, '\\\\')   // Escape backslashes first
+          .replace(/"""/g, '\\"\\"\\"')  // Escape triple quotes  
+          .replace(/\$/g, '\\$')    // Escape dollar signs
+          .replace(/`/g, '\\`');    // Escape backticks
+          
         await global.activeSandbox.runCode(`
 file_path = "/home/user/app/src/App.jsx"
-file_content = """${appContent.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"""
+file_content = """${escapedAppContent}"""
 
 with open(file_path, 'w') as f:
     f.write(file_content)

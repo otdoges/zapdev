@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { requireAdminAccess } from '@/lib/admin-auth';
 import { getAllFeatureFlags, FeatureFlag, FeatureFlagKey } from '@/lib/feature-flags';
 import { 
-  Toggle,
   Users,
   Settings,
   TrendingUp,
@@ -14,9 +12,7 @@ import {
   Shield
 } from 'lucide-react';
 
-interface FeatureFlagsPageProps {}
-
-export default function FeatureFlagsPage({}: FeatureFlagsPageProps) {
+export default function FeatureFlagsPage() {
   const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [adminUser, setAdminUser] = useState<any>(null);

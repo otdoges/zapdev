@@ -434,7 +434,7 @@ export async function PUT(req: NextRequest) {
     // 3. Update the dead letter queue status accordingly
     
     return NextResponse.json({ 
-      message: \`Event \${eventId} replay request received\`,
+      message: `Event ${eventId} replay request received`,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -454,13 +454,3 @@ export async function GET(req: NextRequest) {
     timestamp: new Date().toISOString()
   });
 }
-    
-    export async function GET(req: NextRequest) {
-      // Health check endpoint for monitoring webhook accessibility
-      const webhookUrl = \`\${req.nextUrl.protocol}//\${req.nextUrl.host}/api/stripe/webhook\`;
-      return NextResponse.json({ 
-        status: 'Webhook endpoint is active',
-        url: webhookUrl,
-        timestamp: new Date().toISOString()
-      });
-    }

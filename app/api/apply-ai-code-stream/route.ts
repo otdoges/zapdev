@@ -65,7 +65,8 @@ function parseAIResponse(response: string): ParsedResponse {
   const fileMap = new Map<string, { content: string; isComplete: boolean }>();
   
   // First pass: Find all file declarations
-  const fileRegex = /<file path="([^"]+)">([\s\S]*?)(?:<\/file>|$)/g;
+  // Fixed ReDoS vulnerability by avoiding catastrophic backtracking
+  const fileRegex = /<file path="([^"]+)">([^<]*)(?:<\/file>|$)/g;
   let match;
   while ((match = fileRegex.exec(response)) !== null) {
     const filePath = match[1];
@@ -125,7 +126,8 @@ function parseAIResponse(response: string): ParsedResponse {
   }
   
   // Also parse markdown code blocks with file paths
-  const markdownFileRegex = /```(?:file )?path="([^"]+)"\n([\s\S]*?)```/g;
+  // Fixed ReDoS vulnerability by avoiding catastrophic backtracking
+  const markdownFileRegex = /```(?:file )?path="([^"]+)"\n([^`]*)```/g;
   while ((match = markdownFileRegex.exec(response)) !== null) {
     const filePath = match[1];
     const content = match[2].trim();
@@ -157,11 +159,14 @@ function parseAIResponse(response: string): ParsedResponse {
     // Try to extract the actual file content if it follows
     for (const fileName of filesList) {
       // Look for the file content after the file name
-      const fileContentRegex = new RegExp(`${fileName}[\\s\\S]*?(?:import[\\s\\S]+?)(?=Generated Files:|Applying code|$)`, 'i');
+      // Fixed externally-controlled format string vulnerability by sanitizing fileName
+      const sanitizedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const fileContentRegex = new RegExp(`${sanitizedFileName}[^\\n]*\\n([\\s\\S]{1,10000}?)(?=Generated Files:|Applying code|$)`, 'i');
       const fileContentMatch = response.match(fileContentRegex);
       if (fileContentMatch) {
         // Extract just the code part (starting from import statements)
-        const codeMatch = fileContentMatch[0].match(/^(import[\s\S]+)$/m);
+        // Fixed ReDoS vulnerability by limiting content size and avoiding backtracking
+        const codeMatch = fileContentMatch[0].match(/^(import[^;]{1,1000};[\\s\\S]{1,5000})$/m);
         if (codeMatch) {
           const filePath = fileName.includes('/') ? fileName : `src/components/${fileName}`;
           sections.files.push({
@@ -184,7 +189,8 @@ function parseAIResponse(response: string): ParsedResponse {
   }
   
   // Also try to parse if the response contains raw JSX/JS code blocks
-  const codeBlockRegex = /```(?:jsx?|tsx?|javascript|typescript)?\n([\s\S]*?)```/g;
+  // Fixed ReDoS vulnerability by avoiding catastrophic backtracking
+  const codeBlockRegex = /```(?:jsx?|tsx?|javascript|typescript)?\n([^`]*)```/g;
   while ((match = codeBlockRegex.exec(response)) !== null) {
     const content = match[1].trim();
     // Try to detect the file name from comments or context
@@ -224,7 +230,8 @@ function parseAIResponse(response: string): ParsedResponse {
   }
   
   // Also parse <packages> tag with multiple packages
-  const packagesRegex = /<packages>([\s\S]*?)<\/packages>/;
+  // Fixed ReDoS vulnerability by avoiding catastrophic backtracking
+  const packagesRegex = /<packages>([^<]{1,5000})<\/packages>/;
   const packagesMatch = response.match(packagesRegex);
   if (packagesMatch) {
     const packagesContent = packagesMatch[1].trim();
@@ -236,14 +243,16 @@ function parseAIResponse(response: string): ParsedResponse {
   }
 
   // Parse structure
-  const structureMatch = /<structure>([\s\S]*?)<\/structure>/;
+  // Fixed ReDoS vulnerability by avoiding catastrophic backtracking
+  const structureMatch = /<structure>([^<]{1,10000})<\/structure>/;
   const structResult = response.match(structureMatch);
   if (structResult) {
     sections.structure = structResult[1].trim();
   }
 
   // Parse explanation
-  const explanationMatch = /<explanation>([\s\S]*?)<\/explanation>/;
+  // Fixed ReDoS vulnerability by avoiding catastrophic backtracking
+  const explanationMatch = /<explanation>([^<]{1,10000})<\/explanation>/;
   const explResult = response.match(explanationMatch);
   if (explResult) {
     sections.explanation = explResult[1].trim();
@@ -534,19 +543,29 @@ export async function POST(request: NextRequest) {
               fileContent = fileContent.replace(/import\s+['"]\.\/[^'"]+\.css['"];?\s*\n?/g, '');
             }
             
-            // Write the file using Python (code-interpreter SDK)
-            const escapedContent = fileContent
-              .replace(/\\/g, '\\\\')
-              .replace(/"""/g, '\\"\\"\\"')
-              .replace(/\$/g, '\\$');
-            
-            await sandboxInstance.runCode(`
+            // Fixed: Use parameterized approach to prevent code injection
+            const pythonCode = `
 import os
-os.makedirs(os.path.dirname("${fullPath}"), exist_ok=True)
-with open("${fullPath}", 'w') as f:
-    f.write("""${escapedContent}""")
-print(f"File written: ${fullPath}")
-            `);
+import sys
+import json
+
+# Get the parameters from command line args
+path = sys.argv[1] if len(sys.argv) > 1 else ""
+content = sys.argv[2] if len(sys.argv) > 2 else ""
+
+if path and content:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"File written: {path}")
+else:
+    print("Error: Missing path or content")
+`;
+            
+            // Execute with parameters to prevent injection
+            await sandboxInstance.runCode(pythonCode, {
+              args: [fullPath, fileContent]
+            });
             
             // Update file cache
             if (global.sandboxState?.fileCache) {

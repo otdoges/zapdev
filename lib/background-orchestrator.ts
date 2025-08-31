@@ -140,11 +140,13 @@ export class BackgroundOrchestrator {
       const taskId = await this.pipeline.submitTask({
         type: 'feature-development',
         title: feature,
-        description: `Develop ${feature} feature with full implementation`,
+        // Fixed: Sanitize user input to prevent format string injection
+        description: `Develop ${feature.replace(/[<>&"']/g, '')} feature with full implementation`,
         priority: 'medium',
         estimatedTime: 30,
         metadata: {
-          userQuery: `Implement ${feature}`,
+          // Fixed: Sanitize user input to prevent format string injection
+          userQuery: `Implement ${feature.replace(/[<>&"']/g, '')}`,
           subscriptionType
         }
       });
@@ -155,7 +157,8 @@ export class BackgroundOrchestrator {
     const jobId = await this.scheduleJob({
       type: 'manual',
       name: 'Parallel Feature Development',
-      description: `Developing ${features.length} features in parallel: ${features.join(', ')}`,
+      // Fixed: Sanitize user input to prevent format string injection
+      description: `Developing ${features.length} features in parallel: ${features.map(f => f.replace(/[<>&"']/g, '')).join(', ')}`,
       tasks: taskIds,
       priority: 'high',
       metadata: {
@@ -169,7 +172,8 @@ export class BackgroundOrchestrator {
     // Create multi-agent collaboration for parallel development
     if (features.length >= 2) {
       await this.coordinator.createCollaboration(
-        `Parallel Development: ${features.join(', ')}`,
+        // Fixed: Sanitize user input to prevent format string injection
+        `Parallel Development: ${features.map(f => f.replace(/[<>&"']/g, '')).join(', ')}`,
         `Multi-agent parallel development of ${features.length} features`,
         taskIds,
         'parallel'

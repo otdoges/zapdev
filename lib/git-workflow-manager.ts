@@ -109,11 +109,10 @@ export class GitWorkflowManager {
 
     try {
       // Ensure workspace directory exists
-      await execAsync(`mkdir -p ${this.config.workspaceDir}`);
+      await execFileAsync('mkdir', ['-p', this.config.workspaceDir]);
 
-      // Clone repository using gh CLI
-      const cloneCommand = `gh repo clone ${owner}/${name} ${repository.localPath}`;
-      await execAsync(cloneCommand);
+      // Clone repository using gh CLI with proper argument separation
+      await execFileAsync('gh', ['repo', 'clone', `${owner}/${name}`, repository.localPath]);
 
       // Set up local git config
       await this.setupGitConfig(repository.localPath);
@@ -158,14 +157,9 @@ export class GitWorkflowManager {
    * Set up git configuration for AI commits
    */
   private async setupGitConfig(repoPath: string): Promise<void> {
-    const commands = [
-      `cd ${repoPath} && git config user.name "AI Agent"`,
-      `cd ${repoPath} && git config user.email "ai-agent@zapdev.com"`
-    ];
-
-    for (const command of commands) {
-      await execAsync(command);
-    }
+    // Use execFileAsync for safer command execution
+    await execFileAsync('git', ['config', 'user.name', 'AI Agent'], { cwd: repoPath });
+    await execFileAsync('git', ['config', 'user.email', 'ai-agent@zapdev.com'], { cwd: repoPath });
   }
 
   /**
@@ -183,9 +177,8 @@ export class GitWorkflowManager {
     const branchName = `${this.config.branchPrefix}${featureName.toLowerCase().replace(/\s+/g, '-')}`;
     
     try {
-      // Create and checkout new branch
-      const createBranchCommand = `cd ${repository.localPath} && git checkout -b ${branchName}`;
-      await execAsync(createBranchCommand);
+      // Create and checkout new branch using safer execFileAsync
+      await execFileAsync('git', ['checkout', '-b', branchName], { cwd: repository.localPath });
 
       repository.workingBranch = branchName;
       repository.status = 'working';
@@ -301,8 +294,8 @@ Co-Authored-By: AI Agent <ai-agent@zapdev.com>`;
         throw new Error('No working branch found');
       }
 
-      // Push branch to remote
-      await execAsync(`cd ${repoPath} && git push -u origin ${workingBranch}`);
+      // Push branch to remote using safer execFileAsync
+      await execFileAsync('git', ['push', '-u', 'origin', workingBranch], { cwd: repoPath });
 
       // Create PR using gh CLI
       const prBody = `## AI-Generated Feature
@@ -442,8 +435,8 @@ Please review the changes and test thoroughly before merging.
     }
 
     try {
-      // Remove directory
-      await execAsync(`rm -rf ${repository.localPath}`);
+      // Remove directory using safer execFileAsync
+      await execFileAsync('rm', ['-rf', repository.localPath]);
       
       // Remove from memory
       this.repositories.delete(repositoryId);
@@ -460,7 +453,7 @@ Please review the changes and test thoroughly before merging.
    */
   public async checkGitHubCLI(): Promise<boolean> {
     try {
-      await execAsync('gh --version');
+      await execFileAsync('gh', ['--version']);
       return true;
     } catch (error) {
       return false;

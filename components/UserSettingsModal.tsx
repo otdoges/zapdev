@@ -156,15 +156,35 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
   const updateSetting = (path: string, value: any) => {
     setSettings(prev => {
       const keys = path.split('.');
+      
+      // Fixed: Prevent prototype pollution by validating keys
+      const allowedKeys = ['theme', 'notifications', 'aiAgent', 'performance', 'security', 'experimental'];
+      const safeKeys = keys.filter(key => 
+        key !== '__proto__' && 
+        key !== 'constructor' && 
+        key !== 'prototype' &&
+        /^[a-zA-Z0-9_.]+$/.test(key)
+      );
+      
+      // Validate that first key is in allowed list
+      if (!allowedKeys.includes(safeKeys[0])) {
+        console.warn(`Invalid setting path: ${path}`);
+        return prev;
+      }
+      
       const newSettings = { ...prev };
       let current: any = newSettings;
       
-      for (let i = 0; i < keys.length - 1; i++) {
-        current[keys[i]] = { ...current[keys[i]] };
-        current = current[keys[i]];
+      for (let i = 0; i < safeKeys.length - 1; i++) {
+        if (current[safeKeys[i]] && typeof current[safeKeys[i]] === 'object') {
+          current[safeKeys[i]] = { ...current[safeKeys[i]] };
+        } else {
+          current[safeKeys[i]] = {};
+        }
+        current = current[safeKeys[i]];
       }
       
-      current[keys[keys.length - 1]] = value;
+      current[safeKeys[safeKeys.length - 1]] = value;
       return newSettings;
     });
   };
