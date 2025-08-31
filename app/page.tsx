@@ -22,7 +22,7 @@ import {
 import { motion } from 'framer-motion';
 import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
 import { UserButton, SignInButton, useUser } from '@clerk/nextjs';
-import BraveSearch from '@/components/BraveSearch';
+import UserSearch from '@/components/UserSearch';
 import ScoutFeatures from '@/components/ScoutFeatures';
 import ConvexChat from '@/components/ConvexChat';
 import AutonomousDashboard from '@/components/AutonomousDashboard';
@@ -1516,7 +1516,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           {/* Sub-tab content */}
           <div className="flex-1 overflow-hidden">
             {searchSubTab === 'search' ? (
-              <BraveSearch 
+              <UserSearch 
                 onResultSelect={(result) => {
                   // Add search result to conversation context for AI
                   setConversationContext(prev => ({
@@ -1526,17 +1526,32 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                       content: {
                         title: result.title,
                         description: result.description,
-                        url: result.url
+                        url: result.url,
+                        category: result.category,
+                        aiSummary: result.aiSummary,
+                        tags: result.tags
                       },
                       timestamp: new Date()
                     }]
                   }));
                   
-                  // Add a message about the selected result
-                  addChatMessage(
-                    `🔍 Selected search result: "${result.title}"\n\nURL: ${result.url}\n\nDescription: ${result.description}`,
-                    'system'
-                  );
+                  // Add a message about the selected result with AI enhancements
+                  const message = [
+                    `🔍 Selected AI-enhanced search result: "${result.title}"`,
+                    `📂 Category: ${result.category}`,
+                    `🏷️ Tags: ${result.tags.join(', ')}`,
+                    `🔗 URL: ${result.url}`,
+                    result.aiSummary ? `💡 AI Summary: ${result.aiSummary}` : '',
+                    `📝 Description: ${result.description}`
+                  ].filter(Boolean).join('\n\n');
+                  
+                  addChatMessage(message, 'system');
+                }}
+                context={{
+                  // Detect programming language from conversation
+                  programmingLanguage: conversationContext.programmingLanguage || undefined,
+                  // Detect user skill level from conversation patterns
+                  userSkillLevel: 'intermediate'
                 }}
               />
             ) : searchSubTab === 'scout' ? (
