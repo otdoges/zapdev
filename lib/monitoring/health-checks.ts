@@ -323,6 +323,10 @@ export class HealthMonitor {
     this.logger.info(`Health check unregistered: ${name}`);
   }
 
+  getCheckNames(): string[] {
+    return Array.from(this.checks.keys());
+  }
+
   private async runCheck(check: HealthCheck): Promise<HealthCheckResult> {
     const startTime = Date.now();
     const timeout = check.timeout || this.config.timeout;

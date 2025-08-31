@@ -85,14 +85,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ success: true, subscribed });
 
       case 'unsubscribe':
-        if (!userId) {
+        if (!adminUser.userId) {
           return NextResponse.json(
             { success: false, error: 'Authentication required' },
             { status: 401 }
           );
         }
         
-        const unsubscribed = monitor.unsubscribe(userId);
+        const unsubscribed = monitor.unsubscribe(adminUser.userId);
         return NextResponse.json({ success: true, unsubscribed });
 
       case 'track-task':

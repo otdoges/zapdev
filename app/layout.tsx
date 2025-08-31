@@ -4,6 +4,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import { PostHogProvider } from '@/components/PostHogProvider';
 import { ConvexClientProvider } from '@/components/ConvexClientProvider';
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -32,6 +33,7 @@ export default function RootLayout({
           <html lang="en">
             <body className={inter.className}>
               {children}
+              <SpeedInsights />
             </body>
           </html>
         </PostHogProvider>

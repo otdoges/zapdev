@@ -11,7 +11,7 @@ const securityManager = getSecurityManager();
 // List user's API keys
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     
     if (!userId) {
       return NextResponse.json(
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 // Create new API key
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     
     if (!userId) {
       return NextResponse.json(
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
 // Update API key
 export async function PATCH(request: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     
     if (!userId) {
       return NextResponse.json(
@@ -304,7 +304,7 @@ export async function PATCH(request: NextRequest) {
 // Delete/revoke API key
 export async function DELETE(request: NextRequest) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     
     if (!userId) {
       return NextResponse.json(

@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
           responseTime: result.responseTime,
           timestamp: result.timestamp,
         })),
-        metrics: Array.from(getHealthMonitor().checks.keys()).map(name => ({
+        metrics: getHealthMonitor().getCheckNames().map(name => ({
           name,
           ...getHealthMonitor().getMetrics(name),
         })),
@@ -56,12 +56,10 @@ export async function GET(request: NextRequest) {
 
       // Logging System
       logging: loggerStats.status === 'fulfilled' ? {
-        healthy: loggerStats.value.healthy,
         totalLogs: loggerStats.value.totalLogs,
         logsByLevel: loggerStats.value.logsByLevel,
         recentErrors: loggerStats.value.recentErrors,
         memoryUsage: loggerStats.value.memoryUsage,
-        lastError: loggerStats.value.lastError,
       } : null,
 
       // Cache System
@@ -113,12 +111,12 @@ export async function GET(request: NextRequest) {
       } : null,
 
       // Error Monitoring
-      monitoring: sentryHealth ? {
+      monitoring: sentryHealth.status === 'fulfilled' && sentryHealth.value ? {
         sentry: {
-          healthy: sentryHealth.healthy,
-          initialized: sentryHealth.initialized,
-          environment: sentryHealth.environment,
-          dsn: sentryHealth.dsn,
+          healthy: sentryHealth.value.healthy,
+          initialized: sentryHealth.value.initialized,
+          environment: sentryHealth.value.environment,
+          dsn: sentryHealth.value.dsn,
         },
       } : null,
 
