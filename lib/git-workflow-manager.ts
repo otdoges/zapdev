@@ -1,9 +1,9 @@
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import { trackAIAgentUsage } from './posthog';
 
 const execAsync = promisify(exec);
-
+const execFileAsync = promisify(execFile);
 export interface GitRepository {
   id: string;
   url: string;
@@ -319,8 +319,12 @@ Please review the changes and test thoroughly before merging.
 
 🤖 Generated with AI Agent`;
 
-      const prCommand = `cd ${repoPath} && gh pr create --title "${title}" --body "${prBody}" --base ${targetBranch}`;
-      const { stdout: prOutput } = await execAsync(prCommand);
+      // Use execFileAsync to prevent shell injection
+      const { stdout: prOutput } = await execFileAsync(
+        'gh',
+        ['pr', 'create', '--title', title, '--body', prBody, '--base', targetBranch],
+        { cwd: repoPath }
+      );
 
       // Extract PR URL and number
       const prUrlMatch = prOutput.match(/(https:\/\/github\.com\/[^\s]+)/);
