@@ -163,7 +163,13 @@ export class AISearchProcessor {
     }
     
     // Code repositories and examples
-    if (url.includes('github.com') || url.includes('gitlab.com') || 
+    let parsedHost: string | undefined;
+    try {
+      parsedHost = (new URL(result.url)).hostname.toLowerCase();
+    } catch (e) {
+      parsedHost = undefined;
+    }
+    if ((parsedHost === 'github.com' || parsedHost === 'gitlab.com') ||
         title.includes('example') || title.includes('sample code')) {
       return 'code';
     }
