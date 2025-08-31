@@ -22,15 +22,11 @@ import {
 import { motion } from 'framer-motion';
 import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
 import { UserButton, SignInButton, useUser } from '@clerk/nextjs';
-import UserSearch from '@/components/UserSearch';
-import ScoutFeatures from '@/components/ScoutFeatures';
 import ConvexChat from '@/components/ConvexChat';
 
 import UserSettingsModal from '@/components/UserSettingsModal';
 import ReactScanDashboard from '@/components/ReactScanDashboard';
 import UsageLimitModal from '@/components/UsageLimitModal';
-import GitWorkflowDemo from '@/components/GitWorkflowDemo';
-import { DesignTeamInterface } from '@/components/DesignTeamInterface';
 
 interface SandboxData {
   sandboxId: string;
@@ -82,7 +78,7 @@ function AISandboxPage() {
   const [homeScreenFading, setHomeScreenFading] = useState(false);
   const [homeUrlInput, setHomeUrlInput] = useState('');
   const [homeContextInput, setHomeContextInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'search' | 'chats' | 'design'>('preview');
+  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'chats'>('preview');
   const [urlScreenshot, setUrlScreenshot] = useState<string | null>(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
@@ -92,7 +88,7 @@ function AISandboxPage() {
   const [fileStructure, setFileStructure] = useState<string>('');
   const [aiMode, setAiMode] = useState<'fast' | 'deep'>('fast');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [searchSubTab, setSearchSubTab] = useState<'search' | 'scout' | 'git'>('search');
+
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReactScanModal, setShowReactScanModal] = useState(false);
   const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
@@ -1479,107 +1475,6 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           )}
         </div>
       );
-    } else if (activeTab === 'search') {
-      return (
-        <div className="h-full bg-gray-900 flex flex-col">
-          {/* Sub-tab selector */}
-          <div className="flex border-b border-gray-700 bg-gray-800">
-            <button
-              onClick={() => setSearchSubTab('search')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${
-                searchSubTab === 'search'
-                  ? 'text-blue-400 border-b-2 border-blue-400'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              🔍 Web Search
-            </button>
-            <button
-              onClick={() => setSearchSubTab('scout')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${
-                searchSubTab === 'scout'
-                  ? 'text-purple-400 border-b-2 border-purple-400'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              🎯 Scout Features
-            </button>
-            <button
-              onClick={() => setSearchSubTab('git')}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${
-                searchSubTab === 'git'
-                  ? 'text-green-400 border-b-2 border-green-400'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              🔗 Git Workflow
-            </button>
-          </div>
-          
-          {/* Sub-tab content */}
-          <div className="flex-1 overflow-hidden">
-            {searchSubTab === 'search' ? (
-              <UserSearch 
-                onResultSelect={(result) => {
-                  // Add search result to conversation context for AI
-                  setConversationContext(prev => ({
-                    ...prev,
-                    scrapedWebsites: [...prev.scrapedWebsites, {
-                      url: result.url,
-                      content: {
-                        title: result.title,
-                        description: result.description,
-                        url: result.url,
-                        category: result.category,
-                        aiSummary: result.aiSummary,
-                        tags: result.tags
-                      },
-                      timestamp: new Date()
-                    }]
-                  }));
-                  
-                  // Add a message about the selected result with AI enhancements
-                  const message = [
-                    `🔍 Selected AI-enhanced search result: "${result.title}"`,
-                    `📂 Category: ${result.category}`,
-                    `🏷️ Tags: ${result.tags.join(', ')}`,
-                    `🔗 URL: ${result.url}`,
-                    result.aiSummary ? `💡 AI Summary: ${result.aiSummary}` : '',
-                    `📝 Description: ${result.description}`
-                  ].filter(Boolean).join('\n\n');
-                  
-                  addChatMessage(message, 'system');
-                }}
-                context={{
-                  // Detect programming language from conversation
-                  programmingLanguage: conversationContext.programmingLanguage || undefined,
-                  // Detect user skill level from conversation patterns
-                  userSkillLevel: 'intermediate'
-                }}
-              />
-            ) : searchSubTab === 'scout' ? (
-              <div className="h-full overflow-y-auto">
-                <ScoutFeatures
-                  currentMode={aiMode}
-                  onModeSelect={(mode) => {
-                    setAiMode(mode);
-                    addChatMessage(`AI mode switched to: ${mode === 'fast' ? '⚡ Fast AF' : '🧠 Max Vibes'}`, 'system');
-                  }}
-                  onTemplateSelect={(template) => {
-                    setSelectedTemplate(template);
-                    setAiChatInput(template);
-                    addChatMessage(`Template selected: ${template}`, 'system');
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="h-full overflow-y-auto p-4">
-                <GitWorkflowDemo />
-              </div>
-            )}
-          </div>
-        </div>
-      );
     } else if (activeTab === 'chats') {
       return (
         <div className="h-full">
@@ -1593,12 +1488,6 @@ Tip: I automatically detect and install npm packages from your code imports (lik
               addChatMessage(message, type);
             }}
           />
-        </div>
-      );
-    } else if (activeTab === 'design') {
-      return (
-        <div className="h-full overflow-y-auto">
-          <DesignTeamInterface />
         </div>
       );
     }
@@ -3944,75 +3833,9 @@ Focus on the key sections and content, making it clean and modern.`;
         {/* Right Panel - Preview or Generation (2/3 of remaining width) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="px-4 py-2 bg-card border-b border-border flex justify-between items-center">
+            {/* Tab navigation removed - AI can still control tabs programmatically via setActiveTab */}
             <div className="flex items-center gap-4">
-              <div className="flex bg-[#36322F] rounded-lg p-1">
-                <button
-                  onClick={() => setActiveTab('generation')}
-                  className={`p-2 rounded-md transition-all ${
-                    activeTab === 'generation' 
-                      ? 'bg-black text-white' 
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                  }`}
-                  title="Code"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setActiveTab('preview')}
-                  className={`p-2 rounded-md transition-all ${
-                    activeTab === 'preview' 
-                      ? 'bg-black text-white' 
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                  }`}
-                  title="Preview"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setActiveTab('search')}
-                  className={`p-2 rounded-md transition-all ${
-                    activeTab === 'search' 
-                      ? 'bg-black text-white' 
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                  }`}
-                  title="Web Search"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setActiveTab('chats')}
-                  className={`p-2 rounded-md transition-all ${
-                    activeTab === 'chats' 
-                      ? 'bg-black text-white' 
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                  }`}
-                  title="Chat History"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setActiveTab('design')}
-                  className={`p-2 rounded-md transition-all ${
-                    activeTab === 'design' 
-                      ? 'bg-black text-white' 
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                  }`}
-                  title="Design Team"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </button>
-              </div>
+              {/* Navigation buttons removed for user interface */}
             </div>
             <div className="flex gap-2 items-center">
               {/* Live Code Generation Status - Moved to far right */}
