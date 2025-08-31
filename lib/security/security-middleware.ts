@@ -71,7 +71,7 @@ export class SecurityManager {
       enableIPBlocking: true,
       blockedIPs: new Set(),
       suspiciousPatterns: [
-        /<script[^>]*>[\s\S]*?<\/script>/gi,
+        /<script[^>]*>[\s\S]*?<\/script\b[^>]*>/gi,
         /javascript:/gi,
         /on\w+\s*=/gi,
         /eval\s*\(/gi,
