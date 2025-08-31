@@ -221,10 +221,10 @@ export class GitWorkflowManager {
       const repoPath = repository.localPath;
       
       // Add changes
-      await execAsync(`cd ${repoPath} && git add .`);
+      await execFileAsync('git', ['add', '.'], { cwd: repoPath });
 
       // Check if there are changes to commit
-      const { stdout: statusOutput } = await execAsync(`cd ${repoPath} && git status --porcelain`);
+      const { stdout: statusOutput } = await execFileAsync('git', ['status', '--porcelain'], { cwd: repoPath });
       if (!statusOutput.trim()) {
         return { success: false, message: 'No changes to commit', filesChanged };
       }
@@ -240,8 +240,8 @@ ${filesChanged.map(file => `- ${file}`).join('\n')}
 Co-Authored-By: AI Agent <ai-agent@zapdev.com>`;
 
       // Commit changes
-      const commitCommand = `cd ${repoPath} && git commit -m "${fullCommitMessage}"`;
-      const { stdout: commitOutput } = await execAsync(commitCommand);
+      const { stdout: commitOutput } = await execFileAsync('git', ['commit', '-m', fullCommitMessage], { cwd: repoPath });
+
 
       // Extract commit hash
       const commitHashMatch = commitOutput.match(/\[.*?([a-f0-9]{7,})\]/);
