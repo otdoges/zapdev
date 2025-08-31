@@ -16,10 +16,18 @@ export async function POST(request: NextRequest) {
     } = await request.json();
 
     if (!process.env.GEMINI_API_KEY) {
+      console.warn('[generate-project-name] Gemini API key not configured');
       return NextResponse.json({ 
-        error: 'Gemini API key not configured' 
+        error: 'Gemini API key not configured',
+        fallbackName: generateFallbackName()
       }, { status: 500 });
     }
+
+    console.log('[generate-project-name] Generating project name with context:', {
+      hasUserInput: !!userInput,
+      hasUrl: !!url,
+      fileCount: fileContents?.length || 0
+    });
 
     // Build context for project naming
     let context = '';
@@ -65,28 +73,42 @@ Examples of good names:
 - "Chat Bubble" (for a messaging app)
 - "Code Mentor" (for a learning platform)`;
 
-    const result = await generateText({
-      model: google('gemini-2.5-flash'),
-      prompt: prompt,
-      temperature: 0.7,
-      maxTokens: 20,
-    });
+    try {
+      const result = await generateText({
+        model: google('gemini-1.5-flash'),
+        prompt: prompt,
+        temperature: 0.7,
+        maxTokens: 20,
+      });
 
-    const projectName = result.text.trim();
-    
-    // Validate the generated name
-    if (!projectName || projectName.length > 50) {
-      throw new Error('Invalid project name generated');
+      const projectName = result.text.trim();
+      
+      // Validate the generated name
+      if (!projectName || projectName.length > 50) {
+        throw new Error('Invalid project name generated');
+      }
+
+      console.log('[generate-project-name] Successfully generated:', projectName);
+      
+      return NextResponse.json({
+        success: true,
+        projectName: projectName,
+        timestamp: new Date().toISOString()
+      });
+    } catch (aiError) {
+      console.warn('[generate-project-name] AI generation failed:', aiError);
+      const fallbackName = generateFallbackName();
+      
+      return NextResponse.json({
+        success: true,
+        projectName: fallbackName,
+        timestamp: new Date().toISOString(),
+        usedFallback: true
+      });
     }
 
-    return NextResponse.json({
-      success: true,
-      projectName: projectName,
-      timestamp: new Date().toISOString()
-    });
-
   } catch (error) {
-    console.error('Project naming error:', error);
+    console.error('[generate-project-name] Request error:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to generate project name',

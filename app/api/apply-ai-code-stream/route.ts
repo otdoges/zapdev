@@ -653,23 +653,25 @@ export async function POST(request: NextRequest) {
         }
         
         // Send final results
+        const totalFilesApplied = (results.filesCreated?.length || 0) + (results.filesUpdated?.length || 0);
         await sendProgress({
           type: 'complete',
           results,
           explanation: parsed.explanation,
           structure: parsed.structure,
-          message: `Successfully applied ${results.filesCreated.length} files`
+          message: `Successfully applied ${totalFilesApplied} files`
         });
         
         // Track applied files in conversation state
-        if (global.conversationState && results.filesCreated.length > 0) {
+        const allAffectedFiles = [...(results.filesCreated || []), ...(results.filesUpdated || [])];
+        if (global.conversationState && allAffectedFiles.length > 0) {
           const messages = global.conversationState.context.messages;
           if (messages.length > 0) {
             const lastMessage = messages[messages.length - 1];
             if (lastMessage.role === 'user') {
               lastMessage.metadata = {
                 ...lastMessage.metadata,
-                editedFiles: results.filesCreated
+                editedFiles: allAffectedFiles
               };
             }
           }
@@ -679,7 +681,7 @@ export async function POST(request: NextRequest) {
             global.conversationState.context.projectEvolution.majorChanges.push({
               timestamp: Date.now(),
               description: parsed.explanation || 'Code applied',
-              filesAffected: results.filesCreated || []
+              filesAffected: allAffectedFiles
             });
           }
           

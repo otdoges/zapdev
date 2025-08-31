@@ -688,14 +688,14 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           log(`Packages installed: ${results.packagesInstalled.join(', ')}`);
         }
         
-        if (results.filesCreated?.length > 0) {
-          log('Files created:');
-          results.filesCreated.forEach((file: string) => {
+        if (appliedFiles.length > 0) {
+          log('Files processed:');
+          appliedFiles.forEach((file: string) => {
             log(`  ${file}`, 'command');
           });
           
           // Verify files were actually created by refreshing the sandbox if needed
-          if (sandboxData?.sandboxId && results.filesCreated.length > 0) {
+          if (sandboxData?.sandboxId && appliedFiles.length > 0) {
             // Small delay to ensure files are written
             setTimeout(() => {
               // Force refresh the iframe to show new files
@@ -773,11 +773,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         console.log('[applyGeneratedCode] Current iframe element:', iframeRef.current);
         console.log('[applyGeneratedCode] Current iframe src:', iframeRef.current?.src);
         
-        if (results.filesCreated?.length > 0) {
+        const appliedFiles = [...(results.filesCreated || []), ...(results.filesUpdated || [])];
+        if (appliedFiles.length > 0) {
           setConversationContext(prev => ({
             ...prev,
             appliedCode: [...prev.appliedCode, {
-              files: results.filesCreated,
+              files: appliedFiles,
               timestamp: new Date()
             }]
           }));
