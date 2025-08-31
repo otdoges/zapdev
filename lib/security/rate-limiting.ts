@@ -1,6 +1,6 @@
 import { getRedisClient } from '../cache/redis-client';
 import { getLogger } from '../monitoring/logger';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 
 export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
@@ -448,7 +448,7 @@ export class RateLimiter {
       }
 
       const key = `concurrent:${identifier}`;
-      const requestId = createHash('sha256').update(`${identifier}:${Date.now()}:${Math.random()}`).digest('hex').substring(0, 16);
+      const requestId = randomBytes(8).toString('hex'); // 16-character random ID
       
       await this.redis.increment(key, 1);
       await this.redis.expire(key, 300); // 5 minutes timeout
