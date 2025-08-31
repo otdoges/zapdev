@@ -543,36 +543,25 @@ export async function POST(request: NextRequest) {
               fileContent = fileContent.replace(/import\s+['"]\.\/[^'"]+\.css['"];?\s*\n?/g, '');
             }
             
-            // Fixed: Use parameterized approach to prevent code injection
-            const pythonCode = `
-import os
-import sys
-import json
-
-# Get the parameters from command line args
-path = sys.argv[1] if len(sys.argv) > 1 else ""
-content = sys.argv[2] if len(sys.argv) > 2 else ""
-
-if path and content:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write(content)
-    print(f"File written: {path}")
-else:
-    print("Error: Missing path or content")
-`;
+            console.log(`[apply-ai-code-stream] Writing file using E2B files API: ${fullPath}`);
             
-            // Execute with parameters to prevent injection
-            await sandboxInstance.runCode(pythonCode, {
-              args: [fullPath, fileContent]
-            });
-            
-            // Update file cache
-            if (global.sandboxState?.fileCache) {
-              global.sandboxState.fileCache.files[normalizedPath] = {
-                content: fileContent,
-                lastModified: Date.now()
-              };
+            try {
+              // Use the correct E2B API - sandbox.files.write()
+              await sandboxInstance.files.write(fullPath, fileContent);
+              console.log(`[apply-ai-code-stream] Successfully wrote file: ${fullPath}`);
+              
+              // Update file cache
+              if (global.sandboxState?.fileCache) {
+                global.sandboxState.fileCache.files[normalizedPath] = {
+                  content: fileContent,
+                  lastModified: Date.now()
+                };
+                console.log(`[apply-ai-code-stream] Updated file cache for: ${normalizedPath}`);
+              }
+              
+            } catch (writeError) {
+              console.error(`[apply-ai-code-stream] E2B file write error:`, writeError);
+              throw writeError;
             }
             
             if (isUpdate) {

@@ -16,6 +16,7 @@ import type {
 import type * as aiRateLimit from "../aiRateLimit.js";
 import type * as chats from "../chats.js";
 import type * as http from "../http.js";
+import type * as jwtAuth from "../jwtAuth.js";
 import type * as messages from "../messages.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as secretAccess from "../secretAccess.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   aiRateLimit: typeof aiRateLimit;
   chats: typeof chats;
   http: typeof http;
+  jwtAuth: typeof jwtAuth;
   messages: typeof messages;
   rateLimit: typeof rateLimit;
   secretAccess: typeof secretAccess;

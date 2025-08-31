@@ -1480,12 +1480,18 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         <div className="h-full">
           <ConvexChat
             onChatSelect={(chatId) => {
-              // Handle chat selection
+              // Handle chat selection - could load chat context
               console.log('Selected chat:', chatId);
+              // TODO: Load chat messages into current conversation context
             }}
             onMessageAdd={(message, type) => {
               // Sync with local chat if needed
               addChatMessage(message, type);
+              
+              // If this is a user message, trigger AI response
+              if (type === 'user') {
+                processAIMessage(message);
+              }
             }}
           />
         </div>
