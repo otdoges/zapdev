@@ -24,7 +24,7 @@ import CodeApplicationProgress, { type CodeApplicationState } from '@/components
 import { UserButton, SignInButton, useUser } from '@clerk/nextjs';
 import ConvexChat from '@/components/ConvexChat';
 
-import UserSettingsModal from '@/components/UserSettingsModal';
+import EnhancedSettingsModal from '@/components/EnhancedSettingsModal';
 import ReactScanDashboard from '@/components/ReactScanDashboard';
 import UsageLimitModal from '@/components/UsageLimitModal';
 
@@ -3926,6 +3926,12 @@ Focus on the key sections and content, making it clean and modern.`;
         onClose={() => setShowUsageLimitModal(false)}
         currentUsage={3}
         limit={5}
+      />
+
+      {/* Enhanced Settings Modal */}
+      <EnhancedSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
       />
     </div>
   );
