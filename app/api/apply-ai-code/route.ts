@@ -575,8 +575,9 @@ if result.stderr:
       try {
         console.log('[apply-ai-code] Auto-generating missing components...');
         
+        const trustedBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
         const autoCompleteResponse = await fetch(
-          `${request.nextUrl.origin}/api/auto-complete-components`,
+          `${trustedBaseUrl}/api/auto-complete-components`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
