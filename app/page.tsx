@@ -3841,7 +3841,32 @@ Focus on the key sections and content, making it clean and modern.`;
           <div className="px-4 py-2 bg-card border-b border-border flex justify-between items-center">
             {/* Tab navigation removed - AI can still control tabs programmatically via setActiveTab */}
             <div className="flex items-center gap-4">
-              {/* Navigation buttons removed for user interface */}
+              {/* Code and Preview buttons */}
+              <div className="flex gap-2">
+                <Button
+                  variant={activeTab === 'generation' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveTab('generation')}
+                  className="text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  </svg>
+                  Code
+                </Button>
+                <Button
+                  variant={activeTab === 'preview' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveTab('preview')}
+                  className="text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  Preview
+                </Button>
+              </div>
             </div>
             <div className="flex gap-2 items-center">
               {/* Live Code Generation Status - Moved to far right */}

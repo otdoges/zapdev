@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '@clerk/nextjs';
+import PricingModal from './PricingModal';
+import SettingsModal from './SettingsModal';
 
 interface ConvexChatProps {
   onChatSelect?: (chatId: Id<"chats">) => void;
@@ -22,6 +24,8 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Check if Convex is configured
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -86,6 +90,13 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
     // Check authentication
     if (!isSignedIn) {
       setError('Please sign in to create chats');
+      return;
+    }
+    
+    // Check if user has reached the free plan limit (5 chats)
+    const currentChatCount = chats?.chats?.length || 0;
+    if (currentChatCount >= 5) {
+      setShowPricingModal(true);
       return;
     }
     
@@ -166,6 +177,13 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
     }
   };
 
+  const handleUpgrade = async (plan: string) => {
+    // Integration with Stripe will be handled here
+    console.log('Upgrading to plan:', plan);
+    setShowPricingModal(false);
+    // TODO: Integrate with Stripe checkout
+  };
+
   return (
     <div className="h-full bg-gray-900 flex flex-col">
       {/* Authentication Check */}
@@ -209,6 +227,22 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
               Debug: {debugInfo}
             </div>
           )}
+          
+          {/* Settings Header */}
+          <div className="p-4 border-b border-gray-700 flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-white">Chat History</h2>
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
+              title="Settings"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+          </div>
+          
           {/* Error Display */}
           {error && (
             <div className="p-3 bg-red-900 border border-red-700 text-red-100 text-sm">
@@ -413,6 +447,19 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
       </div>
         </>
       )}
+      
+      {/* Pricing Modal */}
+      <PricingModal
+        isOpen={showPricingModal}
+        onClose={() => setShowPricingModal(false)}
+        onUpgrade={handleUpgrade}
+      />
+      
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+      />
     </div>
   );
 }
