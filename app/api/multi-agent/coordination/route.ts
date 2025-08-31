@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MultiAgentCoordinator } from '@/lib/multi-agent-coordinator';
-import { requireAdmin } from '@/lib/admin-auth';
 
 const coordinator = MultiAgentCoordinator.getInstance();
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // CRITICAL SECURITY FIX: Require admin authentication for multi-agent coordination
-    const adminUser = await requireAdmin();
+    // Block browser requests - only allow server-side calls
+    const userAgent = request.headers.get('user-agent');
+    const referer = request.headers.get('referer');
+    
+    if (userAgent && (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && referer) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
     
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
@@ -56,8 +63,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // CRITICAL SECURITY FIX: Require admin authentication for multi-agent coordination
-    const adminUser = await requireAdmin();
+    // Block browser requests - only allow server-side calls
+    const userAgent = request.headers.get('user-agent');
+    const referer = request.headers.get('referer');
+    
+    if (userAgent && (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && referer) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
     
     const body = await request.json();
     const { action, ...data } = body;

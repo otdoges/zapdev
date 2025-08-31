@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let stripeEvent: Stripe.Event | null = null;
+
   try {
     // Check if this is a 307 redirect and handle appropriately
     const forwardedProto = req.headers.get('x-forwarded-proto');
@@ -70,10 +72,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let event: Stripe.Event;
-
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret!);
+      stripeEvent = stripe.webhooks.constructEvent(body, signature, webhookSecret!);
     } catch (err) {
       console.error('Webhook signature verification failed:', err);
       return NextResponse.json(
@@ -83,65 +83,72 @@ export async function POST(req: NextRequest) {
     }
 
     // Event deduplication - prevent processing the same event multiple times
-    const eventId = event.id;
+    if (!stripeEvent) {
+      return NextResponse.json(
+        { error: 'Invalid Stripe event' },
+        { status: 400 }
+      );
+    }
+
+    const eventId = stripeEvent.id;
     const eventKey = `processed-stripe-event-${eventId}`;
     
     // Note: In a production environment, you would use Redis or a database for this
     // For now, we'll just log that we're checking for duplicates
-    console.log(`Processing webhook event: ${event.type} (ID: ${eventId})`);
+    console.log(`Processing webhook event: ${stripeEvent.type} (ID: ${eventId})`);
     
     // Handle the event
-    switch (event.type) {
+    switch (stripeEvent.type) {
       case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
+        await handleCheckoutSessionCompleted(stripeEvent.data.object as Stripe.Checkout.Session);
         break;
 
       case 'customer.subscription.created':
-        await handleSubscriptionCreated(event.data.object as Stripe.Subscription);
+        await handleSubscriptionCreated(stripeEvent.data.object as Stripe.Subscription);
         break;
 
       case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+        await handleSubscriptionUpdated(stripeEvent.data.object as Stripe.Subscription);
         break;
 
       case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+        await handleSubscriptionDeleted(stripeEvent.data.object as Stripe.Subscription);
         break;
 
       case 'invoice.payment_succeeded':
-        await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
+        await handleInvoicePaymentSucceeded(stripeEvent.data.object as Stripe.Invoice);
         break;
 
       case 'invoice.payment_failed':
-        await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+        await handleInvoicePaymentFailed(stripeEvent.data.object as Stripe.Invoice);
         break;
 
       case 'customer.created':
-        await handleCustomerCreated(event.data.object as Stripe.Customer);
+        await handleCustomerCreated(stripeEvent.data.object as Stripe.Customer);
         break;
 
       case 'customer.updated':
-        await handleCustomerUpdated(event.data.object as Stripe.Customer);
+        await handleCustomerUpdated(stripeEvent.data.object as Stripe.Customer);
         break;
 
       case 'payment_intent.succeeded':
-        await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
+        await handlePaymentIntentSucceeded(stripeEvent.data.object as Stripe.PaymentIntent);
         break;
 
       case 'payment_intent.created':
-        await handlePaymentIntentCreated(event.data.object as Stripe.PaymentIntent);
+        await handlePaymentIntentCreated(stripeEvent.data.object as Stripe.PaymentIntent);
         break;
 
       case 'payment_intent.payment_failed':
-        await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
+        await handlePaymentIntentFailed(stripeEvent.data.object as Stripe.PaymentIntent);
         break;
 
       case 'charge.updated':
-        await handleChargeUpdated(event.data.object as Stripe.Charge);
+        await handleChargeUpdated(stripeEvent.data.object as Stripe.Charge);
         break;
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.log(`Unhandled event type: ${stripeEvent.type}`);
     }
 
     return NextResponse.json({ received: true });
@@ -152,8 +159,8 @@ export async function POST(req: NextRequest) {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString(),
-      webhookEvent: event?.type || 'Unknown event type',
-      eventId: event?.id || 'Unknown event ID'
+      webhookEvent: stripeEvent?.type || 'Unknown event type',
+      eventId: stripeEvent?.id || 'Unknown event ID'
     });
     
     return NextResponse.json(
@@ -297,7 +304,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   const subscriptionId = (invoice as any).subscription;
   if (!subscriptionId || !invoice.customer_email) {
     // Add to dead letter queue for manual processing
-    addToDeadLetterQueue('invoice.payment_succeeded', invoice.id, 'Missing subscriptionId or customer_email', invoice);
+    addToDeadLetterQueue('invoice.payment_succeeded', String(invoice.id), 'Missing subscriptionId or customer_email', invoice);
     return;
   }
 
@@ -310,13 +317,13 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const subscriptionId = (invoice as any).subscription;
   if (!subscriptionId) {
     // Add to dead letter queue for manual processing
-    addToDeadLetterQueue('invoice.payment_failed', invoice.id, 'Missing subscriptionId', invoice);
+    addToDeadLetterQueue('invoice.payment_failed', String(invoice.id), 'Missing subscriptionId', invoice);
     return;
   }
 
   console.log(`Payment failed for subscription: ${subscriptionId}`);
   // Add to dead letter queue for retry or investigation
-  addToDeadLetterQueue('invoice.payment_failed', invoice.id, 'Invoice payment failed', invoice);
+  addToDeadLetterQueue('invoice.payment_failed', String(invoice.id), 'Invoice payment failed', invoice);
 }
 
 async function handleCustomerCreated(customer: Stripe.Customer) {

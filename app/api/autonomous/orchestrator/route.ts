@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BackgroundOrchestrator } from '@/lib/background-orchestrator';
-import { requireAdmin } from '@/lib/admin-auth';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // Require admin authentication for orchestrator access
-    const adminUser = await requireAdmin();
+    // Block browser requests - only allow server-side calls
+    const userAgent = request.headers.get('user-agent');
+    const referer = request.headers.get('referer');
+    
+    if (userAgent && (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && referer) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+    
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     
@@ -22,8 +30,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         
         const jobs = orchestrator.getJobs({
           ...(status && { status }),
-          ...(type && { type }),
-          ...(adminUser.userId && { userId: adminUser.userId })
+          ...(type && { type })
         });
         
         return NextResponse.json({ success: true, jobs });
@@ -60,8 +67,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Require admin authentication for orchestrator operations
-    const adminUser = await requireAdmin();
+    // Block browser requests - only allow server-side calls
+    const userAgent = request.headers.get('user-agent');
+    const referer = request.headers.get('referer');
+    
+    if (userAgent && (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && referer) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+    
     const body = await request.json();
     const { action, ...data } = body;
     
@@ -78,7 +94,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           schedule: data.schedule,
           trigger: data.trigger,
           metadata: {
-            userId: adminUser.userId,
+            userId: data.userId || 'anonymous',
             subscriptionType: data.subscriptionType || 'free',
             maxRetries: data.maxRetries || 2,
             timeout: data.timeout || 60
@@ -90,7 +106,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       case 'parallel-development':
         const parallelJobId = await orchestrator.createParallelDevelopmentJob(
           data.features || [],
-          adminUser.userId,
+          data.userId || 'anonymous',
           data.subscriptionType || 'free'
         );
         

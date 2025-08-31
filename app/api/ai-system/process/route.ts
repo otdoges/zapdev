@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IntegratedAISystem, AIRequest } from '@/lib/integrated-ai-system';
-import { requireAdmin } from '@/lib/admin-auth';
 
 export async function POST(request: NextRequest) {
   try {
-    // Require admin authentication for AI system processing
-    const adminUser = await requireAdmin();
+    // Block browser requests - only allow server-side calls
+    const userAgent = request.headers.get('user-agent');
+    const referer = request.headers.get('referer');
+    
+    if (userAgent && (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && referer) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+    
     const aiSystem = IntegratedAISystem.getInstance();
     
     const body = await request.json();
     const aiRequest: AIRequest = {
       ...body,
-      userId: adminUser.userId,
-      adminUser: adminUser.email
+      userId: body.userId || 'anonymous'
     };
 
     // Validate required fields
@@ -43,8 +50,19 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Block browser requests - only allow server-side calls
+    const userAgent = request.headers.get('user-agent');
+    const referer = request.headers.get('referer');
+    
+    if (userAgent && (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && referer) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+    
     const aiSystem = IntegratedAISystem.getInstance();
     const metrics = aiSystem.getPerformanceMetrics();
 

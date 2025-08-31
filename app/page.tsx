@@ -104,6 +104,7 @@ function AISandboxPage() {
     generatedComponents: Array<{ name: string; path: string; content: string }>;
     appliedCode: Array<{ files: string[]; timestamp: Date }>;
     currentProject: string;
+    programmingLanguage?: string;
     lastGeneratedCode?: string;
   }>({
     scrapedWebsites: [],

@@ -59,11 +59,11 @@ export class CDNManager {
     optimizationConfig?: Partial<AssetOptimizationConfig>
   ) {
     this.config = {
-      cacheTtl: 31536000, // 1 year default
-      enableCompression: true,
-      enableBrotli: true,
-      customHeaders: {},
       ...config,
+      cacheTtl: config.cacheTtl ?? 31536000,
+      enableCompression: config.enableCompression ?? true,
+      enableBrotli: config.enableBrotli ?? true,
+      customHeaders: config.customHeaders ?? {},
     };
 
     this.optimizationConfig = {
@@ -497,9 +497,9 @@ export class CDNManager {
 // Global CDN manager instance
 let globalCDNManager: CDNManager | undefined;
 
-export function getCDNManager(config?: CDNConfig, optimizationConfig?: Partial<AssetOptimizationConfig>): CDNManager {
+export function getCDNManager(config?: Partial<CDNConfig>, optimizationConfig?: Partial<AssetOptimizationConfig>): CDNManager {
   if (!globalCDNManager && config) {
-    globalCDNManager = new CDNManager(config, optimizationConfig);
+    globalCDNManager = new CDNManager(config as CDNConfig, optimizationConfig);
   }
   return globalCDNManager!;
 }

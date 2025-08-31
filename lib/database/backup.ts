@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { withDatabase } from './pool';
+import { withDatabase } from './connection-enhanced';
 import path from 'path';
 import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { exec } from 'child_process';

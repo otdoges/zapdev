@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { withDatabase } from './pool';
+import { withDatabase } from './connection-enhanced';
 import { createId } from '@paralleldrive/cuid2';
 import path from 'path';
 import { existsSync, readdirSync, readFileSync } from 'fs';

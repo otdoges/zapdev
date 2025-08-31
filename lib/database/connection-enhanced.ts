@@ -2,26 +2,61 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { schema } from './schema';
-import { getPool, withDatabase, withDrizzle } from './pool';
 import { getMigrationManager } from './migrations';
 import { getBackupManager } from './backup';
 import path from 'path';
 
 // Re-export enhanced database functions
-export { withDatabase, withDrizzle, getPool };
 export { getMigrationManager };
 export { getBackupManager };
 
-// Legacy compatibility - use pool instead
+// Direct database connection for Drizzle use
+function createConnection(): Database.Database {
+  const dbPath = process.env.NODE_ENV === 'production' 
+    ? path.join(process.cwd(), 'data', 'zapdev.db')
+    : ':memory:';
+    
+  const db = new Database(dbPath, {
+    verbose: process.env.NODE_ENV === 'development' ? console.log : undefined,
+  });
+  
+  // Optimize SQLite settings
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('cache_size = 10000');
+  db.pragma('foreign_keys = ON');
+  
+  return db;
+}
+
+let dbInstance: Database.Database | null = null;
+
 export function getDatabase() {
-  console.warn('getDatabase() is deprecated. Use withDatabase() for better connection management.');
-  return getPool().acquire();
+  if (!dbInstance) {
+    dbInstance = createConnection();
+  }
+  return dbInstance;
 }
 
 export function getDrizzle() {
-  console.warn('getDrizzle() is deprecated. Use withDrizzle() for better connection management.');
   const db = getDatabase();
   return drizzle(db, { schema });
+}
+
+// Simple database operation wrapper
+export async function withDatabase<T>(
+  operation: (db: Database.Database) => T | Promise<T>
+): Promise<T> {
+  const db = getDatabase();
+  return await operation(db);
+}
+
+// Simple Drizzle operation wrapper
+export async function withDrizzle<T>(
+  operation: (drizzle: ReturnType<typeof drizzle>) => T | Promise<T>
+): Promise<T> {
+  const drizzleDb = getDrizzle();
+  return await operation(drizzleDb);
 }
 
 // Enhanced database initialization with migrations and indexing
@@ -332,7 +367,6 @@ export async function checkDatabaseHealth(): Promise<{
     });
     
     const queryTime = performance.now() - startTime;
-    const pool = getPool();
     
     return {
       healthy: results.connection && results.integrity,
@@ -340,7 +374,7 @@ export async function checkDatabaseHealth(): Promise<{
         ...results,
         performance: {
           queryTime,
-          poolStats: pool.stats()
+          poolStats: null
         }
       }
     };
@@ -395,16 +429,12 @@ export async function getDatabaseStats(): Promise<{
       WHERE type='index' AND name NOT LIKE 'sqlite_%'
     `).all() as { name: string; table: string }[];
     
-    // Get performance metrics
-    const pool = getPool();
-    const slowQueries = pool.getSlowQueries(100); // Queries slower than 100ms
-    
     return {
       tables: tableStats,
       indexes,
       performance: {
-        slowQueries,
-        poolStats: pool.stats()
+        slowQueries: [],
+        poolStats: null
       }
     };
   });

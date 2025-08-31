@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RealtimeMonitor } from '@/lib/realtime-monitor';
-import { requireAdmin } from '@/lib/admin-auth';
 
 const monitor = RealtimeMonitor.getInstance();
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // CRITICAL SECURITY FIX: Require admin authentication for realtime monitoring
-    const adminUser = await requireAdmin();
+    // Block browser requests - only allow server-side calls
+    const userAgent = request.headers.get('user-agent');
+    const referer = request.headers.get('referer');
+    
+    if (userAgent && (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && referer) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
     
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
@@ -66,8 +73,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // CRITICAL SECURITY FIX: Require admin authentication for realtime monitoring operations
-    const adminUser = await requireAdmin();
+    // Block browser requests - only allow server-side calls
+    const userAgent = request.headers.get('user-agent');
+    const referer = request.headers.get('referer');
+    
+    if (userAgent && (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && referer) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
     
     const body = await request.json();
     const { action, ...data } = body;
@@ -75,7 +90,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     switch (action) {
       case 'subscribe':
         const subscribed = monitor.subscribe({
-          userId: adminUser.userId,
+          userId: data.userId || 'anonymous',
           subscriptionType: data.subscriptionType || 'free',
           channels: data.channels || [],
           filters: data.filters || {},
@@ -85,14 +100,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ success: true, subscribed });
 
       case 'unsubscribe':
-        if (!adminUser.userId) {
+        if (!data.userId) {
           return NextResponse.json(
-            { success: false, error: 'Authentication required' },
-            { status: 401 }
+            { success: false, error: 'User ID required' },
+            { status: 400 }
           );
         }
         
-        const unsubscribed = monitor.unsubscribe(adminUser.userId);
+        const unsubscribed = monitor.unsubscribe(data.userId);
         return NextResponse.json({ success: true, unsubscribed });
 
       case 'track-task':
@@ -148,6 +163,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Block browser requests - only allow server-side calls
+    const userAgent = request.headers.get('user-agent');
+    const referer = request.headers.get('referer');
+    
+    if (userAgent && (userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari')) && referer) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+    
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 

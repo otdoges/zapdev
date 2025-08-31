@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+import { Redis as UpstashRedis } from '@upstash/redis';
 import { performance } from 'perf_hooks';
 
 interface CacheConfig {
@@ -24,8 +24,10 @@ interface CacheMetrics {
   operations: number;
 }
 
+type UpstashPipeline = ReturnType<UpstashRedis['pipeline']>;
+
 export class RedisCache {
-  private client: Redis;
+  private client: UpstashRedis;
   private connected: boolean = false;
   private metrics: CacheMetrics = {
     hits: 0,
@@ -38,82 +40,36 @@ export class RedisCache {
   };
 
   constructor(config: CacheConfig = {}) {
-    const defaultConfig: CacheConfig = {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-      password: process.env.REDIS_PASSWORD,
-      db: parseInt(process.env.REDIS_DB || '0'),
-      maxRetriesPerRequest: 3,
-      retryDelayOnFailover: 100,
-      enableOfflineQueue: false,
-      connectTimeout: 10000,
-      lazyConnect: true,
-      keyPrefix: process.env.REDIS_KEY_PREFIX || 'zapdev:',
-    };
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-    const finalConfig = { ...defaultConfig, ...config };
+    if (!url || !token) {
+      console.warn('UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set. Redis cache may be unavailable.');
+    }
 
-    this.client = new Redis({
-      ...finalConfig,
-      retryStrategy: (times: number) => {
-        const delay = Math.min(times * 50, 2000);
-        console.log(`Redis retry attempt ${times}, delay: ${delay}ms`);
-        return delay;
-      },
-    });
-
-    this.setupEventHandlers();
+    this.client = new UpstashRedis({ url: url || '', token: token || '' });
+    this.connected = !!url && !!token;
   }
 
-  private setupEventHandlers(): void {
-    this.client.on('connect', () => {
-      console.log('✅ Redis connected');
-      this.connected = true;
-    });
-
-    this.client.on('ready', () => {
-      console.log('✅ Redis ready');
-    });
-
-    this.client.on('error', (error) => {
-      console.error('❌ Redis error:', error);
-      this.connected = false;
-      this.metrics.errors++;
-    });
-
-    this.client.on('close', () => {
-      console.log('🔌 Redis connection closed');
-      this.connected = false;
-    });
-
-    this.client.on('reconnecting', () => {
-      console.log('🔄 Redis reconnecting...');
-    });
-
-    this.client.on('end', () => {
-      console.log('🛑 Redis connection ended');
-      this.connected = false;
-    });
-  }
+  private setupEventHandlers(): void {}
 
   async connect(): Promise<void> {
     try {
       await this.client.ping();
       this.connected = true;
     } catch (error) {
-      console.error('Failed to connect to Redis:', error);
+      console.error('Failed to connect to Upstash Redis:', error);
       this.connected = false;
       throw error;
     }
   }
 
   async disconnect(): Promise<void> {
-    await this.client.quit();
     this.connected = false;
   }
 
   isConnected(): boolean {
-    return this.connected && this.client.status === 'ready';
+    return this.connected;
   }
 
   private async executeWithMetrics<T>(
@@ -143,14 +99,14 @@ export class RedisCache {
     }
 
     return this.executeWithMetrics(async () => {
-      const result = await this.client.get(key);
+      const result = await this.client.get<string | null>(key);
       if (result === null) {
         this.metrics.misses++;
         return null;
       }
       
       this.metrics.hits++;
-      return JSON.parse(result) as T;
+      return JSON.parse(result as string) as T;
     }, 'hits');
   }
 
@@ -168,7 +124,7 @@ export class RedisCache {
       const serializedValue = JSON.stringify(value);
       
       if (ttlSeconds) {
-        await this.client.setex(key, ttlSeconds, serializedValue);
+        await this.client.set(key, serializedValue, { ex: ttlSeconds });
       } else {
         await this.client.set(key, serializedValue);
       }
@@ -185,7 +141,9 @@ export class RedisCache {
     }
 
     return this.executeWithMetrics(async () => {
-      const deletedCount = await this.client.del(key);
+      const deletedCount = Array.isArray(key)
+        ? await this.client.del(...key)
+        : await this.client.del(key);
       this.metrics.deletes++;
       return deletedCount;
     }, 'deletes');
@@ -222,7 +180,16 @@ export class RedisCache {
       return [];
     }
 
-    return await this.client.keys(pattern);
+    let cursor: number | string = 0;
+    const keys: string[] = [];
+    do {
+      const res = await this.client.scan(cursor as number, { match: pattern, count: 1000 }) as unknown as [number | string, string[]];
+      const nextCursor = res[0];
+      const batch = res[1];
+      cursor = nextCursor;
+      if (Array.isArray(batch)) keys.push(...batch);
+    } while (cursor !== 0 && cursor !== '0');
+    return keys;
   }
 
   async flushPattern(pattern: string): Promise<number> {
@@ -244,7 +211,7 @@ export class RedisCache {
     }
 
     const results = await this.client.mget(...keys);
-    return results.map(result => {
+    return results.map((result: string | null) => {
       if (result === null) {
         this.metrics.misses++;
         return null;
@@ -266,14 +233,14 @@ export class RedisCache {
       const serializedValue = JSON.stringify(value);
       
       if (ttlSeconds) {
-        pipeline.setex(key, ttlSeconds, serializedValue);
+        pipeline.set(key, serializedValue, { ex: ttlSeconds });
       } else {
         pipeline.set(key, serializedValue);
       }
     }
 
     const results = await pipeline.exec();
-    const successCount = results?.filter(([err]) => !err).length || 0;
+    const successCount = Array.isArray(results) ? results.filter((r: any) => !r.error).length : 0;
     
     this.metrics.sets += successCount;
     return successCount === Object.keys(keyValuePairs).length;
@@ -310,8 +277,8 @@ export class RedisCache {
     }
 
     const serializedValue = JSON.stringify(value);
-    const result = await this.client.hset(key, field, serializedValue);
-    return result === 1;
+    const result = await this.client.hset(key, { [field]: serializedValue });
+    return typeof result === 'number' ? result === 1 : true;
   }
 
   async hgetall(key: string): Promise<Record<string, any>> {
@@ -319,10 +286,10 @@ export class RedisCache {
       return {};
     }
 
-    const result = await this.client.hgetall(key);
+    const result = await this.client.hgetall<Record<string, string> | null>(key);
     const parsed: Record<string, any> = {};
     
-    for (const [field, value] of Object.entries(result)) {
+    for (const [field, value] of Object.entries(result ?? {})) {
       try {
         parsed[field] = JSON.parse(value);
       } catch {
@@ -436,31 +403,10 @@ export class RedisCache {
   }
 
   subscribe(channel: string, callback: (message: any) => void): void {
-    if (!this.isConnected()) {
-      return;
-    }
-
-    this.client.subscribe(channel);
-    this.client.on('message', (receivedChannel, message) => {
-      if (receivedChannel === channel) {
-        try {
-          const parsed = JSON.parse(message);
-          callback(parsed);
-        } catch (error) {
-          console.error('Failed to parse Redis message:', error);
-          callback(message);
-        }
-      }
-    });
+    console.warn('Upstash Redis HTTP client does not support subscribe.');
   }
 
-  unsubscribe(channel?: string): void {
-    if (channel) {
-      this.client.unsubscribe(channel);
-    } else {
-      this.client.unsubscribe();
-    }
-  }
+  unsubscribe(channel?: string): void {}
 
   // Monitoring and metrics
   getMetrics(): CacheMetrics & { hitRate: number; avgResponseTime: number } {
@@ -496,15 +442,16 @@ export class RedisCache {
       return 'Redis not connected';
     }
 
-    return await this.client.info();
+    try {
+      const info = await this.client.info();
+      return typeof info === 'string' ? info : JSON.stringify(info);
+    } catch {
+      return 'Upstash Redis';
+    }
   }
 
   async memory(): Promise<any> {
-    if (!this.isConnected()) {
-      return null;
-    }
-
-    return await this.client.memory('usage');
+    return null;
   }
 
   // Utility methods
@@ -512,11 +459,11 @@ export class RedisCache {
     return parts.join(':');
   }
 
-  async pipeline(): Promise<Redis.Pipeline> {
+  async pipeline() {
     return this.client.pipeline();
   }
 
-  getClient(): Redis {
+  getClient(): UpstashRedis {
     return this.client;
   }
 }
