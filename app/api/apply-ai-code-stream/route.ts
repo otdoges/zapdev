@@ -278,12 +278,20 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    // Debug log the response
-    console.log('[apply-ai-code-stream] Received response to parse:');
+    // Enhanced debug logging for better debugging
+    console.log('[apply-ai-code-stream] ===== APPLY AI CODE STREAM REQUEST =====');
+    console.log('[apply-ai-code-stream] Timestamp:', new Date().toISOString());
+    console.log('[apply-ai-code-stream] Sandbox ID:', sandboxId || 'none provided');
+    console.log('[apply-ai-code-stream] Is Edit Mode:', isEdit);
+    console.log('[apply-ai-code-stream] Packages received:', packages?.length || 0, packages);
     console.log('[apply-ai-code-stream] Response length:', response.length);
     console.log('[apply-ai-code-stream] Response preview:', response.substring(0, 500));
-    console.log('[apply-ai-code-stream] isEdit:', isEdit);
-    console.log('[apply-ai-code-stream] packages:', packages);
+    console.log('[apply-ai-code-stream] Global state check:');
+    console.log('[apply-ai-code-stream] - activeSandbox exists:', !!global.activeSandbox);
+    console.log('[apply-ai-code-stream] - sandboxData exists:', !!global.sandboxData);
+    console.log('[apply-ai-code-stream] - existingFiles count:', global.existingFiles?.size || 0);
+    console.log('[apply-ai-code-stream] - conversationState exists:', !!global.conversationState);
+    console.log('[apply-ai-code-stream] ============================================');
     
     // Parse the AI response
     const parsed = parseAIResponse(response);
@@ -303,52 +311,113 @@ export async function POST(request: NextRequest) {
       global.existingFiles = new Set<string>();
     }
     
-    // First, always check the global state for active sandbox
+    // Enhanced sandbox connection management with better error handling
     let sandbox = global.activeSandbox;
     
     // If we don't have a sandbox in this instance but we have a sandboxId,
-    // reconnect to the existing sandbox
+    // reconnect to the existing sandbox with enhanced error handling
     if (!sandbox && sandboxId) {
       console.log(`[apply-ai-code-stream] Sandbox ${sandboxId} not in this instance, attempting reconnect...`);
       
+      // Validate E2B API key first
+      if (!process.env.E2B_API_KEY) {
+        console.error('[apply-ai-code-stream] E2B_API_KEY environment variable is not set');
+        return NextResponse.json({
+          success: false,
+          error: 'E2B API key not configured. Please check environment variables.',
+          results: {
+            filesCreated: [],
+            packagesInstalled: [],
+            commandsExecuted: [],
+            errors: ['E2B API key not configured']
+          },
+          explanation: parsed.explanation,
+          structure: parsed.structure,
+          parsedFiles: parsed.files,
+          message: `Parsed ${parsed.files.length} files but couldn't apply them - E2B API key missing.`
+        });
+      }
+      
       try {
-        // Reconnect to the existing sandbox using E2B's connect method
-        sandbox = await Sandbox.connect(sandboxId, { apiKey: process.env.E2B_API_KEY });
+        // Reconnect to the existing sandbox using E2B's connect method with timeout
+        console.log(`[apply-ai-code-stream] Attempting to connect to sandbox with API key: ${process.env.E2B_API_KEY?.slice(0, 10)}...`);
+        
+        const connectOptions = { 
+          apiKey: process.env.E2B_API_KEY,
+          timeout: 30000 // 30 second timeout
+        };
+        
+        sandbox = await Sandbox.connect(sandboxId, connectOptions);
         console.log(`[apply-ai-code-stream] Successfully reconnected to sandbox ${sandboxId}`);
+        
+        // Validate the sandbox connection by checking if it's alive
+        try {
+          const isAlive = await sandbox.isAlive();
+          if (!isAlive) {
+            throw new Error('Sandbox is not alive after connection');
+          }
+          console.log(`[apply-ai-code-stream] Sandbox ${sandboxId} is alive and ready`);
+        } catch (aliveCheckError) {
+          console.error(`[apply-ai-code-stream] Sandbox alive check failed:`, aliveCheckError);
+          throw new Error(`Sandbox connection unstable: ${(aliveCheckError as Error).message}`);
+        }
         
         // Store the reconnected sandbox globally for this instance
         global.activeSandbox = sandbox;
         
         // Update sandbox data if needed
         if (!global.sandboxData) {
-          const host = (sandbox as any).getHost(5173);
-          global.sandboxData = {
-            sandboxId,
-            url: `https://${host}`
-          };
+          try {
+            const host = (sandbox as any).getHost(5173);
+            global.sandboxData = {
+              sandboxId,
+              url: `https://${host}`
+            };
+            console.log(`[apply-ai-code-stream] Updated sandbox data with URL: https://${host}`);
+          } catch (hostError) {
+            console.warn(`[apply-ai-code-stream] Could not get sandbox host:`, hostError);
+            // Continue without host URL - not critical for file operations
+            global.sandboxData = { sandboxId, url: '' };
+          }
         }
         
         // Initialize existingFiles if not already
         if (!global.existingFiles) {
           global.existingFiles = new Set<string>();
         }
+        
       } catch (reconnectError) {
+        const errorMessage = (reconnectError as Error).message;
         console.error(`[apply-ai-code-stream] Failed to reconnect to sandbox ${sandboxId}:`, reconnectError);
+        
+        // Enhanced error categorization
+        let userFriendlyError = '';
+        if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+          userFriendlyError = 'Sandbox not found. It may have expired or been deleted.';
+        } else if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
+          userFriendlyError = 'Connection timeout. The sandbox may be overloaded or unreachable.';
+        } else if (errorMessage.includes('unauthorized') || errorMessage.includes('401')) {
+          userFriendlyError = 'Authentication failed. Please check your E2B API key.';
+        } else if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+          userFriendlyError = 'Rate limit exceeded. Please try again in a moment.';
+        } else {
+          userFriendlyError = `Sandbox connection failed: ${errorMessage}`;
+        }
         
         // If reconnection fails, we'll still try to return a meaningful response
         return NextResponse.json({
           success: false,
-          error: `Failed to reconnect to sandbox ${sandboxId}. The sandbox may have expired or been terminated.`,
+          error: userFriendlyError,
           results: {
             filesCreated: [],
             packagesInstalled: [],
             commandsExecuted: [],
-            errors: [`Sandbox reconnection failed: ${(reconnectError as Error).message}`]
+            errors: [`Sandbox reconnection failed: ${errorMessage}`]
           },
           explanation: parsed.explanation,
           structure: parsed.structure,
           parsedFiles: parsed.files,
-          message: `Parsed ${parsed.files.length} files but couldn't apply them - sandbox reconnection failed.`
+          message: `Parsed ${parsed.files.length} files but couldn't apply them - ${userFriendlyError}`
         });
       }
     }
@@ -544,24 +613,110 @@ export async function POST(request: NextRequest) {
             }
             
             console.log(`[apply-ai-code-stream] Writing file using E2B files API: ${fullPath}`);
+            console.log(`[apply-ai-code-stream] File content preview: ${fileContent.substring(0, 100)}${fileContent.length > 100 ? '...' : ''}`);
             
-            try {
-              // Use the correct E2B API - sandbox.files.write()
-              await sandboxInstance.files.write(fullPath, fileContent);
-              console.log(`[apply-ai-code-stream] Successfully wrote file: ${fullPath}`);
-              
-              // Update file cache
-              if (global.sandboxState?.fileCache) {
-                global.sandboxState.fileCache.files[normalizedPath] = {
-                  content: fileContent,
-                  lastModified: Date.now()
-                };
-                console.log(`[apply-ai-code-stream] Updated file cache for: ${normalizedPath}`);
+            // Enhanced file write with retry logic and better error handling
+            const maxRetries = 3;
+            let writeSuccess = false;
+            let lastError: Error | null = null;
+            
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+              try {
+                console.log(`[apply-ai-code-stream] File write attempt ${attempt}/${maxRetries} for: ${fullPath}`);
+                
+                // Validate sandbox instance before writing
+                if (!sandboxInstance || typeof sandboxInstance.files?.write !== 'function') {
+                  throw new Error('Sandbox instance is invalid or files API not available');
+                }
+                
+                // Validate file path format
+                if (!fullPath || typeof fullPath !== 'string' || fullPath.trim() === '') {
+                  throw new Error(`Invalid file path: ${fullPath}`);
+                }
+                
+                // Validate file content
+                if (fileContent === null || fileContent === undefined) {
+                  console.warn(`[apply-ai-code-stream] Empty content for file: ${fullPath}, using empty string`);
+                  fileContent = '';
+                }
+                
+                // Create directory structure if needed
+                const dirPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
+                if (dirPath && dirPath !== '/home/user/app') {
+                  try {
+                    console.log(`[apply-ai-code-stream] Ensuring directory exists: ${dirPath}`);
+                    await sandboxInstance.commands.run(`mkdir -p "${dirPath}"`, { 
+                      cwd: '/home/user/app',
+                      timeout: 10000 
+                    });
+                  } catch (mkdirError) {
+                    console.warn(`[apply-ai-code-stream] Could not create directory ${dirPath}:`, mkdirError);
+                    // Continue anyway - directory might already exist
+                  }
+                }
+                
+                // Use the correct E2B API - sandbox.files.write()
+                await sandboxInstance.files.write(fullPath, fileContent);
+                console.log(`[apply-ai-code-stream] Successfully wrote file: ${fullPath} (${fileContent.length} chars)`);
+                
+                // Verify the file was written by attempting to read it back
+                try {
+                  const verifyContent = await sandboxInstance.files.read(fullPath);
+                  if (verifyContent !== fileContent) {
+                    console.warn(`[apply-ai-code-stream] File content verification failed for: ${fullPath}`);
+                    console.warn(`[apply-ai-code-stream] Expected length: ${fileContent.length}, actual: ${verifyContent.length}`);
+                  } else {
+                    console.log(`[apply-ai-code-stream] File content verified successfully for: ${fullPath}`);
+                  }
+                } catch (verifyError) {
+                  console.warn(`[apply-ai-code-stream] Could not verify file content:`, verifyError);
+                  // Continue anyway - write may have succeeded
+                }
+                
+                // Update file cache
+                if (global.sandboxState?.fileCache) {
+                  global.sandboxState.fileCache.files[normalizedPath] = {
+                    content: fileContent,
+                    lastModified: Date.now()
+                  };
+                  console.log(`[apply-ai-code-stream] Updated file cache for: ${normalizedPath}`);
+                }
+                
+                writeSuccess = true;
+                break; // Success, exit retry loop
+                
+              } catch (writeError) {
+                lastError = writeError as Error;
+                const errorMessage = lastError.message;
+                console.error(`[apply-ai-code-stream] E2B file write error (attempt ${attempt}/${maxRetries}):`, writeError);
+                
+                // Categorize errors for better handling
+                if (errorMessage.includes('Permission denied') || errorMessage.includes('EACCES')) {
+                  console.error(`[apply-ai-code-stream] Permission error - this is likely unrecoverable`);
+                  break; // Don't retry permission errors
+                } else if (errorMessage.includes('No space left') || errorMessage.includes('ENOSPC')) {
+                  console.error(`[apply-ai-code-stream] Storage space error - this is likely unrecoverable`);
+                  break; // Don't retry storage errors
+                } else if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
+                  console.warn(`[apply-ai-code-stream] Timeout error - will retry if attempts remaining`);
+                } else if (errorMessage.includes('Connection') || errorMessage.includes('network')) {
+                  console.warn(`[apply-ai-code-stream] Network error - will retry if attempts remaining`);
+                } else {
+                  console.warn(`[apply-ai-code-stream] Unknown error - will retry if attempts remaining`);
+                }
+                
+                // Wait before retry (exponential backoff)
+                if (attempt < maxRetries) {
+                  const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+                  console.log(`[apply-ai-code-stream] Waiting ${delay}ms before retry...`);
+                  await new Promise(resolve => setTimeout(resolve, delay));
+                }
               }
-              
-            } catch (writeError) {
-              console.error(`[apply-ai-code-stream] E2B file write error:`, writeError);
-              throw writeError;
+            }
+            
+            if (!writeSuccess && lastError) {
+              console.error(`[apply-ai-code-stream] Failed to write file after ${maxRetries} attempts: ${fullPath}`);
+              throw new Error(`File write failed after ${maxRetries} attempts: ${lastError.message}`);
             }
             
             if (isUpdate) {
@@ -689,12 +844,25 @@ export async function POST(request: NextRequest) {
         }
         
       } catch (error) {
-        await sendProgress({
-          type: 'error',
-          error: (error as Error).message
-        });
+        console.error('[apply-ai-code-stream] Background process error:', error);
+        try {
+          await sendProgress({
+            type: 'error',
+            error: (error as Error).message,
+            details: {
+              stack: (error as Error).stack,
+              name: (error as Error).name
+            }
+          });
+        } catch (sendError) {
+          console.error('[apply-ai-code-stream] Failed to send error progress:', sendError);
+        }
       } finally {
-        await writer.close();
+        try {
+          await writer.close();
+        } catch (closeError) {
+          console.error('[apply-ai-code-stream] Failed to close writer:', closeError);
+        }
       }
     })(sandbox, request);
     
@@ -708,10 +876,28 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
-    console.error('Apply AI code stream error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to parse AI code' },
-      { status: 500 }
-    );
+    const errorMessage = error instanceof Error ? error.message : 'Failed to parse AI code';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('[apply-ai-code-stream] Main route error:', error);
+    console.error('[apply-ai-code-stream] Error stack:', errorStack);
+    
+    // Enhanced error response with more details
+    return NextResponse.json({
+      success: false,
+      error: errorMessage,
+      timestamp: new Date().toISOString(),
+      details: {
+        type: 'route_error',
+        parsedFiles: parsed?.files?.length || 0,
+        sandboxId: sandboxId || 'none',
+        stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
+      }
+    }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 }

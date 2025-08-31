@@ -519,6 +519,15 @@ Tip: I automatically detect and install npm packages from your code imports (lik
 
   const applyGeneratedCode = async (code: string, isEdit: boolean = false) => {
     setLoading(true);
+    console.log('[applyGeneratedCode] ===== STARTING CODE APPLICATION =====');
+    console.log('[applyGeneratedCode] Timestamp:', new Date().toISOString());
+    console.log('[applyGeneratedCode] IsEdit mode:', isEdit);
+    console.log('[applyGeneratedCode] Code length:', code.length);
+    console.log('[applyGeneratedCode] Code preview:', code.substring(0, 200));
+    console.log('[applyGeneratedCode] SandboxData:', sandboxData);
+    console.log('[applyGeneratedCode] Current conversation context files:', conversationContext.appliedCode.length);
+    console.log('[applyGeneratedCode] =======================================');
+    
     log('Applying AI-generated code...');
     
     try {
@@ -546,13 +555,41 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to apply code: ${response.statusText}`);
+        // Enhanced error handling for different response types
+        let errorMessage = `Failed to apply code: ${response.status} ${response.statusText}`;
+        
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+          if (errorData.details) {
+            console.error('[applyGeneratedCode] Error details:', errorData.details);
+          }
+        } catch (jsonError) {
+          // If response isn't JSON, try to get text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `Server error: ${errorText}`;
+            }
+          } catch (textError) {
+            console.error('[applyGeneratedCode] Could not parse error response:', textError);
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
       
-      // Handle streaming response
+      // Handle streaming response with better error handling
       const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Response body is not readable');
+      }
+      
       const decoder = new TextDecoder();
       let finalData: any = null;
+      let hasReceivedData = false;
       
       while (reader) {
         const { done, value } = await reader.read();
@@ -565,6 +602,10 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
+              hasReceivedData = true;
+              
+              // Enhanced logging for debugging
+              console.log('[applyGeneratedCode] Received streaming data:', data.type, data);
               
               switch (data.type) {
                 case 'start':
@@ -668,6 +709,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             }
           }
         }
+      }
+      
+      // Check if we received any data at all
+      if (!hasReceivedData) {
+        console.error('[applyGeneratedCode] No streaming data received');
+        throw new Error('No response data received from server. The connection may have been interrupted.');
       }
       
       // Process final data
@@ -929,11 +976,43 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           throw new Error(finalData?.error || 'Failed to apply code');
         }
       } else {
-        // If no final data was received, still close loading
-        addChatMessage('Code application may have partially succeeded. Check the preview.', 'system');
+        // If no final data was received, provide more detailed feedback
+        console.warn('[applyGeneratedCode] No final completion data received from stream');
+        
+        if (hasReceivedData) {
+          // We got some data but no completion - this suggests partial success or interruption
+          addChatMessage('⚠️ Code application was interrupted or partially completed. Please check the preview and try again if needed.', 'system');
+          // Still set some state to indicate partial completion
+          setCodeApplicationState({ stage: 'completed', hasError: true });
+        } else {
+          // No data at all - complete failure
+          throw new Error('No response received from server. The apply operation failed completely.');
+        }
       }
     } catch (error: any) {
-      log(`Failed to apply code: ${error.message}`, 'error');
+      console.error('[applyGeneratedCode] Error occurred:', error);
+      
+      // Enhanced error logging and user feedback
+      const errorMessage = error.message || 'Unknown error occurred';
+      log(`Failed to apply code: ${errorMessage}`, 'error');
+      
+      // Set error state for UI feedback
+      setCodeApplicationState({ 
+        stage: 'error', 
+        error: errorMessage,
+        hasError: true 
+      });
+      
+      // Add detailed error message to chat based on error type
+      if (errorMessage.includes('sandbox')) {
+        addChatMessage('🔥 Sandbox connection issue. The sandbox may have expired or been disconnected. Try creating a new sandbox.', 'system');
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        addChatMessage('🌐 Network error occurred. Please check your connection and try again.', 'system');
+      } else if (errorMessage.includes('timeout')) {
+        addChatMessage('⏱️ Operation timed out. The server may be overloaded. Please try again.', 'system');
+      } else {
+        addChatMessage(`❌ Application failed: ${errorMessage}`, 'system');
+      }
     } finally {
       setLoading(false);
       // Clear isEdit flag after applying code
