@@ -28,7 +28,6 @@ import ConvexChat from '@/components/ConvexChat';
 
 import UserSettingsModal from '@/components/UserSettingsModal';
 import ReactScanDashboard from '@/components/ReactScanDashboard';
-import ConversationHistorySidebar from '@/components/ConversationHistorySidebar';
 import UsageLimitModal from '@/components/UsageLimitModal';
 import GitWorkflowDemo from '@/components/GitWorkflowDemo';
 import { DesignTeamInterface } from '@/components/DesignTeamInterface';
@@ -55,6 +54,8 @@ interface ChatMessage {
 function AISandboxPage() {
   const { isSignedIn, user, isLoaded } = useUser();
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
+  const [projectName, setProjectName] = useState<string | null>(null);
+  const [isGeneratingName, setIsGeneratingName] = useState(false);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: 'Not connected', active: false });
   const [structureContent, setStructureContent] = useState('No sandbox created yet');
@@ -95,8 +96,6 @@ function AISandboxPage() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReactScanModal, setShowReactScanModal] = useState(false);
   const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
-  const [showHistorySidebar, setShowHistorySidebar] = useState(true);
-  const [sidebarHovered, setSidebarHovered] = useState(false);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
   
   const [conversationContext, setConversationContext] = useState<{
@@ -223,10 +222,13 @@ function AISandboxPage() {
   useEffect(() => {
     if (!showHomeScreen && homeUrlInput && !urlScreenshot && !isCapturingScreenshot) {
       let screenshotUrl = homeUrlInput.trim();
-      if (!screenshotUrl.match(/^https?:\/\//i)) {
-        screenshotUrl = 'https://' + screenshotUrl;
+      // Only proceed if we have a non-empty URL after trimming
+      if (screenshotUrl) {
+        if (!screenshotUrl.match(/^https?:\/\//i)) {
+          screenshotUrl = 'https://' + screenshotUrl;
+        }
+        captureUrlScreenshot(screenshotUrl);
       }
-      captureUrlScreenshot(screenshotUrl);
     }
   }, [showHomeScreen, homeUrlInput]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1618,6 +1620,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       return;
     }
     
+    // Generate project name if this is a new project (no existing name and no sandbox yet)
+    if (!projectName && !sandboxData) {
+      addChatMessage('🎯 Analyzing your request and generating a perfect project name...', 'system');
+      await generateProjectName(message);
+    }
+    
     // Check if message contains URLs and offer to scrape them
     const urlRegex = /https?:\/\/[^\s]+|(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/gi;
     const urls = message.match(urlRegex);
@@ -1626,7 +1634,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       addChatMessage(`I found a URL in your message: ${urls[0]}. Let me scrape it and incorporate the content into your request.`, 'system');
       
       try {
-        let url = urls[0];
+        let url = urls[0]?.trim();
+        if (!url) {
+          addChatMessage('Invalid URL found in message', 'system');
+          return;
+        }
+        
         if (!url.match(/^https?:\/\//i)) {
           url = 'https://' + url;
         }
@@ -2671,13 +2684,20 @@ Focus on the key sections and content, making it clean and modern while preservi
   };
 
   const captureUrlScreenshot = async (url: string) => {
+    // Validate URL before proceeding
+    const trimmedUrl = url?.trim();
+    if (!trimmedUrl) {
+      setScreenshotError('URL is required');
+      return;
+    }
+    
     setIsCapturingScreenshot(true);
     setScreenshotError(null);
     try {
       const response = await fetch('/api/scrape-screenshot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url: trimmedUrl })
       });
       
       const data = await response.json();
@@ -2700,6 +2720,41 @@ Focus on the key sections and content, making it clean and modern while preservi
       setScreenshotError('Network error while capturing screenshot');
     } finally {
       setIsCapturingScreenshot(false);
+    }
+  };
+
+  const generateProjectName = async (userInput?: string, url?: string, fileContents?: any[], existingNames?: string[]) => {
+    setIsGeneratingName(true);
+    try {
+      const response = await fetch('/api/generate-project-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userInput,
+          url,
+          fileContents,
+          existingNames
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setProjectName(data.projectName);
+        return data.projectName;
+      } else {
+        // Use fallback name if AI generation fails
+        const fallbackName = data.fallbackName || 'Untitled Project';
+        setProjectName(fallbackName);
+        return fallbackName;
+      }
+    } catch (error) {
+      console.error('Failed to generate project name:', error);
+      const fallbackName = 'Untitled Project';
+      setProjectName(fallbackName);
+      return fallbackName;
+    } finally {
+      setIsGeneratingName(false);
     }
   };
 
@@ -2758,7 +2813,10 @@ Focus on the key sections and content, making it clean and modern while preservi
         
         try {
           // Scrape the website
-          let url = displayUrl;
+          const url = displayUrl?.trim();
+          if (!url) {
+            throw new Error('No URL provided for scraping');
+          }
         
         // Screenshot is already being captured in parallel above
         
@@ -2794,6 +2852,10 @@ Focus on the key sections and content, making it clean and modern while preservi
           setActiveTab('generation');
         }, 1500);
         
+        // Generate AI project name for URL clone
+        addChatMessage('🎯 Generating a perfect name for this cloned project...', 'system');
+        await generateProjectName(undefined, url);
+        
         // Store scraped data in conversation context
         setConversationContext(prev => ({
           ...prev,
@@ -2802,7 +2864,7 @@ Focus on the key sections and content, making it clean and modern while preservi
             content: scrapeData,
             timestamp: new Date()
           }],
-          currentProject: `${url} Clone`
+          currentProject: projectName || `${url} Clone`
         }));
         
         const prompt = `I want to recreate the ${url} website as a complete React application based on the scraped content below.
@@ -3418,6 +3480,111 @@ Focus on the key sections and content, making it clean and modern.`;
                   </select>
                 </div>
               )}
+              
+              {/* Projects Section - Only show when signed in */}
+              {isSignedIn && (
+                <div className="mt-16 animate-[fadeIn_1.2s_ease-out]">
+                  <h2 className="text-2xl font-semibold text-[#36322F] mb-8 text-center">Your Recent Projects</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                    {/* Current Project */}
+                    {sandboxData?.url && (
+                      <div className="group relative bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                        <div className="aspect-video bg-gradient-to-br from-orange-50 to-yellow-50 relative overflow-hidden">
+                          <iframe 
+                            src={sandboxData.url}
+                            className="w-full h-full"
+                            frameBorder="0"
+                            sandbox="allow-scripts allow-same-origin"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        </div>
+                        <div className="p-4">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-medium text-gray-900">
+                              {isGeneratingName ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                                  <span>Generating name...</span>
+                                </div>
+                              ) : (
+                                projectName || 'Current Project'
+                              )}
+                            </h3>
+                            {projectName && (
+                              <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">AI Named</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 mb-3">Active sandbox • {sandboxData.sandboxId}</p>
+                          <button 
+                            onClick={() => {
+                              setShowHomeScreen(false);
+                              setActiveTab('preview');
+                            }}
+                            className="w-full bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                          >
+                            Continue Building
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Mock Projects for Demo */}
+                    {[
+                      {
+                        name: "Task Manager App",
+                        description: "React todo app with dark mode",
+                        preview: "https://via.placeholder.com/400x300/f97316/ffffff?text=Task+Manager"
+                      },
+                      {
+                        name: "Landing Page",
+                        description: "Modern SaaS landing page",
+                        preview: "https://via.placeholder.com/400x300/0ea5e9/ffffff?text=Landing+Page"
+                      },
+                      {
+                        name: "Dashboard UI",
+                        description: "Analytics dashboard with charts",
+                        preview: "https://via.placeholder.com/400x300/8b5cf6/ffffff?text=Dashboard"
+                      },
+                      {
+                        name: "E-commerce Store",
+                        description: "Product catalog with cart",
+                        preview: "https://via.placeholder.com/400x300/10b981/ffffff?text=E-commerce"
+                      },
+                      {
+                        name: "Blog Platform",
+                        description: "Minimalist blog interface",
+                        preview: "https://via.placeholder.com/400x300/f59e0b/ffffff?text=Blog"
+                      }
+                    ].slice(0, sandboxData?.url ? 5 : 6).map((project, index) => (
+                      <div key={index} className="group relative bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                        <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
+                          <img 
+                            src={project.preview}
+                            alt={project.name}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            Demo
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-medium text-gray-900 mb-1">{project.name}</h3>
+                          <p className="text-sm text-gray-500 mb-3">{project.description}</p>
+                          <button 
+                            onClick={() => {
+                              setHomeUrlInput(`Clone ${project.name.toLowerCase()}`);
+                            }}
+                            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                          >
+                            Clone Project
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3431,22 +3598,21 @@ Focus on the key sections and content, making it clean and modern.`;
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
               </svg>
             </div>
-            <span className="text-xl font-bold text-foreground">zapdev</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xl font-bold text-foreground">zapdev</span>
+              {projectName && (
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-6 bg-gray-300 rounded-full"></div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-gray-700">{projectName}</span>
+                    <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">AI</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* History Sidebar Toggle */}
-          <Button 
-            variant="outline"
-            onClick={() => setShowHistorySidebar(!showHistorySidebar)}
-            size="sm"
-            title="Toggle conversation history"
-            className="border-gray-300"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-          </Button>
           
           {/* Model Selector - Hidden per config */}
           {appConfig.ui.showModelSelector && (
@@ -3510,33 +3676,7 @@ Focus on the key sections and content, making it clean and modern.`;
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Sidebar Hover Trigger */}
-        <div 
-          className="absolute left-0 top-0 w-4 h-full z-20 hover:bg-orange-500/5 transition-colors duration-200"
-          onMouseEnter={() => setSidebarHovered(true)}
-          onMouseLeave={() => setSidebarHovered(false)}
-        />
-        
-        {/* Conversation History Sidebar */}
-        <div
-          className="relative z-10"
-          onMouseEnter={() => setSidebarHovered(true)}
-          onMouseLeave={() => setSidebarHovered(false)}
-        >
-          <ConversationHistorySidebar
-            isVisible={showHistorySidebar || sidebarHovered}
-            onChatSelect={(chatId) => {
-              console.log('Selected chat:', chatId);
-              // TODO: Load chat messages and integrate with existing chat system
-            }}
-            onNewChat={() => {
-              console.log('New chat created');
-              // TODO: Reset current conversation
-            }}
-          />
-        </div>
-        
+      <div className="flex-1 flex overflow-hidden relative">        
         {/* Center Panel - AI Chat (1/3 of remaining width) */}
         <div className="flex-1 max-w-[400px] flex flex-col border-r border-border bg-background">
           {conversationContext.scrapedWebsites.length > 0 && (
