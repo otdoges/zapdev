@@ -581,7 +581,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         throw new Error(errorMessage);
       }
       
-      // Handle streaming response with better error handling
+      // Handle streaming response with better error handling and timeout
       const reader = response.body?.getReader();
       if (!reader) {
         throw new Error('Response body is not readable');
@@ -590,43 +590,56 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       const decoder = new TextDecoder();
       let finalData: any = null;
       let hasReceivedData = false;
+      let lastDataTime = Date.now();
+      const TIMEOUT_MS = 30000; // 30 second timeout
       
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              hasReceivedData = true;
-              
-              // Enhanced logging for debugging
-              console.log('[applyGeneratedCode] Received streaming data:', data.type, data);
-              
-              switch (data.type) {
-                case 'start':
-                  // Don't add as chat message, just update state
-                  setCodeApplicationState({ stage: 'analyzing' });
-                  break;
-                  
-                case 'step':
-                  // Update progress state based on step
-                  if (data.message.includes('Installing') && data.packages) {
-                    setCodeApplicationState({ 
-                      stage: 'installing', 
-                      packages: data.packages 
-                    });
-                  } else if (data.message.includes('Creating files') || data.message.includes('Applying')) {
-                    setCodeApplicationState({ 
-                      stage: 'applying',
-                      filesGenerated: data.filesCreated || [] 
-                    });
-                  }
-                  break;
+      // Set up timeout monitoring
+      const timeoutCheck = setInterval(() => {
+        if (Date.now() - lastDataTime > TIMEOUT_MS) {
+          clearInterval(timeoutCheck);
+          reader.cancel();
+          throw new Error('Stream timeout - no data received for 30 seconds');
+        }
+      }, 5000);
+      
+      try {
+        while (reader) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          lastDataTime = Date.now(); // Update last data time
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                hasReceivedData = true;
+                
+                // Enhanced logging for debugging
+                console.log('[applyGeneratedCode] Received streaming data:', data.type, data);
+                
+                switch (data.type) {
+                  case 'start':
+                    // Don't add as chat message, just update state
+                    setCodeApplicationState({ stage: 'analyzing' });
+                    break;
+                    
+                  case 'step':
+                    // Update progress state based on step
+                    if (data.message.includes('Installing') && data.packages) {
+                      setCodeApplicationState({ 
+                        stage: 'installing', 
+                        packages: data.packages 
+                      });
+                    } else if (data.message.includes('Creating files') || data.message.includes('Applying')) {
+                      setCodeApplicationState({ 
+                        stage: 'applying',
+                        filesGenerated: data.filesCreated || [] 
+                      });
+                    }
+                    break;
                   
                 case 'package-progress':
                   // Handle package installation progress
@@ -709,6 +722,9 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             }
           }
         }
+      } finally {
+        // Clean up timeout check
+        clearInterval(timeoutCheck);
       }
       
       // Check if we received any data at all

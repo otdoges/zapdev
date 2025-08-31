@@ -422,35 +422,45 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // If no sandbox at all and no sandboxId provided, return an error
-    if (!sandbox && !sandboxId) {
-      console.log('[apply-ai-code-stream] No sandbox available and no sandboxId provided');
-      return NextResponse.json({
-        success: false,
-        error: 'No active sandbox found. Please create a sandbox first.',
-        results: {
-          filesCreated: [],
-          packagesInstalled: [],
-          commandsExecuted: [],
-          errors: ['No sandbox available']
-        },
-        explanation: parsed.explanation,
-        structure: parsed.structure,
-        parsedFiles: parsed.files,
-        message: `Parsed ${parsed.files.length} files but no sandbox available to apply them.`
-      });
-    }
-    
-    // Create a response stream for real-time updates
+    // Create a response stream for real-time updates FIRST to ensure we always have a stream
     const encoder = new TextEncoder();
     const stream = new TransformStream();
     const writer = stream.writable.getWriter();
     
     // Function to send progress updates
     const sendProgress = async (data: any) => {
-      const message = `data: ${JSON.stringify(data)}\n\n`;
-      await writer.write(encoder.encode(message));
+      try {
+        const message = `data: ${JSON.stringify(data)}\n\n`;
+        await writer.write(encoder.encode(message));
+      } catch (error) {
+        console.error('[apply-ai-code-stream] Failed to send progress:', error);
+      }
     };
+
+    // If no sandbox at all and no sandboxId provided, send error through stream
+    if (!sandbox && !sandboxId) {
+      console.log('[apply-ai-code-stream] No sandbox available and no sandboxId provided');
+      
+      await sendProgress({
+        type: 'error',
+        error: 'No active sandbox found. Please create a sandbox first.',
+        message: `Parsed ${parsed.files.length} files but no sandbox available to apply them.`,
+        details: {
+          filesFound: parsed.files.length,
+          packagesFound: parsed.packages?.length || 0
+        }
+      });
+      
+      await writer.close();
+      
+      return new Response(stream.readable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
     
     // Start processing in background (pass sandbox and request to the async function)
     (async (sandboxInstance, req) => {
