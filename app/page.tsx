@@ -722,6 +722,11 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             }
           }
         }
+      }
+      } catch (streamError) {
+        console.error('[applyGeneratedCode] Stream reading error:', streamError);
+        clearInterval(timeoutCheck);
+        throw streamError;
       } finally {
         // Clean up timeout check
         clearInterval(timeoutCheck);
@@ -745,6 +750,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         
         if (data.success) {
           const { results } = data;
+          const appliedFiles = [...(results.filesCreated || []), ...(results.filesUpdated || [])];
         
         // Log package installation results without duplicate messages
         if (results.packagesInstalled?.length > 0) {
@@ -836,7 +842,6 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         console.log('[applyGeneratedCode] Current iframe element:', iframeRef.current);
         console.log('[applyGeneratedCode] Current iframe src:', iframeRef.current?.src);
         
-        const appliedFiles = [...(results.filesCreated || []), ...(results.filesUpdated || [])];
         if (appliedFiles.length > 0) {
           setConversationContext(prev => ({
             ...prev,
@@ -999,7 +1004,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           // We got some data but no completion - this suggests partial success or interruption
           addChatMessage('⚠️ Code application was interrupted or partially completed. Please check the preview and try again if needed.', 'system');
           // Still set some state to indicate partial completion
-          setCodeApplicationState({ stage: 'completed', hasError: true });
+          setCodeApplicationState({ stage: 'complete', hasError: true });
         } else {
           // No data at all - complete failure
           throw new Error('No response received from server. The apply operation failed completely.');
@@ -1014,7 +1019,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       
       // Set error state for UI feedback
       setCodeApplicationState({ 
-        stage: 'error', 
+        stage: null,
         error: errorMessage,
         hasError: true 
       });
