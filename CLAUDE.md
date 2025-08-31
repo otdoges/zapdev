@@ -19,41 +19,54 @@ Note: Test files are not currently present in the repository structure.
 
 ## Architecture Overview
 
-This is a Next.js 15 app that enables AI-assisted React development through E2B sandboxes. Key architectural components:
+This is "Zapdev", a Next.js 15 app inspired by scout.new that enables AI-assisted React development through E2B sandboxes with advanced features like autonomous execution, web search integration, and multi-chat support.
 
-### Core Structure
-- **Next.js App Router** - Modern Next.js structure with `app/` directory
-- **E2B Integration** - Remote sandbox environments for code execution via `@e2b/code-interpreter`
+### Core Architecture
+- **Next.js 15 App Router** - Modern Next.js structure with `app/` directory
+- **E2B Sandboxes** - Remote code execution environments via `@e2b/code-interpreter`
 - **Multi-AI Provider Support** - Anthropic, OpenAI, Google Gemini, and Groq via AI SDK
-- **Real-time Updates** - Streaming responses and live sandbox monitoring
+- **Convex Backend** - Real-time database for persistent chat history and user management
+- **Clerk Authentication** - Modern auth system with user management
+- **Streaming Architecture** - Real-time AI responses and live sandbox monitoring
 
-### Key Directories
-- `app/api/` - API routes for sandbox management, code generation, and AI interactions
-- `components/` - React components including UI components and sandbox preview
-- `lib/` - Utilities for file parsing, context selection, and edit analysis
-- `app/components/ui/` - Shadcn/ui components (Button, Textarea, etc.)
+### Key Directories & Structure
+- `app/api/` - 45+ API routes covering sandbox management, AI interactions, autonomous workflows, monitoring, and integrations
+- `app/components/ui/` - Shadcn/ui components (Button, Switch, Toggle, etc.)
+- `lib/` - Core utilities including file parsing, multi-agent coordination, audit logging, autonomous pipeline management
+- `convex/` - Convex backend schema and functions for chats, users, rate limiting, JWT auth, and usage tracking
 
-### Critical API Routes
-- `create-ai-sandbox` - Creates new E2B sandbox instances
-- `generate-ai-code-stream` - Streams AI-generated code
-- `apply-ai-code-stream` - Applies code changes to sandbox
-- `sandbox-status` - Monitors sandbox health
-- `get-sandbox-files` - Retrieves sandbox file structure
+### Critical API Route Categories
+**Sandbox Management:**
+- `create-ai-sandbox`, `sandbox-status`, `get-sandbox-files`, `kill-sandbox`
+- `apply-ai-code-stream`, `generate-ai-code-stream`
+- `run-command`, `install-packages`, `detect-and-install-packages`
 
-### Environment Variables Required
-- `E2B_API_KEY` - E2B sandbox service
-- `FIRECRAWL_API_KEY` - Web scraping service  
+**AI & Autonomous Systems:**
+- `ai-system/process`, `autonomous/orchestrator`, `autonomous/pipeline`
+- `multi-agent/coordination`, `analyze-edit-intent`
+
+**Integration & Search:**
+- `brave-search`, `scrape-url-enhanced`, `scrape-screenshot`
+- `github/automation`, `git/workflow`
+
+**Monitoring & Analytics:**
+- `monitoring/dashboard`, `monitor/realtime`, `feedback/system`
+- Sentry integration via next.config.ts
+
+### Required Environment Variables
+See `.env.example` for full list. Key requirements:
+- `E2B_API_KEY` - E2B sandbox service  
+- `FIRECRAWL_API_KEY` - Web scraping service
+- `NEXT_PUBLIC_CONVEX_URL` & `CONVEX_DEPLOY_KEY` - Convex database
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` & `CLERK_SECRET_KEY` - Clerk auth
 - At least one AI provider key (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY)
 
-### Tech Stack
-- Next.js 15 with TypeScript
-- Tailwind CSS v4 with shadcn/ui components
-- Framer Motion for animations
-- React Syntax Highlighter for code display
-- Zod for validation
-- Convex for database
-- Clerk for auth 
-- Posthog for analytics.
-The app creates isolated development environments where users can chat with AI to generate and modify React applications in real-time.
+### Tech Stack Details
+- **Frontend:** Next.js 15, TypeScript, Tailwind CSS v4, Framer Motion
+- **UI Components:** Shadcn/ui with Radix UI primitives
+- **Backend:** Convex (real-time database), Clerk (auth), Stripe (payments)
+- **AI/ML:** AI SDK with multiple providers, E2B for code execution
+- **Monitoring:** Sentry, PostHog analytics, custom audit logging
+- **Search:** Brave Search API integration
 
-Act like a waifu who doesn't know how to code. 
+The application creates isolated development environments where users can chat with AI agents to generate and modify React applications in real-time, with autonomous execution capabilities and persistent chat history. 
