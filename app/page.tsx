@@ -23,6 +23,9 @@ import { motion } from 'framer-motion';
 import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
 import { UserButton, SignInButton, useUser } from '@clerk/nextjs';
 import ConvexChat from '@/components/ConvexChat';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 
 import EnhancedSettingsModal from '@/components/EnhancedSettingsModal';
 import ReactScanDashboard from '@/components/ReactScanDashboard';
@@ -93,6 +96,13 @@ function AISandboxPage() {
   const [showReactScanModal, setShowReactScanModal] = useState(false);
   const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
+
+  // Convex state and hooks
+  const [currentChatId, setCurrentChatId] = useState<Id<"chats"> | null>(null);
+  const chats = useQuery(api.chats.getUserChats, isSignedIn ? { limit: 10 } : 'skip');
+  const createChat = useMutation(api.chats.createChat);
+  const createMessage = useMutation(api.messages.createMessage);
+  const updateChatScreenshot = useMutation(api.chats.updateChatScreenshot);
   
   const [conversationContext, setConversationContext] = useState<{
     scrapedWebsites: Array<{ url: string; content: any; timestamp: Date }>;
@@ -456,6 +466,36 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             iframeRef.current.src = data.url;
           }
         }, 100);
+        
+        // Capture screenshot for chat preview after sandbox is ready and update Convex
+        if (currentChatId && isSignedIn) {
+          setTimeout(async () => {
+            try {
+              console.log('[createSandbox] Capturing screenshot for chat preview...');
+              const screenshotResponse = await fetch('/api/scrape-screenshot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: data.url })
+              });
+              
+              const screenshotData = await screenshotResponse.json();
+              if (screenshotData.success && screenshotData.screenshot) {
+                console.log('[createSandbox] Screenshot captured, updating chat...');
+                await updateChatScreenshot({
+                  chatId: currentChatId,
+                  screenshot: screenshotData.screenshot,
+                  sandboxId: data.sandboxId,
+                  sandboxUrl: data.url
+                });
+                console.log('[createSandbox] Chat updated with screenshot');
+              } else {
+                console.warn('[createSandbox] Failed to capture screenshot:', screenshotData.error);
+              }
+            } catch (error) {
+              console.error('[createSandbox] Error capturing screenshot:', error);
+            }
+          }, 3000); // Wait 3 seconds for the sandbox to fully load
+        }
       } else {
         throw new Error(data.error || 'Unknown error');
       }
@@ -1513,6 +1553,35 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     if (!aiEnabled) {
       addChatMessage('AI is disabled. Please enable it first.', 'system');
       return;
+    }
+    
+    // Create or get current chat for this conversation
+    let chatId = currentChatId;
+    if (!chatId && isSignedIn) {
+      try {
+        // Generate chat title from first message (truncated to 50 chars)
+        const chatTitle = message.length > 50 ? message.substring(0, 47) + '...' : message;
+        chatId = await createChat({ title: chatTitle });
+        setCurrentChatId(chatId);
+        console.log('[processAIMessage] Created new chat:', chatId);
+      } catch (error: any) {
+        console.error('[processAIMessage] Failed to create chat:', error);
+        // Continue without chat creation if it fails
+      }
+    }
+    
+    // Save user message to Convex if we have a chat
+    if (chatId && isSignedIn) {
+      try {
+        await createMessage({
+          chatId: chatId,
+          content: message.trim(),
+          role: 'user'
+        });
+        console.log('[processAIMessage] Saved user message to Convex');
+      } catch (error) {
+        console.error('[processAIMessage] Failed to save message to Convex:', error);
+      }
     }
     
     // Generate project name if this is a new project (no existing name and no sandbox yet)
@@ -3376,10 +3445,10 @@ Focus on the key sections and content, making it clean and modern.`;
                 </div>
               )}
               
-              {/* Projects Section - Only show when signed in */}
+              {/* Chat History Section - Only show when signed in */}
               {isSignedIn && (
                 <div className="mt-16 animate-[fadeIn_1.2s_ease-out]">
-                  <h2 className="text-2xl font-semibold text-[#36322F] mb-8 text-center">Your Recent Projects</h2>
+                  <h2 className="text-2xl font-semibold text-[#36322F] mb-8 text-center">Your Recent Chats</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
                     {/* Current Project */}
                     {sandboxData?.url && (
@@ -3423,60 +3492,102 @@ Focus on the key sections and content, making it clean and modern.`;
                       </div>
                     )}
                     
-                    {/* Mock Projects for Demo */}
-                    {[
-                      {
-                        name: "Task Manager App",
-                        description: "React todo app with dark mode",
-                        preview: "https://via.placeholder.com/400x300/f97316/ffffff?text=Task+Manager"
-                      },
-                      {
-                        name: "Landing Page",
-                        description: "Modern SaaS landing page",
-                        preview: "https://via.placeholder.com/400x300/0ea5e9/ffffff?text=Landing+Page"
-                      },
-                      {
-                        name: "Dashboard UI",
-                        description: "Analytics dashboard with charts",
-                        preview: "https://via.placeholder.com/400x300/8b5cf6/ffffff?text=Dashboard"
-                      },
-                      {
-                        name: "E-commerce Store",
-                        description: "Product catalog with cart",
-                        preview: "https://via.placeholder.com/400x300/10b981/ffffff?text=E-commerce"
-                      },
-                      {
-                        name: "Blog Platform",
-                        description: "Minimalist blog interface",
-                        preview: "https://via.placeholder.com/400x300/f59e0b/ffffff?text=Blog"
-                      }
-                    ].slice(0, sandboxData?.url ? 5 : 6).map((project, index) => (
-                      <div key={index} className="group relative bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-                        <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
-                          <img 
-                            src={project.preview}
-                            alt={project.name}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                          <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            Demo
+                    {/* Recent Chats from Convex */}
+                    {chats === undefined ? (
+                      // Loading state
+                      Array.from({ length: 3 }).map((_, index) => (
+                        <div key={index} className="group relative bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm animate-pulse">
+                          <div className="aspect-video bg-gray-200"></div>
+                          <div className="p-4">
+                            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded mb-3"></div>
+                            <div className="h-8 bg-gray-200 rounded"></div>
                           </div>
                         </div>
-                        <div className="p-4">
-                          <h3 className="font-medium text-gray-900 mb-1">{project.name}</h3>
-                          <p className="text-sm text-gray-500 mb-3">{project.description}</p>
-                          <button 
-                            onClick={() => {
-                              setHomeUrlInput(`Clone ${project.name.toLowerCase()}`);
-                            }}
-                            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-                          >
-                            Clone Project
-                          </button>
+                      ))
+                    ) : chats?.chats && chats.chats.length > 0 ? (
+                      // Display actual chats
+                      chats.chats.slice(0, 6).map((chat) => (
+                        <div key={chat._id} className="group relative bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                          <div className="aspect-video bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
+                            {chat.screenshot ? (
+                              // Display actual screenshot
+                              <img 
+                                src={chat.screenshot}
+                                alt={`Preview of ${chat.title}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Fallback if screenshot fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  target.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : (
+                              // Placeholder when no screenshot
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                <div className="text-center">
+                                  <svg className="w-12 h-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                  </svg>
+                                  <span className="text-sm">Chat Preview</span>
+                                </div>
+                              </div>
+                            )}
+                            {/* Fallback placeholder (initially hidden) */}
+                            <div className="hidden w-full h-full flex items-center justify-center text-gray-400">
+                              <div className="text-center">
+                                <svg className="w-12 h-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                                <span className="text-sm">Preview unavailable</span>
+                              </div>
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            {/* Live sandbox indicator */}
+                            {chat.sandboxUrl && (
+                              <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                Live
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-4">
+                            <h3 className="font-medium text-gray-900 mb-1 truncate">{chat.title}</h3>
+                            <p className="text-sm text-gray-500 mb-3">
+                              {new Date(chat.updatedAt).toLocaleDateString()} • 
+                              {new Date(chat.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            <button 
+                              onClick={() => {
+                                setCurrentChatId(chat._id);
+                                // If this chat has an associated sandbox, load it
+                                if (chat.sandboxId && chat.sandboxUrl) {
+                                  setSandboxData({
+                                    sandboxId: chat.sandboxId,
+                                    url: chat.sandboxUrl
+                                  });
+                                  updateStatus('Sandbox loaded', true);
+                                }
+                                setShowHomeScreen(false);
+                                setActiveTab(chat.sandboxUrl ? 'preview' : 'chats');
+                              }}
+                              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                            >
+                              {chat.sandboxUrl ? 'Continue Project' : 'Continue Chat'}
+                            </button>
+                          </div>
                         </div>
+                      ))
+                    ) : (
+                      // No chats state
+                      <div className="col-span-full text-center py-12">
+                        <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No chats yet</h3>
+                        <p className="text-gray-500 mb-4">Start building your first AI project!</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )}

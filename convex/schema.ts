@@ -61,6 +61,9 @@ export default defineSchema({
   chats: defineTable({
     userId: v.string(), // Reference to the user who owns this chat
     title: v.string(),
+    screenshot: v.optional(v.string()), // Base64 screenshot or URL of the generated project
+    sandboxId: v.optional(v.string()), // Associated sandbox ID for this chat
+    sandboxUrl: v.optional(v.string()), // URL of the deployed sandbox
     createdAt: v.number(),
     updatedAt: v.number(),
   })

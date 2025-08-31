@@ -321,6 +321,46 @@ export const touchChat = mutation({
   },
 });
 
+// Update chat screenshot and sandbox info
+export const updateChatScreenshot = mutation({
+  args: {
+    chatId: v.id("chats"),
+    screenshot: v.optional(v.string()),
+    sandboxId: v.optional(v.string()),
+    sandboxUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await getAuthenticatedUser(ctx);
+    const chat = await ctx.db.get(args.chatId);
+    
+    if (!chat) {
+      throw new Error("Chat not found");
+    }
+    
+    if (chat.userId !== identity.subject) {
+      throw new Error("Access denied");
+    }
+    
+    const updateFields: any = {
+      updatedAt: Date.now(),
+    };
+    
+    if (args.screenshot !== undefined) {
+      updateFields.screenshot = args.screenshot;
+    }
+    if (args.sandboxId !== undefined) {
+      updateFields.sandboxId = args.sandboxId;
+    }
+    if (args.sandboxUrl !== undefined) {
+      updateFields.sandboxUrl = args.sandboxUrl;
+    }
+    
+    await ctx.db.patch(args.chatId, updateFields);
+    
+    return args.chatId;
+  },
+});
+
 // Get chat statistics for user
 export const getUserChatStats = query({
   args: {},
