@@ -1,4 +1,5 @@
 import { createHash, randomBytes, createHmac } from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { withDrizzle } from '../database/connection-enhanced';
 import { getLogger } from '../monitoring/logger';
 import { getCache } from '../cache/multi-layer-cache';
@@ -193,15 +194,14 @@ export class APIKeyManager {
         return { valid: false, error: 'API key has expired' };
       }
 
-      // Validate the key hash
-      const providedHash = createHash('sha256').update(providedKey).digest('hex');
+      // Validate the key hash (use bcrypt for secure comparison)
       const storedHash = keyData.hashedKey;
 
-      if (providedHash !== storedHash) {
+      if (!bcrypt.compareSync(providedKey, storedHash)) {
         // Log potential security issue
         this.logger.warn('API key validation failed - hash mismatch', {
           keyId,
-          providedHashPrefix: providedHash.substring(0, 8),
+          providedHashPrefix: providedKey.substring(0, 8),
           storedHashPrefix: storedHash.substring(0, 8),
         });
         
