@@ -65,8 +65,8 @@ function parseAIResponse(response: string): ParsedResponse {
   const fileMap = new Map<string, { content: string; isComplete: boolean }>();
   
   // First pass: Find all file declarations
-  // Fixed ReDoS vulnerability by avoiding catastrophic backtracking
-  const fileRegex = /<file path="([^"]+)">([^<]*)(?:<\/file>|$)/g;
+  // Use non-greedy matching to prevent catastrophic backtracking
+  const fileRegex = /<file path="([^"]+)">([\s\S]*?)(?:<\/file>|$)/g;
   let match;
   while ((match = fileRegex.exec(response)) !== null) {
     const filePath = match[1];

@@ -58,16 +58,16 @@ export default function EnhancedSettingsModal({ isOpen, onClose }: EnhancedSetti
     {
       name: 'Pro',
       description: 'Designed for fast-moving teams building together in real time.',
-      monthlyPrice: 25,
+      monthlyPrice: 20,
       annualPrice: 20,
       popular: true,
       features: [
-        '100 monthly credits',
-        '5 daily credits (up to 150/month)',
+        'Unlimited chats',
+        'Unlimited projects',
         'Private projects',
         'User roles & permissions',
         'Custom domains',
-        'Remove the Lovable badge'
+        'Priority support'
       ]
     },
     {

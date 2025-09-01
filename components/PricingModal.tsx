@@ -17,7 +17,7 @@ export default function PricingModal({ isOpen, onClose, onUpgrade }: PricingModa
     {
       name: 'Pro',
       description: 'Designed for fast-moving teams building together in real time.',
-      monthlyPrice: 25,
+      monthlyPrice: 20,
       annualPrice: 20,
       features: [
         'Unlimited chats',

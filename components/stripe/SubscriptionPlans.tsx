@@ -48,8 +48,9 @@ const defaultPlans: PricingPlan[] = [
     price: 20,
     currency: 'usd',
     interval: 'month',
-    priceId: 'price_pro_monthly', // Replace with actual Stripe price ID
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || 'price_pro_monthly', // Use env var for Stripe price ID
     features: [
+      'Unlimited chats',
       'Unlimited AI-powered projects',
       'Premium templates',
       'Priority support',
