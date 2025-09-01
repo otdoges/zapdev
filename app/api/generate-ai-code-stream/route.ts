@@ -10,6 +10,7 @@ import { executeSearchPlan, formatSearchResultsForAI, selectTargetFile } from '@
 import { FileManifest } from '@/types/file-manifest';
 import type { ConversationState, ConversationMessage, ConversationEdit } from '@/types/conversation';
 import { appConfig } from '@/config/app.config';
+import { logStateChange, logStateValidation, logRequestCycle } from '@/lib/debug-logger';
 import { getSystemPrompt, getDecisionMakingPrompt, SystemPromptOptions } from '@/lib/system-prompts';
 import { DesignWorkflowEngine } from '@/lib/design-workflow-engine';
 import { DesignTeamRequest } from '@/lib/design-character-system';
@@ -111,15 +112,145 @@ declare global {
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const { prompt, model = 'openai/gpt-oss-20b', context, isEdit = false } = await request.json();
     
+    // Log initial request
+    logStateChange('generate-ai-code-stream', 'REQUEST_START', {
+      prompt: prompt?.substring(0, 100) + '...',
+      model,
+      isEdit,
+      hasContext: !!context,
+      sandboxId: context?.sandboxId
+    });
+    
     console.log('[generate-ai-code-stream] Received request:');
     console.log('[generate-ai-code-stream] - prompt:', prompt);
-    console.log('[generate-ai-code-stream] - isEdit:', isEdit);
+    console.log('[generate-ai-code-stream] - isEdit (frontend):', isEdit);
     console.log('[generate-ai-code-stream] - context.sandboxId:', context?.sandboxId);
     console.log('[generate-ai-code-stream] - context.currentFiles:', context?.currentFiles ? Object.keys(context.currentFiles) : 'none');
     console.log('[generate-ai-code-stream] - currentFiles count:', context?.currentFiles ? Object.keys(context.currentFiles).length : 0);
+    
+    // IMPROVED: Validate and determine correct isEdit flag based on multiple sources
+    let actualIsEdit = isEdit;
+    console.log('[generate-ai-code-stream] Validating edit context...');
+    
+    // Check if we have existing files in global state
+    const hasGlobalFiles = global.sandboxState?.fileCache?.files && Object.keys(global.sandboxState.fileCache.files).length > 0;
+    const hasExistingFilesSet = global.existingFiles && global.existingFiles.size > 0;
+    const hasConversationEdits = global.conversationState?.context?.edits && global.conversationState.context.edits.length > 0;
+    
+    // Override isEdit if we have clear evidence of existing project state
+    if (!actualIsEdit && (hasGlobalFiles || hasExistingFilesSet || hasConversationEdits)) {
+      console.log('[generate-ai-code-stream] Frontend reported isEdit=false but backend has existing project state:');
+      console.log('[generate-ai-code-stream] - Global file cache:', hasGlobalFiles ? Object.keys(global.sandboxState.fileCache.files).length : 0, 'files');
+      console.log('[generate-ai-code-stream] - Existing files set:', hasExistingFilesSet ? global.existingFiles.size : 0, 'files');
+      console.log('[generate-ai-code-stream] - Conversation edits:', hasConversationEdits ? global.conversationState.context.edits.length : 0, 'edits');
+      actualIsEdit = true;
+      console.log('[generate-ai-code-stream] CORRECTED: Setting isEdit=true based on backend state');
+    } else if (actualIsEdit && !hasGlobalFiles && !hasExistingFilesSet && !hasConversationEdits) {
+      console.log('[generate-ai-code-stream] Frontend reported isEdit=true but no backend state found - may be initial generation');
+      // Keep actualIsEdit as true but note the inconsistency
+      console.log('[generate-ai-code-stream] WARNING: State inconsistency detected between frontend and backend');
+    }
+    
+    console.log('[generate-ai-code-stream] Final isEdit determination:', actualIsEdit);
+    
+    // IMPROVED: Add state synchronization mechanisms and validation
+    console.log('[generate-ai-code-stream] Performing state validation and synchronization...');
+    
+    // Validate global state consistency
+    const stateValidation = {
+      sandboxStateExists: !!global.sandboxState,
+      fileCacheExists: !!global.sandboxState?.fileCache,
+      fileCacheHasFiles: !!(global.sandboxState?.fileCache?.files && Object.keys(global.sandboxState.fileCache.files).length > 0),
+      existingFilesSetExists: !!global.existingFiles,
+      existingFilesSetSize: global.existingFiles?.size || 0,
+      activeSandboxExists: !!global.activeSandbox,
+      conversationStateExists: !!global.conversationState,
+      conversationHasMessages: !!(global.conversationState?.context?.messages && global.conversationState.context.messages.length > 0),
+      conversationHasEdits: !!(global.conversationState?.context?.edits && global.conversationState.context.edits.length > 0)
+    };
+    
+    console.log('[generate-ai-code-stream] State validation results:', stateValidation);
+    logStateValidation('generate-ai-code-stream', stateValidation);
+    
+    // Detect state inconsistencies and attempt recovery
+    if (actualIsEdit) {
+      const expectedStateForEdit = stateValidation.fileCacheHasFiles || stateValidation.existingFilesSetSize > 0 || stateValidation.conversationHasEdits;
+      
+      if (!expectedStateForEdit) {
+        console.warn('[generate-ai-code-stream] WARNING: Edit mode but no file state found - attempting recovery...');
+        
+        // Try to recover state from sandbox if we have one
+        if (context?.sandboxId && !stateValidation.fileCacheHasFiles) {
+          console.log('[generate-ai-code-stream] Attempting to recover file state from sandbox...');
+          
+          try {
+            // Force refresh of file cache by calling get-sandbox-files
+            const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+            const host = request.headers.get('host') || 'localhost:3000';
+            const filesUrl = `${protocol}://${host}/api/get-sandbox-files`;
+            
+            const recoveryResponse = await fetch(filesUrl, {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (recoveryResponse.ok) {
+              const recoveryData = await recoveryResponse.json();
+              
+              if (recoveryData.success && recoveryData.files && Object.keys(recoveryData.files).length > 0) {
+                console.log('[generate-ai-code-stream] Successfully recovered', Object.keys(recoveryData.files).length, 'files from sandbox');
+                
+                // Update global state with recovered data
+                if (!global.sandboxState) {
+                  global.sandboxState = { fileCache: { files: {}, lastSync: Date.now(), sandboxId: context.sandboxId } } as any;
+                }
+                
+                if (global.sandboxState.fileCache) {
+                  for (const [path, content] of Object.entries(recoveryData.files)) {
+                    const normalizedPath = path.replace('/home/user/app/', '');
+                    global.sandboxState.fileCache.files[normalizedPath] = {
+                      content: content as string,
+                      lastModified: Date.now()
+                    };
+                  }
+                  global.sandboxState.fileCache.lastSync = Date.now();
+                }
+                
+                if (recoveryData.manifest) {
+                  global.sandboxState.fileCache.manifest = recoveryData.manifest;
+                }
+                
+                console.log('[generate-ai-code-stream] State recovery complete - file cache updated');
+              } else {
+                console.warn('[generate-ai-code-stream] State recovery failed - no files found in sandbox');
+              }
+            } else {
+              console.warn('[generate-ai-code-stream] State recovery request failed:', recoveryResponse.status);
+            }
+          } catch (recoveryError) {
+            console.error('[generate-ai-code-stream] State recovery error:', recoveryError);
+            // Continue with existing state - don't fail the request
+          }
+        }
+      }
+    }
+    
+    // Log final state after validation/recovery
+    const finalStateValidation = {
+      sandboxStateExists: !!global.sandboxState,
+      fileCacheExists: !!global.sandboxState?.fileCache,
+      fileCacheHasFiles: !!(global.sandboxState?.fileCache?.files && Object.keys(global.sandboxState.fileCache.files).length > 0),
+      fileCacheSize: global.sandboxState?.fileCache?.files ? Object.keys(global.sandboxState.fileCache.files).length : 0,
+      existingFilesSetSize: global.existingFiles?.size || 0,
+      activeSandboxExists: !!global.activeSandbox
+    };
+    console.log('[generate-ai-code-stream] Final state after validation/recovery:', finalStateValidation);
+    logStateValidation('generate-ai-code-stream', finalStateValidation);
     
     // Initialize conversation state if not exists
     if (!global.conversationState) {
@@ -198,7 +329,7 @@ export async function POST(request: NextRequest) {
         let editContext = null;
         let enhancedSystemPrompt = '';
         
-        if (isEdit) {
+        if (actualIsEdit) {
           console.log('[generate-ai-code-stream] Edit mode detected - starting agentic search workflow');
           console.log('[generate-ai-code-stream] Has fileCache:', !!global.sandboxState?.fileCache);
           console.log('[generate-ai-code-stream] Has manifest:', !!global.sandboxState?.fileCache?.manifest);
@@ -598,7 +729,7 @@ Remember: You are a SURGEON making a precise incision, not an artist repainting 
         const shouldUseDesignTeam = designEngine.shouldUseDesignWorkflow(prompt);
         
         let baseSystemPrompt = getSystemPrompt(systemPromptOptions);
-        let decisionPrompt = isEdit ? `\n\n${getDecisionMakingPrompt()}` : '';
+        const decisionPrompt = actualIsEdit ? `\n\n${getDecisionMakingPrompt()}` : '';
         
         // If design team workflow is detected, modify system prompt
         if (shouldUseDesignTeam) {
@@ -682,7 +813,7 @@ When recreating/cloning a website, you MUST include:
 4. **Footer** - Contact info, links, copyright (Footer.jsx)
 5. **App.jsx** - Main app component that imports and uses all components
 
-${isEdit ? `CRITICAL: THIS IS AN EDIT TO AN EXISTING APPLICATION
+${actualIsEdit ? `CRITICAL: THIS IS AN EDIT TO AN EXISTING APPLICATION
 
 YOU MUST FOLLOW THESE EDIT RULES:
 0. NEVER create tailwind.config.js, vite.config.js, package.json, or any other config files - they already exist!
@@ -1013,7 +1144,7 @@ CRITICAL: When files are provided in the context:
           console.log('[generate-ai-code-stream] - Has manifest:', !!global.sandboxState?.fileCache?.manifest);
           
           // If no backend files and we're in edit mode, try to fetch from sandbox
-          if (!hasBackendFiles && isEdit && (global.activeSandbox || context?.sandboxId)) {
+          if (!hasBackendFiles && actualIsEdit && (global.activeSandbox || context?.sandboxId)) {
             console.log('[generate-ai-code-stream] No backend files, attempting to fetch from sandbox...');
             
             try {
@@ -1179,7 +1310,7 @@ CRITICAL: When files are provided in the context:
           }
           
           // Add explicit edit mode indicator
-          if (isEdit) {
+          if (actualIsEdit) {
             contextParts.push('\nEDIT MODE ACTIVE');
             contextParts.push('This is an incremental update to an existing application.');
             contextParts.push('DO NOT regenerate App.jsx, index.css, or other core files unless explicitly requested.');
@@ -1397,7 +1528,7 @@ It's better to have 3 complete files than 10 incomplete files.`
           
           // Check for package tags in buffered text (ONLY for edits, not initial generation)
           let lastIndex = 0;
-          if (isEdit) {
+          if (actualIsEdit) {
             const packageRegex = /<package>([^<]+)<\/package>/g;
             let packageMatch;
             
@@ -1467,7 +1598,7 @@ It's better to have 3 complete files than 10 incomplete files.`
         }
         
         // Also parse <packages> tag for multiple packages - ONLY for edits
-        if (isEdit) {
+        if (actualIsEdit) {
           const packagesRegex = /<packages>([\s\S]*?)<\/packages>/g;
           let packagesMatch;
           while ((packagesMatch = packagesRegex.exec(generatedCode)) !== null) {
@@ -1528,7 +1659,7 @@ It's better to have 3 complete files than 10 incomplete files.`
           files.push({ path: filePath, content });
           
           // Extract packages from file content - ONLY for edits
-          if (isEdit) {
+          if (actualIsEdit) {
             const filePackages = extractPackagesFromCode(content);
             for (const pkg of filePackages) {
               if (!packagesToInstall.includes(pkg)) {
@@ -1761,7 +1892,7 @@ Provide the complete file content without any truncation. Include all necessary 
         });
         
         // Track edit in conversation history
-        if (isEdit && editContext && global.conversationState) {
+        if (actualIsEdit && editContext && global.conversationState) {
           const editRecord: ConversationEdit = {
             timestamp: Date.now(),
             userRequest: prompt,
@@ -1805,6 +1936,13 @@ Provide the complete file content without any truncation. Include all necessary 
             error: (error as Error).message 
           });
         }
+        
+        // Log failed completion with error details
+        logRequestCycle('generate-ai-code-stream', 
+          { prompt: prompt?.substring(0, 100) + '...', model, isEdit: actualIsEdit, hasContext: !!context, sandboxId: context?.sandboxId },
+          false, 
+          Date.now() - startTime
+        );
       } finally {
         await writer.close();
       }
@@ -1821,6 +1959,14 @@ Provide the complete file content without any truncation. Include all necessary 
     
   } catch (error) {
     console.error('[generate-ai-code-stream] Error:', error);
+    
+    // Log failed request
+    logRequestCycle('generate-ai-code-stream', 
+      { prompt: prompt?.substring(0, 100) + '...', model, isEdit, hasContext: !!context, sandboxId: context?.sandboxId },
+      false, 
+      Date.now() - startTime
+    );
+    
     return NextResponse.json({ 
       success: false, 
       error: (error as Error).message 

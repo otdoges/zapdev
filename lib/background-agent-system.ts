@@ -257,7 +257,7 @@ class SearchAgent implements BackgroundAgent {
 
   private extractSearchQuery(message: string): string {
     // Remove conversational fluff and extract the core search query
-    let query = message
+    const query = message
       .replace(/please|can you|could you|help me|i want to|i need to/gi, '')
       .replace(/\?/g, '')
       .trim();

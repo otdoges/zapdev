@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Sandbox } from '@e2b/code-interpreter';
 import type { SandboxState } from '@/types/sandbox';
 import type { ConversationState } from '@/types/conversation';
+import { logStateChange, logRequestCycle } from '@/lib/debug-logger';
 
 declare global {
   var conversationState: ConversationState | null;
@@ -269,8 +270,18 @@ function parseAIResponse(response: string): ParsedResponse {
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const { response, isEdit = false, packages = [], sandboxId } = await request.json();
+    
+    // Log initial state
+    logStateChange('apply-ai-code-stream', 'REQUEST_START', {
+      isEdit,
+      packagesCount: packages?.length || 0,
+      sandboxId,
+      responseLength: response?.length || 0
+    });
     
     if (!response) {
       return NextResponse.json({
@@ -338,34 +349,70 @@ export async function POST(request: NextRequest) {
         });
       }
       
+      // IMPROVED: Add retry logic for sandbox connection
       try {
-        // Reconnect to the existing sandbox using E2B's connect method with timeout
-        console.log(`[apply-ai-code-stream] Attempting to connect to sandbox with API key: ${process.env.E2B_API_KEY?.slice(0, 10)}...`);
+        const maxRetries = 3;
+        let lastConnectionError: Error | null = null;
         
-        const connectOptions = { 
-          apiKey: process.env.E2B_API_KEY,
-          timeout: 30000 // 30 second timeout
-        };
-        
-        sandbox = await Sandbox.connect(sandboxId, connectOptions);
-        console.log(`[apply-ai-code-stream] Successfully reconnected to sandbox ${sandboxId}`);
-        
-        // Validate the sandbox connection by checking if it's alive
-        try {
-          const isAlive = await sandbox.isAlive();
-          if (!isAlive) {
-            throw new Error('Sandbox is not alive after connection');
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.log(`[apply-ai-code-stream] Connection attempt ${attempt}/${maxRetries} to sandbox ${sandboxId}...`);
+            console.log(`[apply-ai-code-stream] Using API key: ${process.env.E2B_API_KEY?.slice(0, 10)}...`);
+            
+            const connectOptions = { 
+              apiKey: process.env.E2B_API_KEY,
+              timeout: 30000 // 30 second timeout
+            };
+            
+            sandbox = await Sandbox.connect(sandboxId, connectOptions);
+            console.log(`[apply-ai-code-stream] Successfully connected to sandbox ${sandboxId} on attempt ${attempt}`);
+            
+            // Enhanced validation of the sandbox connection
+            try {
+              // Check if sandbox is alive
+              const isAlive = await sandbox.isAlive();
+              if (!isAlive) {
+                throw new Error('Sandbox is not alive after connection');
+              }
+              
+              // Test basic file system access to ensure sandbox is functional
+              await sandbox.commands.run('pwd', { timeout: 5000, cwd: '/home/user/app' });
+              console.log(`[apply-ai-code-stream] Sandbox ${sandboxId} is alive and file system is accessible`);
+              
+              // Connection successful, break out of retry loop
+              break;
+              
+            } catch (validationError) {
+              console.error(`[apply-ai-code-stream] Sandbox validation failed on attempt ${attempt}:`, validationError);
+              if (attempt === maxRetries) {
+                throw new Error(`Sandbox validation failed: ${(validationError as Error).message}`);
+              }
+              // Continue to next retry attempt
+              continue;
+            }
+            
+          } catch (connectError) {
+            lastConnectionError = connectError as Error;
+            console.error(`[apply-ai-code-stream] Connection attempt ${attempt} failed:`, connectError);
+            
+            if (attempt < maxRetries) {
+              // Exponential backoff: wait before retry
+              const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+              console.log(`[apply-ai-code-stream] Waiting ${delay}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
           }
-          console.log(`[apply-ai-code-stream] Sandbox ${sandboxId} is alive and ready`);
-        } catch (aliveCheckError) {
-          console.error(`[apply-ai-code-stream] Sandbox alive check failed:`, aliveCheckError);
-          throw new Error(`Sandbox connection unstable: ${(aliveCheckError as Error).message}`);
+        }
+        
+        // If we get here without a sandbox, all retries failed
+        if (!sandbox) {
+          throw lastConnectionError || new Error('Failed to connect to sandbox after all retries');
         }
         
         // Store the reconnected sandbox globally for this instance
         global.activeSandbox = sandbox;
         
-        // Update sandbox data if needed
+        // Update sandbox data if needed with improved error handling
         if (!global.sandboxData) {
           try {
             const host = (sandbox as any).getHost(5173);
@@ -385,6 +432,8 @@ export async function POST(request: NextRequest) {
         if (!global.existingFiles) {
           global.existingFiles = new Set<string>();
         }
+        
+        console.log(`[apply-ai-code-stream] Sandbox connection established and validated successfully`);
         
       } catch (reconnectError) {
         const errorMessage = (reconnectError as Error).message;
@@ -853,6 +902,105 @@ export async function POST(request: NextRequest) {
           global.conversationState.lastUpdated = Date.now();
         }
         
+        // CRITICAL FIX: Update global sandbox state file cache to ensure subsequent messages have correct context
+        console.log('[apply-ai-code-stream] Updating global sandbox state file cache...');
+        try {
+          // Initialize sandboxState if it doesn't exist
+          if (!global.sandboxState) {
+            global.sandboxState = {
+              fileCache: {
+                files: {},
+                lastSync: Date.now(),
+                sandboxId: sandboxId || 'unknown'
+              }
+            } as any;
+            console.log('[apply-ai-code-stream] Initialized global sandboxState');
+          } else if (!global.sandboxState.fileCache) {
+            global.sandboxState.fileCache = {
+              files: {},
+              lastSync: Date.now(),
+              sandboxId: sandboxId || 'unknown'
+            };
+            console.log('[apply-ai-code-stream] Initialized fileCache in existing sandboxState');
+          }
+          
+          // Update file cache with applied changes
+          for (const file of parsed.files) {
+            const normalizedPath = file.path.startsWith('/home/user/app/') 
+              ? file.path.replace('/home/user/app/', '') 
+              : file.path.replace(/^\//, '');
+            
+            if (global.sandboxState.fileCache?.files) {
+              global.sandboxState.fileCache.files[normalizedPath] = {
+                content: file.content,
+                lastModified: Date.now()
+              };
+              console.log(`[apply-ai-code-stream] Updated file cache: ${normalizedPath} (${file.content.length} chars)`);
+            }
+          }
+          
+          // Update existing files list to include newly created files
+          if (!global.existingFiles) {
+            global.existingFiles = new Set<string>();
+          }
+          allAffectedFiles.forEach(file => {
+            if (global.existingFiles) {
+              global.existingFiles.add(file);
+            }
+          });
+          
+          // Update file cache timestamp
+          if (global.sandboxState.fileCache) {
+            global.sandboxState.fileCache.lastSync = Date.now();
+            console.log(`[apply-ai-code-stream] Updated file cache with ${parsed.files.length} files, total cache size: ${Object.keys(global.sandboxState.fileCache.files).length} files`);
+          }
+          
+          // Log state change after successful update
+          logStateChange('apply-ai-code-stream', 'FILE_CACHE_UPDATED', {
+            filesApplied: parsed.files.length,
+            totalCacheSize: global.sandboxState.fileCache?.files ? Object.keys(global.sandboxState.fileCache.files).length : 0,
+            affectedFiles: allAffectedFiles
+          });
+          
+          // Refresh file manifest to ensure edit context works correctly for next message
+          if (parsed.files.length > 0 && sandboxInstance) {
+            console.log('[apply-ai-code-stream] Refreshing file manifest for accurate edit context...');
+            try {
+              // Trigger a manifest refresh by calling get-sandbox-files internally
+              const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+              const host = req.headers.get('host') || 'localhost:3000';
+              const filesUrl = `${protocol}://${host}/api/get-sandbox-files`;
+              
+              // Make an async call to refresh the manifest (don't block on this)
+              fetch(filesUrl, { 
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+              }).then(response => {
+                if (response.ok) {
+                  console.log('[apply-ai-code-stream] File manifest refresh initiated successfully');
+                } else {
+                  console.warn('[apply-ai-code-stream] File manifest refresh failed:', response.status);
+                }
+              }).catch(error => {
+                console.warn('[apply-ai-code-stream] File manifest refresh error:', error);
+              });
+            } catch (manifestError) {
+              console.warn('[apply-ai-code-stream] Could not refresh manifest:', manifestError);
+            }
+          }
+          
+        } catch (cacheError) {
+          console.error('[apply-ai-code-stream] Failed to update file cache:', cacheError);
+          // Don't fail the entire operation if cache update fails
+        }
+        
+        // Log successful completion
+        logRequestCycle('apply-ai-code-stream', 
+          { isEdit, packagesCount: packages?.length || 0, sandboxId, responseLength: response?.length || 0 },
+          true, 
+          Date.now() - startTime
+        );
+        
       } catch (error) {
         console.error('[apply-ai-code-stream] Background process error:', error);
         try {
@@ -867,6 +1015,13 @@ export async function POST(request: NextRequest) {
         } catch (sendError) {
           console.error('[apply-ai-code-stream] Failed to send error progress:', sendError);
         }
+        
+        // Log failed completion
+        logRequestCycle('apply-ai-code-stream', 
+          { isEdit, packagesCount: packages?.length || 0, sandboxId, responseLength: response?.length || 0 },
+          false, 
+          Date.now() - startTime
+        );
       } finally {
         try {
           await writer.close();
@@ -891,6 +1046,13 @@ export async function POST(request: NextRequest) {
     
     console.error('[apply-ai-code-stream] Main route error:', error);
     console.error('[apply-ai-code-stream] Error stack:', errorStack);
+    
+    // Log failed request
+    logRequestCycle('apply-ai-code-stream', 
+      { isEdit, packagesCount: packages?.length || 0, sandboxId, responseLength: response?.length || 0 },
+      false, 
+      Date.now() - startTime
+    );
     
     // Enhanced error response with more details
     return NextResponse.json({
