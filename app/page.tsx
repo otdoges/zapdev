@@ -28,6 +28,10 @@ import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 
 import EnhancedSettingsModal from '@/components/EnhancedSettingsModal';
+import DatabaseButton from '@/components/DatabaseButton';
+import DiagramButton from '@/components/DiagramButton';
+import MermaidDiagram from '@/components/MermaidDiagram';
+import { generateDiagramFromDescription, createDiagramPrompt, extractMermaidCode } from '@/lib/diagram-utils';
 import { DesignTeamInterface } from '@/components/DesignTeamInterface';
 import ReactScanDashboard from '@/components/ReactScanDashboard';
 import UsageLimitModal from '@/components/UsageLimitModal';
@@ -84,7 +88,7 @@ function AISandboxPage() {
   const [homeScreenFading, setHomeScreenFading] = useState(false);
   const [homeUrlInput, setHomeUrlInput] = useState('');
   const [homeContextInput, setHomeContextInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'chats'>('preview');
+  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'chats' | 'diagrams'>('preview');
   const [urlScreenshot, setUrlScreenshot] = useState<string | null>(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
@@ -1736,6 +1740,29 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           )}
         </div>
       );
+    } else if (activeTab === 'diagrams') {
+      return (
+        <MermaidDiagram
+          diagram={generationProgress.files.find(file => file.type === 'mermaid')?.content}
+          onDiagramGenerated={(files) => {
+            // Add generated diagram files to the current generation progress
+            setGenerationProgress(prev => ({
+              ...prev,
+              files: [
+                ...prev.files,
+                ...files.map(file => ({
+                  path: file.path,
+                  content: file.content,
+                  type: file.type,
+                  completed: true
+                }))
+              ]
+            }));
+            // Switch to generation tab to show the generated files
+            setActiveTab('generation');
+          }}
+        />
+      );
     }
     return null;
   };
@@ -1853,6 +1880,106 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       }
       await checkAndInstallPackages();
       return;
+    }
+
+    // Check for diagram generation requests
+    const diagramKeywords = ['diagram', 'flowchart', 'architecture', 'schema', 'flow', 'sequence', 'chart', 'visual', 'visualize', 'draw', 'show me how'];
+    const isDiagramRequest = diagramKeywords.some(keyword => lowerMessage.includes(keyword));
+    
+    if (isDiagramRequest) {
+      addChatMessage('Creating diagram for you...', 'system');
+      
+      try {
+        // Generate diagram based on the request
+        let diagramCode = generateDiagramFromDescription(message);
+        
+        // If it's a more complex request, try to generate a custom diagram
+        if (lowerMessage.includes('architecture') || lowerMessage.includes('system') || lowerMessage.includes('design')) {
+          diagramCode = `graph TB
+    User[👤 User] --> Frontend[⚛️ Frontend App]
+    Frontend --> API[🔗 API Gateway]
+    API --> Auth[🔐 Authentication]
+    API --> Business[⚙️ Business Logic]
+    Business --> DB[(🗄️ Database)]
+    Business --> Cache[⚡ Cache]
+    Business --> Queue[📮 Message Queue]
+    
+    style User fill:#3b82f6,color:#fff
+    style Frontend fill:#10b981,color:#fff
+    style API fill:#f59e0b,color:#fff
+    style DB fill:#ef4444,color:#fff`;
+        } else if (lowerMessage.includes('database') || lowerMessage.includes('schema')) {
+          diagramCode = `erDiagram
+    USERS {
+        int id PK
+        string name
+        string email UK
+        datetime created_at
+    }
+    
+    POSTS {
+        int id PK
+        string title
+        text content
+        int user_id FK
+        datetime created_at
+    }
+    
+    COMMENTS {
+        int id PK
+        text content
+        int user_id FK
+        int post_id FK
+        datetime created_at
+    }
+    
+    USERS ||--o{ POSTS : creates
+    USERS ||--o{ COMMENTS : writes
+    POSTS ||--o{ COMMENTS : has`;
+        } else if (lowerMessage.includes('flow') || lowerMessage.includes('process')) {
+          diagramCode = `graph TD
+    Start([Start]) --> Input[Get User Input]
+    Input --> Validate{Valid Input?}
+    Validate -->|No| Error[Show Error]
+    Error --> Input
+    Validate -->|Yes| Process[Process Data]
+    Process --> Success{Success?}
+    Success -->|No| ErrorHandle[Handle Error]
+    Success -->|Yes| Output[Display Result]
+    ErrorHandle --> Input
+    Output --> End([End])
+    
+    style Start fill:#e1f5fe
+    style Process fill:#e8f5e8
+    style Output fill:#f3e5f5
+    style End fill:#e8f5e8`;
+        }
+        
+        // Add the diagram to generation progress
+        setGenerationProgress(prev => ({
+          ...prev,
+          files: [
+            ...prev.files,
+            {
+              path: 'docs/diagram.mmd',
+              content: diagramCode,
+              type: 'mermaid',
+              completed: true
+            }
+          ]
+        }));
+        
+        // Switch to diagrams tab to show the result
+        setActiveTab('diagrams');
+        
+        addChatMessage('Diagram created! Check the Diagrams tab to view it.', 'system');
+        return;
+        
+      } catch (error) {
+        console.error('Error generating diagram:', error);
+        addChatMessage('Sorry, I had trouble creating the diagram. Please try again with more specific details.', 'system');
+        return;
+      }
     }
     
     // Start sandbox creation in parallel if needed
@@ -4271,6 +4398,55 @@ Focus on the key sections and content, making it clean and modern.`;
                   </svg>
                   Preview
                 </Button>
+                <Button
+                  variant={activeTab === 'diagrams' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveTab('diagrams')}
+                  className="text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Diagrams
+                </Button>
+                <DatabaseButton 
+                  onDatabaseGenerated={(files) => {
+                    // Add generated database files to the current generation progress
+                    setGenerationProgress(prev => ({
+                      ...prev,
+                      files: [
+                        ...prev.files,
+                        ...files.map(file => ({
+                          path: file.path,
+                          content: file.content,
+                          type: file.type,
+                          completed: true
+                        }))
+                      ]
+                    }));
+                    // Switch to generation tab to show the generated files
+                    setActiveTab('generation');
+                  }}
+                />
+                <DiagramButton 
+                  onDiagramGenerated={(files) => {
+                    // Add generated diagram files to the current generation progress
+                    setGenerationProgress(prev => ({
+                      ...prev,
+                      files: [
+                        ...prev.files,
+                        ...files.map(file => ({
+                          path: file.path,
+                          content: file.content,
+                          type: file.type,
+                          completed: true
+                        }))
+                      ]
+                    }));
+                    // Switch to diagrams tab to show the generated diagram
+                    setActiveTab('diagrams');
+                  }}
+                />
               </div>
             </div>
             <div className="flex gap-2 items-center">
