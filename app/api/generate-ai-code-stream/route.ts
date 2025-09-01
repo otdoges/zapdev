@@ -106,6 +106,38 @@ function extractTargetAudience(prompt: string): string | undefined {
   return undefined;
 }
 
+// Helper functions for enhanced reasoning
+function shouldEnhanceWithSearch(prompt: string, isEdit: boolean): boolean {
+  // Only enhance with search for complex, non-edit requests
+  if (isEdit) return false;
+  
+  const searchIndicators = [
+    'best practice', 'how to', 'tutorial', 'example', 'documentation',
+    'modern', 'latest', 'current', 'recommended', 'industry standard',
+    'optimize', 'performance', 'security', 'accessibility'
+  ];
+  
+  const lowerPrompt = prompt.toLowerCase();
+  return searchIndicators.some(indicator => lowerPrompt.includes(indicator)) ||
+         prompt.split(' ').length > 15; // Complex requests likely benefit from search
+}
+
+function extractSearchQuery(prompt: string): string {
+  // Extract key terms for search
+  const words = prompt.toLowerCase().split(/\W+/).filter(word => word.length > 3);
+  const importantWords = words.filter(word => 
+    !['that', 'this', 'with', 'from', 'they', 'have', 'been', 'will', 'would', 'could', 'should', 'want', 'need'].includes(word)
+  );
+  
+  // Look for framework/technology mentions
+  const frameworks = ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'typescript', 'javascript'];
+  const mentionedFramework = frameworks.find(fw => prompt.toLowerCase().includes(fw));
+  
+  // Create focused search query
+  const keyTerms = importantWords.slice(0, 4).join(' ');
+  return mentionedFramework ? `${keyTerms} ${mentionedFramework}` : keyTerms;
+}
+
 declare global {
   var sandboxState: SandboxState;
   var conversationState: ConversationState | null;
@@ -1385,13 +1417,114 @@ CRITICAL: When files are provided in the context:
                            (model === 'openai/gpt-5') ? 'gpt-5' :
                            (isGoogle ? model.replace('google/', '') : model);
 
+        // ENHANCED REASONING: Improved thinking for all providers, especially Groq
+        const thinkingStartTime = Date.now();
+        const isGroqModel = !isAnthropic && !isGoogle && !isOpenAI;
+        
+        await sendProgress({ 
+          type: 'thinking', 
+          content: isGroqModel ? 
+            'Activating advanced sequential reasoning with Groq...' : 
+            'Analyzing your request and planning the code structure...',
+          startTime: thinkingStartTime
+        });
+
+        // PROFESSIONAL DESIGNER FEATURE: Check if request contains design keywords
+        const designKeywords = ['design', 'ui', 'ux', 'brand', 'visual', 'layout', 'style', 'aesthetic', 'color', 'typography', 'interface'];
+        const isDesignRequest = designKeywords.some(keyword => 
+          fullPrompt.toLowerCase().includes(keyword)
+        );
+        
+        if (isDesignRequest) {
+          await sendProgress({ 
+            type: 'thinking', 
+            content: 'Detected design request - activating professional design expertise...',
+            startTime: Date.now()
+          });
+        }
+
+        // SEARCH-ENHANCED REASONING: For complex requests, enhance with search
+        let searchContext = '';
+        const shouldUseSearch = shouldEnhanceWithSearch(fullPrompt, actualIsEdit);
+        if (shouldUseSearch && isGroqModel) {
+          await sendProgress({ 
+            type: 'thinking', 
+            content: 'Researching best practices and current solutions...',
+            startTime: Date.now()
+          });
+          
+          try {
+            const { getReasoningSearchService } = await import('@/lib/search/reasoning-search');
+            const searchService = getReasoningSearchService();
+            const searchResults = await searchService.searchForReasoning(
+              extractSearchQuery(fullPrompt), 
+              {
+                query: extractSearchQuery(fullPrompt),
+                maxResults: 3,
+                relevanceThreshold: 0.7,
+                context: {
+                  originalQuery: prompt,
+                  currentStep: 1,
+                  previousFindings: [],
+                  priority: 'accuracy'
+                }
+              }
+            );
+            
+            if (searchResults.length > 0) {
+              searchContext = `\n\nSEARCH-ENHANCED CONTEXT:
+Based on current best practices and documentation:
+${searchResults.map(r => `- ${r.title}: ${r.description} (Source: ${r.domain})`).join('\n')}
+
+Use this information to inform your implementation choices and ensure you're following current best practices.`;
+              
+              await sendProgress({ 
+                type: 'thinking', 
+                content: `Found ${searchResults.length} relevant sources to enhance reasoning...`,
+                startTime: Date.now()
+              });
+            }
+          } catch (error) {
+            console.warn('Search enhancement failed:', error);
+            // Continue without search enhancement
+          }
+        }
+
         // Make streaming API call with appropriate provider
         const streamOptions: any = {
           model: modelProvider(actualModel),
           messages: [
             { 
               role: 'system', 
-              content: systemPrompt + `
+              content: systemPrompt + searchContext + (isDesignRequest ? `
+
+🎨 PROFESSIONAL DESIGNER MODE ACTIVATED 🎨
+
+You are now operating as a team of professional designers with years of experience at top design firms like IDEO, Apple, and Google. Your expertise includes:
+
+DESIGN EXPERTISE:
+- Visual Design: Color theory, typography, composition, visual hierarchy
+- UX Design: User research, information architecture, interaction design
+- Brand Design: Brand identity, voice & tone, visual systems
+- Accessibility: WCAG guidelines, inclusive design principles
+- Modern Design Trends: Latest UI patterns, micro-interactions, design systems
+
+DESIGN PROCESS:
+1. Understand user needs and business objectives
+2. Apply design thinking methodology
+3. Create cohesive visual systems with proper design tokens
+4. Ensure accessibility and usability standards
+5. Follow modern design best practices
+
+DESIGN QUALITY STANDARDS:
+- Consistent spacing using 8pt grid system
+- Professional color palettes with proper contrast ratios
+- Typography hierarchies that enhance readability
+- Thoughtful micro-interactions and state management
+- Mobile-first responsive design principles
+- Modern design patterns (cards, modals, progressive disclosure)
+
+` : `
 
 🚨 CRITICAL CODE GENERATION RULES - VIOLATION = FAILURE 🚨:
 1. NEVER truncate ANY code - ALWAYS write COMPLETE files
@@ -1425,7 +1558,22 @@ Examples of CORRECT CODE (ALWAYS DO THIS):
 ✅ const title = "Welcome to our application"
 ✅ import { useState, useEffect, useCallback } from 'react'
 
-REMEMBER: It's better to generate fewer COMPLETE files than many INCOMPLETE files.`
+REMEMBER: It's better to generate fewer COMPLETE files than many INCOMPLETE files.`) + (isGroqModel ? `
+
+🧠 GROQ SEQUENTIAL REASONING MODE ACTIVATED 🧠
+
+You are now using advanced reasoning capabilities with Groq's high-speed inference.
+Use your <think> tags to show your reasoning process as you work through the problem:
+
+1. ANALYSIS: Break down the user's request into components
+2. PLANNING: Consider the best approach and architecture  
+3. IMPLEMENTATION: Think through the code structure step by step
+4. VALIDATION: Consider potential issues and improvements
+
+Your reasoning will be visible to help users understand your thought process.
+Take advantage of Groq's speed to provide thorough, step-by-step reasoning.
+
+` : '')
             },
             { 
               role: 'user', 
@@ -1468,7 +1616,23 @@ It's better to have 3 complete files than 10 incomplete files.`
           };
         }
         
+        // Add reasoning format for Groq models to access <think> tags
+        if (isGroqModel) {
+          streamOptions.experimental_providerMetadata = {
+            groq: {
+              reasoning_format: 'raw' // This allows access to <think> tags in the response
+            }
+          };
+        }
+        
         const result = await streamText(streamOptions);
+        
+        // CRITICAL FIX: Send thinking_complete message when streaming starts  
+        const thinkingDuration = Date.now() - thinkingStartTime;
+        await sendProgress({ 
+          type: 'thinking_complete', 
+          duration: thinkingDuration 
+        });
         
         // Stream the response and parse in real-time
         let generatedCode = '';
@@ -1478,6 +1642,11 @@ It's better to have 3 complete files than 10 incomplete files.`
         let isInFile = false;
         let isInTag = false;
         let conversationalBuffer = '';
+        
+        // Enhanced reasoning tracking for Groq
+        let isInThinkTag = false;
+        let thinkingBuffer = '';
+        let reasoningStep = 0;
         
         // Buffer for incomplete tags
         let tagBuffer = '';
@@ -1494,11 +1663,41 @@ It's better to have 3 complete files than 10 incomplete files.`
           // Log streaming chunks to console
           process.stdout.write(text);
           
-          // Check if we're entering or leaving a tag
-          const hasOpenTag = /<(file|package|packages|explanation|command|structure|template)\b/.test(text);
-          const hasCloseTag = /<\/(file|package|packages|explanation|command|structure|template)>/.test(text);
+          // Enhanced tag detection including think tags for Groq reasoning
+          const hasOpenTag = /<(file|package|packages|explanation|command|structure|template|think)\b/.test(text);
+          const hasCloseTag = /<\/(file|package|packages|explanation|command|structure|template|think)>/.test(text);
           
-          if (hasOpenTag) {
+          // Special handling for think tags (Groq reasoning)
+          if (isGroqModel && text.includes('<think>')) {
+            isInThinkTag = true;
+            reasoningStep++;
+            await sendProgress({ 
+              type: 'reasoning_start', 
+              step: reasoningStep,
+              message: `Reasoning step ${reasoningStep}...`
+            });
+            thinkingBuffer = '';
+          }
+          
+          if (isGroqModel && text.includes('</think>')) {
+            isInThinkTag = false;
+            if (thinkingBuffer.trim()) {
+              await sendProgress({ 
+                type: 'reasoning_complete', 
+                step: reasoningStep,
+                content: thinkingBuffer.trim(),
+                message: `Completed reasoning step ${reasoningStep}`
+              });
+            }
+            thinkingBuffer = '';
+          }
+          
+          // Buffer thinking content for Groq models
+          if (isGroqModel && isInThinkTag && !text.includes('<think>') && !text.includes('</think>')) {
+            thinkingBuffer += text;
+          }
+          
+          if (hasOpenTag && !text.includes('<think>')) {
             // Send any buffered conversational text before the tag
             if (conversationalBuffer.trim() && !isInTag) {
               await sendProgress({ 
@@ -1510,12 +1709,12 @@ It's better to have 3 complete files than 10 incomplete files.`
             isInTag = true;
           }
           
-          if (hasCloseTag) {
+          if (hasCloseTag && !text.includes('</think>')) {
             isInTag = false;
           }
           
-          // If we're not in a tag, buffer as conversational text
-          if (!isInTag && !hasOpenTag) {
+          // If we're not in a tag or thinking, buffer as conversational text
+          if (!isInTag && !hasOpenTag && !isInThinkTag) {
             conversationalBuffer += text;
           }
           

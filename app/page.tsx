@@ -28,6 +28,7 @@ import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 
 import EnhancedSettingsModal from '@/components/EnhancedSettingsModal';
+import { DesignTeamInterface } from '@/components/DesignTeamInterface';
 import ReactScanDashboard from '@/components/ReactScanDashboard';
 import UsageLimitModal from '@/components/UsageLimitModal';
 
@@ -74,6 +75,8 @@ function AISandboxPage() {
     const modelParam = searchParams.get('model');
     return appConfig.ai.availableModels.includes(modelParam || '') ? modelParam! : appConfig.ai.defaultModel;
   });
+  // PROFESSIONAL DESIGNER FEATURE: Add designer mode state
+  const [designerMode, setDesignerMode] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [showHomeScreen, setShowHomeScreen] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['app', 'src', 'src/components']));
@@ -141,6 +144,11 @@ function AISandboxPage() {
     files: Array<{ path: string; content: string; type: string; completed: boolean }>;
     lastProcessedPosition: number;
     isEdit?: boolean;
+    // Enhanced reasoning for Groq
+    isReasoning?: boolean;
+    reasoningSteps?: Array<{ step: number; content: string; completed: boolean }>;
+    currentReasoningStep?: number;
+    searchSources?: Array<{ title: string; domain: string }>;
   }>({
     isGenerating: false,
     status: '',
@@ -150,7 +158,12 @@ function AISandboxPage() {
     isStreaming: false,
     isThinking: false,
     files: [],
-    lastProcessedPosition: 0
+    lastProcessedPosition: 0,
+    // Initialize reasoning state
+    isReasoning: false,
+    reasoningSteps: [],
+    currentReasoningStep: 0,
+    searchSources: []
   });
 
   // Clear old conversation data on component mount and create/restore sandbox
@@ -1243,29 +1256,107 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           
           {/* Code Content */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Thinking Mode Display - Only show during active generation */}
-            {generationProgress.isGenerating && (generationProgress.isThinking || generationProgress.thinkingText) && (
+            {/* Enhanced Reasoning Display - Show thinking and sequential reasoning */}
+            {generationProgress.isGenerating && (
+              generationProgress.isThinking || 
+              generationProgress.thinkingText || 
+              generationProgress.isReasoning || 
+              (generationProgress.reasoningSteps && generationProgress.reasoningSteps.length > 0)
+            ) && (
               <div className="px-6 pb-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="text-purple-600 font-medium flex items-center gap-2">
-                    {generationProgress.isThinking ? (
-                      <>
-                        <div className="w-2 h-2 bg-purple-600 rounded-full animate-pulse" />
-                        AI is thinking...
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-purple-600">✓</span>
-                        Thought for {generationProgress.thinkingDuration || 0} seconds
-                      </>
+                {/* Basic thinking display */}
+                {(generationProgress.isThinking || generationProgress.thinkingText) && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="text-purple-600 font-medium flex items-center gap-2">
+                        {generationProgress.isThinking ? (
+                          <>
+                            <div className="w-2 h-2 bg-purple-600 rounded-full animate-pulse" />
+                            AI is thinking...
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-purple-600">✓</span>
+                            Thought for {generationProgress.thinkingDuration || 0} seconds
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {generationProgress.thinkingText && (
+                      <div className="bg-purple-950 border border-purple-700 rounded-lg p-4 max-h-48 overflow-y-auto scrollbar-hide">
+                        <pre className="text-xs font-mono text-purple-300 whitespace-pre-wrap">
+                          {generationProgress.thinkingText}
+                        </pre>
+                      </div>
                     )}
                   </div>
-                </div>
-                {generationProgress.thinkingText && (
-                  <div className="bg-purple-950 border border-purple-700 rounded-lg p-4 max-h-48 overflow-y-auto scrollbar-hide">
-                    <pre className="text-xs font-mono text-purple-300 whitespace-pre-wrap">
-                      {generationProgress.thinkingText}
-                    </pre>
+                )}
+
+                {/* Enhanced reasoning display for Groq */}
+                {(generationProgress.isReasoning || (generationProgress.reasoningSteps && generationProgress.reasoningSteps.length > 0)) && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="text-blue-600 font-medium flex items-center gap-2">
+                        {generationProgress.isReasoning ? (
+                          <>
+                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
+                            Sequential reasoning active...
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-blue-600">🧠</span>
+                            Reasoning complete ({generationProgress.reasoningSteps?.length || 0} steps)
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Reasoning steps */}
+                    <div className="space-y-2">
+                      {generationProgress.reasoningSteps?.map((step, index) => (
+                        <div 
+                          key={`reasoning-${step.step}`}
+                          className={`border rounded-lg p-3 ${
+                            step.completed 
+                              ? 'bg-blue-950 border-blue-700' 
+                              : 'bg-blue-900/20 border-blue-600/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-mono text-blue-400">
+                              Step {step.step}
+                            </span>
+                            {step.completed ? (
+                              <span className="text-blue-400 text-xs">✓</span>
+                            ) : (
+                              <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" />
+                            )}
+                          </div>
+                          {step.content && (
+                            <pre className="text-xs font-mono text-blue-300 whitespace-pre-wrap">
+                              {step.content}
+                            </pre>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Search sources if available */}
+                    {generationProgress.searchSources && generationProgress.searchSources.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-blue-700/30">
+                        <div className="text-xs text-blue-400 mb-2">Enhanced with search results:</div>
+                        <div className="flex flex-wrap gap-2">
+                          {generationProgress.searchSources.map((source, idx) => (
+                            <span 
+                              key={idx}
+                              className="text-xs bg-blue-900/30 text-blue-300 px-2 py-1 rounded"
+                            >
+                              {source.title} ({source.domain})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1618,16 +1709,18 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       );
     } else if (activeTab === 'chats') {
       return (
-        <div className="h-full">
-          <ConvexChat
-            onChatSelect={(chatId) => {
-              // Handle chat selection - could load chat context
-              console.log('Selected chat:', chatId);
-              // TODO: Load chat messages into current conversation context
-            }}
-            onMessageAdd={(message, type) => {
-              // Sync with local chat if needed
-              addChatMessage(message, type);
+        <div className="h-full flex">
+          {/* PROFESSIONAL DESIGNER FEATURE: Show both ConvexChat and DesignTeamInterface when designer mode is active */}
+          <div className={designerMode ? "w-1/2 border-r border-gray-700" : "w-full"}>
+            <ConvexChat
+              onChatSelect={(chatId) => {
+                // Handle chat selection - could load chat context
+                console.log('Selected chat:', chatId);
+                // TODO: Load chat messages into current conversation context
+              }}
+              onMessageAdd={(message, type) => {
+                // Sync with local chat if needed
+                addChatMessage(message, type);
               
               // If this is a user message, trigger AI response
               if (type === 'user') {
@@ -1635,6 +1728,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
               }
             }}
           />
+          </div>
+          {designerMode && (
+            <div className="w-1/2">
+              <DesignTeamInterface />
+            </div>
+          )}
         </div>
       );
     }
@@ -1773,6 +1872,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     const isEdit = conversationContext.appliedCode.length > 0;
     
     try {
+      // CRITICAL FIX: Always reset thinking state at the start of each message
       setGenerationProgress(prev => ({
         ...prev,
         isGenerating: true,
@@ -1789,6 +1889,17 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         lastProcessedPosition: 0,
         isEdit
       }));
+
+      // CRITICAL FIX: Add timeout to auto-clear thinking state after 30 seconds
+      const thinkingTimeout = setTimeout(() => {
+        console.warn('[Thinking Timeout] Auto-clearing thinking state after 30 seconds');
+        setGenerationProgress(prev => ({
+          ...prev,
+          isThinking: false,
+          status: 'Processing...',
+          thinkingText: undefined
+        }));
+      }, 30000);
       
       const aiResponse = await fetch('/api/generate-ai-code-stream', {
         method: 'POST',
@@ -1832,6 +1943,39 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                   thinkingText: data.content,
                   thinkingDuration: data.duration
                 }));
+              } else if (data.type === 'thinking_complete') {
+                // IMPROVEMENT: Properly handle thinking_complete messages
+                setGenerationProgress(prev => ({
+                  ...prev,
+                  isThinking: false,
+                  thinkingDuration: data.duration
+                }));
+              } else if (data.type === 'reasoning_start') {
+                // Handle Groq sequential reasoning start
+                setGenerationProgress(prev => ({
+                  ...prev,
+                  isReasoning: true,
+                  currentReasoningStep: data.step || (prev.currentReasoningStep || 0) + 1,
+                  reasoningSteps: [
+                    ...(prev.reasoningSteps || []),
+                    { 
+                      step: data.step || (prev.currentReasoningStep || 0) + 1, 
+                      content: '', 
+                      completed: false 
+                    }
+                  ]
+                }));
+              } else if (data.type === 'reasoning_complete') {
+                // Handle Groq sequential reasoning completion
+                setGenerationProgress(prev => ({
+                  ...prev,
+                  isReasoning: false,
+                  reasoningSteps: prev.reasoningSteps?.map(step => 
+                    step.step === data.step 
+                      ? { ...step, content: data.content, completed: true }
+                      : step
+                  ) || []
+                }));
               } else if (data.type === 'code') {
                 generatedCode += data.content;
                 setGenerationProgress(prev => ({
@@ -1842,9 +1986,18 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                 }));
               } else if (data.type === 'explanation') {
                 explanation += data.content;
+              } else if (data.type === 'complete') {
+                // IMPROVEMENT: Handle completion messages by clearing thinking state
+                clearTimeout(thinkingTimeout);
+                setGenerationProgress(prev => ({
+                  ...prev,
+                  isThinking: false,
+                  status: 'Generation complete'
+                }));
               }
             } catch (e) {
-              console.error('Failed to parse SSE data:', e);
+              console.error('Failed to parse SSE data:', e, 'Line:', line);
+              // IMPROVEMENT: Don't let parsing errors affect the thinking state
             }
           }
         }
@@ -1870,7 +2023,20 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         addChatMessage(explanation, 'ai');
       }
       
+      // CRITICAL FIX: Clear thinking state and timeout on successful completion
+      clearTimeout(thinkingTimeout);
+      setGenerationProgress(prev => ({
+        ...prev,
+        isGenerating: false,
+        isThinking: false,
+        thinkingText: undefined,
+        thinkingDuration: undefined,
+        status: ''
+      }));
+      
     } catch (error: any) {
+      // CRITICAL FIX: Clear thinking timeout on error
+      clearTimeout(thinkingTimeout);
       setChatMessages(prev => prev.filter(msg => msg.content !== 'Thinking...'));
       addChatMessage(`Error: ${error.message}`, 'system');
       setGenerationProgress({
@@ -3525,7 +3691,7 @@ Focus on the key sections and content, making it clean and modern.`;
               
               {/* Model Selector - Hidden per config */}
               {appConfig.ui.showModelSelector && (
-                <div className="mt-6 flex items-center justify-center animate-[fadeIn_1s_ease-out]">
+                <div className="mt-6 flex flex-col items-center justify-center space-y-4 animate-[fadeIn_1s_ease-out]">
                   <select
                     value={aiModel}
                     onChange={(e) => {
@@ -3549,6 +3715,27 @@ Focus on the key sections and content, making it clean and modern.`;
                       </option>
                     ))}
                   </select>
+                  
+                  {/* PROFESSIONAL DESIGNER FEATURE: Designer Mode Toggle */}
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="designer-mode"
+                        checked={designerMode}
+                        onChange={(e) => setDesignerMode(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                      <label htmlFor="designer-mode" className="ml-2 text-sm font-medium text-gray-700">
+                        🎨 Professional Designer Mode
+                      </label>
+                    </div>
+                  </div>
+                  {designerMode && (
+                    <div className="text-xs text-gray-600 text-center max-w-xs">
+                      Get expert design guidance from our AI design team using the same powerful models
+                    </div>
+                  )}
                 </div>
               )}
               
