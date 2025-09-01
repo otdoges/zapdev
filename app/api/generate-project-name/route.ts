@@ -75,7 +75,7 @@ Examples of good names:
 
     try {
       const result = await generateText({
-        model: google('gemini-1.5-flash'),
+        model: google('gemini-2.5-flash-lite'),
         prompt: prompt,
         temperature: 0.7,
         maxTokens: 20,

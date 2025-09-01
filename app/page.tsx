@@ -1662,12 +1662,16 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       try {
         // Generate chat title from first message (truncated to 50 chars)
         const chatTitle = message.length > 50 ? message.substring(0, 47) + '...' : message;
+        console.log('[processAIMessage] Attempting to create chat with title:', chatTitle);
         chatId = await createChat({ title: chatTitle });
         setCurrentChatId(chatId);
-        console.log('[processAIMessage] Created new chat:', chatId);
+        console.log('[processAIMessage] Successfully created new chat:', chatId);
+        // Notify user that chat has been created and will be saved
+        addChatMessage('💾 Chat created! Your conversation will be saved to history.', 'system');
       } catch (error: any) {
         console.error('[processAIMessage] Failed to create chat:', error);
-        // Continue without chat creation if it fails
+        // Show user-friendly error message but continue without chat persistence
+        addChatMessage('⚠️ Unable to save chat history - continuing in temporary mode. Check your connection or try signing out and back in.', 'system');
       }
     }
     
