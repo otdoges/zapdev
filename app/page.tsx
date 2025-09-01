@@ -1696,7 +1696,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     }
     
     // Check if message contains URLs and offer to scrape them
-    const urlRegex = /https?:\/\/[^\s]+|(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/gi;
+    // Only match explicit HTTP/HTTPS URLs to avoid false positives
+    const urlRegex = /https?:\/\/[^\s<>{}[\]"'`]+\.[^\s<>{}[\]"'`]{2,}(?:\/[^\s<>{}[\]"'`]*)?/gi;
     const urls = message.match(urlRegex);
     
     if (urls && urls.length > 0) {
@@ -1706,8 +1707,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         let url = urls[0]?.trim();
         if (!url) {
           addChatMessage('Invalid URL found in message', 'system');
-          return;
-        }
+          // Continue processing the message without URL scraping
+        } else {
         
         if (!url.match(/^https?:\/\//i)) {
           url = 'https://' + url;
@@ -1737,6 +1738,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             // Update the message to include scraped context
             message = `${message}\n\nSCRAPED CONTENT FROM ${url}:\n${JSON.stringify(scrapeData, null, 2)}`;
           }
+        }
         }
       } catch (error) {
         addChatMessage('Failed to scrape URL, but I\'ll process your request without the scraped content.', 'system');
@@ -2843,8 +2845,8 @@ Focus on the key sections and content, making it clean and modern while preservi
     setChatMessages([]);
     const userInput = homeUrlInput.trim();
     
-    // Check if input contains a URL
-    const urlRegex = /https?:\/\/[^\s]+|(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/gi;
+    // Check if input contains a URL - be more lenient here since home screen is more likely to have URLs
+    const urlRegex = /https?:\/\/[^\s<>{}[\]"'`]+\.[^\s<>{}[\]"'`]{2,}(?:\/[^\s<>{}[\]"'`]*)?|(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s<>{}[\]"'`]*)?/gi;
     const urls = userInput.match(urlRegex);
     
     if (urls && urls.length > 0) {
