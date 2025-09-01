@@ -359,4 +359,140 @@ export default defineSchema({
     .index("by_chat_id", ["chatId"])
     .index("by_chat_created", ["chatId", "createdAt"])
     .index("by_user_id", ["userId"]),
+
+  // Deployed sites tracking - Free tier: max 10 sites per user
+  deployedSites: defineTable({
+    userId: v.string(), // User who owns this deployed site
+    siteId: v.string(), // Unique identifier for the site
+    name: v.string(), // User-friendly name for the site
+    url: v.string(), // Live site URL (e.g., myapp.vercel.app)
+    customDomain: v.optional(v.string()), // Custom domain (Pro feature only)
+    vercelDeploymentId: v.optional(v.string()), // Vercel deployment ID
+    status: v.union(v.literal("building"), v.literal("ready"), v.literal("error"), v.literal("queued")),
+    sandboxId: v.optional(v.string()), // Associated E2B sandbox
+    chatId: v.optional(v.id("chats")), // Associated chat conversation
+    projectFiles: v.optional(v.string()), // JSON string of deployed files
+    buildLogs: v.optional(v.string()), // Deployment build logs
+    errorMessage: v.optional(v.string()), // Error details if deployment failed
+    environmentVars: v.optional(v.string()), // JSON string of env vars
+    framework: v.optional(v.string()), // Framework used (Next.js, React, etc.)
+    nodeVersion: v.optional(v.string()), // Node.js version used
+    lastDeployedAt: v.number(), // Timestamp of last deployment
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_site_id", ["siteId"])
+    .index("by_sandbox_id", ["sandboxId"])
+    .index("by_chat_id", ["chatId"])
+    .index("by_created", ["createdAt"]),
+
+  // Website analytics data for deployed sites
+  siteAnalytics: defineTable({
+    siteId: v.string(), // Reference to deployed site
+    userId: v.string(), // Site owner (for quick filtering)
+    event: v.string(), // Event type: pageview, click, scroll, etc.
+    page: v.string(), // Page path (e.g., "/", "/about")
+    title: v.optional(v.string()), // Page title
+    referrer: v.optional(v.string()), // Referrer URL
+    userAgent: v.optional(v.string()), // Browser user agent
+    ip: v.optional(v.string()), // Visitor IP (hashed for privacy)
+    country: v.optional(v.string()), // Visitor country
+    city: v.optional(v.string()), // Visitor city
+    device: v.optional(v.string()), // Device type: desktop, mobile, tablet
+    browser: v.optional(v.string()), // Browser name
+    os: v.optional(v.string()), // Operating system
+    sessionId: v.optional(v.string()), // Session identifier
+    loadTime: v.optional(v.number()), // Page load time in ms
+    scrollDepth: v.optional(v.number()), // Max scroll depth as percentage
+    timestamp: v.number(), // When the event occurred
+  })
+    .index("by_site_id", ["siteId"])
+    .index("by_user_id", ["userId"])
+    .index("by_site_timestamp", ["siteId", "timestamp"])
+    .index("by_site_event", ["siteId", "event"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_page", ["siteId", "page"]),
+
+  // Codebase download tracking
+  downloads: defineTable({
+    userId: v.string(), // User who initiated the download
+    projectName: v.string(), // Name of the downloaded project
+    downloadType: v.union(v.literal("zip"), v.literal("github")), // Download method
+    sandboxId: v.optional(v.string()), // Associated E2B sandbox
+    chatId: v.optional(v.id("chats")), // Associated chat
+    fileSize: v.number(), // Size of download in bytes
+    fileCount: v.number(), // Number of files included
+    fileName: v.string(), // Generated file name
+    downloadUrl: v.optional(v.string()), // Temporary download URL
+    githubRepo: v.optional(v.string()), // GitHub repository URL if applicable
+    includeDatabase: v.boolean(), // Whether database files were included
+    includeEnv: v.boolean(), // Whether .env template was included
+    status: v.union(v.literal("generating"), v.literal("ready"), v.literal("error"), v.literal("expired")),
+    errorMessage: v.optional(v.string()), // Error details if generation failed
+    expiresAt: v.optional(v.number()), // When download link expires
+    createdAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_user_created", ["userId", "createdAt"])
+    .index("by_sandbox_id", ["sandboxId"])
+    .index("by_chat_id", ["chatId"])
+    .index("by_status", ["status"])
+    .index("by_expires", ["expiresAt"]),
+
+  // AI-generated databases for projects
+  aiDatabases: defineTable({
+    userId: v.string(), // User who owns this database
+    sandboxId: v.string(), // E2B sandbox this database belongs to
+    chatId: v.optional(v.id("chats")), // Associated chat conversation
+    name: v.string(), // Database name (user-friendly)
+    description: v.string(), // AI-generated description of the database purpose
+    schema: v.string(), // Generated Drizzle schema code
+    dbType: v.union(v.literal("sqlite"), v.literal("postgres"), v.literal("mysql")), // Database type
+    tables: v.array(v.string()), // Array of table names
+    relationships: v.optional(v.string()), // JSON string describing table relationships
+    sampleData: v.optional(v.string()), // Generated sample data (JSON)
+    migrationScript: v.optional(v.string()), // Database migration script
+    seedScript: v.optional(v.string()), // Data seeding script
+    studioUrl: v.optional(v.string()), // Drizzle Studio access URL
+    isActive: v.boolean(), // Whether this database is currently active in sandbox
+    generatedBy: v.string(), // AI model used for generation
+    generationPrompt: v.optional(v.string()), // Original user prompt
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_sandbox_id", ["sandboxId"])
+    .index("by_chat_id", ["chatId"])
+    .index("by_user_sandbox", ["userId", "sandboxId"])
+    .index("by_active", ["isActive"])
+    .index("by_db_type", ["dbType"]),
+
+  // Database table schemas generated by AI (for detailed tracking)
+  aiDatabaseTables: defineTable({
+    databaseId: v.id("aiDatabases"), // Reference to parent database
+    tableName: v.string(), // Table name
+    schema: v.string(), // Individual table schema definition
+    description: v.string(), // Purpose of this table
+    columns: v.array(v.object({
+      name: v.string(),
+      type: v.string(),
+      nullable: v.boolean(),
+      defaultValue: v.optional(v.string()),
+      isPrimaryKey: v.boolean(),
+      isForeignKey: v.boolean(),
+      references: v.optional(v.string()), // Referenced table.column
+    })),
+    indexes: v.optional(v.array(v.string())), // Index definitions
+    relationships: v.optional(v.array(v.object({
+      type: v.union(v.literal("one-to-one"), v.literal("one-to-many"), v.literal("many-to-many")),
+      relatedTable: v.string(),
+      foreignKey: v.string(),
+    }))),
+    sampleRowCount: v.number(), // Number of sample rows generated
+    createdAt: v.number(),
+  })
+    .index("by_database_id", ["databaseId"])
+    .index("by_table_name", ["tableName"]),
 });

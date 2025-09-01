@@ -15,11 +15,29 @@ export default function PricingModal({ isOpen, onClose, onUpgrade }: PricingModa
 
   const plans = [
     {
+      name: 'Free',
+      description: 'Perfect for trying out our AI-powered development platform.',
+      monthlyPrice: 0,
+      annualPrice: 0,
+      features: [
+        '✅ 10 deployed sites',
+        '✅ Website analytics',
+        '✅ Unlimited codebase downloads',
+        '✅ AI database generation',
+        '✅ Drizzle Studio access',
+        '5 chats limit',
+        'Basic AI models',
+        'Community support'
+      ]
+    },
+    {
       name: 'Pro',
       description: 'Designed for fast-moving teams building together in real time.',
       monthlyPrice: 20,
-      annualPrice: 20,
+      annualPrice: 16,
       features: [
+        '✅ Everything in Free, plus:',
+        '✅ Custom domains',
         'Unlimited chats',
         'Advanced AI models',
         'Priority support',
@@ -29,30 +47,17 @@ export default function PricingModal({ isOpen, onClose, onUpgrade }: PricingModa
       ]
     },
     {
-      name: 'Business',
-      description: 'Advanced controls and power features for growing departments',
-      monthlyPrice: 50,
-      annualPrice: 40,
-      features: [
-        'Everything in Pro, plus:',
-        'Advanced analytics',
-        'Custom AI training',
-        'API access',
-        'SSO integration',
-        'Advanced security'
-      ]
-    },
-    {
       name: 'Enterprise',
       description: 'Built for large orgs needing flexibility, scale, and governance.',
       isEnterprise: true,
       features: [
-        'Everything in Business, plus:',
+        'Everything in Pro, plus:',
         'Dedicated support',
         'Custom deployment',
         'Advanced compliance',
-        'Custom integrations',
-        'SLA guarantees'
+        'SSO integration',
+        'SLA guarantees',
+        'Custom AI training'
       ]
     }
   ];
@@ -149,14 +154,20 @@ export default function PricingModal({ isOpen, onClose, onUpgrade }: PricingModa
                     <Button
                       onClick={() => onUpgrade(plan.name.toLowerCase())}
                       className={`w-full ${
-                        plan.name === 'Pro'
+                        plan.name === 'Free'
+                          ? 'bg-green-600 hover:bg-green-700'
+                          : plan.name === 'Pro'
                           ? 'bg-blue-600 hover:bg-blue-700'
                           : plan.isEnterprise
                           ? 'bg-gray-700 hover:bg-gray-600'
                           : 'bg-gray-700 hover:bg-gray-600'
                       }`}
                     >
-                      {plan.isEnterprise ? 'Contact Sales' : 'Upgrade'}
+                      {plan.name === 'Free' 
+                        ? 'Current Plan' 
+                        : plan.isEnterprise 
+                        ? 'Contact Sales' 
+                        : 'Upgrade'}
                     </Button>
                   </div>
 
