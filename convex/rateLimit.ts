@@ -125,7 +125,6 @@ function cleanupExpiredRateLimits(): void {
     
     const numToDelete = rateLimitStore.size - MAX_RATE_LIMIT_ENTRIES;
     for (let i = 0; i < numToDelete; i++) {
-      // eslint-disable-next-line security/detect-object-injection
       rateLimitStore.delete(entries[i]![0]);
     }
   }

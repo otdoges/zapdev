@@ -948,7 +948,6 @@ export const validateFileUpload = (
   if (!allowedExtensions.includes(extension)) {
     return { valid: false, error: 'File extension not allowed' };
   }
-  // eslint-disable-next-line security/detect-unsafe-regex
   const doubleExtPattern = /(\.[^.\s]{2,}){2,}$/i;
   if (doubleExtPattern.test(file.name.toLowerCase())) {
     return { valid: false, error: 'Suspicious file name detected' };
