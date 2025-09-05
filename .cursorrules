@@ -1,0 +1,135 @@
+# ZapDev Cursor IDE Rules
+
+You are an AI assistant working on ZapDev, a Next.js 15 app that enables AI-assisted React development with E2B sandbox environments, multi-agent coordination, and autonomous execution capabilities.
+
+## Core Technologies
+- **Framework**: Next.js 15 with Turbopack
+- **Package Manager**: bun (ALWAYS use bun, never npm/yarn)
+- **Database**: Convex with real-time updates
+- **Sandbox**: E2B for isolated development environments
+- **Auth**: Clerk authentication
+- **UI**: Shadcn/ui components with Tailwind CSS
+- **Language**: TypeScript with strict mode
+
+## Development Commands
+- `bun run dev` - Start development server
+- `bun run build` - Build for production
+- `bun run lint` - Run ESLint
+- `bun run test:integration` - Run E2B integration tests
+- `bun run test:api` - Run API endpoint tests
+- `bun run test:all` - Run all test suites
+
+## Mandatory Rules (MUST)
+
+### Code Quality
+- **No `any` types** - Use `unknown`, proper unions, or generics
+- **Use branded types for IDs**: `type SandboxId = Brand<string, 'SandboxId'>`
+- **Type-only imports**: `import type { ... }` for types
+- **Follow TDD**: scaffold stub → write failing test → implement
+- **Graceful E2B error handling** with proper error types
+- **Type Convex helpers** with generated types from `convex/_generated/`
+
+### Testing
+- **Colocate unit tests** in `*.spec.ts` files
+- **Mock E2B/AI providers** in unit tests; use real services only in integration tests
+- **Separate pure logic** from E2B integration tests
+- **Never use `expect.any()`** - use proper assertions
+
+### Code Organization
+- **API Routes**: Clear separation between sandbox (`app/api/sandbox/`), AI (`app/api/ai-system/`), and autonomous (`app/api/autonomous/`) workflows
+- **Shared utilities** in `lib/` only if used by ≥2 components
+- **Group related routes** in subdirectories
+
+### Git & Tooling
+- **Conventional Commits** format required
+- **Never reference Claude/Anthropic** in commit messages
+- **Lint must pass**: `bun run lint`
+- **TypeScript compilation** must pass with strict mode
+
+## Strongly Recommended (SHOULD)
+
+### Code Style
+- **Default to `type`** over `interface` unless merging needed
+- **No comments** except critical caveats - write self-explanatory code
+- **Simple, composable functions** over classes
+- **Don't extract functions** unless reused elsewhere or improves testability
+
+### Testing
+- **Prefer integration tests** over heavy mocking
+- **Test entire structures** in one assertion when possible
+- **Parameterize test inputs** - no unexplained literals
+- **Strong assertions**: `toEqual(1)` not `toBeGreaterThanOrEqual(1)`
+
+## ZapDev-Specific Patterns
+
+### File Structure
+```
+app/
+├── api/
+│   ├── sandbox/          # E2B management
+│   ├── ai-system/        # AI processing
+│   ├── autonomous/       # Autonomous workflows
+│   ├── monitoring/       # Analytics
+│   └── integrations/     # External services
+├── components/
+│   ├── ui/              # Shadcn/ui base
+│   ├── sandbox/         # Sandbox UI
+│   ├── chat/            # Chat interface
+│   └── monitoring/      # Dashboard UI
+lib/
+├── sandbox/             # E2B utilities
+├── ai/                  # AI client wrappers
+├── autonomous/          # Pipeline management
+├── monitoring/          # Logging/analytics
+└── auth/               # Clerk helpers
+convex/
+├── chats.ts            # Chat management
+├── users.ts            # User profiles
+├── sandboxes.ts        # Sandbox state
+└── usage.ts            # Rate limiting
+```
+
+### Error Handling Patterns
+- **E2B sandbox errors**: Always handle gracefully with typed error responses
+- **AI provider failures**: Implement fallback mechanisms and proper error types
+- **Convex operations**: Handle real-time update failures
+
+### ID Management
+Use branded types for all external service IDs:
+```typescript
+type SandboxId = Brand<string, 'SandboxId'>
+type ChatId = Brand<string, 'ChatId'>
+type UserId = Brand<string, 'UserId'>
+```
+
+## Function Quality Checklist
+1. Is the function easily readable and followable?
+2. Does it have low cyclomatic complexity?
+3. Are there better algorithms/data structures to use?
+4. No unused parameters?
+5. No unnecessary type casts?
+6. Easily testable without mocking core features?
+7. No hidden dependencies that should be parameters?
+8. Is the name consistent with domain vocabulary?
+
+## Test Quality Checklist
+1. Parameterized inputs (no unexplained literals)
+2. Can fail for real defects (no trivial assertions)
+3. Test description matches what's being verified
+4. Independent expectations (not reusing function output)
+5. Tests edge cases and boundaries
+6. Mocks external services in unit tests
+7. Uses strong assertions over weak ones
+
+## Multi-Agent Coordination
+- **Autonomous agents**: Handle background task execution with proper error recovery
+- **AI provider switching**: Support multiple providers with consistent interfaces  
+- **Real-time updates**: Integrate Convex subscriptions for live collaboration
+- **Sandbox lifecycle**: Manage creation, execution, cleanup with proper state tracking
+
+## Remember: 
+- Always use `bun` for package management
+- E2B sandboxes are central to the app - handle them carefully
+- Real-time collaboration is key - leverage Convex properly
+- Multi-agent coordination requires robust error handling
+- Security: Never expose secrets or commit them to repo

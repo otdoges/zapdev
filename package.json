@@ -12,7 +12,8 @@
     "test:integration": "node tests/e2b-integration.test.js",
     "test:api": "node tests/api-endpoints.test.js",
     "test:code": "node tests/code-execution.test.js",
-    "test:all": "npm run test:integration && npm run test:api && npm run test:code"
+    "test:stripe": "node tests/stripe-pricing.test.js",
+    "test:all": "npm run test:integration && npm run test:api && npm run test:code && npm run test:stripe"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.9",
