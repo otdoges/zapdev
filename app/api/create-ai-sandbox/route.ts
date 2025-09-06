@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Sandbox } from '@e2b/code-interpreter';
 import type { SandboxState } from '@/types/sandbox';
 import { appConfig } from '@/config/app.config';
+import { autumn } from '@/convex/autumn';
+import { handleUsageLimit, FEATURE_IDS } from '@/lib/usage-limits';
+import { getAuth } from '@clerk/nextjs/server';
 
 // Store active sandbox globally
 declare global {
@@ -11,10 +14,23 @@ declare global {
   var sandboxState: SandboxState;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   let sandbox: any = null;
 
   try {
+    // Check usage limits with Autumn before creating sandbox
+    const auth = getAuth(request);
+    if (!auth.userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const mockCtx = { auth: { getUserIdentity: () => ({ subject: auth.userId, name: '', email: '' }) } };
+    const usageCheck = await autumn.check(mockCtx, {
+      featureId: FEATURE_IDS.SANDBOX_CREATION
+    });
+
+    const limitResponse = handleUsageLimit(usageCheck, FEATURE_IDS.SANDBOX_CREATION);
+    if (limitResponse) return limitResponse;
     console.log('[create-ai-sandbox] Creating base sandbox...');
     
     // Kill existing sandbox if any
@@ -334,6 +350,12 @@ print('✓ Tailwind CSS should be loaded')
     global.existingFiles.add('postcss.config.js');
     
     console.log('[create-ai-sandbox] Sandbox ready at:', `https://${host}`);
+    
+    // Track sandbox creation usage
+    await autumn.track(mockCtx, {
+      featureId: FEATURE_IDS.SANDBOX_CREATION,
+      value: 1
+    });
     
     return NextResponse.json({
       success: true,

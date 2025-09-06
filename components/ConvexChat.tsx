@@ -10,6 +10,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '@clerk/nextjs';
 import PricingModal from './PricingModal';
 import SettingsModal from './SettingsModal';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
+import { useCustomer } from 'autumn-js/react';
 
 interface ConvexChatProps {
   onChatSelect?: (chatId: Id<"chats">) => void;
@@ -18,6 +20,8 @@ interface ConvexChatProps {
 
 export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatProps) {
   const { isSignedIn, user } = useUser();
+  const { customer, check } = useCustomer();
+  const { checkUsageLimit } = useUsageLimits();
   const [newChatTitle, setNewChatTitle] = useState('');
   const [selectedChatId, setSelectedChatId] = useState<Id<"chats"> | null>(null);
   const [newMessage, setNewMessage] = useState('');
@@ -93,11 +97,20 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
       return;
     }
     
-    // Check if user has reached the free plan limit (5 chats)
-    const currentChatCount = chats?.chats?.length || 0;
-    if (currentChatCount >= 5) {
-      setShowPricingModal(true);
-      return;
+    // Check Autumn usage limits for chat creation
+    try {
+      const usageCheckResult = await check({ featureId: 'chats' });
+      if (checkUsageLimit(usageCheckResult)) {
+        return; // Usage limit hit, user will be redirected
+      }
+    } catch (error) {
+      console.error('Error checking usage limits:', error);
+      // Fallback to old logic if Autumn check fails
+      const currentChatCount = chats?.chats?.length || 0;
+      if (currentChatCount >= 5) {
+        setShowPricingModal(true);
+        return;
+      }
     }
     
     setLoading(true);
@@ -139,6 +152,17 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChatId || loading) return;
+
+    // Check Autumn usage limits for messages
+    try {
+      const usageCheckResult = await check({ featureId: 'ai_messages' });
+      if (checkUsageLimit(usageCheckResult)) {
+        return; // Usage limit hit, user will be redirected
+      }
+    } catch (error) {
+      console.error('Error checking message usage limits:', error);
+      // Continue without Autumn check if it fails
+    }
 
     setLoading(true);
     setError(null);
