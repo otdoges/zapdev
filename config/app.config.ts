@@ -38,7 +38,7 @@ export const appConfig = {
     
     // Model display names
     modelDisplayNames: {
-      'moonshotai/kimi-k2-instruct-0905': 'Kimi K2 Instruct (Sep 2024)',
+      'moonshotai/kimi-k2-instruct-0905': 'AI Assistant',
       'google/gemini-2.5-flash': 'Gemini 2.5 Flash Lite'
     },
     
@@ -99,7 +99,6 @@ export const appConfig = {
   // UI Configuration
   ui: {
     // Show/hide certain UI elements
-    showModelSelector: false,
     showStatusIndicator: true,
     
     // Animation durations (milliseconds)
