@@ -1,5 +1,5 @@
 "use client";
-import { AutumnProvider } from "autumn-js/react";
+import { AutumnProvider } from "./AutumnFallback";
 import { api } from "../../convex/_generated/api";
 import { useConvex } from "convex/react";
 

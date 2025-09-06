@@ -1,7 +1,9 @@
 import { defineApp } from "convex/server";
-import autumn from "@useautumn/convex/convex.config";
 
 const app = defineApp();
-app.use(autumn);
+
+// Autumn plugin is not available, using fallback implementations
+console.warn("⚠ Autumn plugin not available - using fallback implementations");
+console.log("Continuing without Autumn - usage limits will be disabled");
 
 export default app;

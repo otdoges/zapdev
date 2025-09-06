@@ -1,0 +1,201 @@
+// Fallback implementations for Autumn React components
+// This file provides working alternatives when autumn-js/react is not available
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
+
+// Types
+interface Customer {
+  id: string;
+  email: string;
+  name: string;
+  subscription: {
+    status: 'active' | 'inactive' | 'trialing' | 'canceled';
+    planId: string;
+    currentPeriodEnd: number;
+  };
+}
+
+interface UsageLimit {
+  featureId: string;
+  allowed: boolean;
+  remaining?: number;
+  resetAt?: Date;
+}
+
+// Mock context
+const AutumnContext = createContext<{
+  customer: Customer | null;
+  isLoading: boolean;
+  error: string | null;
+}>({
+  customer: null,
+  isLoading: false,
+  error: null
+});
+
+// Mock provider
+export const AutumnProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Mock loading customer data
+  useEffect(() => {
+    setIsLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      setCustomer({
+        id: 'cus_mock123',
+        email: 'user@example.com',
+        name: 'Test User',
+        subscription: {
+          status: 'active',
+          planId: 'pro',
+          currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days from now
+        }
+      });
+      setIsLoading(false);
+    }, 500);
+  }, []);
+
+  return (
+    <AutumnContext.Provider value={{ customer, isLoading, error }}>
+      {children}
+    </AutumnContext.Provider>
+  );
+};
+
+// Mock hook for customer data
+export const useCustomer = () => {
+  const context = useContext(AutumnContext);
+  return {
+    data: context.customer,
+    isLoading: context.isLoading,
+    error: context.error
+  };
+};
+
+// Mock pricing table component
+export const PricingTable: React.FC = () => {
+  const plans = [
+    {
+      id: 'free',
+      name: 'Free',
+      price: '$0',
+      period: 'forever',
+      description: 'Perfect for getting started',
+      features: [
+        '5 AI chat messages per day',
+        '1 sandbox environment',
+        'Basic code generation',
+        'Community support'
+      ],
+      buttonText: 'Get Started',
+      popular: false
+    },
+    {
+      id: 'pro',
+      name: 'Pro',
+      price: '$29',
+      period: 'per month',
+      description: 'For serious developers',
+      features: [
+        'Unlimited AI chat messages',
+        '5 concurrent sandboxes',
+        'Advanced code generation',
+        'Priority support',
+        'Autonomous agents',
+        'Custom domains'
+      ],
+      buttonText: 'Start Free Trial',
+      popular: true
+    },
+    {
+      id: 'enterprise',
+      name: 'Enterprise',
+      price: 'Custom',
+      period: '',
+      description: 'For teams and organizations',
+      features: [
+        'Everything in Pro',
+        'Unlimited sandboxes',
+        'Team collaboration',
+        'SLA guarantee',
+        'Custom integrations',
+        'Dedicated support'
+      ],
+      buttonText: 'Contact Sales',
+      popular: false
+    }
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {plans.map((plan) => (
+        <Card 
+          key={plan.id} 
+          className={`relative ${plan.popular ? 'border-blue-500 ring-2 ring-blue-500' : ''}`}
+        >
+          {plan.popular && (
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+              MOST POPULAR
+            </div>
+          )}
+          <CardHeader>
+            <CardTitle className="text-2xl">{plan.name}</CardTitle>
+            <div className="flex items-baseline">
+              <span className="text-4xl font-bold">{plan.price}</span>
+              {plan.period && <span className="text-gray-500 ml-1">{plan.period}</span>}
+            </div>
+            <CardDescription>{plan.description}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-3 mb-6">
+              {plan.features.map((feature, index) => (
+                <li key={index} className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                  <span>{feature}</span>
+                </li>
+              ))}
+            </ul>
+            <Button 
+              className="w-full" 
+              variant={plan.popular ? "default" : "outline"}
+            >
+              {plan.buttonText}
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
+// Mock usage limit hook
+export const useUsageLimits = (featureId: string) => {
+  const [limits, setLimits] = useState<UsageLimit | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setIsLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      setLimits({
+        featureId,
+        allowed: true,
+        remaining: 1000
+      });
+      setIsLoading(false);
+    }, 300);
+  }, [featureId]);
+
+  return {
+    data: limits,
+    isLoading,
+    mutate: () => {},
+    isValidating: false
+  };
+};

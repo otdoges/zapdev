@@ -11,7 +11,7 @@ import { useUser } from '@clerk/nextjs';
 import PricingModal from './PricingModal';
 import SettingsModal from './SettingsModal';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
-import { useCustomer } from 'autumn-js/react';
+import { useCustomer } from '@/app/components/AutumnFallback';
 
 interface ConvexChatProps {
   onChatSelect?: (chatId: Id<"chats">) => void;

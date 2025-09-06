@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { useCustomer } from 'autumn-js/react';
+import { useCustomer } from '@/app/components/AutumnFallback';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

@@ -1,6 +1,6 @@
 "use client";
 
-import { PricingTable } from "autumn-js/react";
+import { PricingTable } from "@/app/components/AutumnFallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Zap, Sparkles } from "lucide-react";
 
