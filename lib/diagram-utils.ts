@@ -393,7 +393,7 @@ export function validateMermaidSyntax(diagram: string): { valid: boolean; error?
     
     // Check for balanced brackets/parentheses
     const brackets = diagram.match(/[\[\](){}]/g) || [];
-    let bracketCount = { '[': 0, ']': 0, '(': 0, ')': 0, '{': 0, '}': 0 };
+    const bracketCount = { '[': 0, ']': 0, '(': 0, ')': 0, '{': 0, '}': 0 };
     
     for (const bracket of brackets) {
       bracketCount[bracket as keyof typeof bracketCount]++;

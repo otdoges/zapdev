@@ -68,6 +68,22 @@ export async function POST(request: NextRequest) {
     // In a real implementation, you would:
     // await convex.mutation(api.analytics.trackEvent, analyticsData);
 
+    // If this is a pageview event (website visit), trigger sandbox restart for preview refreshing
+    if (event === 'pageview') {
+      console.log('[analytics] Pageview detected, triggering sandbox restart for fresh preview...');
+      try {
+        // Make async call to restart user sandboxes (don't await to avoid blocking analytics)
+        fetch('/api/restart-user-sandboxes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(error => {
+          console.error('[analytics] Failed to restart sandboxes:', error);
+        });
+      } catch (error) {
+        console.error('[analytics] Error triggering sandbox restart:', error);
+      }
+    }
+
     return NextResponse.json({ 
       success: true,
       tracked: true 

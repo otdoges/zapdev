@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    let deployment: any = null;
+    const deployment: any = null;
 
     // Get deployment from our database first
     if (siteId) {

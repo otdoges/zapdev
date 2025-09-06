@@ -136,7 +136,7 @@ export class IntegratedAISystem {
     // For now, return mock data
     return {
       modelUsage: {
-        'moonshotai/kimi-k2-instruct': 75,
+        'moonshotai/kimi-k2-instruct-0905': 75,
         'google/gemini-2.5-flash': 25
       },
       strategyUsage: {
