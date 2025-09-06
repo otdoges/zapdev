@@ -28,7 +28,7 @@ import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 
 import EnhancedSettingsModal from '@/components/EnhancedSettingsModal';
-import DatabaseButton from '@/components/DatabaseButton';
+import DatabaseExplorer from '@/components/DatabaseExplorer';
 import DiagramButton from '@/components/DiagramButton';
 import MermaidDiagram from '@/components/MermaidDiagram';
 import { generateDiagramFromDescription, createDiagramPrompt, extractMermaidCode } from '@/lib/diagram-utils';
@@ -88,7 +88,7 @@ function AISandboxPage() {
   const [homeScreenFading, setHomeScreenFading] = useState(false);
   const [homeUrlInput, setHomeUrlInput] = useState('');
   const [homeContextInput, setHomeContextInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'chats' | 'diagrams'>('preview');
+  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'chats' | 'diagrams' | 'database'>('preview');
   const [urlScreenshot, setUrlScreenshot] = useState<string | null>(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
@@ -1763,6 +1763,10 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           }}
         />
       );
+    } else if (activeTab === 'database') {
+      return (
+        <DatabaseExplorer className="w-full h-full" />
+      );
     }
     return null;
   };
@@ -1780,6 +1784,13 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     if (!aiEnabled) {
       addChatMessage('AI is disabled. Please enable it first.', 'system');
       return;
+    }
+    
+    // Create sandbox automatically on first message if none exists
+    if (!sandboxData) {
+      console.log('[processAIMessage] No sandbox exists, creating one for user message...');
+      addChatMessage('🚀 Setting up your development sandbox...', 'system');
+      await createSandbox(true); // Pass true to indicate this is from message, not home screen
     }
     
     // Create or get current chat for this conversation
@@ -4409,25 +4420,17 @@ Focus on the key sections and content, making it clean and modern.`;
                   </svg>
                   Diagrams
                 </Button>
-                <DatabaseButton 
-                  onDatabaseGenerated={(files) => {
-                    // Add generated database files to the current generation progress
-                    setGenerationProgress(prev => ({
-                      ...prev,
-                      files: [
-                        ...prev.files,
-                        ...files.map(file => ({
-                          path: file.path,
-                          content: file.content,
-                          type: file.type,
-                          completed: true
-                        }))
-                      ]
-                    }));
-                    // Switch to generation tab to show the generated files
-                    setActiveTab('generation');
-                  }}
-                />
+                <Button
+                  variant={activeTab === 'database' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveTab('database')}
+                  className="text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 1.79 4 4 4h8c0 2.21 1.79 4 4 4h8c2.21 0 4-1.79 4-4V7M4 7c0-2.21 1.79-4 4-4h8c2.21 0 4 1.79 4 4M4 7h16" />
+                  </svg>
+                  Database
+                </Button>
                 <DiagramButton 
                   onDiagramGenerated={(files) => {
                     // Add generated diagram files to the current generation progress

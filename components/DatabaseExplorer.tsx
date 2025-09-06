@@ -187,17 +187,17 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
 
   if (!databaseInitialized) {
     return (
-      <div className={`flex flex-col items-center justify-center p-8 bg-white rounded-lg border ${className}`}>
+      <div className={`flex flex-col items-center justify-center p-8 bg-gray-900 text-white rounded-lg border border-gray-700 ${className}`}>
         <Database className="w-16 h-16 text-blue-500 mb-4" />
         <h3 className="text-xl font-semibold mb-2">Initialize SQLite Database</h3>
-        <p className="text-gray-600 mb-6 text-center">
+        <p className="text-gray-300 mb-6 text-center">
           Create a SQLite database in your E2B sandbox with Drizzle ORM integration.
           This will set up a complete database environment for your applications.
         </p>
         <Button 
           onClick={initializeDatabase}
           disabled={isInitializing}
-          className="px-6 py-2"
+          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white"
         >
           {isInitializing ? 'Initializing...' : 'Initialize Database'}
         </Button>
@@ -206,19 +206,19 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
   }
 
   return (
-    <div className={`flex flex-col h-full bg-white ${className}`}>
+    <div className={`flex flex-col h-full bg-gray-900 text-white ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+      <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800">
         <div className="flex items-center gap-2">
           <Database className="w-5 h-5 text-blue-600" />
-          <h2 className="font-semibold text-gray-900">Database Explorer</h2>
+          <h2 className="font-semibold text-white">Database Explorer</h2>
         </div>
         <div className="flex gap-2">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={loadTables}
-            className="flex items-center gap-1"
+            className="flex items-center gap-1 bg-gray-700 hover:bg-gray-600 text-white border-gray-600"
           >
             <Search className="w-4 h-4" />
             Refresh
@@ -227,7 +227,7 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
             variant="outline" 
             size="sm" 
             onClick={insertSampleQueries}
-            className="flex items-center gap-1"
+            className="flex items-center gap-1 bg-gray-700 hover:bg-gray-600 text-white border-gray-600"
           >
             <Plus className="w-4 h-4" />
             Samples
@@ -237,16 +237,16 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
 
       <div className="flex flex-1 min-h-0">
         {/* Tables Sidebar */}
-        <div className="w-72 border-r bg-gray-50 flex flex-col">
-          <div className="p-3 border-b">
-            <h3 className="font-medium text-gray-700 mb-2">Tables ({tables.length})</h3>
+        <div className="w-72 border-r border-gray-700 bg-gray-800 flex flex-col">
+          <div className="p-3 border-b border-gray-700">
+            <h3 className="font-medium text-gray-200 mb-2">Tables ({tables.length})</h3>
           </div>
           <div className="flex-1 overflow-y-auto">
             {tables.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
+              <div className="p-4 text-center text-gray-400">
                 <Table className="w-8 h-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">No tables found</p>
-                <p className="text-xs text-gray-400 mt-1">Create tables with SQL</p>
+                <p className="text-xs text-gray-500 mt-1">Create tables with SQL</p>
               </div>
             ) : (
               <div className="p-2">
@@ -275,7 +275,7 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
                         <Table className="w-4 h-4 text-blue-600" />
                         <span className="font-medium">{table.name}</span>
                       </div>
-                      <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">
+                      <span className="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded">
                         {table.rowCount}
                       </span>
                     </div>
@@ -283,13 +283,13 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
                     {expandedTables.has(table.name) && (
                       <div className="ml-8 mt-1 space-y-1">
                         {table.columns.map((column) => (
-                          <div key={column.name} className="text-xs text-gray-600 flex items-center gap-2">
+                          <div key={column.name} className="text-xs text-gray-300 flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full ${
                               column.primaryKey ? 'bg-yellow-400' : 
                               column.foreignKey ? 'bg-green-400' : 'bg-gray-300'
                             }`} />
                             <span className="font-mono">{column.name}</span>
-                            <span className="text-gray-400">{column.type}</span>
+                            <span className="text-gray-500">{column.type}</span>
                             {!column.nullable && <span className="text-red-500">*</span>}
                           </div>
                         ))}
@@ -305,13 +305,13 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* Query Input */}
-          <div className="p-4 border-b">
+          <div className="p-4 border-b border-gray-700 bg-gray-800">
             <div className="flex items-center justify-between mb-2">
-              <label className="font-medium text-gray-700">SQL Query</label>
+              <label className="font-medium text-gray-200">SQL Query</label>
               <div className="flex gap-2">
                 {queryHistory.length > 0 && (
                   <select
-                    className="text-xs border rounded px-2 py-1"
+                    className="text-xs border border-gray-600 bg-gray-700 text-white rounded px-2 py-1"
                     onChange={(e) => e.target.value && setQueryInput(e.target.value)}
                     defaultValue=""
                   >
@@ -327,7 +327,7 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
                   onClick={executeQuery}
                   disabled={isExecuting || !queryInput.trim()}
                   size="sm"
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Play className="w-4 h-4" />
                   {isExecuting ? 'Executing...' : 'Run'}
@@ -338,7 +338,7 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
               placeholder="Enter SQL query (e.g., SELECT * FROM users WHERE name LIKE '%john%')"
-              className="font-mono text-sm resize-none"
+              className="font-mono text-sm resize-none bg-gray-700 text-white border-gray-600 placeholder-gray-400"
               rows={4}
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -347,7 +347,7 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
                 }
               }}
             />
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-gray-400 mt-1">
               Press Ctrl/Cmd + Enter to execute
             </div>
           </div>
@@ -357,7 +357,7 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
             {queryResult && (
               <div className="h-full flex flex-col">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-4 text-sm text-gray-300">
                     <span>Execution time: {queryResult.executionTime}ms</span>
                     {queryResult.rows.length > 0 && (
                       <span>Rows: {queryResult.rows.length}</span>
@@ -369,19 +369,19 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
                 </div>
 
                 {queryResult.error ? (
-                  <div className="bg-red-50 border border-red-200 rounded p-4">
-                    <h4 className="font-medium text-red-800 mb-2">Query Error</h4>
-                    <pre className="text-sm text-red-700 whitespace-pre-wrap">
+                  <div className="bg-red-900/20 border border-red-600 rounded p-4">
+                    <h4 className="font-medium text-red-400 mb-2">Query Error</h4>
+                    <pre className="text-sm text-red-300 whitespace-pre-wrap">
                       {queryResult.error}
                     </pre>
                   </div>
                 ) : queryResult.rows.length > 0 ? (
-                  <div className="flex-1 overflow-auto border rounded">
+                  <div className="flex-1 overflow-auto border border-gray-600 rounded">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50 sticky top-0">
+                      <thead className="bg-gray-800 sticky top-0">
                         <tr>
                           {queryResult.columns.map((column) => (
-                            <th key={column} className="text-left p-3 font-medium text-gray-700 border-b">
+                            <th key={column} className="text-left p-3 font-medium text-gray-200 border-b border-gray-600">
                               {column}
                             </th>
                           ))}
@@ -389,11 +389,11 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
                       </thead>
                       <tbody>
                         {queryResult.rows.map((row, rowIndex) => (
-                          <tr key={rowIndex} className="hover:bg-gray-50 border-b">
+                          <tr key={rowIndex} className="hover:bg-gray-800 border-b border-gray-700">
                             {queryResult.columns.map((column) => (
-                              <td key={column} className="p-3 font-mono text-xs max-w-xs truncate">
+                              <td key={column} className="p-3 font-mono text-xs max-w-xs truncate text-gray-300">
                                 {row[column] === null ? (
-                                  <span className="text-gray-400 italic">NULL</span>
+                                  <span className="text-gray-500 italic">NULL</span>
                                 ) : (
                                   String(row[column])
                                 )}
@@ -405,12 +405,12 @@ export default function DatabaseExplorer({ className = '' }: DatabaseExplorerPro
                     </table>
                   </div>
                 ) : (
-                  <div className="flex-1 flex items-center justify-center text-gray-500">
+                  <div className="flex-1 flex items-center justify-center text-gray-400">
                     <div className="text-center">
                       <Database className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p>Query executed successfully</p>
+                      <p className="text-gray-300">Query executed successfully</p>
                       {queryResult.rowsAffected !== undefined && (
-                        <p className="text-sm mt-1">{queryResult.rowsAffected} rows affected</p>
+                        <p className="text-sm mt-1 text-gray-400">{queryResult.rowsAffected} rows affected</p>
                       )}
                     </div>
                   </div>
