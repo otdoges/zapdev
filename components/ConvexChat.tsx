@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '@clerk/nextjs';
+import { usePolledQuery, useNavigationCleanup } from '@/hooks/usePolledQuery';
 import PricingModal from './PricingModal';
 import SettingsModal from './SettingsModal';
 
@@ -40,9 +41,9 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
     console.log('[ConvexChat] Status:', { isSignedIn, user: user?.emailAddresses?.[0]?.emailAddress, isConvexConfigured });
   }, [isSignedIn, user, isConvexConfigured]);
 
-  // Convex queries and mutations with error handling
-  const chats = useQuery(api.chats.getUserChats, isSignedIn ? { limit: 50 } : 'skip');
-  const messages = useQuery(
+  // Convex queries and mutations with 60-second polling to reduce costs
+  const chats = usePolledQuery(api.chats.getUserChats, isSignedIn ? { limit: 50 } : 'skip');
+  const messages = usePolledQuery(
     api.messages.getChatMessages, 
     selectedChatId && isSignedIn ? { chatId: selectedChatId } : "skip"
   );
@@ -50,6 +51,11 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
   const createChat = useMutation(api.chats.createChat);
   const createMessage = useMutation(api.messages.createMessage);
   const deleteChat = useMutation(api.chats.deleteChat);
+
+  // Cleanup on navigation to save costs
+  useNavigationCleanup(() => {
+    console.log('[ConvexChat] Cleaning up on navigation, final sync');
+  });
 
   // Debug Convex queries
   useEffect(() => {

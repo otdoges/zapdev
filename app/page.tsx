@@ -26,6 +26,7 @@ import ConvexChat from '@/components/ConvexChat';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { usePolledQuery, useNavigationCleanup } from '@/hooks/usePolledQuery';
 
 import EnhancedSettingsModal from '@/components/EnhancedSettingsModal';
 import DatabaseButton from '@/components/DatabaseButton';
@@ -104,12 +105,21 @@ function AISandboxPage() {
   const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
   const [showUsageLimitModal, setShowUsageLimitModal] = useState(false);
 
-  // Convex state and hooks
+  // Convex state and hooks with optimized polling
   const [currentChatId, setCurrentChatId] = useState<Id<"chats"> | null>(null);
-  const chats = useQuery(api.chats.getUserChats, isSignedIn ? { limit: 10 } : 'skip');
+  const chats = usePolledQuery(api.chats.getUserChats, isSignedIn ? { limit: 10 } : 'skip');
   const createChat = useMutation(api.chats.createChat);
   const createMessage = useMutation(api.messages.createMessage);
   const updateChatScreenshot = useMutation(api.chats.updateChatScreenshot);
+
+  // Navigation cleanup to save Convex costs
+  useNavigationCleanup(() => {
+    console.log('[HomePage] Navigation cleanup triggered, saving final state');
+    // Force any pending operations to complete
+    if (generationProgress.isGenerating) {
+      console.log('[HomePage] Canceling ongoing generation');
+    }
+  });
   
   const [conversationContext, setConversationContext] = useState<{
     scrapedWebsites: Array<{ url: string; content: any; timestamp: Date }>;

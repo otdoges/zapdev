@@ -2,25 +2,26 @@
 
 import { useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export function UserSyncWrapper({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
-  const currentUser = useQuery(api.users.getCurrentUser);
+  const { user: currentUser, isLoading: userLoading } = useCurrentUser();
   const upsertUser = useMutation(api.users.upsertUser);
   const upsertUserSubscription = useMutation(api.users.upsertUserSubscription);
 
   useEffect(() => {
     async function syncUser() {
-      if (!isLoaded || !user) return;
+      if (!isLoaded || !user || userLoading) return;
 
       try {
         // Check if user exists in Convex
         if (!currentUser) {
           console.log('User not found in Convex, creating...');
           
-          const primaryEmail = user.emailAddresses.find(email => 
+          const primaryEmail = user.emailAddresses.find(email =>
             email.id === user.primaryEmailAddressId
           );
           
@@ -49,12 +50,12 @@ export function UserSyncWrapper({ children }: { children: React.ReactNode }) {
           console.log('Successfully synced user to Convex');
         } else {
           // User exists, optionally update with latest info from Clerk
-          const primaryEmail = user.emailAddresses.find(email => 
+          const primaryEmail = user.emailAddresses.find(email =>
             email.id === user.primaryEmailAddressId
           );
           
-          if (primaryEmail?.emailAddress && 
-              (currentUser.email !== primaryEmail.emailAddress || 
+          if (primaryEmail?.emailAddress &&
+              (currentUser.email !== primaryEmail.emailAddress ||
                currentUser.fullName !== user.fullName ||
                currentUser.avatarUrl !== user.imageUrl)) {
             
@@ -73,11 +74,11 @@ export function UserSyncWrapper({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Only run if Convex query has completed (whether user exists or not)
-    if (isLoaded && user && currentUser !== undefined) {
+    // Only run if Clerk user is loaded and Convex query has completed
+    if (isLoaded && user && !userLoading) {
       syncUser();
     }
-  }, [isLoaded, user, currentUser, upsertUser, upsertUserSubscription]);
+  }, [isLoaded, user, currentUser, userLoading, upsertUser, upsertUserSubscription]);
 
   return <>{children}</>;
 }

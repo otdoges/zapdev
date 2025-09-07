@@ -282,23 +282,23 @@ export class PerformanceOptimizer {
    * Start the optimization system
    */
   private startOptimization() {
-    // Collect metrics every 30 seconds
+    // Collect metrics every 5 minutes to reduce costs
     this.metricsCollectionInterval = setInterval(() => {
       this.collectPerformanceMetrics();
-    }, 30000);
+    }, 300000); // 5 minutes
 
-    // Run optimization analysis every 5 minutes
+    // Run optimization analysis every 15 minutes
     this.optimizationInterval = setInterval(() => {
       this.analyzePerformance();
       this.generateOptimizationRecommendations();
       this.updateBenchmarks();
-    }, 300000);
+    }, 900000); // 15 minutes
 
-    // Check alerts every minute
+    // Check alerts every 5 minutes
     this.alertCheckInterval = setInterval(() => {
       this.checkPerformanceAlerts();
       this.executeAutoScaling();
-    }, 60000);
+    }, 300000); // 5 minutes
   }
 
   /**

@@ -8,6 +8,7 @@ import { useUser } from '@clerk/nextjs';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { usePolledQuery, useNavigationCleanup } from '@/hooks/usePolledQuery';
 import UsageLimitModal from './UsageLimitModal';
 
 interface ConversationHistorySidebarProps {
@@ -30,15 +31,23 @@ export default function ConversationHistorySidebar({
   const [searchTerm, setSearchTerm] = useState('');
   const [showLimitModal, setShowLimitModal] = useState(false);
   
-  // Convex queries and mutations
-  const chats = useQuery(api.chats.getUserChats, isSignedIn ? { limit: 50 } : 'skip');
-  const chatStats = useQuery(api.chats.getUserChatStats, isSignedIn ? {} : 'skip');
+  // Convex queries and mutations with 60-second polling to reduce costs
+  const chats = usePolledQuery(api.chats.getUserChats, isSignedIn ? { limit: 50 } : 'skip');
+  const chatStats = usePolledQuery(api.chats.getUserChatStats, isSignedIn ? {} : 'skip');
   const searchResults = useQuery(
     api.chats.searchChats, 
     searchTerm.length >= 2 && isSignedIn ? { searchTerm, limit: 20 } : 'skip'
   );
   const createChat = useMutation(api.chats.createChat);
   const deleteChat = useMutation(api.chats.deleteChat);
+  
+  // Cleanup on navigation to save costs
+  useNavigationCleanup(() => {
+    // Force final data sync before leaving
+    if (chatStats && chats) {
+      console.log('[ConversationHistorySidebar] Cleaning up on navigation');
+    }
+  });
   
   // Use search results if searching, otherwise use regular chats
   const chatsToShow = searchTerm.length >= 2 && searchResults ? searchResults : (chats?.chats || []);

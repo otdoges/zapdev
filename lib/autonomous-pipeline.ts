@@ -216,10 +216,10 @@ export class AutonomousPipeline {
    * Start the autonomous processing loop
    */
   private startProcessing() {
-    // Process tasks every 5 seconds
+    // Process tasks every 5 minutes to reduce costs
     this.processingInterval = setInterval(() => {
       this.processPendingTasks();
-    }, 5000);
+    }, 300000); // 5 minutes
   }
 
   /**

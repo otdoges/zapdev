@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { stripe, getOrCreateStripeCustomer } from '@/lib/stripe';
 import { z } from 'zod';
 import Stripe from 'stripe';
@@ -40,14 +40,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { 
-      priceId, 
-      mode, 
-      quantity, 
-      successUrl, 
-      cancelUrl, 
+    const {
+      priceId,
+      mode,
+      quantity,
+      successUrl,
+      cancelUrl,
       allowPromotionCodes,
-      customAmount 
+      customAmount
     } = validation.data;
 
     if (!priceId && !customAmount) {
@@ -59,7 +59,20 @@ export async function POST(req: NextRequest) {
 
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     
-    const customer = await getOrCreateStripeCustomer(userId, '', '');
+    // Get user email from Clerk for customer creation
+    const user = await currentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not authenticated' },
+        { status: 401 }
+      );
+    }
+    
+    const primaryEmail = user.emailAddresses.find((email) => email.id === user.primaryEmailAddressId);
+    const userEmail = primaryEmail?.emailAddress || '';
+    const userName = user.fullName || undefined;
+    
+    const customer = await getOrCreateStripeCustomer(userId, userEmail, userName);
 
     if (!customer) {
       return NextResponse.json(

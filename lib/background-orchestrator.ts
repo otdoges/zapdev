@@ -344,7 +344,7 @@ export class BackgroundOrchestrator {
   private startScheduler() {
     this.schedulerInterval = setInterval(() => {
       this.checkScheduledJobs();
-    }, 60000); // Check every minute
+    }, 300000); // Check every 5 minutes
   }
 
   /**
@@ -483,7 +483,7 @@ export class BackgroundOrchestrator {
   private startHealthCheck() {
     this.healthCheckInterval = setInterval(() => {
       this.performHealthCheck();
-    }, this.config.healthCheckInterval * 1000);
+    }, Math.max(this.config.healthCheckInterval * 1000, 300000)); // At least 5 minutes
   }
 
   /**
