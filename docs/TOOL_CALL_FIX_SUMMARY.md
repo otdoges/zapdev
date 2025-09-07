@@ -4,7 +4,7 @@
 The error message "tool call validation failed: parameters for tool installPackage did not match schema" was occurring when the AI tried to install packages.
 
 ## Root Cause
-The Groq models (including `moonshotai/kimi-k2-instruct`) do not support function/tool calling. This is a limitation of most Groq models - only specific models like `llama3-groq-70b-8192-tool-use-preview` support tools.
+The Groq models (including `moonshotai/kimi-k2-instruct-0905`) do not support function/tool calling. This is a limitation of most Groq models - only specific models like `llama3-groq-70b-8192-tool-use-preview` support tools.
 
 ## Solution
 Instead of using the Vercel AI SDK's tool calling feature, we switched to XML-based package detection:

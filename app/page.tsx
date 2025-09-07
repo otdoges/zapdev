@@ -29,7 +29,7 @@ import { Id } from '@/convex/_generated/dataModel';
 import { usePolledQuery, useNavigationCleanup } from '@/hooks/usePolledQuery';
 
 import EnhancedSettingsModal from '@/components/EnhancedSettingsModal';
-import DatabaseButton from '@/components/DatabaseButton';
+import DatabaseExplorer from '@/components/DatabaseExplorer';
 import DiagramButton from '@/components/DiagramButton';
 import MermaidDiagram from '@/components/MermaidDiagram';
 import { generateDiagramFromDescription, createDiagramPrompt, extractMermaidCode } from '@/lib/diagram-utils';
@@ -89,7 +89,7 @@ function AISandboxPage() {
   const [homeScreenFading, setHomeScreenFading] = useState(false);
   const [homeUrlInput, setHomeUrlInput] = useState('');
   const [homeContextInput, setHomeContextInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'chats' | 'diagrams'>('preview');
+  const [activeTab, setActiveTab] = useState<'generation' | 'preview' | 'chats' | 'diagrams' | 'database'>('preview');
   const [urlScreenshot, setUrlScreenshot] = useState<string | null>(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
@@ -1773,6 +1773,10 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           }}
         />
       );
+    } else if (activeTab === 'database') {
+      return (
+        <DatabaseExplorer className="w-full h-full" />
+      );
     }
     return null;
   };
@@ -1790,6 +1794,13 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     if (!aiEnabled) {
       addChatMessage('AI is disabled. Please enable it first.', 'system');
       return;
+    }
+    
+    // Create sandbox automatically on first message if none exists
+    if (!sandboxData) {
+      console.log('[processAIMessage] No sandbox exists, creating one for user message...');
+      addChatMessage('🚀 Setting up your development sandbox...', 'system');
+      await createSandbox(true); // Pass true to indicate this is from message, not home screen
     }
     
     // Create or get current chat for this conversation
@@ -3826,55 +3837,28 @@ Focus on the key sections and content, making it clean and modern.`;
                   )}
               </form>
               
-              {/* Model Selector - Hidden per config */}
-              {appConfig.ui.showModelSelector && (
-                <div className="mt-6 flex flex-col items-center justify-center space-y-4 animate-[fadeIn_1s_ease-out]">
-                  <select
-                    value={aiModel}
-                    onChange={(e) => {
-                      const newModel = e.target.value;
-                      setAiModel(newModel);
-                      const params = new URLSearchParams(searchParams);
-                      params.set('model', newModel);
-                      if (sandboxData?.sandboxId) {
-                        params.set('sandbox', sandboxData.sandboxId);
-                      }
-                      router.push(`/?${params.toString()}`);
-                    }}
-                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#36322F] focus:border-transparent"
-                    style={{
-                      boxShadow: '0 0 0 1px #e3e1de66, 0 1px 2px #5f4a2e14'
-                    }}
-                  >
-                    {appConfig.ai.availableModels.map(model => (
-                      <option key={model} value={model}>
-                        {(appConfig.ai.modelDisplayNames as Record<string, string>)[model] || model}
-                      </option>
-                    ))}
-                  </select>
-                  
-                  {/* PROFESSIONAL DESIGNER FEATURE: Designer Mode Toggle */}
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="designer-mode"
-                        checked={designerMode}
-                        onChange={(e) => setDesignerMode(e.target.checked)}
-                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                      />
-                      <label htmlFor="designer-mode" className="ml-2 text-sm font-medium text-gray-700">
-                        🎨 Professional Designer Mode
-                      </label>
-                    </div>
+              {/* PROFESSIONAL DESIGNER FEATURE: Designer Mode Toggle */}
+              <div className="mt-6 flex flex-col items-center justify-center space-y-4 animate-[fadeIn_1s_ease-out]">
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="designer-mode"
+                      checked={designerMode}
+                      onChange={(e) => setDesignerMode(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                    <label htmlFor="designer-mode" className="ml-2 text-sm font-medium text-gray-700">
+                      🎨 Professional Designer Mode
+                    </label>
                   </div>
-                  {designerMode && (
-                    <div className="text-xs text-gray-600 text-center max-w-xs">
-                      Get expert design guidance from our AI design team using the same powerful models
-                    </div>
-                  )}
                 </div>
-              )}
+                {designerMode && (
+                  <div className="text-xs text-gray-600 text-center max-w-xs">
+                    Get expert design guidance from our AI design team using the same powerful models
+                  </div>
+                )}
+              </div>
               
               {/* Chat History Section - Only show when signed in */}
               {isSignedIn && (
@@ -4051,29 +4035,6 @@ Focus on the key sections and content, making it clean and modern.`;
         </div>
         <div className="flex items-center gap-2">
           
-          {/* Model Selector - Hidden per config */}
-          {appConfig.ui.showModelSelector && (
-            <select
-              value={aiModel}
-              onChange={(e) => {
-                const newModel = e.target.value;
-                setAiModel(newModel);
-                const params = new URLSearchParams(searchParams);
-                params.set('model', newModel);
-                if (sandboxData?.sandboxId) {
-                  params.set('sandbox', sandboxData.sandboxId);
-                }
-                router.push(`/?${params.toString()}`);
-              }}
-              className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#36322F] focus:border-transparent"
-            >
-              {appConfig.ai.availableModels.map(model => (
-                <option key={model} value={model}>
-                  {(appConfig.ai.modelDisplayNames as Record<string, string>)[model] || model}
-                </option>
-              ))}
-            </select>
-          )}
           <Button 
             variant="code"
             onClick={() => createSandbox()}
@@ -4419,25 +4380,17 @@ Focus on the key sections and content, making it clean and modern.`;
                   </svg>
                   Diagrams
                 </Button>
-                <DatabaseButton 
-                  onDatabaseGenerated={(files) => {
-                    // Add generated database files to the current generation progress
-                    setGenerationProgress(prev => ({
-                      ...prev,
-                      files: [
-                        ...prev.files,
-                        ...files.map(file => ({
-                          path: file.path,
-                          content: file.content,
-                          type: file.type,
-                          completed: true
-                        }))
-                      ]
-                    }));
-                    // Switch to generation tab to show the generated files
-                    setActiveTab('generation');
-                  }}
-                />
+                <Button
+                  variant={activeTab === 'database' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveTab('database')}
+                  className="text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 1.79 4 4 4h8c0 2.21 1.79 4 4 4h8c2.21 0 4-1.79 4-4V7M4 7c0-2.21 1.79-4 4-4h8c2.21 0 4 1.79 4 4M4 7h16" />
+                  </svg>
+                  Database
+                </Button>
                 <DiagramButton 
                   onDiagramGenerated={(files) => {
                     // Add generated diagram files to the current generation progress

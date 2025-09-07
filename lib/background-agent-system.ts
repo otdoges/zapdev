@@ -141,7 +141,7 @@ Please provide:
 Format your response as practical, actionable design advice that can be directly implemented.`;
 
       const response = await generateText({
-        model: groq('moonshotai/kimi-k2-instruct'),
+        model: groq('moonshotai/kimi-k2-instruct-0905'),
         prompt: designPrompt,
         temperature: 0.7
       });
@@ -339,7 +339,7 @@ class SearchAgent implements BackgroundAgent {
 
     try {
       const response = await generateText({
-        model: groq('moonshotai/kimi-k2-instruct'),
+        model: groq('moonshotai/kimi-k2-instruct-0905'),
         prompt: `Based on these search results for the query "${originalQuery}", provide a concise summary of the key information:
 
 ${resultsText}

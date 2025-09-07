@@ -4,6 +4,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import { PostHogProvider } from '@/components/PostHogProvider';
 import { ConvexClientProvider } from '@/components/ConvexClientProvider';
+import { AutumnWrapper } from './components/AutumnWrapper';
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
@@ -29,14 +30,16 @@ export default function RootLayout({
       }}
     >
       <ConvexClientProvider>
-        <PostHogProvider>
-          <html lang="en">
-            <body className={inter.className}>
-              {children}
-              <SpeedInsights />
-            </body>
-          </html>
-        </PostHogProvider>
+        <AutumnWrapper>
+          <PostHogProvider>
+            <html lang="en">
+              <body className={inter.className}>
+                {children}
+                <SpeedInsights />
+              </body>
+            </html>
+          </PostHogProvider>
+        </AutumnWrapper>
       </ConvexClientProvider>
     </ClerkProvider>
   );

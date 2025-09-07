@@ -65,7 +65,7 @@ export class ModelOrchestrator {
     // Multi-character design gets special handling
     if (type === 'multi-character-design') {
       return {
-        primaryModel: 'moonshotai/kimi-k2-instruct',
+        primaryModel: 'moonshotai/kimi-k2-instruct-0905',
         reasoning: 'Using Kimi K2 with multi-character design team personas for collaborative design work',
         confidence: 0.90,
         estimatedSpeed: 'medium',
@@ -75,7 +75,7 @@ export class ModelOrchestrator {
 
     // All other tasks use Kimi K2 with specialized system prompts
     return {
-      primaryModel: 'moonshotai/kimi-k2-instruct',
+      primaryModel: 'moonshotai/kimi-k2-instruct-0905',
       reasoning: 'Using Kimi K2 with specialized system prompt for ' + type,
       confidence: 0.85,
       estimatedSpeed: 'fast',

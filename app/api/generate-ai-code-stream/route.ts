@@ -14,6 +14,9 @@ import { logStateChange, logStateValidation, logRequestCycle } from '@/lib/debug
 import { getSystemPrompt, getDecisionMakingPrompt, SystemPromptOptions } from '@/lib/system-prompts';
 import { DesignWorkflowEngine } from '@/lib/design-workflow-engine';
 import { DesignTeamRequest } from '@/lib/design-character-system';
+import { autumn } from '@/convex/autumn';
+import { handleUsageLimit, FEATURE_IDS } from '@/lib/usage-limits';
+import { getAuth } from '@clerk/nextjs/server';
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -147,7 +150,7 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
   try {
-    const { prompt, model = 'moonshotai/kimi-k2-instruct-0905', context, isEdit = false } = await request.json();
+    const { prompt, model = 'openai/gpt-oss-20b', context, isEdit = false } = await request.json();
     
     // Log initial request
     logStateChange('generate-ai-code-stream', 'REQUEST_START', {
@@ -1628,6 +1631,12 @@ It's better to have 3 complete files than 10 incomplete files.`
         }
         
         const result = await streamText(streamOptions);
+        
+        // Track usage after successful stream start
+        await autumn.track(mockCtx, {
+          featureId: FEATURE_IDS.AI_MESSAGES,
+          value: 1
+        });
         
         // CRITICAL FIX: Send thinking_complete message when streaming starts  
         const thinkingDuration = Date.now() - thinkingStartTime;

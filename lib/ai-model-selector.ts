@@ -37,7 +37,7 @@ export interface ModelRecommendation {
 
 // Model capabilities database
 const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
-  'moonshotai/kimi-k2-instruct': {
+  'moonshotai/kimi-k2-instruct-0905': {
     codeGeneration: 85,
     reasoning: 88,
     speed: 'fast',

@@ -28,17 +28,17 @@ export const appConfig = {
   // AI Model Configuration
   ai: {
     // Default AI model
-    defaultModel: 'moonshotai/kimi-k2-instruct',
+    defaultModel: 'moonshotai/kimi-k2-instruct-0905',
     
     // Available models
     availableModels: [
-      'moonshotai/kimi-k2-instruct',
+      'moonshotai/kimi-k2-instruct-0905',
       'google/gemini-2.5-flash'
     ],
     
     // Model display names
     modelDisplayNames: {
-      'moonshotai/kimi-k2-instruct': 'Kimi K2 Instruct',
+      'moonshotai/kimi-k2-instruct-0905': 'AI Assistant',
       'google/gemini-2.5-flash': 'Gemini 2.5 Flash Lite'
     },
     
@@ -53,7 +53,7 @@ export const appConfig = {
     
     // Model capabilities and specializations
     modelCapabilities: {
-      'moonshotai/kimi-k2-instruct': {
+      'moonshotai/kimi-k2-instruct-0905': {
         strengths: ['code-generation', 'quality', 'thoroughness', 'versatility', 'multi-character-roleplay'],
         specialty: 'Universal Code Generation & Development with Design Team Personas',
         useCase: 'High-quality development with specialized system prompts and multi-character design collaboration',
@@ -99,7 +99,6 @@ export const appConfig = {
   // UI Configuration
   ui: {
     // Show/hide certain UI elements
-    showModelSelector: false,
     showStatusIndicator: true,
     
     // Animation durations (milliseconds)
