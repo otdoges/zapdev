@@ -1,28 +1,36 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { debounce } from '@/lib/debounce';
 
 export function UserSyncWrapper({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
   const { user: currentUser, isLoading: userLoading } = useCurrentUser();
   const upsertUser = useMutation(api.users.upsertUser);
   const upsertUserSubscription = useMutation(api.users.upsertUserSubscription);
+  
+  // Track whether we've already synced this user
+  const syncedUserRef = useRef<string | null>(null);
+  const isInitialSync = useRef(true);
 
-  useEffect(() => {
-    async function syncUser() {
-      if (!isLoaded || !user || userLoading) return;
+  // Debounced sync function to prevent rapid calls
+  const debouncedSync = useCallback(
+    debounce(async (userData: any, convexUser: any) => {
+      if (!userData || !isLoaded || userLoading) return;
+      
+      // Prevent duplicate syncing for same user
+      if (syncedUserRef.current === userData.id && !isInitialSync.current) return;
 
       try {
-        // Check if user exists in Convex
-        if (!currentUser) {
+        if (!convexUser) {
           console.log('User not found in Convex, creating...');
           
-          const primaryEmail = user.emailAddresses.find(email =>
-            email.id === user.primaryEmailAddressId
+          const primaryEmail = userData.emailAddresses.find((email: any) =>
+            email.id === userData.primaryEmailAddressId
           );
           
           if (!primaryEmail?.emailAddress) {
@@ -30,17 +38,15 @@ export function UserSyncWrapper({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          // Create user in Convex
           await upsertUser({
             email: primaryEmail.emailAddress,
-            fullName: user.fullName || undefined,
-            avatarUrl: user.imageUrl || undefined,
-            username: user.username || undefined,
+            fullName: userData.fullName || undefined,
+            avatarUrl: userData.imageUrl || undefined,
+            username: userData.username || undefined,
           });
 
-          // Create default subscription
           await upsertUserSubscription({
-            userId: user.id,
+            userId: userData.id,
             planId: 'free',
             status: 'active',
             currentPeriodStart: Date.now(),
@@ -49,36 +55,42 @@ export function UserSyncWrapper({ children }: { children: React.ReactNode }) {
 
           console.log('Successfully synced user to Convex');
         } else {
-          // User exists, optionally update with latest info from Clerk
-          const primaryEmail = user.emailAddresses.find(email =>
-            email.id === user.primaryEmailAddressId
+          const primaryEmail = userData.emailAddresses.find((email: any) =>
+            email.id === userData.primaryEmailAddressId
           );
           
-          if (primaryEmail?.emailAddress &&
-              (currentUser.email !== primaryEmail.emailAddress ||
-               currentUser.fullName !== user.fullName ||
-               currentUser.avatarUrl !== user.imageUrl)) {
-            
+          const needsUpdate = primaryEmail?.emailAddress && (
+            convexUser.email !== primaryEmail.emailAddress ||
+            convexUser.fullName !== userData.fullName ||
+            convexUser.avatarUrl !== userData.imageUrl
+          );
+          
+          if (needsUpdate) {
             await upsertUser({
               email: primaryEmail.emailAddress,
-              fullName: user.fullName || undefined,
-              avatarUrl: user.imageUrl || undefined,
-              username: user.username || undefined,
+              fullName: userData.fullName || undefined,
+              avatarUrl: userData.imageUrl || undefined,
+              username: userData.username || undefined,
             });
             
             console.log('Updated user info in Convex');
           }
         }
+        
+        syncedUserRef.current = userData.id;
+        isInitialSync.current = false;
       } catch (error) {
         console.error('Error syncing user with Convex:', error);
       }
-    }
+    }, 1000), // 1 second debounce
+    [upsertUser, upsertUserSubscription, isLoaded, userLoading]
+  );
 
-    // Only run if Clerk user is loaded and Convex query has completed
+  useEffect(() => {
     if (isLoaded && user && !userLoading) {
-      syncUser();
+      debouncedSync(user, currentUser);
     }
-  }, [isLoaded, user, currentUser, userLoading, upsertUser, upsertUserSubscription]);
+  }, [isLoaded, user?.id, userLoading, debouncedSync]);
 
   return <>{children}</>;
 }

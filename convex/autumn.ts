@@ -22,20 +22,41 @@ export const autumn = new Autumn((api as any).autumn, {
  * These exports are required for our react hooks and components
  */
 
+import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
+
 export const {
   track,
   cancel,
-  query,
   attach,
   check,
   checkout,
   usage,
   setupPayment,
-  createCustomer,
-  listProducts,
   billingPortal,
   createReferralCode,
   redeemReferralCode,
   createEntity,
   getEntity,
 } = autumn.api();
+
+// Native Convex wrapper for listProducts (query)
+export const listProducts = query({
+  args: {},
+  handler: async (ctx) => {
+    // Call the library function
+    return autumn.api().listProducts(ctx);
+  },
+});
+
+// Native Convex wrapper for createCustomer (mutation)
+export const createCustomer = mutation({
+  args: {
+    email: v.string(),
+    name: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Call the library function with args
+    return autumn.api().createCustomer(ctx, args);
+  },
+});
