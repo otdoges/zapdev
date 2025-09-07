@@ -11,38 +11,24 @@ export function useCurrentUser() {
   const cacheRef = useRef(null);
   const queryRef = useRef(null);
 
-  // Only run the query once and cache it
+  // Run the query at top level and cache it
+  const queryResult = useQuery(api.users.getCurrentUser);
+  
   useEffect(() => {
-    if (cacheRef.current !== null) {
-      // Already cached, use the cached value
-      setCachedUser(cacheRef.current);
-      setIsLoading(false);
-      return;
-    }
-
-    // Run the query only if not cached
-    queryRef.current = useQuery(api.users.getCurrentUser);
-    
-    if (queryRef.current !== undefined) {
-      cacheRef.current = queryRef.current;
-      setCachedUser(queryRef.current);
+    if (queryResult !== undefined) {
+      cacheRef.current = queryResult;
+      setCachedUser(queryResult);
       setIsLoading(false);
     }
-  }, []);
+  }, [queryResult]);
 
-  return { 
-    user: cachedUser, 
-    isLoading: isLoading || queryRef.current === undefined, 
+  return {
+    user: cachedUser,
+    isLoading: isLoading || queryResult === undefined,
     error,
     refetch: () => {
-      // Force refetch and update cache
-      const result = useQuery(api.users.getCurrentUser, undefined, { 
-        revalidateIfStale: true 
-      });
-      if (result !== undefined) {
-        cacheRef.current = result;
-        setCachedUser(result);
-      }
+      // The query will automatically refetch when needed
+      // Convex handles revalidation
     }
   };
 }
