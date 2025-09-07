@@ -1,6 +1,6 @@
 "use client";
 import { AutumnProvider } from "autumn-js/react";
-import { api } from "../../convex/_generated/api";
+import { api } from "./convex/_generated/api";
 import { useConvex } from "convex/react";
 
 export function AutumnWrapper({ children }: { children: React.ReactNode }) {
