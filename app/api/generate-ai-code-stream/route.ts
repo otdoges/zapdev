@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
   try {
-    const { prompt, model = 'openai/gpt-oss-20b', context, isEdit = false } = await request.json();
+    const { prompt, model = 'moonshotai/kimi-k2-instruct-0905', context, isEdit = false } = await request.json();
     
     // Log initial request
     logStateChange('generate-ai-code-stream', 'REQUEST_START', {
@@ -177,9 +177,9 @@ export async function POST(request: NextRequest) {
     // Override isEdit if we have clear evidence of existing project state
     if (!actualIsEdit && (hasGlobalFiles || hasExistingFilesSet || hasConversationEdits)) {
       console.log('[generate-ai-code-stream] Frontend reported isEdit=false but backend has existing project state:');
-      console.log('[generate-ai-code-stream] - Global file cache:', hasGlobalFiles ? Object.keys(global.sandboxState.fileCache.files).length : 0, 'files');
-      console.log('[generate-ai-code-stream] - Existing files set:', hasExistingFilesSet ? global.existingFiles.size : 0, 'files');
-      console.log('[generate-ai-code-stream] - Conversation edits:', hasConversationEdits ? global.conversationState.context.edits.length : 0, 'edits');
+      console.log('[generate-ai-code-stream] - Global file cache:', hasGlobalFiles ? Object.keys(global.sandboxState?.fileCache?.files || {}).length : 0, 'files');
+      console.log('[generate-ai-code-stream] - Existing files set:', hasExistingFilesSet ? global.existingFiles?.size || 0 : 0, 'files');
+      console.log('[generate-ai-code-stream] - Conversation edits:', hasConversationEdits ? global.conversationState?.context?.edits?.length || 0 : 0, 'edits');
       actualIsEdit = true;
       console.log('[generate-ai-code-stream] CORRECTED: Setting isEdit=true based on backend state');
     } else if (actualIsEdit && !hasGlobalFiles && !hasExistingFilesSet && !hasConversationEdits) {
@@ -222,9 +222,8 @@ export async function POST(request: NextRequest) {
           
           try {
             // Force refresh of file cache by calling get-sandbox-files
-            const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-            const host = request.headers.get('host') || 'localhost:3000';
-            const filesUrl = `${protocol}://${host}/api/get-sandbox-files`;
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'https://zapdev.link');
+            const filesUrl = `${baseUrl}/api/get-sandbox-files`;
             
             const recoveryResponse = await fetch(filesUrl, {
               method: 'GET',
@@ -253,7 +252,7 @@ export async function POST(request: NextRequest) {
                   global.sandboxState.fileCache.lastSync = Date.now();
                 }
                 
-                if (recoveryData.manifest) {
+                if (recoveryData.manifest && global.sandboxState.fileCache) {
                   global.sandboxState.fileCache.manifest = recoveryData.manifest;
                 }
                 
@@ -376,7 +375,8 @@ export async function POST(request: NextRequest) {
             
             // STEP 1: Get search plan from AI
             try {
-              const intentResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analyze-edit-intent`, {
+              const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'https://zapdev.link');
+              const intentResponse = await fetch(`${baseUrl}/api/analyze-edit-intent`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt, manifest, model })
@@ -502,7 +502,8 @@ User request: "${prompt}"`;
               
               try {
                 // Fetch files directly from sandbox
-                const filesResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/get-sandbox-files`, {
+                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'https://zapdev.link');
+                const filesResponse = await fetch(`${baseUrl}/api/get-sandbox-files`, {
                   method: 'GET',
                   headers: { 'Content-Type': 'application/json' }
                 });
@@ -1180,7 +1181,8 @@ CRITICAL: When files are provided in the context:
             console.log('[generate-ai-code-stream] No backend files, attempting to fetch from sandbox...');
             
             try {
-              const filesResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/get-sandbox-files`, {
+              const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'https://zapdev.link');
+              const filesResponse = await fetch(`${baseUrl}/api/get-sandbox-files`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
               });
@@ -1225,7 +1227,7 @@ CRITICAL: When files are provided in the context:
                     if (!editContext) {
                       console.log('[generate-ai-code-stream] Analyzing edit intent with fetched manifest');
                       try {
-                        const intentResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analyze-edit-intent`, {
+                        const intentResponse = await fetch(`${baseUrl}/api/analyze-edit-intent`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ prompt, manifest: filesData.manifest, model })
@@ -1412,6 +1414,7 @@ CRITICAL: When files are provided in the context:
         const isAnthropic = model.startsWith('anthropic/');
         const isGoogle = model.startsWith('google/');
         const isOpenAI = model.startsWith('openai/gpt-5');
+        const isGroqModel = model.startsWith('moonshotai/');
         const modelProvider = isAnthropic ? anthropic : (isOpenAI ? openai : (isGoogle ? googleGenerativeAI : groq));
         const actualModel = isAnthropic ? model.replace('anthropic/', '') : 
                            (model === 'openai/gpt-5') ? 'gpt-5' :
@@ -1419,7 +1422,6 @@ CRITICAL: When files are provided in the context:
 
         // ENHANCED REASONING: Improved thinking for all providers, especially Groq
         const thinkingStartTime = Date.now();
-        const isGroqModel = !isAnthropic && !isGoogle && !isOpenAI;
         
         await sendProgress({ 
           type: 'thinking', 
@@ -2137,11 +2139,7 @@ Provide the complete file content without any truncation. Include all necessary 
         }
         
         // Log failed completion with error details
-        logRequestCycle('generate-ai-code-stream', 
-          { prompt: prompt?.substring(0, 100) + '...', model, isEdit: actualIsEdit, hasContext: !!context, sandboxId: context?.sandboxId },
-          false, 
-          Date.now() - startTime
-        );
+        logRequestCycle('generate-ai-code-stream', { prompt: 'Error occurred', model: 'unknown', isEdit: false, hasContext: false, sandboxId: 'unknown' }, false, Date.now() - startTime);
       } finally {
         await writer.close();
       }
@@ -2160,15 +2158,11 @@ Provide the complete file content without any truncation. Include all necessary 
     console.error('[generate-ai-code-stream] Error:', error);
     
     // Log failed request
-    logRequestCycle('generate-ai-code-stream', 
-      { prompt: prompt?.substring(0, 100) + '...', model, isEdit, hasContext: !!context, sandboxId: context?.sandboxId },
-      false, 
-      Date.now() - startTime
-    );
+    logRequestCycle('generate-ai-code-stream', { prompt: 'Error occurred', model: 'unknown', isEdit: false, hasContext: false, sandboxId: 'unknown' }, false, Date.now() - startTime);
     
-    return NextResponse.json({ 
-      success: false, 
-      error: (error as Error).message 
+    return NextResponse.json({
+      success: false,
+      error: (error as Error).message
     }, { status: 500 });
   }
 }
