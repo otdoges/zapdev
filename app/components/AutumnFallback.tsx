@@ -2,9 +2,10 @@
 // This file provides working alternatives when autumn-js/react is not available
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Check, Sparkles, Crown } from "lucide-react";
 
 // Types
 interface Customer {
@@ -45,16 +46,15 @@ export const AutumnProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Mock loading customer data
   useEffect(() => {
     setIsLoading(true);
-    // Simulate API call
     setTimeout(() => {
       setCustomer({
         id: 'cus_mock123',
         email: 'user@example.com',
         name: 'Test User',
         subscription: {
-          status: 'active',
-          planId: 'pro',
-          currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days from now
+          status: 'inactive',
+          planId: 'free',
+          currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000
         }
       });
       setIsLoading(false);
@@ -78,98 +78,92 @@ export const useCustomer = () => {
   };
 };
 
-// Mock pricing table component
+// Mock pricing table component (two-tier)
 export const PricingTable: React.FC = () => {
+  const proPriceId = process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || 'price_pro_monthly';
+
   const plans = [
     {
       id: 'free',
       name: 'Free',
       price: '$0',
-      period: 'forever',
-      description: 'Perfect for getting started',
-      features: [
-        '5 AI chat messages per day',
-        '1 sandbox environment',
-        'Basic code generation',
-        'Community support'
-      ],
-      buttonText: 'Get Started',
-      popular: false
+      subtext: 'No credit card required',
+      description: 'Everything you need to get started.',
+      features: ['Up to 5 chats', 'Basic templates', 'Standard sandbox time', 'Community support'],
+      buttonText: 'Get started',
+      popular: false,
+      icon: Sparkles,
     },
     {
       id: 'pro',
       name: 'Pro',
-      price: '$29',
-      period: 'per month',
-      description: 'For serious developers',
-      features: [
-        'Unlimited AI chat messages',
-        '5 concurrent sandboxes',
-        'Advanced code generation',
-        'Priority support',
-        'Autonomous agents',
-        'Custom domains'
-      ],
-      buttonText: 'Start Free Trial',
-      popular: true
+      price: '$20',
+      subtext: 'per month, cancel anytime',
+      description: 'Build without limits with advanced AI.',
+      features: ['Unlimited chats', 'Advanced AI models', 'Extended sandbox time', 'Priority support'],
+      buttonText: 'Upgrade to Pro',
+      popular: true,
+      icon: Crown,
     },
-    {
-      id: 'enterprise',
-      name: 'Enterprise',
-      price: 'Custom',
-      period: '',
-      description: 'For teams and organizations',
-      features: [
-        'Everything in Pro',
-        'Unlimited sandboxes',
-        'Team collaboration',
-        'SLA guarantee',
-        'Custom integrations',
-        'Dedicated support'
-      ],
-      buttonText: 'Contact Sales',
-      popular: false
-    }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {plans.map((plan) => (
-        <Card 
-          key={plan.id} 
-          className={`relative ${plan.popular ? 'border-blue-500 ring-2 ring-blue-500' : ''}`}
-        >
-          {plan.popular && (
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-              MOST POPULAR
-            </div>
-          )}
-          <CardHeader>
-            <CardTitle className="text-2xl">{plan.name}</CardTitle>
-            <div className="flex items-baseline">
-              <span className="text-4xl font-bold">{plan.price}</span>
-              {plan.period && <span className="text-gray-500 ml-1">{plan.period}</span>}
-            </div>
-            <CardDescription>{plan.description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3 mb-6">
-              {plan.features.map((feature, index) => (
-                <li key={index} className="flex items-center">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-            <Button 
-              className="w-full" 
-              variant={plan.popular ? "default" : "outline"}
-            >
-              {plan.buttonText}
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {plans.map((plan) => {
+        const Icon = plan.icon;
+        const isFree = plan.id === 'free';
+        return (
+          <Card
+            key={plan.id}
+            className={`relative transition hover:shadow-md hover:scale-[1.01] ${plan.popular ? 'ring-1 ring-primary/20' : ''}`}
+          >
+            {plan.popular && (
+              <div className="absolute top-3 right-3">
+                <span className="bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
+                  Most popular
+                </span>
+              </div>
+            )}
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="rounded-md bg-primary/10 p-2">
+                  <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                  <CardDescription>{plan.description}</CardDescription>
+                </div>
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-4xl font-bold">{plan.price}</span>
+                <span className="text-sm text-muted-foreground">{plan.subtext}</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3 mb-6" role="list">
+                {plan.features.map((feature, index) => (
+                  <li key={index} className="flex items-start">
+                    <Check className="h-5 w-5 text-green-600 dark:text-green-500 mr-3 mt-0.5" aria-hidden="true" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              {isFree ? (
+                <Link href="/sign-in" className="block w-full" aria-label="Get started with Free">
+                  <Button variant="outline" className="w-full">{plan.buttonText}</Button>
+                </Link>
+              ) : (
+                <form action="/api/stripe/create-checkout-session" method="post" className="w-full">
+                  <input type="hidden" name="priceId" value={proPriceId} />
+                  <Button type="submit" className="w-full" variant="orange" aria-label="Upgrade to Pro">
+                    {plan.buttonText}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 };
@@ -181,7 +175,6 @@ export const useUsageLimits = (featureId: string) => {
 
   useEffect(() => {
     setIsLoading(true);
-    // Simulate API call
     setTimeout(() => {
       setLimits({
         featureId,
