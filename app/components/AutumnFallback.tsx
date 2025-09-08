@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, Sparkles, Crown } from "lucide-react";
+import CheckoutButton from "@/components/stripe/CheckoutButton";
 
 // Types
 interface Customer {
@@ -153,12 +154,9 @@ export const PricingTable: React.FC = () => {
                   <Button variant="outline" className="w-full">{plan.buttonText}</Button>
                 </Link>
               ) : (
-                <form action="/api/stripe/create-checkout-session" method="post" className="w-full">
-                  <input type="hidden" name="priceId" value={proPriceId} />
-                  <Button type="submit" className="w-full" variant="orange" aria-label="Upgrade to Pro">
-                    {plan.buttonText}
-                  </Button>
-                </form>
+                <CheckoutButton priceId={proPriceId} mode="subscription" variant="orange" size="lg" className="w-full">
+                  {plan.buttonText}
+                </CheckoutButton>
               )}
             </CardContent>
           </Card>
