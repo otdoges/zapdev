@@ -401,7 +401,7 @@ export default function MasterDashboard({
                   >
                     <option value="1">1 Agent (Free)</option>
                     <option value="3">3 Agents (Pro)</option>
-                    <option value="10">10 Agents (Enterprise)</option>
+                    <option value="10">10 Agents (Pro)</option>
                   </select>
                 </div>
               </div>
@@ -409,7 +409,7 @@ export default function MasterDashboard({
           </div>
         )}
 
-        {currentView === 'monitoring' && userSubscription === 'enterprise' && (
+        {currentView === 'monitoring' && userSubscription !== 'free' && (
           <div className="text-center py-12">
             <Monitor className="w-16 h-16 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -428,10 +428,10 @@ export default function MasterDashboard({
           <div className="text-center py-12">
             <Settings className="w-16 h-16 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {userSubscription === 'free' ? 'Pro Subscription Required' : 'Enterprise Subscription Required'}
+              {'Pro Subscription Required'}
             </h3>
             <p className="text-gray-600 mb-4">
-              This feature requires a {userSubscription === 'free' ? 'Pro' : 'Enterprise'} subscription to access.
+              This feature requires a Pro subscription to access.
             </p>
             <Button>
               Upgrade Subscription
