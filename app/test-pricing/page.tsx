@@ -20,58 +20,32 @@ import { CreditCard, TestTube, DollarSign } from "lucide-react";
 
 const testPlans: PricingPlan[] = [
   {
-    id: "test-free",
-    name: "Test Free Plan",
-    description: "Testing free tier functionality",
+    id: "free",
+    name: "Free",
+    description: "Testing free tier",
     price: 0,
     currency: "usd",
     interval: "month",
     features: [
-      "Free tier testing",
-      "Basic Stripe integration",
-      "No payment required",
+      "5 chats",
+      "Basic models",
     ],
-    buttonText: "Test Free Plan",
+    buttonText: "Get Started",
     buttonVariant: "outline",
   },
   {
-    id: "test-basic",
-    name: "Test Basic",
-    description: "Basic paid plan for testing",
-    price: 10,
+    id: "pro",
+    name: "Pro",
+    description: "Testing Pro plan",
+    price: 20,
     currency: "usd",
     interval: "month",
-    priceId:
-      process.env.NEXT_PUBLIC_STRIPE_TEST_BASIC_PRICE_ID || "price_test_basic",
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "price_test_pro",
     features: [
-      "Test basic payments",
-      "Stripe checkout flow",
-      "Subscription management",
-      "Test webhooks",
+      "Unlimited chats",
+      "Advanced models",
     ],
-    buttonText: "Test Basic Plan",
-    buttonVariant: "default",
-  },
-  {
-    id: "test-premium",
-    name: "Test Premium",
-    description: "Premium plan for comprehensive testing",
-    price: 25,
-    currency: "usd",
-    interval: "month",
-    priceId:
-      process.env.NEXT_PUBLIC_STRIPE_TEST_PREMIUM_PRICE_ID ||
-      "price_test_premium",
-    features: [
-      "All basic features",
-      "Advanced payment testing",
-      "Multiple payment methods",
-      "Subscription updates",
-      "Proration testing",
-    ],
-    popular: true,
-    buttonText: "Test Premium Plan",
-    buttonVariant: "default",
+    buttonText: "Upgrade to Pro",
   },
 ];
 
@@ -85,7 +59,6 @@ export default function TestPricingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-12">
           <div className="flex justify-center items-center mb-4">
             <TestTube className="h-12 w-12 text-blue-600 mr-4" />
@@ -95,12 +68,10 @@ export default function TestPricingPage() {
           </div>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Test the Stripe payment integration with various pricing scenarios
-            and configurations. This page demonstrates the full payment flow
-            including subscriptions, one-time payments, and custom amounts.
+            and configurations.
           </p>
         </div>
 
-        {/* Test Plans */}
         <div className="mb-16">
           <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
             Test Subscription Plans
@@ -110,9 +81,7 @@ export default function TestPricingPage() {
 
         <Separator className="my-12" />
 
-        {/* Custom Testing Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
-          {/* Custom Payment Test */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -165,7 +134,7 @@ export default function TestPricingPage() {
 
               <CheckoutButton
                 customAmount={{
-                  amount: Math.round(customAmount * 100), // Convert to cents
+                  amount: Math.round(customAmount * 100),
                   currency: customCurrency,
                   name: `Custom ${testMode === "subscription" ? "Subscription" : "Payment"} Test`,
                   description: `Testing ${testMode} with ${customAmount} ${customCurrency.toUpperCase()}`,
@@ -175,14 +144,11 @@ export default function TestPricingPage() {
                 size="lg"
                 className="w-full"
               >
-                Test Custom{" "}
-                {testMode === "subscription" ? "Subscription" : "Payment"} -{" "}
-                {customAmount} {customCurrency.toUpperCase()}
+                Test Custom {testMode === "subscription" ? "Subscription" : "Payment"} - {customAmount} {customCurrency.toUpperCase()}
               </CheckoutButton>
             </CardContent>
           </Card>
 
-          {/* Quick Test Buttons */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -196,7 +162,7 @@ export default function TestPricingPage() {
             <CardContent className="space-y-4">
               <CheckoutButton
                 customAmount={{
-                  amount: 100, // $1.00
+                  amount: 100,
                   currency: "usd",
                   name: "Minimum Payment Test",
                   description: "Testing minimum payment amount",
@@ -211,7 +177,7 @@ export default function TestPricingPage() {
 
               <CheckoutButton
                 customAmount={{
-                  amount: 999, // $9.99
+                  amount: 1999,
                   currency: "usd",
                   name: "Standard Subscription Test",
                   description: "Testing standard subscription pricing",
@@ -221,12 +187,12 @@ export default function TestPricingPage() {
                 size="lg"
                 className="w-full"
               >
-                Test $9.99/month Subscription
+                Test $19.99/month Subscription
               </CheckoutButton>
 
               <CheckoutButton
                 customAmount={{
-                  amount: 4999, // $49.99
+                  amount: 4999,
                   currency: "usd",
                   name: "Premium Payment Test",
                   description: "Testing higher-value payments",
@@ -238,27 +204,10 @@ export default function TestPricingPage() {
               >
                 Test $49.99 One-time Payment
               </CheckoutButton>
-
-              <CheckoutButton
-                customAmount={{
-                  amount: 0,
-                  currency: "usd",
-                  name: "Free Trial Test",
-                  description: "Testing free trial flow",
-                }}
-                mode="payment"
-                variant="ghost"
-                size="lg"
-                className="w-full"
-                disabled
-              >
-                Test Free Trial (Disabled)
-              </CheckoutButton>
             </CardContent>
           </Card>
         </div>
 
-        {/* Test Information */}
         <Card className="bg-blue-50 border-blue-200">
           <CardHeader>
             <CardTitle className="text-blue-900">Testing Information</CardTitle>
@@ -268,19 +217,10 @@ export default function TestPricingPage() {
               <div>
                 <h4 className="font-semibold mb-2">Test Credit Cards</h4>
                 <ul className="space-y-1 text-sm">
-                  <li>
-                    <code>4242424242424242</code> - Visa (Success)
-                  </li>
-                  <li>
-                    <code>4000000000000002</code> - Visa (Declined)
-                  </li>
-                  <li>
-                    <code>4000000000009995</code> - Visa (Insufficient funds)
-                  </li>
-                  <li>
-                    <code>4000002500003155</code> - Visa (Requires
-                    authentication)
-                  </li>
+                  <li><code>4242424242424242</code> - Visa (Success)</li>
+                  <li><code>4000000000000002</code> - Visa (Declined)</li>
+                  <li><code>4000000000009995</code> - Visa (Insufficient funds)</li>
+                  <li><code>4000002500003155</code> - Visa (Requires authentication)</li>
                 </ul>
               </div>
               <div>
@@ -292,13 +232,6 @@ export default function TestPricingPage() {
                   <li>• All payments are in test mode</li>
                 </ul>
               </div>
-            </div>
-            <div className="mt-4 p-3 bg-blue-100 rounded-lg">
-              <p className="text-sm">
-                <strong>Note:</strong> This page is for testing Stripe
-                integration. No real payments will be processed. Make sure your
-                environment variables are set correctly with Stripe test keys.
-              </p>
             </div>
           </CardContent>
         </Card>

@@ -493,36 +493,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             iframeRef.current.src = data.url;
           }
         }, 100);
-        
-        // Capture screenshot for chat preview after sandbox is ready and update Convex
-        if (currentChatId && isSignedIn) {
-          setTimeout(async () => {
-            try {
-              console.log('[createSandbox] Capturing screenshot for chat preview...');
-              const screenshotResponse = await fetch('/api/scrape-screenshot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: data.url })
-              });
-              
-              const screenshotData = await screenshotResponse.json();
-              if (screenshotData.success && screenshotData.screenshot) {
-                console.log('[createSandbox] Screenshot captured, updating chat...');
-                await updateChatScreenshot({
-                  chatId: currentChatId,
-                  screenshot: screenshotData.screenshot,
-                  sandboxId: data.sandboxId,
-                  sandboxUrl: data.url
-                });
-                console.log('[createSandbox] Chat updated with screenshot');
-              } else {
-                console.warn('[createSandbox] Failed to capture screenshot:', screenshotData.error);
-              }
-            } catch (error) {
-              console.error('[createSandbox] Error capturing screenshot:', error);
-            }
-          }, 3000); // Wait 3 seconds for the sandbox to fully load
-        }
+
       } else {
         throw new Error(data.error || 'Unknown error');
       }
@@ -1127,6 +1098,29 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     }
   };
 
+  const savePreview = async () => {
+    try {
+      if (!sandboxData?.url || !currentChatId) return;
+      const screenshotResponse = await fetch('/api/scrape-screenshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: sandboxData.url })
+      });
+      const screenshotData = await screenshotResponse.json();
+      if (screenshotData.success && screenshotData.screenshot) {
+        await updateChatScreenshot({
+          chatId: currentChatId,
+          screenshot: screenshotData.screenshot,
+          sandboxId: sandboxData.sandboxId,
+          sandboxUrl: sandboxData.url
+        });
+        addChatMessage('Preview saved to chat.', 'system');
+      }
+    } catch (e) {
+      addChatMessage('Failed to save preview.', 'system');
+    }
+  };
+
   const applyCode = async () => {
     const code = promptInput.trim();
     if (!code) {
@@ -1669,6 +1663,16 @@ Tip: I automatically detect and install npm packages from your code imports (lik
               allow="clipboard-write"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
             />
+            {/* Save preview button */}
+            {currentChatId && (
+              <button
+                onClick={savePreview}
+                className="absolute bottom-4 right-28 bg-white/90 hover:bg-white text-gray-700 px-3 py-2 rounded-lg shadow-lg transition-all duration-200 hover:scale-105"
+                title="Save preview to chat"
+              >
+                Save preview
+              </button>
+            )}
             {/* Refresh button */}
             <button
               onClick={() => {
@@ -1803,24 +1807,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       await createSandbox(true); // Pass true to indicate this is from message, not home screen
     }
     
-    // Create or get current chat for this conversation
+    // Create or get current chat for this conversation (no auto-creation)
     let chatId = currentChatId;
-    if (!chatId && isSignedIn) {
-      try {
-        // Generate chat title from first message (truncated to 50 chars)
-        const chatTitle = message.length > 50 ? message.substring(0, 47) + '...' : message;
-        console.log('[processAIMessage] Attempting to create chat with title:', chatTitle);
-        chatId = await createChat({ title: chatTitle });
-        setCurrentChatId(chatId);
-        console.log('[processAIMessage] Successfully created new chat:', chatId);
-        // Notify user that chat has been created and will be saved
-        addChatMessage('💾 Chat created! Your conversation will be saved to history.', 'system');
-      } catch (error: any) {
-        console.error('[processAIMessage] Failed to create chat:', error);
-        // Show user-friendly error message but continue without chat persistence
-        addChatMessage('⚠️ Unable to save chat history - continuing in temporary mode. Check your connection or try signing out and back in.', 'system');
-      }
-    }
     
     // Save user message to Convex if we have a chat
     if (chatId && isSignedIn) {

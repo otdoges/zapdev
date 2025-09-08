@@ -4,9 +4,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 
-// Types
 interface Customer {
   id: string;
   email: string;
@@ -25,7 +24,6 @@ interface UsageLimit {
   resetAt?: Date;
 }
 
-// Mock context
 const AutumnContext = createContext<{
   customer: Customer | null;
   isLoading: boolean;
@@ -36,16 +34,13 @@ const AutumnContext = createContext<{
   error: null
 });
 
-// Mock provider
 export const AutumnProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Mock loading customer data
   useEffect(() => {
     setIsLoading(true);
-    // Simulate API call
     setTimeout(() => {
       setCustomer({
         id: 'cus_mock123',
@@ -54,7 +49,7 @@ export const AutumnProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         subscription: {
           status: 'active',
           planId: 'pro',
-          currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days from now
+          currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000
         }
       });
       setIsLoading(false);
@@ -68,7 +63,6 @@ export const AutumnProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 };
 
-// Mock hook for customer data
 export const useCustomer = () => {
   const context = useContext(AutumnContext);
   return {
@@ -78,7 +72,6 @@ export const useCustomer = () => {
   };
 };
 
-// Mock pricing table component
 export const PricingTable: React.FC = () => {
   const plans = [
     {
@@ -88,10 +81,9 @@ export const PricingTable: React.FC = () => {
       period: 'forever',
       description: 'Perfect for getting started',
       features: [
-        '5 AI chat messages per day',
-        '1 sandbox environment',
-        'Basic code generation',
-        'Community support'
+        '5 chats',
+        '1 sandbox',
+        'Basic models'
       ],
       buttonText: 'Get Started',
       popular: false
@@ -99,41 +91,20 @@ export const PricingTable: React.FC = () => {
     {
       id: 'pro',
       name: 'Pro',
-      price: '$29',
+      price: '$20',
       period: 'per month',
-      description: 'For serious developers',
+      description: 'For builders who want more',
       features: [
-        'Unlimited AI chat messages',
-        '5 concurrent sandboxes',
-        'Advanced code generation',
-        'Priority support',
-        'Autonomous agents',
-        'Custom domains'
+        'Unlimited chats',
+        'Advanced models'
       ],
-      buttonText: 'Start Free Trial',
+      buttonText: 'Upgrade to Pro',
       popular: true
-    },
-    {
-      id: 'enterprise',
-      name: 'Enterprise',
-      price: 'Custom',
-      period: '',
-      description: 'For teams and organizations',
-      features: [
-        'Everything in Pro',
-        'Unlimited sandboxes',
-        'Team collaboration',
-        'SLA guarantee',
-        'Custom integrations',
-        'Dedicated support'
-      ],
-      buttonText: 'Contact Sales',
-      popular: false
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {plans.map((plan) => (
         <Card 
           key={plan.id} 
@@ -174,14 +145,12 @@ export const PricingTable: React.FC = () => {
   );
 };
 
-// Mock usage limit hook
 export const useUsageLimits = (featureId: string) => {
   const [limits, setLimits] = useState<UsageLimit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
-    // Simulate API call
     setTimeout(() => {
       setLimits({
         featureId,

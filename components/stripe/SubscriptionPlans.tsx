@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Zap, Crown, Rocket } from 'lucide-react';
+import { Check, Zap, Crown } from 'lucide-react';
 import CheckoutButton from './CheckoutButton';
 
 export interface PricingPlan {
@@ -32,10 +32,9 @@ const defaultPlans: PricingPlan[] = [
     currency: 'usd',
     interval: 'month',
     features: [
-      '5 AI-powered projects',
-      'Basic templates',
-      'Community support',
-      'Standard sandbox time',
+      '5 chats',
+      '1 sandbox',
+      'Basic models'
     ],
     icon: Zap,
     buttonText: 'Get Started',
@@ -48,41 +47,15 @@ const defaultPlans: PricingPlan[] = [
     price: 20,
     currency: 'usd',
     interval: 'month',
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || 'price_pro_monthly', // Use env var for Stripe price ID
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || 'price_pro_monthly',
     features: [
       'Unlimited chats',
-      'Unlimited AI-powered projects',
-      'Premium templates',
-      'Priority support',
-      'Extended sandbox time',
-      'Advanced AI models',
-      'Export to GitHub',
+      'Advanced models'
     ],
     popular: true,
     icon: Crown,
     buttonText: 'Upgrade to Pro',
-  },
-  {
-    id: 'team',
-    name: 'Team',
-    description: 'For teams and organizations',
-    price: 50,
-    currency: 'usd',
-    interval: 'month',
-    priceId: 'price_team_monthly', // Replace with actual Stripe price ID
-    features: [
-      'Everything in Pro',
-      'Team collaboration',
-      'Shared projects',
-      'Advanced analytics',
-      'Custom integrations',
-      'Dedicated support',
-      'SSO authentication',
-    ],
-    icon: Rocket,
-    buttonText: 'Upgrade to Team',
-    buttonVariant: 'orange',
-  },
+  }
 ];
 
 export default function SubscriptionPlans({ 
@@ -98,7 +71,7 @@ export default function SubscriptionPlans({
   };
 
   return (
-    <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${className}`}>
+    <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${className}`}>
       {plans.map((plan) => {
         const Icon = plan.icon || Zap;
         
@@ -177,7 +150,7 @@ export default function SubscriptionPlans({
               ) : (
                 <CheckoutButton
                   customAmount={{
-                    amount: plan.price * 100, // Convert to cents
+                    amount: plan.price * 100,
                     currency: plan.currency,
                     name: plan.name,
                     description: plan.description,

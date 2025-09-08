@@ -1,28 +1,46 @@
 "use client";
 
-import { PricingTable } from "@/app/components/AutumnFallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Zap, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircle, Zap, Sparkles, Crown } from "lucide-react";
+
+async function startAutumnCheckout() {
+  try {
+    const res = await fetch('/api/autumn/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID })
+    });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+      return;
+    }
+    if (data.provider === 'stripe' && data.sessionId) {
+      const { getStripe } = await import('@/lib/stripe-client');
+      const stripe = await getStripe();
+      if (stripe) await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      return;
+    }
+  } catch (e) {
+    console.error('Checkout failed', e);
+  }
+}
 
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-12">
           <div className="flex justify-center items-center mb-4">
             <Zap className="h-12 w-12 text-blue-600 mr-4" />
-            <h1 className="text-4xl font-bold text-gray-900">
-              ZapDev Pricing
-            </h1>
+            <h1 className="text-4xl font-bold text-gray-900">ZapDev Pricing</h1>
           </div>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Unlock the full power of AI-assisted React development. 
-            Choose a plan that fits your needs and start building amazing apps instantly.
+            Unlock the full power of AI-assisted React development.
           </p>
         </div>
 
-        {/* Feature Highlights */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <Card className="text-center">
             <CardHeader>
@@ -67,12 +85,48 @@ export default function PricingPage() {
           </Card>
         </div>
 
-        {/* Autumn Pricing Table */}
-        <div className="mb-16">
-          <PricingTable />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
+          <Card className="relative">
+            <CardHeader>
+              <CardTitle className="text-2xl">Free</CardTitle>
+              <div className="flex items-baseline">
+                <span className="text-4xl font-bold">$0</span>
+                <span className="text-gray-500 ml-1">forever</span>
+              </div>
+              <CardDescription>Perfect for getting started</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center"><CheckCircle className="h-5 w-5 text-green-500 mr-2" />5 chats</li>
+                <li className="flex items-center"><CheckCircle className="h-5 w-5 text-green-500 mr-2" />Basic models</li>
+              </ul>
+              <Button variant="outline" className="w-full">Get Started</Button>
+            </CardContent>
+          </Card>
+
+          <Card className="relative border-blue-500 ring-2 ring-blue-500">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full">MOST POPULAR</div>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Crown className="h-6 w-6 text-blue-600" />
+                <CardTitle className="text-2xl">Pro</CardTitle>
+              </div>
+              <div className="flex items-baseline">
+                <span className="text-4xl font-bold">$20</span>
+                <span className="text-gray-500 ml-1">per month</span>
+              </div>
+              <CardDescription>For builders who want more</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center"><CheckCircle className="h-5 w-5 text-green-500 mr-2" />Unlimited chats</li>
+                <li className="flex items-center"><CheckCircle className="h-5 w-5 text-green-500 mr-2" />Advanced models</li>
+              </ul>
+              <Button className="w-full" onClick={startAutumnCheckout}>Upgrade to Pro</Button>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Usage Limits Information */}
         <Card className="bg-amber-50 border-amber-200 mb-8">
           <CardHeader>
             <CardTitle className="text-amber-900 flex items-center">
@@ -81,61 +135,7 @@ export default function PricingPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-amber-800">
-            <p className="mb-4">
-              ZapDev uses a usage-based pricing model to ensure you only pay for what you use:
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-semibold mb-2">What Counts as Usage</h4>
-                <ul className="space-y-1 text-sm">
-                  <li>• AI chat messages and code generations</li>
-                  <li>• Sandbox creation and execution time</li>
-                  <li>• Autonomous agent workflows</li>
-                  <li>• File operations and storage</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">When You Hit Limits</h4>
-                <ul className="space-y-1 text-sm">
-                  <li>• You'll be automatically redirected here</li>
-                  <li>• Upgrade instantly to continue working</li>
-                  <li>• No interruption to your development flow</li>
-                  <li>• All your work is safely preserved</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* FAQ Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Frequently Asked Questions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-semibold mb-1">What happens if I exceed my usage limits?</h4>
-                <p className="text-sm text-gray-600">
-                  When you reach your plan's usage limits, you'll be automatically redirected to this pricing page 
-                  where you can instantly upgrade to continue your work without losing any progress.
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Can I change plans anytime?</h4>
-                <p className="text-sm text-gray-600">
-                  Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, 
-                  and billing is prorated automatically.
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Is my code and data secure?</h4>
-                <p className="text-sm text-gray-600">
-                  Absolutely. Each sandbox is isolated, your code is encrypted, and we follow industry-standard 
-                  security practices to keep your projects safe.
-                </p>
-              </div>
-            </div>
+            <p className="mb-4">ZapDev uses a usage-based model to ensure you only pay for what you use.</p>
           </CardContent>
         </Card>
       </div>

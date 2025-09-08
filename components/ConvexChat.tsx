@@ -208,10 +208,26 @@ export default function ConvexChat({ onChatSelect, onMessageAdd }: ConvexChatPro
   };
 
   const handleUpgrade = async (plan: string) => {
-    // Integration with Stripe will be handled here
-    console.log('Upgrading to plan:', plan);
-    setShowPricingModal(false);
-    // TODO: Integrate with Stripe checkout
+    try {
+      const res = await fetch('/api/autumn/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID })
+      });
+      const data = await res.json();
+      setShowPricingModal(false);
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      if (data.provider === 'stripe' && data.sessionId) {
+        const { getStripe } = await import('@/lib/stripe-client');
+        const stripe = await getStripe();
+        if (stripe) await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      }
+    } catch (e) {
+      console.error('Upgrade failed', e);
+    }
   };
 
   return (

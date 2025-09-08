@@ -208,13 +208,13 @@ export default function MasterDashboard({
                     ? 'border-blue-600 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-600'
                 )}
-                title={!isAvailable ? `${item.label} requires ${userSubscription === 'free' ? 'Pro' : 'Enterprise'} subscription` : item.description}
+                title={!isAvailable ? `${item.label} requires Pro subscription` : item.description}
               >
                 <Icon className="w-4 h-4" />
                 <span>{item.label}</span>
                 {!isAvailable && (
                   <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
-                    {userSubscription === 'free' ? 'Pro' : 'Enterprise'}
+                    {'Pro'}
                   </span>
                 )}
               </button>

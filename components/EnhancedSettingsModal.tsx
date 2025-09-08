@@ -56,46 +56,24 @@ export default function EnhancedSettingsModal({ isOpen, onClose }: EnhancedSetti
 
   const plans = [
     {
+      name: 'Free',
+      description: 'Perfect for getting started.',
+      monthlyPrice: 0,
+      annualPrice: 0,
+      features: [
+        '5 chats',
+        'Basic models'
+      ]
+    },
+    {
       name: 'Pro',
-      description: 'Designed for fast-moving teams building together in real time.',
+      description: 'Unlimited chats and advanced models.',
       monthlyPrice: 20,
       annualPrice: 20,
       popular: true,
       features: [
         'Unlimited chats',
-        'Unlimited projects',
-        'Private projects',
-        'User roles & permissions',
-        'Custom domains',
-        'Priority support'
-      ]
-    },
-    {
-      name: 'Business', 
-      description: 'Advanced controls and power features for growing departments',
-      monthlyPrice: 50,
-      annualPrice: 40,
-      features: [
-        'All features in Pro, plus:',
-        '100 monthly credits',
-        'SSO',
-        'Personal Projects',
-        'Opt out of data training',
-        'Design templates',
-        'Custom design systems'
-      ]
-    },
-    {
-      name: 'Enterprise',
-      description: 'Built for large orgs needing flexibility, scale, and governance.',
-      isEnterprise: true,
-      features: [
-        'Everything in Business, plus:',
-        'Dedicated support',
-        'Onboarding services', 
-        'Custom integrations',
-        'Group-based access control',
-        'Custom design systems'
+        'Advanced models'
       ]
     }
   ];
