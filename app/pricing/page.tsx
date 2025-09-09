@@ -1,8 +1,15 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Zap, Sparkles, Crown } from "lucide-react";
+import { Check, Sparkles, Crown } from "lucide-react";
 
 async function startAutumnCheckout() {
   try {
@@ -20,7 +27,6 @@ async function startAutumnCheckout() {
       const { getStripe } = await import('@/lib/stripe-client');
       const stripe = await getStripe();
       if (stripe) await stripe.redirectToCheckout({ sessionId: data.sessionId });
-      return;
     }
   } catch (e) {
     console.error('Checkout failed', e);
@@ -28,116 +34,153 @@ async function startAutumnCheckout() {
 }
 
 export default function PricingPage() {
+  const router = useRouter();
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <div className="flex justify-center items-center mb-4">
-            <Zap className="h-12 w-12 text-blue-600 mr-4" />
-            <h1 className="text-4xl font-bold text-gray-900">ZapDev Pricing</h1>
-          </div>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Unlock the full power of AI-assisted React development.
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="container mx-auto px-4 py-12">
+        <header className="text-center mb-12">
+          <h1 className="text-4xl font-bold tracking-tight">Pricing</h1>
+          <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">
+            Choose the plan that fits your workflow. Start free and upgrade anytime.
           </p>
-        </div>
+        </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <Card className="text-center">
+        <section aria-labelledby="pricing-heading" className="mb-16">
+          <h2 id="pricing-heading" className="sr-only">
+            Plans
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Free */}
+            <Card className="transition hover:shadow-md hover:scale-[1.01] focus-within:ring-2 focus-within:ring-primary">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-md bg-primary/10 p-2">
+                      <Sparkles className="h-6 w-6 text-primary" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-2xl">Free</CardTitle>
+                      <CardDescription>
+                        Everything you need to get started.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-4xl font-bold">$0</span>
+                  <span className="text-sm text-muted-foreground">No credit card required</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3" role="list">
+                  {[
+                    "Up to 5 chats",
+                    "Basic templates",
+                    "Standard sandbox time",
+                    "Community support",
+                  ].map((feature) => (
+                    <li key={feature} className="flex items-start gap-3">
+                      <Check className="h-5 w-5 text-green-600 dark:text-green-500 mt-0.5" aria-hidden="true" />
+                      <span className="text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-6">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    aria-label="Get started with Free"
+                    onClick={() => router.push("/sign-in")}
+                  >
+                    Get started
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pro */}
+            <Card className="relative transition hover:shadow-md hover:scale-[1.01] ring-1 ring-primary/20">
+              <span className="absolute top-3 right-3 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                Most popular
+              </span>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-md bg-primary/10 p-2">
+                      <Crown className="h-6 w-6 text-primary" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-2xl">Pro</CardTitle>
+                      <CardDescription>
+                        Build without limits with advanced AI.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-4xl font-bold">$20</span>
+                  <span className="text-sm text-muted-foreground">per month, cancel anytime</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3" role="list">
+                  {[
+                    "Unlimited chats",
+                    "Advanced AI models",
+                    "Extended sandbox time",
+                    "Priority support",
+                  ].map((feature) => (
+                    <li key={feature} className="flex items-start gap-3">
+                      <Check className="h-5 w-5 text-green-600 dark:text-green-500 mt-0.5" aria-hidden="true" />
+                      <span className="text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-6">
+                  <Button
+                    variant="orange"
+                    size="lg"
+                    className="w-full"
+                    onClick={startAutumnCheckout}
+                  >
+                    Upgrade to Pro
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        <section aria-labelledby="faq-heading" className="max-w-3xl mx-auto">
+          <Card>
             <CardHeader>
-              <div className="mx-auto mb-2">
-                <Sparkles className="h-8 w-8 text-yellow-500" />
-              </div>
-              <CardTitle>AI-Powered Development</CardTitle>
+              <CardTitle id="faq-heading">Frequently Asked Questions</CardTitle>
             </CardHeader>
             <CardContent>
-              <CardDescription>
-                Chat with AI agents to build React applications with advanced features and real-time code generation.
-              </CardDescription>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-1">What happens if I exceed my limits?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    When you reach your plan limits, you can upgrade instantly to continue working. Your projects and progress are always preserved.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">Can I change plans anytime?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Yes. You can upgrade or downgrade at any time. Changes take effect immediately and billing is prorated.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">Do I need a credit card for Free?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    No. The Free plan requires no credit card and is great for getting started.
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-
-          <Card className="text-center">
-            <CardHeader>
-              <div className="mx-auto mb-2">
-                <CheckCircle className="h-8 w-8 text-green-500" />
-              </div>
-              <CardTitle>Isolated Sandboxes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Each project runs in its own secure E2B sandbox environment with persistent file storage.
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card className="text-center">
-            <CardHeader>
-              <div className="mx-auto mb-2">
-                <Zap className="h-8 w-8 text-blue-500" />
-              </div>
-              <CardTitle>Autonomous Execution</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Advanced autonomous workflows that can execute complex development tasks independently.
-              </CardDescription>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
-          <Card className="relative">
-            <CardHeader>
-              <CardTitle className="text-2xl">Free</CardTitle>
-              <div className="flex items-baseline">
-                <span className="text-4xl font-bold">$0</span>
-                <span className="text-gray-500 ml-1">forever</span>
-              </div>
-              <CardDescription>Perfect for getting started</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-center"><CheckCircle className="h-5 w-5 text-green-500 mr-2" />5 chats</li>
-                <li className="flex items-center"><CheckCircle className="h-5 w-5 text-green-500 mr-2" />Basic models</li>
-              </ul>
-              <Button variant="outline" className="w-full">Get Started</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="relative border-blue-500 ring-2 ring-blue-500">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full">MOST POPULAR</div>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Crown className="h-6 w-6 text-blue-600" />
-                <CardTitle className="text-2xl">Pro</CardTitle>
-              </div>
-              <div className="flex items-baseline">
-                <span className="text-4xl font-bold">$20</span>
-                <span className="text-gray-500 ml-1">per month</span>
-              </div>
-              <CardDescription>For builders who want more</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-center"><CheckCircle className="h-5 w-5 text-green-500 mr-2" />Unlimited chats</li>
-                <li className="flex items-center"><CheckCircle className="h-5 w-5 text-green-500 mr-2" />Advanced models</li>
-              </ul>
-              <Button className="w-full" onClick={startAutumnCheckout}>Upgrade to Pro</Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="bg-amber-50 border-amber-200 mb-8">
-          <CardHeader>
-            <CardTitle className="text-amber-900 flex items-center">
-              <Sparkles className="h-5 w-5 mr-2" />
-              Usage-Based Pricing
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-amber-800">
-            <p className="mb-4">ZapDev uses a usage-based model to ensure you only pay for what you use.</p>
-          </CardContent>
-        </Card>
+        </section>
       </div>
     </div>
   );

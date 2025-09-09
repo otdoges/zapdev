@@ -47,8 +47,8 @@ export const AutumnProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         email: 'user@example.com',
         name: 'Test User',
         subscription: {
-          status: 'active',
-          planId: 'pro',
+          status: 'inactive',
+          planId: 'free',
           currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000
         }
       });
@@ -72,6 +72,7 @@ export const useCustomer = () => {
   };
 };
 
+// Mock pricing table component (two-tier)
 export const PricingTable: React.FC = () => {
   const plans = [
     {
@@ -80,11 +81,7 @@ export const PricingTable: React.FC = () => {
       price: '$0',
       period: 'forever',
       description: 'Perfect for getting started',
-      features: [
-        '5 chats',
-        '1 sandbox',
-        'Basic models'
-      ],
+      features: ['5 chats', '1 sandbox', 'Basic models'],
       buttonText: 'Get Started',
       popular: false
     },
@@ -94,10 +91,7 @@ export const PricingTable: React.FC = () => {
       price: '$20',
       period: 'per month',
       description: 'For builders who want more',
-      features: [
-        'Unlimited chats',
-        'Advanced models'
-      ],
+      features: ['Unlimited chats', 'Advanced models'],
       buttonText: 'Upgrade to Pro',
       popular: true
     }
@@ -106,8 +100,8 @@ export const PricingTable: React.FC = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {plans.map((plan) => (
-        <Card 
-          key={plan.id} 
+        <Card
+          key={plan.id}
           className={`relative ${plan.popular ? 'border-blue-500 ring-2 ring-blue-500' : ''}`}
         >
           {plan.popular && (
@@ -132,10 +126,7 @@ export const PricingTable: React.FC = () => {
                 </li>
               ))}
             </ul>
-            <Button 
-              className="w-full" 
-              variant={plan.popular ? "default" : "outline"}
-            >
+            <Button className="w-full" variant={plan.popular ? 'default' : 'outline'}>
               {plan.buttonText}
             </Button>
           </CardContent>
