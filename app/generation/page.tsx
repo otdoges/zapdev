@@ -3132,46 +3132,13 @@ Focus on the key sections and content, making it clean and modern.`;
 
   return (
     <HeaderProvider>
-      <div className="font-sans bg-background text-foreground h-screen flex flex-col">
-      <div className="bg-white py-[15px] py-[8px] border-b border-border-faint flex items-center justify-between shadow-sm">
-        <HeaderBrandKit />
-        <div className="flex items-center gap-2">
+      <div className="font-sans bg-background text-foreground h-screen flex flex-col relative">
+        {/* Sign-in button in top-right corner */}
+        <div className="absolute top-4 right-4 z-50">
           <UserAuth />
-          {/* Model is now auto-detected */}
-          <button 
-            onClick={() => createSandbox()}
-            className="p-8 rounded-lg transition-colors bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100"
-            title="Create new sandbox"
-          >
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
-          <button 
-            onClick={reapplyLastGeneration}
-            className="p-8 rounded-lg transition-colors bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Re-apply last generation"
-            disabled={!conversationContext.lastGeneratedCode || !sandboxData}
-          >
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-          <button 
-            onClick={downloadZip}
-            disabled={!sandboxData}
-            className="p-8 rounded-lg transition-colors bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Download your Vite app as ZIP"
-          >
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-            </svg>
-          </button>
-       
         </div>
-      </div>
 
-      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden">
         {/* Center Panel - AI Chat (1/3 of remaining width) */}
         <div className="flex-1 max-w-[400px] flex flex-col border-r border-border bg-background">
           {/* Sidebar Input Component */}
