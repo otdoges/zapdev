@@ -9,6 +9,8 @@ import { hasClerkKeys, useSafeUser } from "@/lib/safe-clerk-hooks";
 export default function ChatHistory() {
   const { isSignedIn } = useSafeUser();
 
+  const enabled = hasClerkKeys() && isSignedIn;
+
   if (!hasClerkKeys()) {
     return null;
   }
@@ -31,6 +33,10 @@ export default function ChatHistory() {
     );
   }
 
+  return <ChatHistoryList />;
+}
+
+function ChatHistoryList() {
   const data = useQuery(api.chats.getUserChats, { limit: 10 });
 
   return (
