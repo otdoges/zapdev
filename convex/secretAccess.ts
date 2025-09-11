@@ -1,14 +1,19 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 // Using Web Crypto API instead of Node crypto
+
+// Helper function to get user ID from Clerk
+async function getUserId(ctx: QueryCtx | MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  return identity?.subject;
+}
 
 // Check if user has secret access
 export const hasSecretAccess = query({
   args: {},
   handler: async (ctx: QueryCtx) => {
-    const userId = await getAuthUserId(ctx);
+    const userId = await getUserId(ctx);
     if (!userId) {
       throw new Error("Not authenticated");
     }
@@ -44,7 +49,7 @@ export const setupSecretAccess = mutation({
     password: v.string(),
   },
   handler: async (ctx: MutationCtx, { password }: { password: string }) => {
-    const userId = await getAuthUserId(ctx);
+    const userId = await getUserId(ctx);
     if (!userId) {
       throw new Error("Not authenticated");
     }
@@ -85,7 +90,7 @@ export const verifySecretPassword = mutation({
     password: v.string(),
   },
   handler: async (ctx: MutationCtx, { password }: { password: string }) => {
-    const userId = await getAuthUserId(ctx);
+    const userId = await getUserId(ctx);
     if (!userId) {
       throw new Error("Not authenticated");
     }
@@ -142,7 +147,7 @@ export const verifySecretPassword = mutation({
 export const revokeSecretAccess = mutation({
   args: {},
   handler: async (ctx: MutationCtx) => {
-    const userId = await getAuthUserId(ctx);
+    const userId = await getUserId(ctx);
     if (!userId) {
       throw new Error("Not authenticated");
     }

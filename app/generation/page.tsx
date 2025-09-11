@@ -51,25 +51,7 @@ function AISandboxPage() {
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   
-  // Redirect to sign-in if not authenticated
-  useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      router.push('/sign-in');
-    }
-  }, [isLoaded, isSignedIn, router]);
-
-  // Don't render content until auth is loaded and user is signed in
-  if (!isLoaded || !isSignedIn) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // All state declarations
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: 'Not connected', active: false });
@@ -86,7 +68,6 @@ function AISandboxPage() {
   const [aiChatInput, setAiChatInput] = useState('');
   const [aiEnabled] = useState(true);
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [aiModel, setAiModel] = useState(''); // Will be auto-detected
   const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
   const [urlInput, setUrlInput] = useState('');
@@ -131,6 +112,7 @@ function AISandboxPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
   const codeDisplayRef = useRef<HTMLDivElement>(null);
+  const sandboxCreationRef = useRef<boolean>(false);
   
   const [codeApplicationState, setCodeApplicationState] = useState<CodeApplicationState>({
     stage: null
@@ -164,6 +146,17 @@ function AISandboxPage() {
 
   // Store flag to trigger generation after component mounts
   const [shouldAutoGenerate, setShouldAutoGenerate] = useState(false);
+  
+  // All useEffect hooks
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in');
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+
+  // State declarations moved to top - removed duplicate declarations
 
   // Clear old conversation data on component mount and create/restore sandbox
   useEffect(() => {
@@ -564,8 +557,6 @@ function AISandboxPage() {
       }
     }
   };
-
-  const sandboxCreationRef = useRef<boolean>(false);
   
   const createSandbox = async (fromHomeScreen = false) => {
     // Prevent duplicate sandbox creation
@@ -3126,6 +3117,18 @@ Focus on the key sections and content, making it clean and modern.`;
       }
     }, 500);
   };
+
+  // Don't render content until auth is loaded and user is signed in
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <HeaderProvider>

@@ -29,9 +29,9 @@ export async function POST(req: NextRequest) {
 
     // Remove trailing whitespace
     const lines = fixedCode.split('\n');
-    const trimmedLines = lines.map(line => line.trimEnd());
+    const trimmedLines = lines.map((line: string) => line.trimEnd());
     fixedCode = trimmedLines.join('\n');
-    if (trimmedLines.some((line, i) => line !== lines[i])) wasFixed = true;
+    if (trimmedLines.some((line: string, i: number) => line !== lines[i])) wasFixed = true;
 
     return NextResponse.json({
       success: true,
