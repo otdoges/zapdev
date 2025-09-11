@@ -11,24 +11,24 @@ export function detectAvailableModels(): ModelAvailability[] {
   // Check individual API keys first (higher priority than AI Gateway)
   const models: ModelAvailability[] = [
     {
+      model: 'groq/moonshotai/kimi-k2-instruct-0905',
+      available: !!process.env.GROQ_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
+      priority: process.env.GROQ_API_KEY ? 1 : 8 // Make Groq highest priority
+    },
+    {
       model: 'anthropic/claude-sonnet-4-20250514',
       available: !!process.env.ANTHROPIC_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
-      priority: process.env.ANTHROPIC_API_KEY ? 1 : 5 // Prefer direct API key
+      priority: process.env.ANTHROPIC_API_KEY ? 2 : 5
     },
     {
       model: 'openai/gpt-5',
       available: !!process.env.OPENAI_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
-      priority: process.env.OPENAI_API_KEY ? 2 : 6
+      priority: process.env.OPENAI_API_KEY ? 3 : 6
     },
     {
       model: 'google/gemini-2.0-flash-exp',
       available: !!process.env.GEMINI_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
-      priority: process.env.GEMINI_API_KEY ? 3 : 7
-    },
-    {
-      model: 'groq/llama-3.3-70b-versatile',
-      available: !!process.env.GROQ_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
-      priority: process.env.GROQ_API_KEY ? 4 : 8
+      priority: process.env.GEMINI_API_KEY ? 4 : 7
     }
   ];
 
@@ -68,5 +68,5 @@ export function getBestAvailableModelClient(): Promise<string> {
   return fetch('/api/detect-model')
     .then(res => res.json())
     .then(data => data.model)
-    .catch(() => 'groq/llama-3.3-70b-versatile'); // fallback
+    .catch(() => 'groq/moonshotai/kimi-k2-instruct-0905'); // fallback
 }
