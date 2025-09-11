@@ -66,5 +66,9 @@ bun dev  # Start ZapDev development server
 Open [http://localhost:3000](http://localhost:3000)
 
 ## License
+MIT 
 
-MIT
+
+## Credit.
+
+Shoutout to firecrawl and the contribuers. We are building on their base.  [https://github.com/firecrawl/open-lovable.git]
