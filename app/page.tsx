@@ -34,6 +34,8 @@ import GithubIcon from "@/components/shared/header/Github/_svg/GithubIcon";
 import ButtonUI from "@/components/ui/shadcn/button";
 import ZapDevIcon from "@/components/ZapdevIcon";
 import ZapDevLogo from "@/components/ZapdevLogo";
+import { SignInButton } from '@clerk/nextjs';
+import ChatHistory from "@/components/app/(home)/sections/chat-history/ChatHistory";
 
 interface SearchResult {
   url: string;
@@ -278,10 +280,16 @@ export default function HomePage() {
       toast.error(
         <div className="flex flex-col gap-2">
           <span>Please sign in to continue</span>
-          {hasClerkKeys() && (
-            <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+          {hasClerkKeys() ? (
+            <SignInButton mode="modal">
+              <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                Sign In
+              </button>
+            </SignInButton>
+          ) : (
+            <Link href="/sign-in" className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
               Sign In
-            </button>
+            </Link>
           )}
         </div>
       );
@@ -567,6 +575,25 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* Sign in CTA */}
+        {!isSignedIn && (
+          <div className="container px-16 mt-6 flex justify-center">
+            {hasClerkKeys() ? (
+              <SignInButton mode="modal">
+                <button className="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                  Sign in to save and generate
+                </button>
+              </SignInButton>
+            ) : (
+              <Link href="/sign-in" className="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                Sign in to save and generate
+              </Link>
+            )}
+          </div>
+        )}
+
+        <ChatHistory />
 
         {/* Full-width oval carousel section */}
         {showSearchTiles && hasSearched && (

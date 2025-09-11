@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useSafeUser } from '@/lib/safe-clerk-hooks';
+import { useSafeUser, hasClerkKeys } from '@/lib/safe-clerk-hooks';
 import { appConfig } from '@/config/app.config';
 import { getBestAvailableModelClient } from '@/lib/model-detector';
 import HeroInput from '@/components/HeroInput';
@@ -152,7 +152,7 @@ function AISandboxPage() {
   // All useEffect hooks
   // Redirect to sign-in if not authenticated
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
+    if (isLoaded && !isSignedIn && hasClerkKeys()) {
       router.push('/sign-in');
     }
   }, [isLoaded, isSignedIn, router]);
