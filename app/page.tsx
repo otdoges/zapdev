@@ -75,17 +75,6 @@ export default function HomePage() {
     detectModel();
   }, []);
 
-  // Handle pending submission after sign-in
-  useEffect(() => {
-    if (isSignedIn && pendingSubmission) {
-      if (pendingSubmission.type === 'url') {
-        proceedWithSubmission();
-      } else if (pendingSubmission.type === 'search' && pendingSubmission.data) {
-        proceedWithSubmission(pendingSubmission.data);
-      }
-      setPendingSubmission(null);
-    }
-  }, [isSignedIn, pendingSubmission, proceedWithSubmission]);
   
   // Simple URL validation
   const validateUrl = (urlString: string) => {
@@ -133,6 +122,34 @@ export default function HomePage() {
   ];
 
   // Models are now auto-detected, no need for manual selection
+
+  const performSearch = useCallback(async (searchQuery: string) => {
+    if (!searchQuery.trim() || isURL(searchQuery)) {
+      setSearchResults([]);
+      setShowSearchTiles(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setShowSearchTiles(true);
+    try {
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: searchQuery }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.results || []);
+        setShowSearchTiles(true);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
 
   const proceedWithSubmission = useCallback(async (selectedResult?: SearchResult) => {
     const inputValue = url.trim();
@@ -226,6 +243,18 @@ export default function HomePage() {
     }
   }, [url, selectedStyle, selectedModel, router, hasSearched, searchResults.length, performSearch]);
 
+  // Handle pending submission after sign-in
+  useEffect(() => {
+    if (isSignedIn && pendingSubmission) {
+      if (pendingSubmission.type === 'url') {
+        proceedWithSubmission();
+      } else if (pendingSubmission.type === 'search' && pendingSubmission.data) {
+        proceedWithSubmission(pendingSubmission.data);
+      }
+      setPendingSubmission(null);
+    }
+  }, [isSignedIn, pendingSubmission, proceedWithSubmission]);
+
   const handleSubmit = async (selectedResult?: SearchResult) => {
     const inputValue = url.trim();
     
@@ -262,33 +291,6 @@ export default function HomePage() {
   };
 
   // Perform search when user types
-  const performSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim() || isURL(searchQuery)) {
-      setSearchResults([]);
-      setShowSearchTiles(false);
-      return;
-    }
-
-    setIsSearching(true);
-    setShowSearchTiles(true);
-    try {
-      const response = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchQuery }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSearchResults(data.results || []);
-        setShowSearchTiles(true);
-      }
-    } catch (error) {
-      console.error('Search error:', error);
-    } finally {
-      setIsSearching(false);
-    }
-  }, []);
 
   return (
     <HeaderProvider>
