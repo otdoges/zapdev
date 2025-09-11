@@ -48,25 +48,25 @@ export const appConfig = {
     workingDirectory: '/home/user/app',
   },
   
-  // AI Model Configuration
+  // AI Model Configuration - Models now auto-detected from API keys
   ai: {
-    // Default AI model
-    defaultModel: 'moonshotai/kimi-k2-instruct-0905',
+    // Default AI model (fallback only, auto-detection preferred)
+    defaultModel: 'anthropic/claude-sonnet-4-20250514',
     
-    // Available models
+    // Available models (kept for compatibility, actual models auto-detected)
     availableModels: [
-      'openai/gpt-5',
-      'moonshotai/kimi-k2-instruct-0905',
       'anthropic/claude-sonnet-4-20250514',
-      'google/gemini-2.0-flash-exp'
+      'openai/gpt-5',
+      'google/gemini-2.0-flash-exp',
+      'moonshotai/kimi-k2-instruct-0905'
     ],
     
     // Model display names
     modelDisplayNames: {
+      'anthropic/claude-sonnet-4-20250514': 'Claude Sonnet 4',
       'openai/gpt-5': 'GPT-5',
-      'moonshotai/kimi-k2-instruct-0905': 'Kimi K2 (Groq)',
-      'anthropic/claude-sonnet-4-20250514': 'Sonnet 4',
-      'google/gemini-2.0-flash-exp': 'Gemini 2.0 Flash (Experimental)'
+      'google/gemini-2.0-flash-exp': 'Gemini 2.0 Flash',
+      'moonshotai/kimi-k2-instruct-0905': 'Kimi K2 (Groq)'
     } as Record<string, string>,
     
     // Model API configuration
@@ -100,12 +100,18 @@ export const appConfig = {
     
     // Maximum number of truncation recovery attempts per file
     maxTruncationRecoveryAttempts: 1,
+    
+    // Enable automatic linting and fixing of generated code
+    enableAutoLinting: true,
+    
+    // Maximum number of linting attempts per code generation
+    maxLintingAttempts: 3,
   },
   
   // UI Configuration
   ui: {
     // Show/hide certain UI elements
-    showModelSelector: true,
+    showModelSelector: false, // Models are now auto-detected
     showStatusIndicator: true,
     
     // Animation durations (milliseconds)

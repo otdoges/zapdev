@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { appConfig } from '@/config/app.config';
+import { getBestAvailableModelClient } from '@/lib/model-detector';
 import { toast } from "sonner";
 
 // Import shared components
@@ -25,6 +26,7 @@ import HeroInputSubmitButton from "@/components/app/(home)/sections/hero-input/B
 import HeaderBrandKit from "@/components/shared/header/BrandKit/BrandKit";
 import HeaderWrapper from "@/components/shared/header/Wrapper/Wrapper";
 import HeaderDropdownWrapper from "@/components/shared/header/Dropdown/Wrapper/Wrapper";
+import UserAuth from "@/components/shared/header/UserAuth/UserAuth";
 import GithubIcon from "@/components/shared/header/Github/_svg/GithubIcon";
 import ButtonUI from "@/components/ui/shadcn/button"
 
@@ -39,7 +41,7 @@ interface SearchResult {
 export default function HomePage() {
   const [url, setUrl] = useState<string>("");
   const [selectedStyle, setSelectedStyle] = useState<string>("1");
-  const [selectedModel, setSelectedModel] = useState<string>(appConfig.ai.defaultModel);
+  const [selectedModel, setSelectedModel] = useState<string>('');
   const [isValidUrl, setIsValidUrl] = useState<boolean>(false);
   const [showSearchTiles, setShowSearchTiles] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -51,6 +53,23 @@ export default function HomePage() {
   const [additionalInstructions, setAdditionalInstructions] = useState<string>('');
   const router = useRouter();
   
+  // Auto-detect best available model on component mount
+  useEffect(() => {
+    const detectModel = async () => {
+      try {
+        const response = await fetch('/api/detect-model');
+        const data = await response.json();
+        setSelectedModel(data.model);
+      } catch (error) {
+        console.error('Failed to detect model:', error);
+        // Fallback - but don't default to Kimi, leave empty to force detection
+        setSelectedModel('');
+      }
+    };
+    
+    detectModel();
+  }, []);
+  
   // Simple URL validation
   const validateUrl = (urlString: string) => {
     if (!urlString) return false;
@@ -59,10 +78,30 @@ export default function HomePage() {
     return urlPattern.test(urlString.toLowerCase());
   };
 
-  // Check if input is a URL (contains a dot)
+  // Enhanced URL detection - detects .com, .org, .net, etc.
   const isURL = (str: string): boolean => {
-    const urlPattern = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/;
-    return urlPattern.test(str.trim());
+    const cleanStr = str.trim();
+    
+    // Check for common TLDs and domain patterns
+    const domainPattern = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/;
+    const commonTlds = /\.(com|org|net|edu|gov|io|dev|app|co|uk|ca|au|de|fr|jp|cn|in|br|ru)($|\/)/i;
+    
+    // If it has a protocol, it's definitely a URL
+    if (/^https?:\/\//.test(cleanStr)) {
+      return true;
+    }
+    
+    // Check if it looks like a domain with common TLD
+    if (domainPattern.test(cleanStr) && commonTlds.test(cleanStr)) {
+      return true;
+    }
+    
+    // Check for common domain patterns without protocol
+    if (/^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(cleanStr)) {
+      return true;
+    }
+    
+    return false;
   };
 
   const styles = [
@@ -76,10 +115,7 @@ export default function HomePage() {
     { id: "8", name: "Retro Wave", description: "80s inspired" },
   ];
 
-  const models = appConfig.ai.availableModels.map(model => ({
-    id: model,
-    name: appConfig.ai.modelDisplayNames[model] || model,
-  }));
+  // Models are now auto-detected, no need for manual selection
 
   const handleSubmit = async (selectedResult?: SearchResult) => {
     const inputValue = url.trim();
@@ -217,16 +253,7 @@ export default function HomePage() {
                 <HeaderBrandKit />
               </div>
               <div className="flex gap-8">
-                <a
-                  className="contents"
-                  href="https://github.com/mendableai/open-lovable"
-                  target="_blank"
-                >
-                  <ButtonUI variant="tertiary">
-                    <GithubIcon />
-                    Use this Template
-                  </ButtonUI>
-                </a>
+                <UserAuth />
               </div>
             </div>
           </HeaderWrapper>
@@ -440,23 +467,10 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {/* Model Selector Dropdown and Additional Instructions */}
+                      {/* Additional Instructions only - Model is auto-detected */}
                       <div className={`flex gap-3 mt-2 pb-4 transition-all duration-300 transform ${
                         isValidUrl ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
                       }`} style={{ transitionDelay: '400ms' }}>
-                        {/* Model Dropdown */}
-                        <select
-                          value={selectedModel}
-                          onChange={(e) => setSelectedModel(e.target.value)}
-                          className="px-3 py-2.5 text-[10px] font-medium text-gray-700 bg-white rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        >
-                          {models.map((model) => (
-                            <option key={model.id} value={model.id}>
-                              {model.name}
-                            </option>
-                          ))}
-                        </select>
-                        
                         {/* Additional Instructions */}
                         <input
                           type="text"

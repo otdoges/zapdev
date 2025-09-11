@@ -1,16 +1,24 @@
-# Open Lovable
+# ZapDev
 
-Chat with AI to build React apps instantly. An example app made by the [Firecrawl](https://firecrawl.dev/?ref=open-lovable-github) team. For a complete cloud solution, check out [Lovable.dev](https://lovable.dev/) ❤️.
+Chat with AI to build React apps instantly. ZapDev automatically detects your API keys and intelligently routes URLs vs search terms to provide the most seamless development experience.
 
-<img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbmZtaHFleGRsMTNlaWNydGdianI4NGQ4dHhyZjB0d2VkcjRyeXBucCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ZFVLWMa6dVskQX0qu1/giphy.gif" alt="Open Lovable Demo" width="100%"/>
+## ⚡ Key Features
+
+- **🤖 Smart Model Detection**: Automatically selects the best AI model based on your available API keys
+- **🔗 Intelligent URL Routing**: Detects URLs (.com, .org, etc.) and routes them directly without manual selection
+- **🛠️ Auto-Linting**: Built-in ESLint integration that automatically fixes code issues before presenting results
+- **⚡ Streamlined UX**: No manual model selection - just enter URLs or search terms and go!
+- **🚀 Bun-Powered**: Uses Bun for lightning-fast package management and development
+
+<img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbmZtaHFleGRsMTNlaWNydGdianI4NGQ4dHhyZjB0d2VkcjRyeXBucCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ZFVLWMa6dVskQX0qu1/giphy.gif" alt="ZapDev Demo" width="100%"/>
 
 ## Setup
 
 1. **Clone & Install**
 ```bash
-git clone https://github.com/firecrawl/open-lovable.git
-cd open-lovable
-pnpm install  # or npm install / yarn install
+git clone https://github.com/your-username/zapdev.git
+cd zapdev
+bun install  # ZapDev uses Bun for faster package management
 ```
 
 2. **Add `.env.local`**
@@ -52,7 +60,7 @@ VERCEL_OIDC_TOKEN=auto_generated_by_vercel_env_pull
 
 3. **Run**
 ```bash
-pnpm dev  # or npm run dev / yarn dev
+bun dev  # Start ZapDev development server
 ```
 
 Open [http://localhost:3000](http://localhost:3000)

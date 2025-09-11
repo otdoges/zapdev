@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 interface SidebarInputProps {
@@ -11,7 +11,7 @@ interface SidebarInputProps {
 export default function SidebarInput({ onSubmit, disabled = false }: SidebarInputProps) {
   const [url, setUrl] = useState<string>("");
   const [selectedStyle, setSelectedStyle] = useState<string>("1");
-  const [selectedModel, setSelectedModel] = useState<string>("moonshotai/kimi-k2-instruct-0905");
+  const [selectedModel, setSelectedModel] = useState<string>('');
   const [additionalInstructions, setAdditionalInstructions] = useState<string>("");
   const [isValidUrl, setIsValidUrl] = useState<boolean>(false);
 
@@ -33,12 +33,22 @@ export default function SidebarInput({ onSubmit, disabled = false }: SidebarInpu
     { id: "8", name: "Retro Wave", description: "80s inspired" },
   ];
 
-  const models = [
-    { id: "moonshotai/kimi-k2-instruct-0905", name: "Kimi K2 0905 on Groq" },
-    { id: "openai/gpt-5", name: "GPT-5" },
-    { id: "anthropic/claude-sonnet-4-20250514", name: "Sonnet 4" },
-    { id: "google/gemini-2.0-flash-exp", name: "Gemini 2.0" },
-  ];
+  // Auto-detect model on component mount
+  useEffect(() => {
+    const detectModel = async () => {
+      try {
+        const response = await fetch('/api/detect-model');
+        const data = await response.json();
+        if (data.model) {
+          setSelectedModel(data.model);
+        }
+      } catch (error) {
+        console.error('Failed to detect model:', error);
+      }
+    };
+    
+    detectModel();
+  }, []);
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -91,22 +101,7 @@ export default function SidebarInput({ onSubmit, disabled = false }: SidebarInpu
               </div>
             </div>
 
-            {/* Model Selector */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">AI Model</label>
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                disabled={disabled}
-                className="w-full px-3 py-2 text-xs font-medium text-gray-700 bg-white rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-              >
-                {models.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Model is now auto-detected, no manual selection needed */}
 
             {/* Additional Instructions */}
             <div>

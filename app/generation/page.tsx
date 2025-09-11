@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import { appConfig } from '@/config/app.config';
+import { getBestAvailableModelClient } from '@/lib/model-detector';
 import HeroInput from '@/components/HeroInput';
 import SidebarInput from '@/components/app/generation/SidebarInput';
 import HeaderBrandKit from '@/components/shared/header/BrandKit/BrandKit';
+import UserAuth from '@/components/shared/header/UserAuth/UserAuth';
 import { HeaderProvider } from '@/components/shared/header/HeaderContext';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -45,6 +48,28 @@ interface ChatMessage {
 }
 
 function AISandboxPage() {
+  const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
+  
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in');
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  // Don't render content until auth is loaded and user is signed in
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: 'Not connected', active: false });
@@ -62,10 +87,7 @@ function AISandboxPage() {
   const [aiEnabled] = useState(true);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [aiModel, setAiModel] = useState(() => {
-    const modelParam = searchParams.get('model');
-    return appConfig.ai.availableModels.includes(modelParam || '') ? modelParam! : appConfig.ai.defaultModel;
-  });
+  const [aiModel, setAiModel] = useState(''); // Will be auto-detected
   const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [urlStatus, setUrlStatus] = useState<string[]>([]);
@@ -178,6 +200,22 @@ function AISandboxPage() {
         setHomeUrlInput(storedUrl);
         setSelectedStyle(storedStyle || 'modern');
         
+        // Auto-detect AI model if not provided
+        if (storedModel) {
+          setAiModel(storedModel);
+        } else {
+          // Auto-detect best available model
+          try {
+            const response = await fetch('/api/detect-model');
+            const data = await response.json();
+            if (data.model) {
+              setAiModel(data.model);
+            }
+          } catch (error) {
+            console.error('Failed to detect model:', error);
+          }
+        }
+        
         // Add details to context if provided
         if (detailsParam) {
           setHomeContextInput(detailsParam);
@@ -287,6 +325,25 @@ function AISandboxPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only on mount
+  
+  // Auto-detect AI model if none is set
+  useEffect(() => {
+    const detectModel = async () => {
+      if (!aiModel) {
+        try {
+          const response = await fetch('/api/detect-model');
+          const data = await response.json();
+          if (data.model) {
+            setAiModel(data.model);
+          }
+        } catch (error) {
+          console.error('Failed to detect model:', error);
+        }
+      }
+    };
+    
+    detectModel();
+  }, [aiModel]); // Run when aiModel changes
   
   useEffect(() => {
     // Handle Escape key for home screen
@@ -3076,27 +3133,8 @@ Focus on the key sections and content, making it clean and modern.`;
       <div className="bg-white py-[15px] py-[8px] border-b border-border-faint flex items-center justify-between shadow-sm">
         <HeaderBrandKit />
         <div className="flex items-center gap-2">
-          {/* Model Selector - Left side */}
-          <select
-            value={aiModel}
-            onChange={(e) => {
-              const newModel = e.target.value;
-              setAiModel(newModel);
-              const params = new URLSearchParams(searchParams);
-              params.set('model', newModel);
-              if (sandboxData?.sandboxId) {
-                params.set('sandbox', sandboxData.sandboxId);
-              }
-              router.push(`/generation?${params.toString()}`);
-            }}
-            className="px-3 py-1.5 text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-300 transition-colors"
-          >
-            {appConfig.ai.availableModels.map(model => (
-              <option key={model} value={model}>
-                {appConfig.ai.modelDisplayNames?.[model] || model}
-              </option>
-            ))}
-          </select>
+          <UserAuth />
+          {/* Model is now auto-detected */}
           <button 
             onClick={() => createSandbox()}
             className="p-8 rounded-lg transition-colors bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100"

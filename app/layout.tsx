@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Roboto_Mono } from "next/font/google";
 import localFont from "next/font/local";
+import { ClerkProvider } from '@clerk/nextjs';
+import { ConvexClientProvider } from '@/lib/ConvexClientProvider';
 import "./globals.css";
 
 const inter = Inter({ 
@@ -26,7 +28,7 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Open Lovable v2",
+  title: "ZapDev",
   description: "Re-imagine any website in seconds with AI-powered website builder.",
 };
 
@@ -36,10 +38,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} ${robotoMono.variable} font-sans`}>
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <ConvexClientProvider>
+        <html lang="en">
+          <body className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} ${robotoMono.variable} font-sans`}>
+            {children}
+          </body>
+        </html>
+      </ConvexClientProvider>
+    </ClerkProvider>
   );
 }
