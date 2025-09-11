@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import FirecrawlIcon from "@/components/shared/firecrawl-icon/firecrawl-icon";
+import ZapDevIcon from "@/components/shared/zapdev-icon/zapdev-icon";
 import Logo from "@/components/shared/header/_svg/Logo";
 import { useHeaderContext } from "@/components/shared/header/HeaderContext";
 import { cn } from "@/utils/cn";
@@ -45,7 +45,7 @@ export default function HeaderBrandKit() {
           }
         }}
       >
-        <FirecrawlIcon className="size-28 -top-2 relative" />
+        <ZapDevIcon className="size-28 -top-2 relative" />
         <Logo />
       </Link>
 
