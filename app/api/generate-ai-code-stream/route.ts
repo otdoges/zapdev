@@ -1187,11 +1187,11 @@ CRITICAL: When files are provided in the context:
         const isAnthropic = model.startsWith('anthropic/');
         const isGoogle = model.startsWith('google/');
         const isOpenAI = model.startsWith('openai/');
-        const isKimiGroq = model === 'moonshotai/kimi-k2-instruct-0905';
+        const isGroqModel = model.startsWith('groq/');
         const modelProvider = isAnthropic ? anthropic : 
                               (isOpenAI ? openai : 
                               (isGoogle ? googleGenerativeAI : 
-                              (isKimiGroq ? groq : groq)));
+                              (isGroqModel ? groq : groq)));
         
         // Fix model name transformation for different providers
         let actualModel: string;
@@ -1199,9 +1199,9 @@ CRITICAL: When files are provided in the context:
           actualModel = model.replace('anthropic/', '');
         } else if (isOpenAI) {
           actualModel = model.replace('openai/', '');
-        } else if (isKimiGroq) {
-          // Kimi on Groq - use full model string
-          actualModel = 'moonshotai/kimi-k2-instruct-0905';
+        } else if (isGroqModel) {
+          // Groq models - remove groq/ prefix
+          actualModel = model.replace('groq/', '');
         } else if (isGoogle) {
           // Google uses specific model names - convert our naming to theirs  
           actualModel = model.replace('google/', '');
@@ -1308,7 +1308,7 @@ It's better to have 3 complete files than 10 incomplete files.`
             console.error(`[generate-ai-code-stream] Error calling streamText (attempt ${retryCount + 1}/${maxRetries + 1}):`, streamError);
             
             // Check if this is a Groq service unavailable error
-            const isGroqServiceError = isKimiGroq && streamError.message?.includes('Service unavailable');
+            const isGroqServiceError = isGroqModel && streamError.message?.includes('Service unavailable');
             const isRetryableError = streamError.message?.includes('Service unavailable') || 
                                     streamError.message?.includes('rate limit') ||
                                     streamError.message?.includes('timeout');
@@ -1336,7 +1336,7 @@ It's better to have 3 complete files than 10 incomplete files.`
               // Final error, send to user
               await sendProgress({ 
                 type: 'error', 
-                message: `Failed to initialize ${isGoogle ? 'Gemini' : isAnthropic ? 'Claude' : isOpenAI ? 'GPT-5' : isKimiGroq ? 'Kimi (Groq)' : 'Groq'} streaming: ${streamError.message}` 
+                message: `Failed to initialize ${isGoogle ? 'Gemini' : isAnthropic ? 'Claude' : isOpenAI ? 'GPT-5' : isGroqModel ? 'Groq Llama' : 'Groq'} streaming: ${streamError.message}` 
               });
               
               // If this is a Google model error, provide helpful info
@@ -1702,7 +1702,7 @@ Provide the complete file content without any truncation. Include all necessary 
                   completionClient = openai;
                 } else if (model.includes('claude')) {
                   completionClient = anthropic;
-                } else if (model === 'moonshotai/kimi-k2-instruct-0905') {
+                } else if (model.startsWith('groq/')) {
                   completionClient = groq;
                 } else {
                   completionClient = groq;
@@ -1710,8 +1710,8 @@ Provide the complete file content without any truncation. Include all necessary 
                 
                 // Determine the correct model name for the completion
                 let completionModelName: string;
-                if (model === 'moonshotai/kimi-k2-instruct-0905') {
-                  completionModelName = 'moonshotai/kimi-k2-instruct-0905';
+                if (model.startsWith('groq/')) {
+                  completionModelName = model.replace('groq/', '');
                 } else if (model.includes('openai')) {
                   completionModelName = model.replace('openai/', '');
                 } else if (model.includes('anthropic')) {

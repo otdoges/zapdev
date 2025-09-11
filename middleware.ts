@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -11,6 +12,14 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
+  // If Clerk keys are not configured, allow all routes during build
+  const hasClerkKeys = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && 
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY !== 'your_clerk_publishable_key';
+  
+  if (!hasClerkKeys) {
+    return NextResponse.next();
+  }
+
   if (!isPublicRoute(request)) {
     await auth.protect();
   }

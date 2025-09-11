@@ -37,15 +37,22 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const hasClerkKeys = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && 
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY !== 'your_clerk_publishable_key';
+
   return (
-    <ClerkProvider>
-      <ConvexClientProvider>
-        <html lang="en">
-          <body className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} ${robotoMono.variable} font-sans`}>
-            {children}
-          </body>
-        </html>
-      </ConvexClientProvider>
-    </ClerkProvider>
+    <html lang="en">
+      <body className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} ${robotoMono.variable} font-sans`}>
+        {hasClerkKeys ? (
+          <ClerkProvider>
+            <ConvexClientProvider>
+              {children}
+            </ConvexClientProvider>
+          </ClerkProvider>
+        ) : (
+          children
+        )}
+      </body>
+    </html>
   );
 }

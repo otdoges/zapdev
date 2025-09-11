@@ -26,7 +26,7 @@ export function detectAvailableModels(): ModelAvailability[] {
       priority: process.env.GEMINI_API_KEY ? 3 : 7
     },
     {
-      model: 'moonshotai/kimi-k2-instruct-0905',
+      model: 'groq/llama-3.3-70b-versatile',
       available: !!process.env.GROQ_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
       priority: process.env.GROQ_API_KEY ? 4 : 8
     }
@@ -68,5 +68,5 @@ export function getBestAvailableModelClient(): Promise<string> {
   return fetch('/api/detect-model')
     .then(res => res.json())
     .then(data => data.model)
-    .catch(() => 'moonshotai/kimi-k2-instruct-0905'); // fallback
+    .catch(() => 'groq/llama-3.3-70b-versatile'); // fallback
 }

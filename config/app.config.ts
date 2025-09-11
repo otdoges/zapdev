@@ -58,7 +58,7 @@ export const appConfig = {
       'anthropic/claude-sonnet-4-20250514',
       'openai/gpt-5',
       'google/gemini-2.0-flash-exp',
-      'moonshotai/kimi-k2-instruct-0905'
+      'groq/llama-3.3-70b-versatile'
     ],
     
     // Model display names
@@ -66,14 +66,14 @@ export const appConfig = {
       'anthropic/claude-sonnet-4-20250514': 'Claude Sonnet 4',
       'openai/gpt-5': 'GPT-5',
       'google/gemini-2.0-flash-exp': 'Gemini 2.0 Flash',
-      'moonshotai/kimi-k2-instruct-0905': 'Kimi K2 (Groq)'
+      'groq/llama-3.3-70b-versatile': 'Llama 3.3 70B (Groq)'
     } as Record<string, string>,
     
     // Model API configuration
     modelApiConfig: {
-      'moonshotai/kimi-k2-instruct-0905': {
+      'groq/llama-3.3-70b-versatile': {
         provider: 'groq',
-        model: 'moonshotai/kimi-k2-instruct-0905'
+        model: 'llama-3.3-70b-versatile'
       }
     },
     

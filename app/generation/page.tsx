@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
+import { useSafeUser } from '@/lib/safe-clerk-hooks';
 import { appConfig } from '@/config/app.config';
 import { getBestAvailableModelClient } from '@/lib/model-detector';
 import HeroInput from '@/components/HeroInput';
@@ -47,8 +47,10 @@ interface ChatMessage {
   };
 }
 
+export const dynamic = 'force-dynamic';
+
 function AISandboxPage() {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { isLoaded, isSignedIn, user } = useSafeUser();
   const router = useRouter();
   
   // All state declarations
