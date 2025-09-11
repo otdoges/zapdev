@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useUser, SignInButton } from '@clerk/nextjs';
 import { appConfig } from '@/config/app.config';
 import { getBestAvailableModelClient } from '@/lib/model-detector';
 import { toast } from "sonner";
@@ -28,7 +29,9 @@ import HeaderWrapper from "@/components/shared/header/Wrapper/Wrapper";
 import HeaderDropdownWrapper from "@/components/shared/header/Dropdown/Wrapper/Wrapper";
 import UserAuth from "@/components/shared/header/UserAuth/UserAuth";
 import GithubIcon from "@/components/shared/header/Github/_svg/GithubIcon";
-import ButtonUI from "@/components/ui/shadcn/button"
+import ButtonUI from "@/components/ui/shadcn/button";
+import ZapDevIcon from "@/components/ZapdevIcon";
+import ZapDevLogo from "@/components/ZapdevLogo";
 
 interface SearchResult {
   url: string;
@@ -51,7 +54,9 @@ export default function HomePage() {
   const [showSelectMessage, setShowSelectMessage] = useState<boolean>(false);
   const [showInstructionsForIndex, setShowInstructionsForIndex] = useState<number | null>(null);
   const [additionalInstructions, setAdditionalInstructions] = useState<string>('');
+  const [pendingSubmission, setPendingSubmission] = useState<{type: 'url' | 'search', data?: SearchResult} | null>(null);
   const router = useRouter();
+  const { user, isSignedIn } = useUser();
   
   // Auto-detect best available model on component mount
   useEffect(() => {
@@ -69,6 +74,18 @@ export default function HomePage() {
     
     detectModel();
   }, []);
+
+  // Handle pending submission after sign-in
+  useEffect(() => {
+    if (isSignedIn && pendingSubmission) {
+      if (pendingSubmission.type === 'url') {
+        proceedWithSubmission();
+      } else if (pendingSubmission.type === 'search' && pendingSubmission.data) {
+        proceedWithSubmission(pendingSubmission.data);
+      }
+      setPendingSubmission(null);
+    }
+  }, [isSignedIn, pendingSubmission, proceedWithSubmission]);
   
   // Simple URL validation
   const validateUrl = (urlString: string) => {
@@ -117,13 +134,8 @@ export default function HomePage() {
 
   // Models are now auto-detected, no need for manual selection
 
-  const handleSubmit = async (selectedResult?: SearchResult) => {
+  const proceedWithSubmission = useCallback(async (selectedResult?: SearchResult) => {
     const inputValue = url.trim();
-    
-    if (!inputValue) {
-      toast.error("Please enter a URL or search term");
-      return;
-    }
     
     // If it's a search result being selected, fade out and redirect
     if (selectedResult) {
@@ -146,6 +158,16 @@ export default function HomePage() {
     // If it's a URL, go straight to generation
     if (isURL(inputValue)) {
       sessionStorage.setItem('targetUrl', inputValue);
+      sessionStorage.setItem('selectedStyle', selectedStyle);
+      sessionStorage.setItem('selectedModel', selectedModel);
+      sessionStorage.setItem('autoStart', 'true');
+      router.push('/generation');
+    } else if (inputValue.length < 100 && !inputValue.includes(' ') && inputValue.includes('.')) {
+      // Likely a domain or search term - do search
+      // Search functionality continues below
+    } else if (inputValue.length >= 20) {
+      // It's a text description - go straight to generation
+      sessionStorage.setItem('textDescription', inputValue);
       sessionStorage.setItem('selectedStyle', selectedStyle);
       sessionStorage.setItem('selectedModel', selectedModel);
       sessionStorage.setItem('autoStart', 'true');
@@ -202,10 +224,45 @@ export default function HomePage() {
         }, 300);
       }
     }
+  }, [url, selectedStyle, selectedModel, router, hasSearched, searchResults.length, performSearch]);
+
+  const handleSubmit = async (selectedResult?: SearchResult) => {
+    const inputValue = url.trim();
+    
+    if (!inputValue) {
+      toast.error("Please enter a URL or search term");
+      return;
+    }
+
+    // Check if user is signed in
+    if (!isSignedIn) {
+      // Store the pending submission
+      if (selectedResult) {
+        setPendingSubmission({ type: 'search', data: selectedResult });
+      } else {
+        setPendingSubmission({ type: 'url' });
+      }
+      
+      // Show sign-in prompt with modal trigger
+      toast.error(
+        <div className="flex flex-col gap-2">
+          <span>Please sign in to continue</span>
+          <SignInButton mode="modal">
+            <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+              Sign In
+            </button>
+          </SignInButton>
+        </div>
+      );
+      return;
+    }
+
+    // User is signed in, proceed with submission
+    await proceedWithSubmission(selectedResult);
   };
 
   // Perform search when user types
-  const performSearch = async (searchQuery: string) => {
+  const performSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim() || isURL(searchQuery)) {
       setSearchResults([]);
       setShowSearchTiles(false);
@@ -231,7 +288,7 @@ export default function HomePage() {
     } finally {
       setIsSearching(false);
     }
-  };
+  }, []);
 
   return (
     <HeaderProvider>
@@ -239,6 +296,42 @@ export default function HomePage() {
         {/* Header/Navigation Section */}
         <HeaderDropdownWrapper />
 
+        <div className="sticky top-0 left-0 w-full z-[101] bg-background-base header">
+          <div className="absolute top-0 cmw-container border-x border-border-faint h-full pointer-events-none" />
+          <div className="h-1 bg-border-faint w-full left-0 -bottom-1 absolute" />
+          
+          <div className="cmw-container absolute h-full pointer-events-none top-0">
+            <Connector className="absolute -left-[10.5px] -bottom-11" />
+            <Connector className="absolute -right-[10.5px] -bottom-11" />
+          </div>
+
+          <HeaderWrapper>
+            <div className="max-w-[900px] mx-auto w-full flex justify-between items-center">
+              <div className="flex gap-24 items-center">
+                <Link href="/" className="flex items-center gap-2">
+                  <ZapDevIcon className="w-7 h-7 text-accent-black" />
+                  <ZapDevLogo />
+                </Link>
+              </div>
+
+              <div className="flex gap-8 items-center">
+                <Link
+                  href="https://github.com/mendableai/open-lovable"
+                  target="_blank"
+                  className="contents"
+                >
+                  <ButtonUI variant="tertiary">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    Use this Template
+                  </ButtonUI>
+                </Link>
+                <UserAuth />
+              </div>
+            </div>
+          </HeaderWrapper>
+        </div>
 
         {/* Hero Section */}
         <section className="overflow-x-clip" id="home-hero">
@@ -252,7 +345,7 @@ export default function HomePage() {
               <HomeHeroBadge />
               <HomeHeroTitle />
               <p className="text-center text-body-large">
-                Re-imagine any website, in seconds.
+                Re-imagine any website or create from scratch, in seconds.
               </p>
             </div>
           </div>
@@ -344,6 +437,18 @@ export default function HomePage() {
                           <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
                           <path d="M7 10L9 12L13 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
+                      ) : url.length >= 20 ? (
+                        // Generate icon for descriptions
+                        <svg 
+                          width="20" 
+                          height="20" 
+                          viewBox="0 0 20 20" 
+                          fill="none" 
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="opacity-40 flex-shrink-0"
+                        >
+                          <path d="M3 3h14v2H3zM3 7h14v2H3zM3 11h10v2H3zM15 13v4l-2-2 2-2z" fill="currentColor"/>
+                        </svg>
                       ) : (
                         // Search icon for search terms
                         <svg 
@@ -360,7 +465,7 @@ export default function HomePage() {
                       )}
                       <input
                         className="flex-1 bg-transparent text-body-input text-accent-black placeholder:text-black-alpha-48 focus:outline-none focus:ring-0 focus:border-transparent"
-                        placeholder="Enter URL or search term..."
+                        placeholder="Enter URL, search term, or describe the site you want..."
                         type="text"
                         value={url}
                         disabled={isSearching}
@@ -398,7 +503,11 @@ export default function HomePage() {
                       >
                         <HeroInputSubmitButton 
                           dirty={url.length > 0} 
-                          buttonText={isURL(url) ? 'Scrape Site' : 'Search'} 
+                          buttonText={
+                            isURL(url) 
+                              ? 'Scrape Site' 
+                              : (url.length >= 20 ? 'Generate Site' : 'Search')
+                          } 
                           disabled={isSearching}
                         />
                       </div>
