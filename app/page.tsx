@@ -20,15 +20,12 @@ import HomeHeroBadge from "@/components/app/(home)/sections/hero/Badge/Badge";
 import HomeHeroPixi from "@/components/app/(home)/sections/hero/Pixi/Pixi";
 import HomeHeroTitle from "@/components/app/(home)/sections/hero/Title/Title";
 import HeroInputSubmitButton from "@/components/app/(home)/sections/hero-input/Button/Button";
-// import Globe from "@/components/app/(home)/sections/hero-input/_svg/Globe";
 
 // Import header components
-import HeaderBrandKit from "@/components/shared/header/BrandKit/BrandKit";
 import HeaderWrapper from "@/components/shared/header/Wrapper/Wrapper";
 import HeaderDropdownWrapper from "@/components/shared/header/Dropdown/Wrapper/Wrapper";
 import UserAuth from "@/components/shared/header/UserAuth/UserAuth";
-import GithubIcon from "@/components/shared/header/Github/_svg/GithubIcon";
-import ButtonUI from "@/components/ui/shadcn/button"
+// ButtonUI not used here
 
 interface SearchResult {
   url: string;
@@ -250,7 +247,8 @@ export default function HomePage() {
           <HeaderWrapper>
             <div className="max-w-[900px] mx-auto w-full flex justify-between items-center">
               <div className="flex gap-24 items-center">
-                <HeaderBrandKit />
+                {/* Replaced Firecrawl logo with plain brand text */}
+                <div className="text-label-large font-semibold text-accent-black select-none">Zapdev V2</div>
               </div>
               <div className="flex gap-8">
                 <UserAuth />
@@ -278,7 +276,7 @@ export default function HomePage() {
                 href="#"
                 onClick={(e) => e.preventDefault()}
               >
-                Powered by Firecrawl.
+                Powered by Zapdev V2.
               </Link>
             </div>
           </div>

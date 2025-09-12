@@ -6,7 +6,6 @@ import {
   ConnectorToLeft,
   ConnectorToRight,
 } from "@/components/shared/layout/curvy-rect";
-import HeaderGithubClient from "@/components/shared/header/Github/GithubClient";
 import { NAV_ITEMS } from "@/components/shared/header/Nav/Nav";
 
 import HeaderDropdownMobileItem from "./Item/Item";
@@ -34,7 +33,6 @@ export default function HeaderDropdownMobile({
       </div>
 
       <div className="p-24 flex flex-col gap-8 border-b border-border-faint relative -mt-1">
-        <HeaderGithubClient />
         <Link href={ctaHref}>
           <Button variant="secondary"> {ctaLabel} </Button>
         </Link>

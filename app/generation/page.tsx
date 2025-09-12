@@ -7,7 +7,6 @@ import { appConfig } from '@/config/app.config';
 import { getBestAvailableModelClient } from '@/lib/model-detector';
 import HeroInput from '@/components/HeroInput';
 import SidebarInput from '@/components/app/generation/SidebarInput';
-import HeaderBrandKit from '@/components/shared/header/BrandKit/BrandKit';
 import UserAuth from '@/components/shared/header/UserAuth/UserAuth';
 import { HeaderProvider } from '@/components/shared/header/HeaderContext';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -51,25 +50,7 @@ function AISandboxPage() {
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   
-  // Redirect to sign-in if not authenticated
-  useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      router.push('/sign-in');
-    }
-  }, [isLoaded, isSignedIn, router]);
-
-  // Don't render content until auth is loaded and user is signed in
-  if (!isLoaded || !isSignedIn) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // All hooks must be declared before early returns
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: 'Not connected', active: false });
@@ -86,7 +67,6 @@ function AISandboxPage() {
   const [aiChatInput, setAiChatInput] = useState('');
   const [aiEnabled] = useState(true);
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [aiModel, setAiModel] = useState(''); // Will be auto-detected
   const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
   const [urlInput, setUrlInput] = useState('');
@@ -124,46 +104,27 @@ function AISandboxPage() {
     scrapedWebsites: [],
     generatedComponents: [],
     appliedCode: [],
-    currentProject: '',
-    lastGeneratedCode: undefined
-  });
-  
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const chatMessagesRef = useRef<HTMLDivElement>(null);
-  const codeDisplayRef = useRef<HTMLDivElement>(null);
-  
-  const [codeApplicationState, setCodeApplicationState] = useState<CodeApplicationState>({
-    stage: null
-  });
-  
-  const [generationProgress, setGenerationProgress] = useState<{
-    isGenerating: boolean;
-    status: string;
-    components: Array<{ name: string; path: string; completed: boolean }>;
-    currentComponent: number;
-    streamedCode: string;
-    isStreaming: boolean;
-    isThinking: boolean;
-    thinkingText?: string;
-    thinkingDuration?: number;
-    currentFile?: { path: string; content: string; type: string };
-    files: Array<{ path: string; content: string; type: string; completed: boolean; edited?: boolean }>;
-    lastProcessedPosition: number;
-    isEdit?: boolean;
-  }>({
-    isGenerating: false,
-    status: '',
-    components: [],
-    currentComponent: 0,
-    streamedCode: '',
-    isStreaming: false,
-    isThinking: false,
-    files: [],
-    lastProcessedPosition: 0
+    currentProject: 'sandbox'
   });
 
-  // Store flag to trigger generation after component mounts
-  const [shouldAutoGenerate, setShouldAutoGenerate] = useState(false);
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in');
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  // Don't render content until auth is loaded and user is signed in
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Clear old conversation data on component mount and create/restore sandbox
   useEffect(() => {
@@ -3131,7 +3092,7 @@ Focus on the key sections and content, making it clean and modern.`;
     <HeaderProvider>
       <div className="font-sans bg-background text-foreground h-screen flex flex-col">
       <div className="bg-white py-[15px] py-[8px] border-b border-border-faint flex items-center justify-between shadow-sm">
-        <HeaderBrandKit />
+        <div className="text-label-large font-semibold text-accent-black select-none">Zapdev V2</div>
         <div className="flex items-center gap-2">
           <UserAuth />
           {/* Model is now auto-detected */}
