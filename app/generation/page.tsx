@@ -93,6 +93,34 @@ function AISandboxPage() {
   const [sandboxFiles, setSandboxFiles] = useState<Record<string, string>>({});
   const [hasInitialSubmission, setHasInitialSubmission] = useState<boolean>(false);
   const [fileStructure, setFileStructure] = useState<string>('');
+  const [shouldAutoGenerate, setShouldAutoGenerate] = useState<boolean>(false);
+  const [codeApplicationState, setCodeApplicationState] = useState<CodeApplicationState>({ stage: null });
+  const [generationProgress, setGenerationProgress] = useState<{
+    isGenerating: boolean;
+    isEdit: boolean;
+    files: Array<{ path: string; content: string; edited?: boolean; type?: string; completed?: boolean; }>;
+    streamedCode: string;
+    isStreaming: boolean;
+    isThinking: boolean;
+    thinkingText: string;
+    thinkingDuration: number;
+    currentFile?: { path: string; type: string; content: string; };
+    status?: string;
+    components?: Array<any>;
+    currentComponent?: number;
+    lastProcessedPosition?: number;
+  }>({
+    isGenerating: false,
+    isEdit: false,
+    files: [],
+    streamedCode: '',
+    isStreaming: false,
+    isThinking: false,
+    thinkingText: '',
+    thinkingDuration: 0,
+    components: [],
+    currentComponent: 0
+  });
   
   const [conversationContext, setConversationContext] = useState<{
     scrapedWebsites: Array<{ url: string; content: any; timestamp: Date }>;
@@ -518,6 +546,9 @@ function AISandboxPage() {
   };
 
   const sandboxCreationRef = useRef<boolean>(false);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const codeDisplayRef = useRef<HTMLDivElement>(null);
   
   const createSandbox = async (fromHomeScreen = false) => {
     // Prevent duplicate sandbox creation
@@ -1430,7 +1461,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                             file.type === 'json' ? 'bg-green-600 text-white' :
                             'bg-gray-200 text-gray-700'
                           }`}>
-                            {file.type === 'javascript' ? 'JSX' : file.type.toUpperCase()}
+                            {file.type === 'javascript' ? 'JSX' : (file.type || 'FILE').toUpperCase()}
                           </span>
                         </div>
                         <div className="bg-gray-900 border border-gray-700  max-h-48 overflow-y-auto scrollbar-hide">
@@ -1501,13 +1532,13 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             </div>
             
             {/* Progress indicator */}
-            {generationProgress.components.length > 0 && (
+            {generationProgress.components && generationProgress.components.length > 0 && (
               <div className="mx-6 mb-6">
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all duration-300"
                     style={{
-                      width: `${(generationProgress.currentComponent / Math.max(generationProgress.components.length, 1)) * 100}%`
+                      width: `${((generationProgress.currentComponent || 0) / Math.max(generationProgress.components?.length || 1, 1)) * 100}%`
                     }}
                   />
                 </div>
@@ -1760,7 +1791,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         isStreaming: false,
         isThinking: true,
         thinkingText: 'Analyzing your request...',
-        thinkingDuration: undefined,
+        thinkingDuration: 0,
         currentFile: undefined,
         lastProcessedPosition: 0,
         // Add isEdit flag to generation progress
@@ -1958,7 +1989,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                   setGenerationProgress(prev => ({
                     ...prev,
                     status: `Generated ${data.name}`,
-                    components: [...prev.components, { 
+                    components: [...(prev.components || []), { 
                       name: data.name, 
                       path: data.path, 
                       completed: true 
@@ -1985,8 +2016,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                   setGenerationProgress(prev => ({
                     ...prev,
                     isThinking: false,
-                    thinkingText: undefined,
-                    thinkingDuration: undefined
+                    thinkingText: '',
+                    thinkingDuration: 0
                   }));
                   
                   // Store packages to install from tool calls
@@ -2110,8 +2141,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         isEdit: prev.isEdit,
         // Clear thinking state on completion
         isThinking: false,
-        thinkingText: undefined,
-        thinkingDuration: undefined
+        thinkingText: '',
+        thinkingDuration: 0
       }));
       
       setTimeout(() => {
@@ -2124,14 +2155,15 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       // Reset generation progress and switch back to preview on error
       setGenerationProgress({
         isGenerating: false,
+        isEdit: false,
         status: '',
         components: [],
         currentComponent: 0,
         streamedCode: '',
         isStreaming: false,
         isThinking: false,
-        thinkingText: undefined,
-        thinkingDuration: undefined,
+        thinkingText: '',
+        thinkingDuration: 0,
         files: [],
         currentFile: undefined,
         lastProcessedPosition: 0
@@ -2803,14 +2835,15 @@ Focus on the key sections and content, making it clean and modern.`;
         
         setGenerationProgress(prev => ({
           isGenerating: true,
+          isEdit: false,
           status: 'Initializing AI...',
           components: [],
           currentComponent: 0,
           streamedCode: '',
           isStreaming: true,
           isThinking: false,
-          thinkingText: undefined,
-          thinkingDuration: undefined,
+          thinkingText: '',
+          thinkingDuration: 0,
           // Keep previous files until new ones are generated
           files: prev.files || [],
           currentFile: undefined,
