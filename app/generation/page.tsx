@@ -114,17 +114,8 @@ function AISandboxPage() {
     }
   }, [isLoaded, isSignedIn, router]);
 
-  // Don't render content until auth is loaded and user is signed in
-  if (!isLoaded || !isSignedIn) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // Removed early return to satisfy React rules-of-hooks. We now always render the component
+  // and let the redirect/useEffect handle sign-in. A loading UI can be shown conditionally in JSX.
 
   // Clear old conversation data on component mount and create/restore sandbox
   useEffect(() => {
