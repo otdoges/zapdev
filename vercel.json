@@ -1,0 +1,9 @@
+{
+  "installCommand": "bun install",
+  "buildCommand": "bun run build",
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  }
+}
