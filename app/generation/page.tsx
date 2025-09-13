@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import { appConfig } from '@/config/app.config';
 import { getBestAvailableModelClient } from '@/lib/model-detector';
 import HeroInput from '@/components/HeroInput';
@@ -49,6 +51,7 @@ interface ChatMessage {
 function AISandboxPage() {
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
+  const upsertUser = useMutation(api.users.upsertUser);
   
   // All hooks must be declared before early returns
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
@@ -141,6 +144,34 @@ function AISandboxPage() {
       router.push('/sign-in');
     }
   }, [isLoaded, isSignedIn, router]);
+
+  // Sync user to database when authenticated
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      const syncUser = async () => {
+        try {
+          const primaryEmail = user.emailAddresses.find(email => email.id === user.primaryEmailAddressId);
+          if (!primaryEmail) {
+            console.error('No primary email found for user');
+            return;
+          }
+
+          await upsertUser({
+            email: primaryEmail.emailAddress,
+            fullName: user.fullName || undefined,
+            avatarUrl: user.imageUrl || undefined,
+            username: user.username || undefined,
+          });
+          
+          console.log('User synced to database successfully');
+        } catch (error) {
+          console.error('Failed to sync user to database:', error);
+        }
+      };
+
+      syncUser();
+    }
+  }, [isLoaded, isSignedIn, user, upsertUser]);
 
   // Removed early return to satisfy React rules-of-hooks. We now always render the component
   // and let the redirect/useEffect handle sign-in. A loading UI can be shown conditionally in JSX.
@@ -1742,6 +1773,13 @@ Tip: I automatically detect and install npm packages from your code imports (lik
   const sendChatMessage = async () => {
     const message = aiChatInput.trim();
     if (!message) return;
+    
+    // Check if user is authenticated
+    if (!isSignedIn) {
+      addChatMessage('Please sign in to use AI features.', 'system');
+      router.push('/sign-in');
+      return;
+    }
     
     if (!aiEnabled) {
       addChatMessage('AI is disabled. Please enable it first.', 'system');

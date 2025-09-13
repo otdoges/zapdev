@@ -11,24 +11,24 @@ export function detectAvailableModels(): ModelAvailability[] {
   // Check individual API keys first (higher priority than AI Gateway)
   const models: ModelAvailability[] = [
     {
+      model: 'moonshotai/kimi-k2-instruct-0905',
+      available: !!process.env.GROQ_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
+      priority: process.env.GROQ_API_KEY ? 1 : 5 // Prefer Groq/Kimi as highest priority
+    },
+    {
       model: 'anthropic/claude-sonnet-4-20250514',
       available: !!process.env.ANTHROPIC_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
-      priority: process.env.ANTHROPIC_API_KEY ? 1 : 5 // Prefer direct API key
+      priority: process.env.ANTHROPIC_API_KEY ? 2 : 6
     },
     {
       model: 'openai/gpt-5',
       available: !!process.env.OPENAI_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
-      priority: process.env.OPENAI_API_KEY ? 2 : 6
+      priority: process.env.OPENAI_API_KEY ? 3 : 7
     },
     {
       model: 'google/gemini-2.0-flash-exp',
       available: !!process.env.GEMINI_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
-      priority: process.env.GEMINI_API_KEY ? 3 : 7
-    },
-    {
-      model: 'moonshotai/kimi-k2-instruct-0905',
-      available: !!process.env.GROQ_API_KEY || !!process.env.AI_GATEWAY_API_KEY,
-      priority: process.env.GROQ_API_KEY ? 4 : 8
+      priority: process.env.GEMINI_API_KEY ? 4 : 8 // Gemini has lowest priority
     }
   ];
 
