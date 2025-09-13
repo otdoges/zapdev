@@ -57,36 +57,36 @@
     --radius: 0.5rem;
   }
 
-  /* Temporarily disable dark mode until we migrate to semantic colors */
-  /* .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+  .dark {
+    /* Bolt.new inspired dark theme */
+    --background: 16 16 16; /* #0a0a0a */
+    --foreground: 0 0% 100%; /* white */
 
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --card: 26 26 26; /* #1a1a1a */
+    --card-foreground: 0 0% 100%;
 
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 26 26 26;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
+    --primary: 214 100% 59%; /* blue accent */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 52 52 52; /* #333333 */
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 52 52 52;
+    --muted-foreground: 0 0% 70%;
 
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 214 88% 70%; /* lighter blue */
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-  } */
+    --border: 52 52 52; /* #333333 */
+    --input: 26 26 26; /* #1a1a1a */
+    --ring: 214 100% 59%;
+  }
 }
 
 @layer utilities {

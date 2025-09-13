@@ -3,6 +3,7 @@ import { Inter, Roboto_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import { ClerkProvider } from '@clerk/nextjs';
 import { ConvexClientProvider } from '@/lib/ConvexClientProvider';
+import { ThemeProvider } from "next-themes";
 import "./globals.css";
 
 const inter = Inter({ 
@@ -40,9 +41,16 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <ConvexClientProvider>
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
           <body className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} ${robotoMono.variable} font-sans`}>
-            {children}
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="light"
+              enableSystem
+              disableTransitionOnChange={false}
+            >
+              {children}
+            </ThemeProvider>
           </body>
         </html>
       </ConvexClientProvider>

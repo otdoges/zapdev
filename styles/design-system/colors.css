@@ -65,6 +65,18 @@
   /* Foreground colors */
   --foreground: #262626;
   --foreground-dimmer: rgba(38, 38, 38, 0.722);
+  
+  /* Dark mode colors - bolt.new inspired */
+  --dark-background-base: #0a0a0a;
+  --dark-background-lighter: #141414;
+  --dark-background-surface: #1a1a1a;
+  --dark-foreground: #ffffff;
+  --dark-foreground-dimmer: rgba(255, 255, 255, 0.7);
+  --dark-border-faint: #333333;
+  --dark-border-muted: #404040;
+  --dark-border-loud: #525252;
+  --dark-accent-blue: #3b82f6;
+  --dark-accent-blue-light: #60a5fa;
 }
 
 /* P3 color space enhancement for supported browsers */
@@ -130,6 +142,18 @@
     /* Background colors */
     --background-lighter: color(display-p3 0.984314 0.984314 0.984314 / 1.000000);
     --background-base: color(display-p3 0.976471 0.976471 0.976471 / 1.000000);
+    
+    /* Dark mode colors - bolt.new inspired */
+    --dark-background-base: color(display-p3 0.039 0.039 0.039 / 1.000000);
+    --dark-background-lighter: color(display-p3 0.078 0.078 0.078 / 1.000000);
+    --dark-background-surface: color(display-p3 0.102 0.102 0.102 / 1.000000);
+    --dark-foreground: color(display-p3 1.000000 1.000000 1.000000 / 1.000000);
+    --dark-foreground-dimmer: color(display-p3 1.000000 1.000000 1.000000 / 0.7);
+    --dark-border-faint: color(display-p3 0.2 0.2 0.2 / 1.000000);
+    --dark-border-muted: color(display-p3 0.251 0.251 0.251 / 1.000000);
+    --dark-border-loud: color(display-p3 0.322 0.322 0.322 / 1.000000);
+    --dark-accent-blue: color(display-p3 0.231 0.510 0.965 / 1.000000);
+    --dark-accent-blue-light: color(display-p3 0.376 0.647 0.980 / 1.000000);
   }
 }
 

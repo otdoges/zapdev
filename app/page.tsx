@@ -25,6 +25,7 @@ import HeroInputSubmitButton from "@/components/app/(home)/sections/hero-input/B
 import HeaderWrapper from "@/components/shared/header/Wrapper/Wrapper";
 import HeaderDropdownWrapper from "@/components/shared/header/Dropdown/Wrapper/Wrapper";
 import UserAuth from "@/components/shared/header/UserAuth/UserAuth";
+import ThemeToggle from "@/components/shared/ThemeToggle/ThemeToggle";
 // ButtonUI not used here
 
 interface SearchResult {
@@ -232,11 +233,11 @@ export default function HomePage() {
 
   return (
     <HeaderProvider>
-      <div className="min-h-screen bg-background-base">
+      <div className="min-h-screen bg-background-base dark:bg-dark-background-base transition-colors duration-300">
         {/* Header/Navigation Section */}
         <HeaderDropdownWrapper />
 
-        <div className="sticky top-0 left-0 w-full z-[101] bg-background-base header">
+        <div className="sticky top-0 left-0 w-full z-[101] bg-background-base dark:bg-dark-background-base header transition-colors duration-300">
           <div className="absolute top-0 cmw-container border-x border-border-faint h-full pointer-events-none" />
           <div className="h-1 bg-border-faint w-full left-0 -bottom-1 absolute" />
           <div className="cmw-container absolute h-full pointer-events-none top-0">
@@ -248,9 +249,10 @@ export default function HomePage() {
             <div className="max-w-[900px] mx-auto w-full flex justify-between items-center">
               <div className="flex gap-24 items-center">
                 {/* Replaced Firecrawl logo with plain brand text */}
-                <div className="text-label-large font-semibold text-accent-black select-none">Zapdev V2</div>
+                <div className="text-label-large font-semibold text-accent-black dark:text-white select-none transition-colors duration-300">Zapdev V2</div>
               </div>
-              <div className="flex gap-8">
+              <div className="flex gap-8 items-center">
+                <ThemeToggle />
                 <UserAuth />
               </div>
             </div>
