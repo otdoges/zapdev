@@ -134,6 +134,23 @@ export class E2BProvider extends SandboxProvider {
     }
     
     this.existingFiles.add(path);
+    
+    // Force file system sync and trigger HMR
+    await this.sandbox.runCode(`
+      import subprocess
+      import time
+      
+      # Sync filesystem
+      subprocess.run(['sync'], capture_output=True)
+      
+      # Touch the file to ensure file watcher picks up the change
+      subprocess.run(['touch', '${fullPath}'], capture_output=True)
+      
+      print(f"✓ File change signaled: ${fullPath}")
+    `);
+    
+    // Small delay to let HMR pick up the change
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
   async readFile(path: string): Promise<string> {
@@ -281,7 +298,14 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
-    hmr: false,
+    hmr: {
+      port: 5173,
+      host: '0.0.0.0'
+    },
+    watch: {
+      usePolling: true,
+      interval: 100
+    },
     allowedHosts: ['.e2b.app', '.e2b.dev', '.vercel.run', 'localhost', '127.0.0.1']
   }
 })"""
