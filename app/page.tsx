@@ -233,16 +233,11 @@ export default function HomePage() {
                 <SignedIn>
                   <UserButton />
                 </SignedIn>
-                <a
-                  className="contents"
-                  href="https://github.com/mendableai/open-lovable"
-                  target="_blank"
-                >
+                <SignInButton>
                   <ButtonUI variant="tertiary">
-                    <GithubIcon />
-                    View on GitHub
+                    Sign In
                   </ButtonUI>
-                </a>
+                </SignInButton>
               </div>
             </div>
           </HeaderWrapper>
