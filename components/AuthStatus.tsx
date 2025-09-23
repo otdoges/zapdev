@@ -4,7 +4,7 @@ import { useAuth } from "@workos-inc/authkit-react";
 import Button from "@/components/ui/shadcn/button";
 
 export default function AuthStatus() {
-  const { user, isLoading, signInUrl, signUpUrl, signOut } = useAuth();
+  const { user, isLoading, signIn, signUp, signOut } = useAuth();
 
   if (isLoading) {
     return (
@@ -40,14 +40,14 @@ export default function AuthStatus() {
     <div className="flex items-center gap-2">
       <Button
         variant="tertiary"
-        onClick={() => window.location.href = signInUrl}
+        onClick={() => signIn()}
         className="text-xs px-3 py-1"
       >
         Sign In
       </Button>
       <Button
         variant="primary"
-        onClick={() => window.location.href = signUpUrl}
+        onClick={() => signUp()}
         className="text-xs px-3 py-1"
       >
         Sign Up
