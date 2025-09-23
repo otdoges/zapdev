@@ -204,6 +204,7 @@ export async function POST(request: NextRequest) {
     const results = {
       filesCreated: [] as string[],
       filesUpdated: [] as string[],
+      filesSkipped: [] as string[],
       packagesInstalled: [] as string[],
       packagesAlreadyInstalled: [] as string[],
       packagesFailed: [] as string[],
@@ -643,12 +644,21 @@ body {
     }
     
     // Prepare response
+    const appliedFileCount = results.filesCreated.length + results.filesUpdated.length;
+    const skippedFileCount = results.filesSkipped.length;
+    const baseMessage = appliedFileCount > 0
+      ? `Applied ${appliedFileCount} ${appliedFileCount === 1 ? 'file' : 'files'} successfully`
+      : 'No file changes were necessary';
+    const messageSuffix = skippedFileCount > 0
+      ? ` Skipped ${skippedFileCount} unchanged ${skippedFileCount === 1 ? 'file' : 'files'}.`
+      : '';
+    const responseMessage = `${baseMessage}${messageSuffix}`;
     const responseData: any = {
       success: true,
       results,
       explanation: parsed.explanation,
       structure: parsed.structure,
-      message: `Applied ${results.filesCreated.length} files successfully`
+      message: responseMessage
     };
     
     // Handle missing imports automatically
@@ -693,7 +703,7 @@ body {
     }
     
     // Track applied files in conversation state
-    if (global.conversationState && results.filesCreated.length > 0) {
+    if (global.conversationState && (results.filesCreated.length > 0 || results.filesUpdated.length > 0)) {
       // Update the last message metadata with edited files
       const messages = global.conversationState.context.messages;
       if (messages.length > 0) {
@@ -701,7 +711,12 @@ body {
         if (lastMessage.role === 'user') {
           lastMessage.metadata = {
             ...lastMessage.metadata,
-            editedFiles: results.filesCreated
+            editedFiles: [
+              ...new Set([
+                ...(results.filesCreated ?? []),
+                ...(results.filesUpdated ?? [])
+              ])
+            ]
           };
         }
       }
@@ -711,14 +726,24 @@ body {
         global.conversationState.context.projectEvolution.majorChanges.push({
           timestamp: Date.now(),
           description: parsed.explanation || 'Code applied',
-          filesAffected: results.filesCreated
+          filesAffected: [
+            ...new Set([
+              ...(results.filesCreated ?? []),
+              ...(results.filesUpdated ?? [])
+            ])
+          ]
         });
       }
       
       // Update last updated timestamp
       global.conversationState.lastUpdated = Date.now();
       
-      console.log('[apply-ai-code] Updated conversation state with applied files:', results.filesCreated);
+      console.log('[apply-ai-code] Updated conversation state with applied files:', [
+        ...new Set([
+          ...(results.filesCreated ?? []),
+          ...(results.filesUpdated ?? [])
+        ])
+      ]);
     }
     
     return NextResponse.json(responseData);
