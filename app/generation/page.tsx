@@ -92,6 +92,19 @@ function AISandboxPage() {
   const [hasInitialSubmission, setHasInitialSubmission] = useState<boolean>(false);
   const [fileStructure, setFileStructure] = useState<string>('');
   
+  // Helper: detect if input is a URL (http/https) – we only scrape when true
+  const isProbablyUrl = (value: string): boolean => {
+    const text = (value || '').trim();
+    if (!text) return false;
+    try {
+      const withProto = /^https?:\/\//i.test(text) ? text : `https://${text}`;
+      const u = new URL(withProto);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+  
   const [conversationContext, setConversationContext] = useState<{
     scrapedWebsites: Array<{ url: string; content: any; timestamp: Date }>;
     generatedComponents: Array<{ name: string; path: string; content: string }>;
@@ -304,9 +317,15 @@ function AISandboxPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showHomeScreen]);
   
-  // Start capturing screenshot if URL is provided on mount (from home screen)
+  // Start capturing screenshot if a valid URL is provided on mount (from home screen)
   useEffect(() => {
-    if (!showHomeScreen && homeUrlInput && !urlScreenshot && !isCapturingScreenshot) {
+    if (
+      !showHomeScreen &&
+      homeUrlInput &&
+      isProbablyUrl(homeUrlInput) &&
+      !urlScreenshot &&
+      !isCapturingScreenshot
+    ) {
       let screenshotUrl = homeUrlInput.trim();
       if (!screenshotUrl.match(/^https?:\/\//i)) {
         screenshotUrl = 'https://' + screenshotUrl;
@@ -315,18 +334,19 @@ function AISandboxPage() {
     }
   }, [showHomeScreen, homeUrlInput]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-start generation if flagged
+  // Auto-start generation if flagged (supports URL or plain instructions)
   useEffect(() => {
     const autoStart = sessionStorage.getItem('autoStart');
-    if (autoStart === 'true' && !showHomeScreen && homeUrlInput) {
+    const hasInput = !!homeUrlInput?.trim() || !!homeContextInput?.trim();
+    if (autoStart === 'true' && !showHomeScreen && hasInput) {
       sessionStorage.removeItem('autoStart');
       // Small delay to ensure everything is ready
       setTimeout(() => {
-        console.log('[generation] Auto-starting generation for URL:', homeUrlInput);
+        console.log('[generation] Auto-starting generation for input');
         startGeneration();
       }, 1000);
     }
-  }, [showHomeScreen, homeUrlInput]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showHomeScreen, homeUrlInput, homeContextInput]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   useEffect(() => {
@@ -344,20 +364,21 @@ function AISandboxPage() {
 
   // Auto-trigger generation when flag is set (from home page navigation)
   useEffect(() => {
-    if (shouldAutoGenerate && homeUrlInput && !showHomeScreen) {
+    const hasInput = !!homeUrlInput?.trim() || !!homeContextInput?.trim();
+    if (shouldAutoGenerate && hasInput && !showHomeScreen) {
       // Reset the flag
       setShouldAutoGenerate(false);
       
       // Trigger generation after a short delay to ensure everything is set up
       const timer = setTimeout(() => {
-        console.log('[generation] Auto-triggering generation from URL params');
+        console.log('[generation] Auto-triggering generation from params');
         startGeneration();
       }, 1000);
       
       return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldAutoGenerate, homeUrlInput, showHomeScreen]);
+  }, [shouldAutoGenerate, homeUrlInput, homeContextInput, showHomeScreen]);
 
   const updateStatus = (text: string, active: boolean) => {
     setStatus({ text, active });
@@ -2615,7 +2636,9 @@ Tip: I automatically detect and install npm packages from your code imports (lik
   };
 
   const startGeneration = async () => {
-    if (!homeUrlInput.trim()) return;
+    const baseInput = (homeUrlInput || '').trim() || (homeContextInput || '').trim();
+    if (!baseInput) return;
+    const inputIsUrl = isProbablyUrl(baseInput);
     
     setHomeScreenFading(true);
     
@@ -2623,33 +2646,39 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     setIsStartingNewGeneration(true);
     setLoadingStage('gathering');
     
-    // Immediately switch to preview tab to show loading
-    setActiveTab('preview');
+    // If we have a URL, show the preview tab (screenshot). Otherwise, go straight to generation.
+    setActiveTab(inputIsUrl ? 'preview' : 'generation');
     
     // Set loading background to ensure proper visual feedback
     setShowLoadingBackground(true);
     
     // Clear messages and immediately show the cloning message
     setChatMessages([]);
-    let displayUrl = homeUrlInput.trim();
-    if (!displayUrl.match(/^https?:\/\//i)) {
-      displayUrl = 'https://' + displayUrl;
+    let displayUrl = baseInput;
+    if (inputIsUrl) {
+      if (!displayUrl.match(/^https?:\/\//i)) {
+        displayUrl = 'https://' + displayUrl;
+      }
+      // Remove protocol for cleaner display
+      const cleanUrl = displayUrl.replace(/^https?:\/\//i, '');
+      addChatMessage(`Starting to clone ${cleanUrl}...`, 'system');
+    } else {
+      addChatMessage('Starting generation from your instructions…', 'system');
     }
-    // Remove protocol for cleaner display
-    const cleanUrl = displayUrl.replace(/^https?:\/\//i, '');
-    addChatMessage(`Starting to clone ${cleanUrl}...`, 'system');
     
     // Start creating sandbox and capturing screenshot immediately in parallel
     const sandboxPromise = !sandboxData ? createSandbox(true) : Promise.resolve(null);
     
     // Set loading stage immediately before hiding home screen
     setLoadingStage('gathering');
-    // Also ensure we're on preview tab to show the loading overlay
-    setActiveTab('preview');
+    // Also ensure we're on correct tab (already set above)
     
-    // Always capture screenshot for new URLs, even if sandbox exists
-    // This ensures the loading screen shows properly
-    captureUrlScreenshot(displayUrl);
+    // Only capture a screenshot when we truly have a URL
+    if (inputIsUrl) {
+      // Always capture screenshot for new URLs, even if sandbox exists
+      // This ensures the loading screen shows properly
+      captureUrlScreenshot(displayUrl);
+    }
     
     setTimeout(async () => {
       setShowHomeScreen(false);
@@ -2664,59 +2693,68 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       await sandboxPromise;
       
       // Now start the clone process which will stream the generation
-      setUrlInput(homeUrlInput);
+      setUrlInput(baseInput);
       setUrlOverlayVisible(false); // Make sure overlay is closed
-      setUrlStatus(['Scraping website content...']);
+      setUrlStatus(inputIsUrl ? ['Scraping website content...'] : ['Preparing generation...']);
       
       try {
-        // Scrape the website
-        let url = homeUrlInput.trim();
-        if (!url.match(/^https?:\/\//i)) {
-          url = 'https://' + url;
-        }
-        
-        // Screenshot is already being captured in parallel above
-        
-        let scrapeData;
-        
-        // Check if we have pre-scraped markdown content from search results
-        const storedMarkdown = sessionStorage.getItem('siteMarkdown');
-        if (storedMarkdown) {
-          // Use the pre-scraped content
-          scrapeData = {
-            success: true,
-            content: storedMarkdown,
-            title: new URL(url).hostname,
-            source: 'search-result'
-          };
-          sessionStorage.removeItem('siteMarkdown'); // Clear after use
-          addChatMessage('Using cached content from search results...', 'system');
+        let url = baseInput;
+        let scrapeData: any | undefined;
+
+        if (inputIsUrl) {
+          if (!url.match(/^https?:\/\//i)) {
+            url = 'https://' + url;
+          }
+
+          // Screenshot is already being captured in parallel above
+
+          // Check if we have pre-scraped markdown content from search results
+          const storedMarkdown = sessionStorage.getItem('siteMarkdown');
+          if (storedMarkdown) {
+            // Use the pre-scraped content
+            scrapeData = {
+              success: true,
+              content: storedMarkdown,
+              title: new URL(url).hostname,
+              source: 'search-result'
+            };
+            sessionStorage.removeItem('siteMarkdown'); // Clear after use
+            addChatMessage('Using cached content from search results...', 'system');
+          } else {
+            // Perform fresh scraping
+            const scrapeResponse = await fetch('/api/scrape-url-enhanced', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url })
+            });
+            
+            if (!scrapeResponse.ok) {
+              throw new Error('Failed to scrape website');
+            }
+            
+            scrapeData = await scrapeResponse.json();
+            
+            if (!scrapeData.success) {
+              throw new Error(scrapeData.error || 'Failed to scrape website');
+            }
+          }
+
+          setUrlStatus(['Website scraped successfully!', 'Generating React app...']);
+
+          // Clear preparing design state and switch to generation tab
+          setIsPreparingDesign(false);
+          setIsScreenshotLoaded(false); // Reset loaded state
+          setUrlScreenshot(null); // Clear screenshot when starting generation
+          setTargetUrl(''); // Clear target URL
         } else {
-          // Perform fresh scraping
-          const scrapeResponse = await fetch('/api/scrape-url-enhanced', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
-          });
-          
-          if (!scrapeResponse.ok) {
-            throw new Error('Failed to scrape website');
-          }
-          
-          scrapeData = await scrapeResponse.json();
-          
-          if (!scrapeData.success) {
-            throw new Error(scrapeData.error || 'Failed to scrape website');
-          }
+          // No URL: skip scraping and screenshot entirely
+          setUrlStatus(['Generating React app...']);
+          setIsPreparingDesign(false);
+          setIsScreenshotLoaded(false);
+          setUrlScreenshot(null);
+          setTargetUrl('');
+          setActiveTab('generation');
         }
-        
-        setUrlStatus(['Website scraped successfully!', 'Generating React app...']);
-        
-        // Clear preparing design state and switch to generation tab
-        setIsPreparingDesign(false);
-        setIsScreenshotLoaded(false); // Reset loaded state
-        setUrlScreenshot(null); // Clear screenshot when starting generation
-        setTargetUrl(''); // Clear target URL
         
         // Update loading stage to planning
         setLoadingStage('planning');
@@ -2727,16 +2765,29 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           setActiveTab('generation');
         }, 1500);
         
-        // Store scraped data in conversation context
-        setConversationContext(prev => ({
-          ...prev,
-          scrapedWebsites: [...prev.scrapedWebsites, {
-            url: url,
-            content: scrapeData,
-            timestamp: new Date()
-          }],
-          currentProject: `${url} Clone`
-        }));
+        // Store context
+        setConversationContext(prev => {
+          if (inputIsUrl && scrapeData) {
+            return {
+              ...prev,
+              scrapedWebsites: [
+                ...prev.scrapedWebsites,
+                {
+                  url: url,
+                  content: scrapeData,
+                  timestamp: new Date(),
+                },
+              ],
+              currentProject: `${url} Clone`,
+            };
+          }
+          // No URL: keep scrapedWebsites unchanged, set a helpful project name
+          const title = homeUrlInput.trim().slice(0, 80);
+          return {
+            ...prev,
+            currentProject: title ? `Project: ${title}` : 'New Project',
+          };
+        });
         
         // Filter out style-related context when using screenshot/URL-based generation
         // Only keep user's explicit instructions, not inherited styles
@@ -2770,7 +2821,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           }
         }
         
-        const prompt = `I want to recreate the ${url} website as a complete React application based on the scraped content below.
+        const prompt = inputIsUrl && scrapeData
+          ? `I want to recreate the ${url} website as a complete React application based on the scraped content below.
 
 ${JSON.stringify(scrapeData, null, 2)}
 
@@ -2790,7 +2842,23 @@ IMPORTANT INSTRUCTIONS:
 - Create ALL components that you reference in imports
 ${filteredContext ? '- Apply the user\'s context/theme requirements throughout the application' : ''}
 
-Focus on the key sections and content, making it clean and modern.`;
+Focus on the key sections and content, making it clean and modern.`
+          : `Create a complete React application based on the user's instructions below.
+
+USER INSTRUCTIONS:
+${baseInput}
+
+${filteredContext ? `ADDITIONAL CONTEXT/REQUIREMENTS:
+${filteredContext}
+` : ''}
+
+REQUIREMENTS:
+- Build a COMPLETE, working React application using Vite + React
+- Use Tailwind CSS for all styling (no custom CSS files)
+- Make it responsive and modern with great UX
+- Create a clear component structure and render visible content
+- Create ALL components that you reference in imports
+${filteredContext ? '- Apply the user\'s context/theme throughout the application' : ''}`;
         
         setGenerationProgress(prev => ({
           isGenerating: true,

@@ -14,6 +14,19 @@ export default function HeroInput() {
   const [tab, setTab] = useState<Endpoint>(Endpoint.Scrape);
   const [url, setUrl] = useState<string>("");
 
+  // Helper: allow non-URL prompts by routing only when it looks like a URL
+  const isProbablyUrl = (value: string): boolean => {
+    const text = (value || '').trim();
+    if (!text) return false;
+    try {
+      const withProto = /^https?:\/\//i.test(text) ? text : `https://${text}`;
+      const u = new URL(withProto);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <div className="max-w-552 mx-auto w-full z-[11] lg:z-[2] rounded-20 lg:-mt-76">
       <div
@@ -68,12 +81,21 @@ export default function HeroInput() {
           ]}
         />
 
-        <Link
-          className="contents"
-          href={`/playground?endpoint=${tab}&url=${url}&autorun=true`}
-        >
-          <HeroInputSubmitButton dirty={url.length > 0} />
-        </Link>
+        {isProbablyUrl(url) ? (
+          <Link
+            className="contents"
+            href={`/playground?endpoint=${tab}&url=${url}&autorun=true`}
+          >
+            <HeroInputSubmitButton dirty={url.length > 0} />
+          </Link>
+        ) : (
+          <Link
+            className="contents"
+            href={`/generation?details=${encodeURIComponent(url)}&autorun=true`}
+          >
+            <HeroInputSubmitButton dirty={url.length > 0} />
+          </Link>
+        )}
       </div>
 
       <div className="h-248 top-84 cw-768 pointer-events-none absolute overflow-clip -z-10">

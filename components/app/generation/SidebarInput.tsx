@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 interface SidebarInputProps {
   onSubmit: (url: string, style: string, model: string, instructions?: string) => void;
@@ -14,6 +16,9 @@ export default function SidebarInput({ onSubmit, disabled = false }: SidebarInpu
   const [selectedModel, setSelectedModel] = useState<string>("xai/grok-4-fast-reasoning");
   const [additionalInstructions, setAdditionalInstructions] = useState<string>("");
   const [isValidUrl, setIsValidUrl] = useState<boolean>(false);
+
+  // Get user project limits
+  const projectLimits = useQuery(api.chats.getUserProjectLimits);
 
   // Simple URL validation - currently unused but keeping for future use
   // const validateUrl = (urlString: string) => {
@@ -34,12 +39,16 @@ export default function SidebarInput({ onSubmit, disabled = false }: SidebarInpu
   ];
 
   const models = [
-    { id: "xai/grok-4-fast-reasoning", name: "Grok 4 Fast Reasoning" },
-    { id: "moonshotai/kimi-k2-instruct-0905", name: "Kimi K2 0905 on Groq" },
-    { id: "openai/gpt-5", name: "GPT-5" },
-    { id: "anthropic/claude-sonnet-4-20250514", name: "Sonnet 4" },
-    { id: "google/gemini-2.0-flash-exp", name: "Gemini 2.0" },
+    { id: "xai/grok-4-fast-reasoning", name: "Grok 4 Fast Reasoning", isPremium: false },
+    { id: "moonshotai/kimi-k2-instruct-0905", name: "Kimi K2 0905 on Groq", isPremium: true },
+    { id: "openai/gpt-5", name: "GPT-5", isPremium: true },
+    { id: "anthropic/claude-sonnet-4-20250514", name: "Sonnet 4", isPremium: true },
+    { id: "google/gemini-2.0-flash-exp", name: "Gemini 2.0", isPremium: false },
   ];
+
+  // Check if premium models are disabled due to limits
+  const premiumModelsDisabled = projectLimits?.planType === "free" && 
+    (projectLimits.remainingPremiumProjects ?? 0) <= 0;
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -94,19 +103,34 @@ export default function SidebarInput({ onSubmit, disabled = false }: SidebarInpu
 
             {/* Model Selector */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">AI Model</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-medium text-gray-700">AI Model</label>
+                {projectLimits?.planType === "free" && (
+                  <span className="text-xs text-gray-500">
+                    {projectLimits.remainingPremiumProjects}/{projectLimits.premiumModelLimit} premium projects left
+                  </span>
+                )}
+              </div>
               <select
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
                 disabled={disabled}
                 className="w-full px-3 py-2 text-xs font-medium text-gray-700 bg-white rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
               >
-                {models.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.name}
-                  </option>
-                ))}
+                {models.map((model) => {
+                  const isDisabled = model.isPremium && premiumModelsDisabled;
+                  return (
+                    <option key={model.id} value={model.id} disabled={isDisabled}>
+                      {model.name} {model.isPremium ? "(Premium)" : "(Free)"} {isDisabled ? " - Limit Reached" : ""}
+                    </option>
+                  );
+                })}
               </select>
+              {premiumModelsDisabled && (
+                <p className="mt-1 text-xs text-amber-600">
+                  💡 Premium models (GPT-5, Claude, Kimi K2) are limited to 5 projects on free plan. Grok models have unlimited projects.
+                </p>
+              )}
             </div>
 
             {/* Additional Instructions */}

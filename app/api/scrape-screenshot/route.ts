@@ -8,6 +8,16 @@ export async function POST(req: NextRequest) {
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
+    
+    // Early guard: only proceed for valid http/https URLs; otherwise skip any Firecrawl usage
+    try {
+      const u = new URL(url);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+        return NextResponse.json({ error: 'Invalid URL protocol' }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+    }
 
     // Initialize Firecrawl with API key from environment
     const apiKey = process.env.FIRECRAWL_API_KEY;

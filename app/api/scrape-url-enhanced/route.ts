@@ -27,6 +27,22 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
+    // Early guard: if input is not a valid http/https URL, do NOT call Firecrawl
+    try {
+      const test = new URL(url);
+      if (test.protocol !== 'http:' && test.protocol !== 'https:') {
+        return NextResponse.json({
+          success: false,
+          error: 'Invalid URL protocol'
+        }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid URL'
+      }, { status: 400 });
+    }
+    
     console.log('[scrape-url-enhanced] Scraping with Firecrawl:', url);
     
     const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
