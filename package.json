@@ -19,6 +19,7 @@
     "@ai-sdk/openai": "^2.0.4",
     "@ai-sdk/xai": "^2.0.21",
     "@anthropic-ai/sdk": "^0.57.0",
+    "@clerk/backend": "^2.15.0",
     "@convex-dev/auth": "^0.0.89",
     "@convex-dev/workos": "^0.0.1",
     "@e2b/code-interpreter": "^2.0.0",

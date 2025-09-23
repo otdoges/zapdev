@@ -27,6 +27,7 @@ import HeaderWrapper from "@/components/shared/header/Wrapper/Wrapper";
 import HeaderDropdownWrapper from "@/components/shared/header/Dropdown/Wrapper/Wrapper";
 import GithubIcon from "@/components/shared/header/Github/_svg/GithubIcon";
 import ButtonUI from "@/components/ui/shadcn/button"
+import AuthStatus from "@/components/AuthStatus"
 
 interface SearchResult {
   url: string;
@@ -216,7 +217,8 @@ export default function HomePage() {
               <div className="flex gap-24 items-center">
                 <HeaderBrandKit />
               </div>
-              <div className="flex gap-8">
+              <div className="flex gap-8 items-center">
+                <AuthStatus />
                 <a
                   className="contents"
                   href="https://github.com/mendableai/open-lovable"
@@ -224,7 +226,7 @@ export default function HomePage() {
                 >
                   <ButtonUI variant="tertiary">
                     <GithubIcon />
-                    Use this Template
+                    View on GitHub
                   </ButtonUI>
                 </a>
               </div>
@@ -251,7 +253,7 @@ export default function HomePage() {
                 href="#"
                 onClick={(e) => e.preventDefault()}
               >
-                Powered by Firecrawl.
+                Powered by ZapDev.
               </Link>
             </div>
           </div>

@@ -51,26 +51,32 @@ export const appConfig = {
   // AI Model Configuration
   ai: {
     // Default AI model
-    defaultModel: 'moonshotai/kimi-k2-instruct-0905',
-    
+    defaultModel: 'xai/grok-4-fast-reasoning',
+
     // Available models
     availableModels: [
+      'xai/grok-4-fast-reasoning',
       'openai/gpt-5',
       'moonshotai/kimi-k2-instruct-0905',
       'anthropic/claude-sonnet-4-20250514',
       'google/gemini-2.0-flash-exp'
     ],
-    
+
     // Model display names
     modelDisplayNames: {
+      'xai/grok-4-fast-reasoning': 'Grok 4 Fast Reasoning',
       'openai/gpt-5': 'GPT-5',
       'moonshotai/kimi-k2-instruct-0905': 'Kimi K2 (Groq)',
       'anthropic/claude-sonnet-4-20250514': 'Sonnet 4',
       'google/gemini-2.0-flash-exp': 'Gemini 2.0 Flash (Experimental)'
     } as Record<string, string>,
-    
+
     // Model API configuration
     modelApiConfig: {
+      'xai/grok-4-fast-reasoning': {
+        provider: 'xai',
+        model: 'grok-4-fast-reasoning'
+      },
       'moonshotai/kimi-k2-instruct-0905': {
         provider: 'groq',
         model: 'moonshotai/kimi-k2-instruct-0905'
