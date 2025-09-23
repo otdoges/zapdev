@@ -10,12 +10,18 @@ import ZapDevIcon from "@/components/shared/zapdev-icon/zapdev-icon";
 import Logo from "@/components/shared/header/_svg/Logo";
 import { useHeaderContext } from "@/components/shared/header/HeaderContext";
 import { cn } from "@/utils/cn";
+import Image from "next/image";
 
 import Download from "./_svg/Download";
 import Guidelines from "./_svg/Guidelines";
 import Icon from "./_svg/Icon";
 
-export default function HeaderBrandKit() {
+interface HeaderBrandKitProps {
+  onHistoryToggle?: () => void;
+  showHistoryToggle?: boolean;
+}
+
+export default function HeaderBrandKit({ onHistoryToggle, showHistoryToggle = false }: HeaderBrandKitProps = {}) {
   const [open, setOpen] = useState(false);
   const { dropdownContent, clearDropdown } = useHeaderContext();
 
@@ -32,7 +38,7 @@ export default function HeaderBrandKit() {
   }, [dropdownContent]);
 
   return (
-    <div className="relative">
+    <div className="relative flex items-center gap-4">
       <Link
         className="flex items-center gap-2 relative brand-kit-menu"
         href="/"
@@ -48,6 +54,23 @@ export default function HeaderBrandKit() {
         <ZapDevIcon className="size-28 -top-2 relative" />
         <Logo />
       </Link>
+
+      {/* History Toggle Button */}
+      {showHistoryToggle && onHistoryToggle && (
+        <button
+          onClick={onHistoryToggle}
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+          title="Toggle Chat History"
+        >
+          <Image
+            src="/zapdev-logo.jpg"
+            alt="ZapDev Logo"
+            width={32}
+            height={32}
+            className="rounded-lg group-hover:scale-110 transition-transform"
+          />
+        </button>
+      )}
 
       <AnimatePresence initial={false} mode="popLayout">
         {open && <Menu setOpen={setOpen} />}

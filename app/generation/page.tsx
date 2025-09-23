@@ -7,6 +7,10 @@ import HeroInput from '@/components/HeroInput';
 import SidebarInput from '@/components/app/generation/SidebarInput';
 import HeaderBrandKit from '@/components/shared/header/BrandKit/BrandKit';
 import { HeaderProvider } from '@/components/shared/header/HeaderContext';
+import HistorySidebar from '@/components/HistorySidebar';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { useUser } from '@clerk/nextjs';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 // Import icons from centralized module to avoid Turbopack chunk issues
@@ -62,6 +66,22 @@ function AISandboxPage() {
   const [aiEnabled] = useState(true);
   const searchParams = useSearchParams();
   const router = useRouter();
+  
+  // History and chat storage functionality
+  const [showHistorySidebar, setShowHistorySidebar] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [chatTitle, setChatTitle] = useState<string>('');
+  const { user } = useUser();
+  
+  // Convex mutations for chat management
+  const createChat = useMutation(api.chats.createChat);
+  const updateChat = useMutation(api.chats.updateChat);
+  const updateChatScreenshot = useMutation(api.chats.updateChatScreenshot);
+  const createMessage = useMutation(api.messages.createMessage);
+  const getChatMessages = useQuery(
+    api.messages.getChatMessages,
+    currentChatId ? { chatId: currentChatId as any } : 'skip'
+  );
   const [aiModel, setAiModel] = useState(() => {
     const modelParam = searchParams.get('model');
     return appConfig.ai.availableModels.includes(modelParam || '') ? modelParam! : appConfig.ai.defaultModel;
@@ -388,6 +408,97 @@ function AISandboxPage() {
     setResponseArea(prev => [...prev, `[${type}] ${message}`]);
   };
 
+  // Chat management functions
+  const saveChatMessage = async (content: string, role: 'user' | 'assistant' | 'system', metadata?: any) => {
+    if (!user || !currentChatId) return;
+    
+    try {
+      await createMessage({
+        chatId: currentChatId as any,
+        content,
+        role,
+        metadata
+      });
+    } catch (error) {
+      console.error('Failed to save message to Convex:', error);
+    }
+  };
+
+  const createNewChat = async (title?: string) => {
+    if (!user) return null;
+    
+    try {
+      const inferredTitle = title || 
+        (chatMessages.length > 1 ? 
+          chatMessages.find(msg => msg.type === 'user')?.content.slice(0, 50) + '...' : 
+          'New Project');
+      
+      const chatId = await createChat({ title: inferredTitle });
+      setCurrentChatId(chatId);
+      setChatTitle(inferredTitle);
+      
+      // Save the initial system message
+      if (chatMessages.length > 0) {
+        for (const msg of chatMessages) {
+          await saveChatMessage(msg.content, msg.type === 'ai' ? 'assistant' : msg.type === 'user' ? 'user' : 'system', msg.metadata);
+        }
+      }
+      
+      return chatId;
+    } catch (error) {
+      console.error('Failed to create new chat:', error);
+      return null;
+    }
+  };
+
+  const updateChatWithSandbox = async (sandboxId: string, sandboxUrl: string, screenshot?: string) => {
+    if (!currentChatId) return;
+    
+    try {
+      await updateChatScreenshot({
+        chatId: currentChatId as any,
+        sandboxId,
+        sandboxUrl,
+        screenshot
+      });
+    } catch (error) {
+      console.error('Failed to update chat with sandbox info:', error);
+    }
+  };
+
+  // Effect to update chat with sandbox information
+  useEffect(() => {
+    if (sandboxData && currentChatId) {
+      // Take a screenshot after a delay to ensure the sandbox is loaded
+      setTimeout(() => {
+        updateChatWithSandbox(sandboxData.sandboxId, sandboxData.url);
+      }, 2000);
+    }
+  }, [sandboxData, currentChatId]);
+
+  const loadChatFromHistory = (chatId: string, chat: any) => {
+    setCurrentChatId(chatId);
+    setChatTitle(chat.title);
+    setShowHistorySidebar(false);
+    
+    // If the chat has a sandbox, restore it
+    if (chat.sandboxId && chat.sandboxUrl) {
+      setSandboxData({
+        sandboxId: chat.sandboxId,
+        url: chat.sandboxUrl
+      });
+      setStatus({ text: 'Connected to restored sandbox', active: true });
+      setActiveTab('preview');
+    }
+    
+    // Clear current messages and load from history
+    setChatMessages([{
+      content: 'Chat loaded from history. You can continue the conversation!',
+      type: 'system',
+      timestamp: new Date()
+    }]);
+  };
+
   const addChatMessage = (content: string, type: ChatMessage['type'], metadata?: ChatMessage['metadata']) => {
     setChatMessages(prev => {
       // Skip duplicate consecutive system messages
@@ -397,6 +508,21 @@ function AISandboxPage() {
           return prev; // Skip duplicate
         }
       }
+      
+      // Auto-save important messages to Convex (user messages and AI responses)
+      if (user && (type === 'user' || type === 'ai')) {
+        // Create chat if it doesn't exist for user messages
+        if (type === 'user' && !currentChatId) {
+          createNewChat().then(chatId => {
+            if (chatId) {
+              saveChatMessage(content, 'user', metadata);
+            }
+          });
+        } else if (currentChatId) {
+          saveChatMessage(content, type === 'ai' ? 'assistant' : 'user', metadata);
+        }
+      }
+      
       return [...prev, { content, type, timestamp: new Date(), metadata }];
     });
   };
@@ -3140,9 +3266,20 @@ ${filteredContext ? '- Apply the user\'s context/theme throughout the applicatio
 
   return (
     <HeaderProvider>
+      {/* History Sidebar */}
+      <HistorySidebar
+        isOpen={showHistorySidebar}
+        onClose={() => setShowHistorySidebar(false)}
+        onChatSelect={loadChatFromHistory}
+        currentChatId={currentChatId}
+      />
+      
       <div className="font-sans bg-background text-foreground h-screen flex flex-col">
       <div className="bg-white py-[15px] py-[8px] border-b border-border-faint flex items-center justify-between shadow-sm">
-        <HeaderBrandKit />
+        <HeaderBrandKit 
+          onHistoryToggle={() => setShowHistorySidebar(true)}
+          showHistoryToggle={!!user}
+        />
         <div className="flex items-center gap-2">
           {/* Model Selector - Left side */}
           <select
