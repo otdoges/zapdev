@@ -71,6 +71,18 @@ export const appConfig = {
       'google/gemini-2.0-flash-exp': 'Gemini 2.0 Flash (Experimental)'
     } as Record<string, string>,
 
+    // Premium models (require paid subscription)
+    premiumModels: [
+      'openai/gpt-5',
+      'moonshotai/kimi-k2-instruct-0905',
+      'anthropic/claude-sonnet-4-20250514'
+    ],
+
+    // Free models (unlimited projects)
+    freeModels: [
+      'xai/grok-4-fast-reasoning'
+    ],
+
     // Model API configuration
     modelApiConfig: {
       'xai/grok-4-fast-reasoning': {

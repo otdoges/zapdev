@@ -100,10 +100,24 @@ export async function POST(request: NextRequest) {
     
     console.log('[generate-ai-code-stream] Received request:');
     console.log('[generate-ai-code-stream] - prompt:', prompt);
+    console.log('[generate-ai-code-stream] - model:', model);
     console.log('[generate-ai-code-stream] - isEdit:', isEdit);
     console.log('[generate-ai-code-stream] - context.sandboxId:', context?.sandboxId);
     console.log('[generate-ai-code-stream] - context.currentFiles:', context?.currentFiles ? Object.keys(context.currentFiles) : 'none');
     console.log('[generate-ai-code-stream] - currentFiles count:', context?.currentFiles ? Object.keys(context.currentFiles).length : 0);
+
+    // Check model access limits for free users
+    const premiumModels = [
+      'openai/gpt-5',
+      'moonshotai/kimi-k2-instruct-0905',
+      'anthropic/claude-sonnet-4-20250514'
+    ];
+    
+    if (premiumModels.includes(model)) {
+      // For free users, we would check their project count here
+      // Since we don't have user auth in this API endpoint, we'll assume it's already validated on the frontend
+      console.log('[generate-ai-code-stream] Using premium model:', model);
+    }
     
     // Initialize conversation state if not exists
     if (!global.conversationState) {

@@ -20,22 +20,48 @@ const getUserPlanType = async (
   return "free";
 };
 
-// Ensure free plan users do not exceed the allowed number of chats
+// Helper to check if a model is premium
+const isPremiumModel = (model: string): boolean => {
+  const premiumModels = [
+    'openai/gpt-5',
+    'moonshotai/kimi-k2-instruct-0905',
+    'anthropic/claude-sonnet-4-20250514'
+  ];
+  return premiumModels.includes(model);
+};
+
+// Helper to check if a model is free (unlimited)
+const isFreeModel = (model: string): boolean => {
+  const freeModels = [
+    'xai/grok-4-fast-reasoning'
+  ];
+  return freeModels.includes(model);
+};
+
+// Ensure free plan users do not exceed the allowed number of chats for premium models
 const ensureWithinFreePlanChatLimit = async (
   ctx: QueryCtx | MutationCtx,
   userId: string,
-  maxFreeChats: number = 5
+  model: string,
+  maxFreePremiumChats: number = 5
 ) => {
   const planType = await getUserPlanType(ctx, userId);
   if (planType !== "free") return;
-  const existing = await ctx.db
-    .query("chats")
-    .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
-    .take(maxFreeChats + 1);
-  if (existing.length >= maxFreeChats) {
-    throw new Error(
-      `Free plan limit reached: You can create up to ${maxFreeChats} chats. Upgrade to Pro to create more.`
-    );
+  
+  // If using a free model (like Grok), no limits apply
+  if (isFreeModel(model)) return;
+  
+  // For premium models, enforce the 5-project limit
+  if (isPremiumModel(model)) {
+    const existing = await ctx.db
+      .query("chats")
+      .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
+      .take(maxFreePremiumChats + 1);
+    if (existing.length >= maxFreePremiumChats) {
+      throw new Error(
+        `Free plan limit reached: You can create up to ${maxFreePremiumChats} projects with premium models (GPT-5, Claude, Kimi K2). Grok models have unlimited projects. Upgrade to Pro for unlimited premium projects.`
+      );
+    }
   }
 };
 
@@ -172,6 +198,7 @@ export const getChat = query({
 export const createChat = mutation({
   args: {
     title: v.string(),
+    model: v.optional(v.string()), // Model to be used for this chat
   },
   handler: async (ctx, args) => {
     const identity = await getAuthenticatedUser(ctx);
@@ -179,9 +206,10 @@ export const createChat = mutation({
     await enforceRateLimit(ctx, "createChat");
     
     const sanitizedTitle = sanitizeTitle(args.title);
+    const model = args.model || 'xai/grok-4-fast-reasoning'; // Default to Grok
 
-    // Enforce free plan chat limit (max 5)
-    await ensureWithinFreePlanChatLimit(ctx, identity.subject, 5);
+    // Enforce free plan chat limit based on model type
+    await ensureWithinFreePlanChatLimit(ctx, identity.subject, model, 5);
     
     // Safety upper bound
     const userChats = await ctx.db
@@ -382,6 +410,46 @@ export const getUserChatStats = query({
   },
 });
 
+// Get user project limits and usage for premium models
+export const getUserProjectLimits = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await getAuthenticatedUser(ctx);
+    const planType = await getUserPlanType(ctx, identity.subject);
+    
+    const chats = await ctx.db
+      .query("chats")
+      .withIndex("by_user_id", (q) => q.eq("userId", identity.subject))
+      .collect();
+    
+    const totalProjects = chats.length;
+    const freePlanPremiumLimit = 5;
+    
+    // For free users, all projects count towards the premium model limit
+    // Since we don't store which model was used to create each chat,
+    // we consider all projects as potentially using premium models
+    const usedPremiumProjects = totalProjects;
+    const remainingPremiumProjects = planType === "free" 
+      ? Math.max(0, freePlanPremiumLimit - usedPremiumProjects)
+      : Infinity;
+    
+    return {
+      planType,
+      totalProjects,
+      premiumModelLimit: planType === "free" ? freePlanPremiumLimit : null,
+      usedPremiumProjects: planType === "free" ? usedPremiumProjects : 0,
+      remainingPremiumProjects: planType === "free" ? remainingPremiumProjects : Infinity,
+      hasUnlimitedFreeModels: true, // Grok is always unlimited
+      freeModels: ['xai/grok-4-fast-reasoning'],
+      premiumModels: [
+        'openai/gpt-5',
+        'moonshotai/kimi-k2-instruct-0905', 
+        'anthropic/claude-sonnet-4-20250514'
+      ]
+    };
+  },
+});
+
 // Search user's chats by title
 export const searchChats = query({
   args: {
@@ -465,14 +533,17 @@ export const duplicateChat = mutation({
   args: {
     chatId: v.id("chats"),
     newTitle: v.optional(v.string()),
+    model: v.optional(v.string()), // Model to be used for duplicated chat
   },
   handler: async (ctx, args) => {
     const identity = await getAuthenticatedUser(ctx);
     
     await enforceRateLimit(ctx, "createChat");
     
-    // Enforce free plan chat limit (max 5)
-    await ensureWithinFreePlanChatLimit(ctx, identity.subject, 5);
+    const model = args.model || 'xai/grok-4-fast-reasoning'; // Default to Grok
+    
+    // Enforce free plan chat limit based on model type
+    await ensureWithinFreePlanChatLimit(ctx, identity.subject, model, 5);
     
     const originalChat = await ctx.db.get(args.chatId);
     
