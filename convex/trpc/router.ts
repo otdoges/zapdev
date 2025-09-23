@@ -3,26 +3,40 @@ import type { inferAsyncReturnType } from '@trpc/server';
 import { z } from 'zod';
 // Polar.sh calls are handled in API routes with proper auth verification.
 
-type ClerkJwtPayload = {
+type WorkOSJwtPayload = {
   sub?: string;
   email?: string;
+  sid?: string;
 };
 
-async function verifyClerkJwt(token: string): Promise<{ id: string; email?: string } | null> {
+async function verifyWorkOSJwt(token: string): Promise<{ id: string; email?: string } | null> {
   try {
-    const issuer = process.env.CLERK_JWT_ISSUER_DOMAIN;
-    if (!issuer) throw new Error('Missing CLERK_JWT_ISSUER_DOMAIN');
-    const audience = process.env.CLERK_JWT_AUDIENCE;
-    const { verifyToken } = await import('@clerk/backend');
-    const options: { jwtKey?: string; audience?: string } = { jwtKey: issuer };
-    if (audience) options.audience = audience;
-    const verified = (await verifyToken(token, options)) as ClerkJwtPayload;
-    const sub = verified.sub;
-    const email = verified.email;
+    // Import WorkOS JWT verification
+    const { jwtVerify } = await import('jose');
+    const { createRemoteJWKSet } = await import('jose');
+    
+    const workosClientId = process.env.WORKOS_CLIENT_ID;
+    if (!workosClientId) {
+      throw new Error('Missing WORKOS_CLIENT_ID');
+    }
+    
+    // Create JWKS from WorkOS
+    const JWKS = createRemoteJWKSet(new URL('https://api.workos.com/sso/jwks'));
+    
+    // Verify the JWT
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: 'https://api.workos.com/sso',
+      audience: workosClientId,
+    });
+    
+    const workosPayload = payload as WorkOSJwtPayload;
+    const sub = workosPayload.sub;
+    const email = workosPayload.email;
+    
     if (!sub) return null;
     return { id: sub, email };
   } catch (error) {
-    console.error('verifyClerkJwt failed', error);
+    console.error('verifyWorkOSJwt failed', error);
     return null;
   }
 }
@@ -57,7 +71,7 @@ export const protectedProcedure = t.procedure.use(
     if (!authToken) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing bearer token' });
     }
-    const verified = await verifyClerkJwt(authToken);
+    const verified = await verifyWorkOSJwt(authToken);
     if (!verified) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid or expired token' });
     }
@@ -214,14 +228,14 @@ const aiModelRouter = router({
 
 // Auth procedures
 const authRouter = router({
-  // Exchange Clerk code for tokens
-  clerkCallback: publicProcedure
+  // Exchange WorkOS code for tokens
+  workosCallback: publicProcedure
     .input(z.object({
       code: z.string(),
     }))
     .mutation(async ({ input }) => {
       try {
-        // This would integrate with Clerk's auth flow
+        // This would integrate with WorkOS auth flow
         // For now returning mock data
         return {
           profile: {
@@ -235,10 +249,10 @@ const authRouter = router({
           accessToken: 'mock-access-token',
         };
       } catch (error) {
-        console.error('Clerk callback error:', error);
+        console.error('WorkOS callback error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to process Clerk authentication',
+          message: 'Failed to process WorkOS authentication',
         });
       }
     }),
