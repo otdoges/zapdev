@@ -27,7 +27,7 @@ import HeaderWrapper from "@/components/shared/header/Wrapper/Wrapper";
 import HeaderDropdownWrapper from "@/components/shared/header/Dropdown/Wrapper/Wrapper";
 import GithubIcon from "@/components/shared/header/Github/_svg/GithubIcon";
 import ButtonUI from "@/components/ui/shadcn/button"
-import AuthStatus from "@/components/AuthStatus"
+import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 
 interface SearchResult {
   url: string;
@@ -218,7 +218,21 @@ export default function HomePage() {
                 <HeaderBrandKit />
               </div>
               <div className="flex gap-8 items-center">
-                <AuthStatus />
+                <SignedOut>
+                  <SignInButton>
+                    <ButtonUI variant="tertiary" className="text-xs px-3 py-1">
+                      Sign In
+                    </ButtonUI>
+                  </SignInButton>
+                  <SignUpButton>
+                    <ButtonUI variant="primary" className="text-xs px-3 py-1">
+                      Sign Up
+                    </ButtonUI>
+                  </SignUpButton>
+                </SignedOut>
+                <SignedIn>
+                  <UserButton />
+                </SignedIn>
                 <a
                   className="contents"
                   href="https://github.com/mendableai/open-lovable"

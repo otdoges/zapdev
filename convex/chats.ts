@@ -12,19 +12,11 @@ const getAuthenticatedUser = async (ctx: QueryCtx | MutationCtx) => {
   return identity;
 };
 
-// Resolve user's plan type; default to "free" for unknown/invalid values
+// For now, always return "free" plan since we don't have user subscriptions
 const getUserPlanType = async (
   ctx: QueryCtx | MutationCtx,
   userId: string
 ): Promise<"free" | "pro" | "enterprise"> => {
-  const sub = await ctx.db
-    .query("userSubscriptions")
-    .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
-    .first();
-  const plan = sub?.planType;
-  if (plan === "free" || plan === "pro" || plan === "enterprise") {
-    return plan;
-  }
   return "free";
 };
 

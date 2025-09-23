@@ -14,7 +14,6 @@ import type * as billing from "../billing.js";
 import type * as chats from "../chats.js";
 import type * as deployments from "../deployments.js";
 import type * as http from "../http.js";
-import type * as jwtAuth from "../jwtAuth.js";
 import type * as messages from "../messages.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as secretAccess from "../secretAccess.js";
@@ -45,7 +44,6 @@ declare const fullApi: ApiFromModules<{
   chats: typeof chats;
   deployments: typeof deployments;
   http: typeof http;
-  jwtAuth: typeof jwtAuth;
   messages: typeof messages;
   rateLimit: typeof rateLimit;
   secretAccess: typeof secretAccess;
