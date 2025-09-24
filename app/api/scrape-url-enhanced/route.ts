@@ -51,40 +51,52 @@ export async function POST(request: NextRequest) {
     }
     
     // Make request to Firecrawl API with maxAge for 500% faster scraping
+    const payload = {
+      url,
+      formats: ['markdown', 'html', 'screenshot'],
+      waitFor: 3000,
+      timeout: 30000,
+      blockAds: true,
+      maxAge: 3600000, // Use cached data if less than 1 hour old (500% faster!)
+      actions: [
+        {
+          type: 'wait',
+          milliseconds: 2000
+        },
+        {
+          type: 'screenshot',
+          fullPage: false // Just visible viewport for performance
+        }
+      ]
+    };
+    
+    console.log('[scrape-url-enhanced] Request payload:', JSON.stringify(payload, null, 2));
+    
     const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        url,
-        formats: ['markdown', 'html', 'screenshot'],
-        waitFor: 3000,
-        timeout: 30000,
-        blockAds: true,
-        maxAge: 3600000, // Use cached data if less than 1 hour old (500% faster!)
-        actions: [
-          {
-            type: 'wait',
-            milliseconds: 2000
-          },
-          {
-            type: 'screenshot',
-            fullPage: false // Just visible viewport for performance
-          }
-        ]
-      })
+      body: JSON.stringify(payload)
     });
+    
+    console.log('[scrape-url-enhanced] Response status:', firecrawlResponse.status);
+    console.log('[scrape-url-enhanced] Response headers:', Object.fromEntries(firecrawlResponse.headers.entries()));
     
     if (!firecrawlResponse.ok) {
       const error = await firecrawlResponse.text();
+      console.error('[scrape-url-enhanced] Firecrawl error response:', error);
       throw new Error(`Firecrawl API error: ${error}`);
     }
     
     const data = await firecrawlResponse.json();
+    console.log('[scrape-url-enhanced] Response data keys:', Object.keys(data));
+    console.log('[scrape-url-enhanced] Success:', data.success);
+    console.log('[scrape-url-enhanced] Has data:', !!data.data);
     
     if (!data.success || !data.data) {
+      console.error('[scrape-url-enhanced] Invalid response structure:', JSON.stringify(data, null, 2));
       throw new Error('Failed to scrape content');
     }
     
