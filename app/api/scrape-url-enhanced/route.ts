@@ -87,6 +87,80 @@ export async function POST(request: NextRequest) {
     if (!firecrawlResponse.ok) {
       const error = await firecrawlResponse.text();
       console.error('[scrape-url-enhanced] Firecrawl error response:', error);
+      
+      // If timeout, retry once with longer timeout
+      if (error.includes('SCRAPE_TIMEOUT')) {
+        console.log('[scrape-url-enhanced] Timeout detected, retrying with longer timeout...');
+        
+        const retryPayload = {
+          ...payload,
+          timeout: 50000, // Increase to 50 seconds
+          waitFor: 2000,  // Reduce wait time slightly
+        };
+        
+        console.log('[scrape-url-enhanced] Retry payload timeout:', retryPayload.timeout);
+        
+        const retryResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(retryPayload)
+        });
+        
+        console.log('[scrape-url-enhanced] Retry response status:', retryResponse.status);
+        
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          if (retryData.success && retryData.data) {
+            console.log('[scrape-url-enhanced] Retry successful!');
+            const data = retryData;
+            
+            const { markdown, metadata, screenshot, actions } = data.data;
+            const screenshotUrl = screenshot || actions?.screenshots?.[0] || null;
+            const sanitizedMarkdown = sanitizeQuotes(markdown || '');
+            const title = metadata?.title || '';
+            const description = metadata?.description || '';
+            
+            const formattedContent = `
+Title: ${sanitizeQuotes(title)}
+Description: ${sanitizeQuotes(description)}
+URL: ${url}
+
+Main Content:
+${sanitizedMarkdown}
+            `.trim();
+            
+            return NextResponse.json({
+              success: true,
+              url,
+              content: formattedContent,
+              screenshot: screenshotUrl,
+              structured: {
+                title: sanitizeQuotes(title),
+                description: sanitizeQuotes(description),
+                content: sanitizedMarkdown,
+                url,
+                screenshot: screenshotUrl
+              },
+              metadata: {
+                scraper: 'firecrawl-enhanced',
+                timestamp: new Date().toISOString(),
+                contentLength: formattedContent.length,
+                cached: data.data.cached || false,
+                retryUsed: true, // Indicates retry was successful
+                ...metadata
+              },
+              message: 'URL scraped successfully with Firecrawl retry (with caching for 500% faster performance)'
+            });
+          }
+        }
+        
+        const retryError = await retryResponse.text();
+        console.error('[scrape-url-enhanced] Retry also failed:', retryError);
+      }
+      
       throw new Error(`Firecrawl API error: ${error}`);
     }
     
