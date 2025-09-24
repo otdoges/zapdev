@@ -54,7 +54,8 @@ export class E2BProvider extends SandboxProvider {
         sandboxId,
         url: `https://${host}`,
         provider: 'e2b',
-        createdAt: new Date()
+        createdAt: new Date(),
+        host // Store the host for Vite config
       };
 
       // Set extended timeout on the sandbox instance if method available
@@ -256,6 +257,7 @@ export class E2BProvider extends SandboxProvider {
       throw new Error('No active sandbox');
     }
 
+    const host = this.sandboxInfo?.host || '0.0.0.0';
     
     // Write all files in a single Python script
     const setupScript = `
@@ -306,7 +308,7 @@ export default defineConfig({
     strictPort: true,
     hmr: {
       port: 5173,
-      host: '0.0.0.0'
+      host: '${host}'
     },
     watch: {
       usePolling: true,

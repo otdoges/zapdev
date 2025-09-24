@@ -9,6 +9,7 @@ export interface SandboxInfo {
   url: string;
   provider: 'e2b' | 'vercel';
   createdAt: Date;
+  host?: string; // E2B host for HMR configuration
 }
 
 export interface CommandResult {
