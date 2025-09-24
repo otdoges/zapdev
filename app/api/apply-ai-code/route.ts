@@ -379,15 +379,16 @@ export async function POST(request: NextRequest) {
         try {
           // Check if we're using provider pattern (v2) or direct sandbox (v1)
           if (sandbox.writeFile) {
-            // V2: Provider pattern (Vercel/E2B provider)
-            await sandbox.writeFile(file.path, fileContent);
+            // V2: Provider pattern (Vercel/E2B provider) - use normalized path without /home/user/app/
+            await sandbox.writeFile(normalizedPath, fileContent);
+            console.log(`[apply-ai-code] Successfully wrote file via provider: ${normalizedPath}`);
           } else if (sandbox.files?.write) {
-            // V1: Direct E2B sandbox
+            // V1: Direct E2B sandbox - use full path and ensure content is string
             await sandbox.files.write(fullPath, fileContent);
+            console.log(`[apply-ai-code] Successfully wrote file via E2B API: ${fullPath}`);
           } else {
-            throw new Error('Unsupported sandbox type');
+            throw new Error('Unsupported sandbox type - no writeFile or files.write method available');
           }
-          console.log(`[apply-ai-code] Successfully wrote file: ${fullPath}`);
           
           // Update file cache
           if (global.sandboxState?.fileCache) {
@@ -399,7 +400,7 @@ export async function POST(request: NextRequest) {
           }
           
         } catch (writeError) {
-          console.error(`[apply-ai-code] E2B file write error:`, writeError);
+          console.error(`[apply-ai-code] File write error for ${normalizedPath}:`, writeError);
           throw writeError;
         }
         
@@ -661,45 +662,16 @@ body {
       message: responseMessage
     };
     
-    // Handle missing imports automatically
+    // Handle missing imports - only warn, don't auto-generate to prevent duplicates
     if (missingImports.length > 0) {
       console.warn('[apply-ai-code] Missing imports detected:', missingImports);
       
-      // Automatically generate missing components
-      try {
-        console.log('[apply-ai-code] Auto-generating missing components...');
-        
-        const autoCompleteResponse = await fetch(
-          `${request.nextUrl.origin}/api/auto-complete-components`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              missingImports,
-              model: 'claude-sonnet-4-20250514'
-            })
-          }
-        );
-        
-        const autoCompleteData = await autoCompleteResponse.json();
-        
-        if (autoCompleteData.success) {
-          responseData.autoCompleted = true;
-          responseData.autoCompletedComponents = autoCompleteData.components;
-          responseData.message = `Applied ${results.filesCreated.length} files + auto-generated ${autoCompleteData.files} missing components`;
-          
-          // Add auto-completed files to results
-          results.filesCreated.push(...autoCompleteData.components);
-        } else {
-          // If auto-complete fails, still warn the user
-          responseData.warning = `Missing ${missingImports.length} imported components: ${missingImports.join(', ')}`;
-          responseData.missingImports = missingImports;
-        }
-      } catch (error) {
-        console.error('[apply-ai-code] Auto-complete failed:', error);
-        responseData.warning = `Missing ${missingImports.length} imported components: ${missingImports.join(', ')}`;
-        responseData.missingImports = missingImports;
-      }
+      // Only provide warning about missing imports, don't auto-generate
+      // This prevents duplicate code generation issues
+      responseData.warning = `Missing ${missingImports.length} imported components: ${missingImports.join(', ')}. These components need to be created manually or already exist.`;
+      responseData.missingImports = missingImports;
+      
+      console.log('[apply-ai-code] Auto-completion disabled to prevent duplicate code generation');
     }
     
     // Track applied files in conversation state

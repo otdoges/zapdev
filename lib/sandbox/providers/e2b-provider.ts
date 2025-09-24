@@ -112,45 +112,51 @@ export class E2BProvider extends SandboxProvider {
 
     const fullPath = path.startsWith('/') ? path : `/home/user/app/${path}`;
     
-    // Use the E2B filesystem API to write the file
-    // Note: E2B SDK uses files.write() method
-    if ((this.sandbox as any).files && typeof (this.sandbox as any).files.write === 'function') {
-      // Use the files.write API if available
-      await (this.sandbox as any).files.write(fullPath, Buffer.from(content));
-    } else {
-      // Fallback to Python code execution
+    try {
+      // Use the E2B filesystem API to write the file
+      // E2B SDK expects string content, not Buffer
+      if ((this.sandbox as any).files && typeof (this.sandbox as any).files.write === 'function') {
+        await (this.sandbox as any).files.write(fullPath, content);
+        console.log(`[E2BProvider] Successfully wrote file using E2B API: ${fullPath}`);
+      } else {
+        // Fallback to Python code execution if files API not available
+        await this.sandbox.runCode(`
+          import os
+
+          # Ensure directory exists
+          dir_path = os.path.dirname("${fullPath}")
+          os.makedirs(dir_path, exist_ok=True)
+
+          # Write file
+          with open("${fullPath}", 'w') as f:
+              f.write(${JSON.stringify(content)})
+          print(f"✓ Written: ${fullPath}")
+        `);
+        console.log(`[E2BProvider] Successfully wrote file using Python fallback: ${fullPath}`);
+      }
+      
+      this.existingFiles.add(path);
+      
+      // Force file system sync and trigger HMR
       await this.sandbox.runCode(`
-        import os
-
-        # Ensure directory exists
-        dir_path = os.path.dirname("${fullPath}")
-        os.makedirs(dir_path, exist_ok=True)
-
-        # Write file
-        with open("${fullPath}", 'w') as f:
-            f.write(${JSON.stringify(content)})
-        print(f"✓ Written: ${fullPath}")
+        import subprocess
+        import time
+        
+        # Sync filesystem
+        subprocess.run(['sync'], capture_output=True)
+        
+        # Touch the file to ensure file watcher picks up the change
+        subprocess.run(['touch', '${fullPath}'], capture_output=True)
+        
+        print(f"✓ File change signaled: ${fullPath}")
       `);
+      
+      // Small delay to let HMR pick up the change
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error(`[E2BProvider] Failed to write file ${fullPath}:`, error);
+      throw new Error(`Failed to write file ${fullPath}: ${(error as Error).message}`);
     }
-    
-    this.existingFiles.add(path);
-    
-    // Force file system sync and trigger HMR
-    await this.sandbox.runCode(`
-      import subprocess
-      import time
-      
-      # Sync filesystem
-      subprocess.run(['sync'], capture_output=True)
-      
-      # Touch the file to ensure file watcher picks up the change
-      subprocess.run(['touch', '${fullPath}'], capture_output=True)
-      
-      print(f"✓ File change signaled: ${fullPath}")
-    `);
-    
-    // Small delay to let HMR pick up the change
-    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
   async readFile(path: string): Promise<string> {
