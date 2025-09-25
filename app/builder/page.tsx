@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Logo from "@/components/shared/icons/Logo";
 
 export default function BuilderPage() {
   const [targetUrl, setTargetUrl] = useState<string>("");
@@ -11,6 +12,7 @@ export default function BuilderPage() {
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [progress, setProgress] = useState<string>("Initializing...");
   const [generatedCode, setGeneratedCode] = useState<string>("");
+  const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -220,9 +222,20 @@ export default function BuilderPage() {
 
   return (
     <div className="min-h-screen bg-background-base">
+      {/* Logo Button */}
+      <button
+        onClick={() => setSidebarVisible(!sidebarVisible)}
+        className="fixed top-6 left-6 z-50 p-3 bg-white border border-border-faint rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105"
+        title={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
+      >
+        <Logo className="w-6 h-6" />
+      </button>
+
       <div className="flex h-screen">
         {/* Sidebar */}
-        <div className="w-80 bg-white border-r border-border-faint p-24 flex flex-col">
+        <div className={`w-80 bg-white border-r border-border-faint p-24 flex flex-col transition-all duration-300 ${
+          sidebarVisible ? 'translate-x-0' : '-translate-x-full'
+        }`}>
           <h2 className="text-title-small font-semibold mb-16">Building Your Website</h2>
           
           <div className="space-y-12 flex-1">
@@ -262,7 +275,9 @@ export default function BuilderPage() {
         </div>
         
         {/* Preview */}
-        <div className="flex-1 bg-gray-50">
+        <div className={`bg-gray-50 transition-all duration-300 ${
+          sidebarVisible ? 'flex-1' : 'w-full'
+        }`}>
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
