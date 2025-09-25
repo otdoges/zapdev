@@ -2793,7 +2793,10 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     }
     
     // Start creating sandbox and capturing screenshot immediately in parallel
-    const sandboxPromise = !sandboxData ? createSandbox(true) : Promise.resolve(null);
+    const sandboxPromise: Promise<SandboxData | null> = !sandboxData
+      ? createSandbox(true)
+      : Promise.resolve(null);
+    let createdSandboxData: SandboxData | null = null;
     
     // Set loading stage immediately before hiding home screen
     setLoadingStage('gathering');
@@ -2816,8 +2819,20 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       }, 1000);
       
       // Wait for sandbox to be ready (if it's still creating)
-      await sandboxPromise;
-      
+      try {
+        createdSandboxData = await sandboxPromise;
+        if (createdSandboxData) {
+          setSandboxData(createdSandboxData);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        addChatMessage(`Sandbox creation failed: ${message}`, 'system');
+        setIsStartingNewGeneration(false);
+        setShowLoadingBackground(false);
+        setLoadingStage(null);
+        return;
+      }
+
       // Now start the clone process which will stream the generation
       setUrlInput(baseInput);
       setUrlOverlayVisible(false); // Make sure overlay is closed
@@ -3195,7 +3210,21 @@ ${filteredContext ? '- Apply the user\'s context/theme throughout the applicatio
           setPromptInput(generatedCode);
           
           // First application for cloned site should not be in edit mode
-          await applyGeneratedCode(generatedCode, false);
+          const effectiveSandboxData = createdSandboxData ?? sandboxData;
+          if (!effectiveSandboxData) {
+            addChatMessage('Sandbox is not ready yet. Please wait a moment and try again.', 'system');
+            setLoadingStage(null);
+            setShowLoadingBackground(false);
+            setIsStartingNewGeneration(false);
+            return;
+          }
+
+          // Give newly created sandboxes a moment for services (like Vite) to finish booting
+          if (!sandboxData && createdSandboxData) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+
+          await applyGeneratedCode(generatedCode, false, effectiveSandboxData);
           
           addChatMessage(
             `Successfully recreated ${url} as a modern React app${homeContextInput ? ` with your requested context: "${homeContextInput}"` : ''}! The scraped content is now in my context, so you can ask me to modify specific sections or add features based on the original site.`, 

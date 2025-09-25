@@ -133,10 +133,10 @@ export default function HistorySidebar({ isOpen, onClose, onChatSelect, currentC
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed left-0 top-0 h-full w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-50 flex flex-col"
+            className="fixed left-0 top-0 h-full w-80 bg-white/20 dark:bg-gray-900/40 backdrop-blur-2xl border-r border-white/10 dark:border-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.35)] z-50 flex flex-col"
           >
             {/* Header */}
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="p-4 border-b border-white/10">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <Image
@@ -146,36 +146,36 @@ export default function HistorySidebar({ isOpen, onClose, onChatSelect, currentC
                     height={32}
                     className="rounded-lg"
                   />
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <h2 className="text-lg font-semibold text-white">
                     Chat History
                   </h2>
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="p-1 rounded-lg hover:bg-white/10 transition-colors"
                 >
-                  <FiX className="w-5 h-5 text-gray-500" />
+                  <FiX className="w-5 h-5 text-white/70" />
                 </button>
               </div>
 
               {/* New Chat Button */}
               <button
                 onClick={handleNewChat}
-                className="w-full mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                className="w-full mb-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-colors flex items-center gap-2 border border-white/10"
               >
-                <FiPlus className="w-4 h-4" />
+                <FiPlus className="w-4 h-4 text-white" />
                 New Chat
               </button>
 
               {/* Search */}
               <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Search chats..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-white/10 rounded-lg bg-white/10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
                 />
               </div>
 
@@ -184,7 +184,7 @@ export default function HistorySidebar({ isOpen, onClose, onChatSelect, currentC
                 <button
                   onClick={handleDeleteSelected}
                   disabled={isDeleting}
-                  className="w-full mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                  className="w-full mt-3 px-4 py-2 bg-red-500/80 hover:bg-red-500 disabled:opacity-50 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
                 >
                   <FiTrash2 className="w-4 h-4" />
                   {isDeleting ? 'Deleting...' : `Delete ${selectedChats.size} chat${selectedChats.size > 1 ? 's' : ''}`}
@@ -199,7 +199,7 @@ export default function HistorySidebar({ isOpen, onClose, onChatSelect, currentC
 
                 return (
                   <div key={group} className="p-4">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">
+                    <h3 className="text-sm font-medium text-white/60 mb-3 uppercase tracking-wider">
                       {group}
                     </h3>
                     <div className="space-y-2">
@@ -207,12 +207,12 @@ export default function HistorySidebar({ isOpen, onClose, onChatSelect, currentC
                         <motion.div
                           key={chat._id}
                           layout
-                          className={`relative p-3 rounded-lg border transition-all cursor-pointer group ${
+                          className={`relative p-3 rounded-lg border transition-all cursor-pointer group backdrop-blur-sm ${
                             currentChatId === chat._id
-                              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                              : selectedChats.has(chat._id)
-                              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                              : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750'
+                              ? 'bg-white/25 border-white/40 shadow-[0_10px_30px_rgba(15,23,42,0.35)]'
+                            : selectedChats.has(chat._id)
+                              ? 'bg-red-500/20 border-red-300/40'
+                              : 'bg-white/10 border-white/15 hover:bg-white/16'
                           }`}
                           onClick={(e) => {
                             if (e.ctrlKey || e.metaKey) {
@@ -231,7 +231,7 @@ export default function HistorySidebar({ isOpen, onClose, onChatSelect, currentC
                         >
                           {/* Chat Preview Image */}
                           {chat.screenshot && (
-                            <div className="w-full h-20 mb-2 rounded-md overflow-hidden bg-gray-200 dark:bg-gray-700">
+                            <div className="w-full h-20 mb-2 rounded-md overflow-hidden bg-white/5">
                               <Image
                                 src={chat.screenshot}
                                 alt="Chat preview"
@@ -244,15 +244,15 @@ export default function HistorySidebar({ isOpen, onClose, onChatSelect, currentC
 
                           <div className="flex items-start gap-3">
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-gray-900 dark:text-white truncate">
+                              <h4 className="font-medium text-white truncate">
                                 {chat.title}
                               </h4>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
-                                <FiClock className="w-3 h-3" />
+                              <p className="text-sm text-white/60 flex items-center gap-1 mt-1">
+                                <FiClock className="w-3 h-3 text-white/60" />
                                 {formatDate(chat.updatedAt)}
                               </p>
                               {chat.sandboxUrl && (
-                                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
+                                <p className="text-xs text-blue-300 mt-1 flex items-center gap-1">
                                   <FiMessageSquare className="w-3 h-3" />
                                   Has sandbox
                                 </p>
@@ -262,7 +262,7 @@ export default function HistorySidebar({ isOpen, onClose, onChatSelect, currentC
 
                           {/* Selection Indicator */}
                           {selectedChats.has(chat._id) && (
-                            <div className="absolute top-2 right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                            <div className="absolute top-2 right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
                               <FiX className="w-3 h-3 text-white" />
                             </div>
                           )}
@@ -274,8 +274,8 @@ export default function HistorySidebar({ isOpen, onClose, onChatSelect, currentC
               })}
 
               {filteredChats.length === 0 && (
-                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                  <FiMessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <div className="p-8 text-center text-white/60">
+                  <FiMessageSquare className="w-12 h-12 mx-auto mb-4 text-white/50" />
                   <p className="text-lg font-medium mb-2">No chats found</p>
                   <p className="text-sm">
                     {searchTerm ? 'Try a different search term' : 'Start a new conversation to see it here'}
