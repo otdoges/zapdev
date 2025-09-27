@@ -4,15 +4,20 @@
 
 import * as Sentry from "@sentry/nextjs";
 
-Sentry.init({
-  dsn: "https://1b6739a2a26c880593715bf9981015c1@o4509773371080704.ingest.us.sentry.io/4509773372391424",
+const dsn = process.env.SENTRY_DSN;
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
-
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
-
-  // Setting this option to true will print useful information to the console while you're setting up Sentry.
-  debug: false,
-});
+if (dsn) {
+  Sentry.init({
+    dsn,
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE) || 1,
+    enableLogs: true,
+    debug: false,
+    // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
+    // See the following for more information:
+    // https://docs.sentry.io/product/crons/
+    // https://vercel.com/docs/cron-jobs
+    automaticVercelMonitors: true,
+  });
+} else {
+  console.warn('Sentry DSN not provided, skipping initialization.');
+}

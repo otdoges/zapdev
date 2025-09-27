@@ -330,18 +330,24 @@ const themeConfig: Config = {
   				max: '1199px'
   			}
   		},
-  		opacity: 'opacities',
-  		spacing: {
-                ...sizes,
-  			root: 'var(--root-padding)'
-  		},
-  		width: 'sizes',
-  		maxWidth: 'sizes',
-  		height: 'sizes',
-  		inset: 'sizes',
-  		borderWidth: 'sizes',
-  		backdropBlur: 'Array.from({ length: 20 }, (_, i) => i).reduce(\n        (acc, curr) => {\n          acc[curr] = curr + "px";\n\n          return acc;\n        },\n        {} as Record<string, string>\n      )',
-  		transitionTimingFunction: {
+    opacity: opacities,
+    spacing: {
+        ...sizes,
+        root: 'var(--root-padding)'
+    },
+    width: sizes,
+    maxWidth: sizes,
+    height: sizes,
+    inset: sizes,
+    borderWidth: sizes,
+    backdropBlur: Array.from({ length: 20 }, (_, i) => i).reduce(
+        (acc, curr) => {
+            acc[curr] = `${curr}px`;
+            return acc;
+        },
+        {} as Record<string, string>
+    ),
+    transitionTimingFunction: {
   			DEFAULT: 'cubic-bezier(0.25, 0.1, 0.25, 1)'
   		},
   		transitionDuration: {

@@ -742,14 +742,32 @@ function AISandboxPage() {
   };
 
   const sandboxCreationRef = useRef<boolean>(false);
+  const sandboxCreationPromiseRef = useRef<Promise<SandboxData | null> | null>(null);
+  const sandboxDataRef = useRef<SandboxData | null>(null);
+
+  useEffect(() => {
+    sandboxDataRef.current = sandboxData;
+  }, [sandboxData]);
+
+  const waitForSandboxReady = async (timeoutMs = 15000) => {
+    const start = Date.now();
+    while (!sandboxDataRef.current && Date.now() - start < timeoutMs) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    return sandboxDataRef.current;
+  };
   
   const createSandbox = async (fromHomeScreen = false) => {
-    // Prevent duplicate sandbox creation
-    if (sandboxCreationRef.current) {
-      console.log('[createSandbox] Sandbox creation already in progress, skipping...');
-      return null;
+    if (sandboxCreationPromiseRef.current) {
+      console.log('[createSandbox] Sandbox creation already in progress, awaiting existing promise...');
+      return sandboxCreationPromiseRef.current;
     }
-    
+
+    if (sandboxCreationRef.current) {
+      console.log('[createSandbox] Sandbox creation flag set, returning existing sandbox data if available...');
+      return sandboxDataRef.current ? Promise.resolve(sandboxDataRef.current) : null;
+    }
+
     sandboxCreationRef.current = true;
     console.log('[createSandbox] Starting sandbox creation...');
     setLoading(true);
@@ -758,76 +776,81 @@ function AISandboxPage() {
     setResponseArea([]);
     setScreenshotError(null);
     
-    try {
-      const response = await fetch('/api/create-ai-sandbox-v2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      
-      const data = await response.json();
-      console.log('[createSandbox] Response data:', data);
-      
-      if (data.success) {
-        sandboxCreationRef.current = false; // Reset the ref on success
-        console.log('[createSandbox] Setting sandboxData from creation:', data);
-        setSandboxData(data);
-        updateStatus('Sandbox active', true);
-        log('Sandbox created successfully!');
-        log(`Sandbox ID: ${data.sandboxId}`);
-        log(`URL: ${data.url}`);
+    const creationPromise = (async () => {
+      try {
+        const response = await fetch('/api/create-ai-sandbox-v2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
         
-        // Update URL with sandbox ID
-        const newParams = new URLSearchParams(searchParams.toString());
-        newParams.set('sandbox', data.sandboxId);
-        newParams.set('model', aiModel);
-        router.push(`/generation?${newParams.toString()}`, { scroll: false });
+        const data = await response.json();
+        console.log('[createSandbox] Response data:', data);
         
-        // Fade out loading background after sandbox loads
-        setTimeout(() => {
-          setShowLoadingBackground(false);
-        }, 3000);
-        
-        if (data.structure) {
-          displayStructure(data.structure);
-        }
-        
-        // Fetch sandbox files after creation
-        setTimeout(fetchSandboxFiles, 1000);
-        
-        // For Vercel sandboxes, Vite is already started during setupViteApp
-        // No need to restart it immediately after creation
-        // Only restart if there's an actual issue later
-        console.log('[createSandbox] Sandbox ready with Vite server running');
-        
-        // Only add welcome message if not coming from home screen
-        if (!fromHomeScreen) {
-          addChatMessage(`Sandbox created! ID: ${data.sandboxId}. I now have context of your sandbox and can help you build your app. Just ask me to create components and I'll automatically apply them!
+        if (data.success) {
+          console.log('[createSandbox] Setting sandboxData from creation:', data);
+          setSandboxData(data);
+          updateStatus('Sandbox active', true);
+          log('Sandbox created successfully!');
+          log(`Sandbox ID: ${data.sandboxId}`);
+          log(`URL: ${data.url}`);
+          
+          // Update URL with sandbox ID
+          const newParams = new URLSearchParams(searchParams.toString());
+          newParams.set('sandbox', data.sandboxId);
+          newParams.set('model', aiModel);
+          router.push(`/generation?${newParams.toString()}`, { scroll: false });
+          
+          // Fade out loading background after sandbox loads
+          setTimeout(() => {
+            setShowLoadingBackground(false);
+          }, 3000);
+          
+          if (data.structure) {
+            displayStructure(data.structure);
+          }
+          
+          // Fetch sandbox files after creation
+          setTimeout(fetchSandboxFiles, 1000);
+          
+          // For Vercel sandboxes, Vite is already started during setupViteApp
+          // No need to restart it immediately after creation
+          // Only restart if there's an actual issue later
+          console.log('[createSandbox] Sandbox ready with Vite server running');
+          
+          // Only add welcome message if not coming from home screen
+          if (!fromHomeScreen) {
+            addChatMessage(`Sandbox created! ID: ${data.sandboxId}. I now have context of your sandbox and can help you build your app. Just ask me to create components and I'll automatically apply them!
 
 Tip: I automatically detect and install npm packages from your code imports (like react-router-dom, axios, etc.)`, 'system');
-        }
-        
-        setTimeout(() => {
-          if (iframeRef.current) {
-            iframeRef.current.src = data.url;
           }
-        }, 100);
-        
-        // Return the sandbox data so it can be used immediately
-        return data;
-      } else {
+          
+          setTimeout(() => {
+            if (iframeRef.current) {
+              iframeRef.current.src = data.url;
+            }
+          }, 100);
+          
+          // Return the sandbox data so it can be used immediately
+          return data;
+        }
+
         throw new Error(data.error || 'Unknown error');
+      } catch (error: any) {
+        console.error('[createSandbox] Error:', error);
+        updateStatus('Error', false);
+        log(`Failed to create sandbox: ${error.message}`, 'error');
+        addChatMessage(`Failed to create sandbox: ${error.message}`, 'system');
+        throw error;
+      } finally {
+        setLoading(false);
+        sandboxCreationRef.current = false;
+        sandboxCreationPromiseRef.current = null;
       }
-    } catch (error: any) {
-      console.error('[createSandbox] Error:', error);
-      updateStatus('Error', false);
-      log(`Failed to create sandbox: ${error.message}`, 'error');
-      addChatMessage(`Failed to create sandbox: ${error.message}`, 'system');
-      throw error;
-    } finally {
-      setLoading(false);
-      sandboxCreationRef.current = false; // Reset the ref
-    }
+    })();
+
+    sandboxCreationPromiseRef.current = creationPromise;
+    return creationPromise;
   };
 
   const displayStructure = (structure: any) => {
@@ -2879,9 +2902,11 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     }
     
     // Start creating sandbox and capturing screenshot immediately in parallel
-    const sandboxPromise: Promise<SandboxData | null> = !sandboxData
+    const existingSandboxData = sandboxDataRef.current;
+    const isCreatingNewSandbox = !existingSandboxData;
+    const sandboxPromise: Promise<SandboxData | null> = isCreatingNewSandbox
       ? createSandbox(true)
-      : Promise.resolve(null);
+      : Promise.resolve(existingSandboxData);
     let createdSandboxData: SandboxData | null = null;
     
     // Set loading stage immediately before hiding home screen
@@ -2906,9 +2931,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       
       // Wait for sandbox to be ready (if it's still creating)
       try {
-        createdSandboxData = await sandboxPromise;
-        if (createdSandboxData) {
-          setSandboxData(createdSandboxData);
+        const sandboxResult = await sandboxPromise;
+        if (sandboxResult) {
+          createdSandboxData = sandboxResult;
+          if (!sandboxDataRef.current) {
+            setSandboxData(sandboxResult);
+          }
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -3296,7 +3324,10 @@ ${filteredContext ? '- Apply the user\'s context/theme throughout the applicatio
           setPromptInput(generatedCode);
           
           // First application for cloned site should not be in edit mode
-          const effectiveSandboxData = createdSandboxData ?? sandboxData;
+          let effectiveSandboxData = createdSandboxData ?? sandboxDataRef.current;
+          if (!effectiveSandboxData) {
+            effectiveSandboxData = await waitForSandboxReady();
+          }
           if (!effectiveSandboxData) {
             addChatMessage('Sandbox is not ready yet. Please wait a moment and try again.', 'system');
             setLoadingStage(null);
@@ -3306,7 +3337,7 @@ ${filteredContext ? '- Apply the user\'s context/theme throughout the applicatio
           }
 
           // Give newly created sandboxes a moment for services (like Vite) to finish booting
-          if (!sandboxData && createdSandboxData) {
+          if (isCreatingNewSandbox && effectiveSandboxData) {
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
 
