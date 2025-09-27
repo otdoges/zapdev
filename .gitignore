@@ -62,3 +62,4 @@ zapdev-overview.txt
 zapdev-overview.pdf
 # Sentry Config File
 .env.sentry-build-plugin
+.env
