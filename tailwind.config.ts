@@ -373,7 +373,9 @@ const themeConfig: Config = {
         ".center-y": { "@apply absolute top-1/2 -translate-y-1/2": {} },
         ".center": { "@apply absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2": {} },
         ".flex-center": { "@apply flex items-center justify-center": {} },
-        ".overlay": { "@apply absolute top-0 left-0 w-full h-full rounded-inherit": {} },
+        ".overlay": { "@apply absolute top-0 left-0 w-full h-full": {},
+          borderRadius: "inherit"
+        },
         ".text-gradient": { "@apply !bg-clip-text !text-transparent": {} }
       });
       matchUtilities(

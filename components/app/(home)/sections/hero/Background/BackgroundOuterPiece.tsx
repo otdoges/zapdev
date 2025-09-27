@@ -40,7 +40,7 @@ export const BackgroundOuterPiece = () => {
   return (
     <div
       className={cn(
-        "cw-[1335px] transition-all z-[105] absolute top-0 flex justify-between h-[calc(100%+21px)] duration-[200ms] pointer-events-none",
+        "cw-[1335px] transition-all z-[105] absolute top-0 flex justify-between h-[calc(100%+21px)] duration-200 pointer-events-none",
         { "opacity-0": noRender || dropdownContent || !headerHeight },
       )}
       style={{

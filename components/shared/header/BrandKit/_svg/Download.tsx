@@ -8,7 +8,7 @@ export default function Download() {
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
-        className="group-hover:stroke-heat-100 duration-[200ms] transition-all"
+        className="group-hover:stroke-heat-100 duration-200 transition-all"
         d="M12.8334 10.8334L10.4715 13.1953C10.2111 13.4557 9.78904 13.4557 9.52869 13.1953L7.16675 10.8334M10.0001 3.83337V13.1667M14.8334 16.1667H5.16675"
         stroke="#262626"
         strokeLinecap="round"

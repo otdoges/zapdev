@@ -23,7 +23,7 @@ export default function HeaderNavItem({
 
   return (
     <a
-      className="p-6 relative flex h-32 group rounded-8 active:scale-[0.98] transition-all duration-[50ms] active:duration-[100ms]"
+      className="p-6 relative flex h-32 group rounded-8 active:scale-[0.98] transition-all duration-50 active:duration-100"
       href={href}
       onMouseEnter={() => {
         if (dropdown) {
@@ -40,7 +40,7 @@ export default function HeaderNavItem({
     >
       <span
         className={cn(
-          "overlay pointer-events-none group-hover:bg-black-alpha-4 transition-all scale-95 group-active:duration-[100ms] duration-[150ms] group-hover:scale-100 group-active:bg-black-alpha-7",
+          "overlay pointer-events-none group-hover:bg-black-alpha-4 transition-all scale-95 group-active:duration-100 duration-150 group-hover:scale-100 group-active:bg-black-alpha-7",
           active && "!scale-100 !bg-black-alpha-4",
         )}
       />
