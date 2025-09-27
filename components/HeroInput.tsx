@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, KeyboardEvent, useEffect, useRef } from "react";
+import { BackgroundAgentSwitch } from "@/components/ui/background-agent-switch";
 
 interface HeroInputProps {
   value: string;
@@ -131,7 +132,8 @@ export default function HeroInput({
           />
         </label>
 
-        <div className="p-10 flex justify-end items-center relative">
+        <div className="p-10 flex justify-end items-center gap-4 relative">
+          <BackgroundAgentSwitch />
           <button
             onClick={onSubmit}
             disabled={!value.trim()}

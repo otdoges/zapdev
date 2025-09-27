@@ -495,4 +495,103 @@ export default defineSchema({
   })
     .index("by_database_id", ["databaseId"])
     .index("by_table_name", ["tableName"]),
+
+  // Background agent tasks and history
+  backgroundAgentTasks: defineTable({
+    userId: v.string(), // User who owns this task
+    taskId: v.string(), // Unique task ID
+    type: v.union(
+      v.literal("code_review"),
+      v.literal("dependency_update"),
+      v.literal("performance_optimization"),
+      v.literal("security_scan"),
+      v.literal("documentation"),
+      v.literal("test_generation"),
+      v.literal("bug_fix"),
+      v.literal("feature_enhancement")
+    ),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled")
+    ),
+    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    githubRepo: v.string(), // GitHub repository URL
+    branch: v.optional(v.string()), // Target branch
+    title: v.string(), // Task title
+    description: v.string(), // Task description
+    aiSuggestions: v.optional(v.string()), // AI-generated suggestions (JSON)
+    pullRequestUrl: v.optional(v.string()), // Created PR URL if applicable
+    // NOTE: Large logs can exceed Convex document size limits.
+    // Store detailed logs in backgroundAgentLogChunks table.
+    executionLogs: v.optional(v.array(v.object({
+      timestamp: v.number(),
+      level: v.union(v.literal("info"), v.literal("warning"), v.literal("error")),
+      message: v.string(),
+    }))), // kept for short summaries; truncate in mutations
+    result: v.optional(v.object({
+      changes: v.array(v.string()), // List of changes made
+      filesModified: v.number(),
+      linesAdded: v.number(),
+      linesRemoved: v.number(),
+      summary: v.string(),
+    })),
+    error: v.optional(v.string()), // Error message if failed
+    scheduledFor: v.optional(v.number()), // When to run (for scheduled tasks)
+    runAt: v.optional(v.number()), // When it actually ran
+    completedAt: v.optional(v.number()), // When it completed
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_task_id", ["taskId"])
+    .index("by_github_repo", ["githubRepo"])
+    .index("by_scheduled", ["scheduledFor"])
+    .index("by_created", ["createdAt"]),
+
+  // Background agent log chunks (avoid oversized docs)
+  backgroundAgentLogChunks: defineTable({
+    taskId: v.string(),
+    userId: v.string(),
+    timestamp: v.number(),
+    level: v.union(v.literal("info"), v.literal("warning"), v.literal("error")),
+    message: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_task", ["taskId"]) 
+    .index("by_user", ["userId"]) 
+    .index("by_task_time", ["taskId", "timestamp"]),
+
+  // Background agent settings (separate from userPreferences for better control)
+  backgroundAgentSettings: defineTable({
+    userId: v.string(),
+    enabled: v.boolean(),
+    mode: v.union(v.literal("manual"), v.literal("auto"), v.literal("scheduled")),
+    autoTriggers: v.optional(v.array(v.string())), // Conditions that trigger agent
+    schedule: v.optional(v.object({
+      frequency: v.union(v.literal("daily"), v.literal("weekly"), v.literal("monthly")),
+      time: v.string(), // Time in HH:MM format
+      dayOfWeek: v.optional(v.number()), // 0-6 for weekly
+      dayOfMonth: v.optional(v.number()), // 1-31 for monthly
+    })),
+    githubRepos: v.array(v.string()), // List of allowed GitHub repos
+    restrictions: v.array(v.string()), // What agent should not do
+    notificationPreferences: v.object({
+      onStart: v.boolean(),
+      onComplete: v.boolean(),
+      onError: v.boolean(),
+      email: v.optional(v.string()),
+    }),
+    maxConcurrentTasks: v.number(), // Max tasks running at once
+    dailyTaskLimit: v.number(), // Max tasks per day
+    tasksRunToday: v.number(), // Counter for daily limit
+    lastResetDate: v.number(), // When daily counter was last reset
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_enabled", ["enabled"]),
 });
