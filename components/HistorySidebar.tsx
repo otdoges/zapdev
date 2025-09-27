@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useUser } from '@clerk/nextjs';
-import { FiX, FiSearch, FiTrash2, FiMessageSquare, FiClock, FiPlus } from 'react-icons/fi';
+import { FiSearch, FiTrash2, FiMessageSquare, FiClock, FiPlus } from 'react-icons/fi';
 import Image from 'next/image';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/shadcn/sheet';
+import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 
 interface HistorySidebarProps {
   isOpen: boolean;
@@ -115,177 +122,129 @@ export default function HistorySidebar({ isOpen, onClose, onChatSelect, currentC
   }
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-          />
-          
-          {/* Sidebar */}
-          <motion.div
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed left-0 top-0 h-full w-80 bg-white/20 dark:bg-gray-900/40 backdrop-blur-2xl border-r border-white/10 dark:border-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.35)] z-50 flex flex-col"
+    <Sheet open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent side="left" className="w-80 p-0">
+        <SheetHeader className="px-4 py-4 border-b">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/zapdev-logo.jpg"
+              alt="ZapDev"
+              width={28}
+              height={28}
+              className="rounded-lg"
+            />
+            <div>
+              <SheetTitle>Chat History</SheetTitle>
+              <SheetDescription>Recent projects and conversations</SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
+        <div className="p-4">
+          <button
+            onClick={handleNewChat}
+            className="w-full mb-3 px-4 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2"
           >
-            {/* Header */}
-            <div className="p-4 border-b border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <Image
-                    src="/zapdev-logo.jpg"
-                    alt="ZapDev"
-                    width={32}
-                    height={32}
-                    className="rounded-lg"
-                  />
-                  <h2 className="text-lg font-semibold text-white">
-                    Chat History
-                  </h2>
-                </div>
-                <button
-                  onClick={onClose}
-                  className="p-1 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  <FiX className="w-5 h-5 text-white/70" />
-                </button>
-              </div>
-
-              {/* New Chat Button */}
-              <button
-                onClick={handleNewChat}
-                className="w-full mb-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-colors flex items-center gap-2 border border-white/10"
-              >
-                <FiPlus className="w-4 h-4 text-white" />
-                New Chat
-              </button>
-
-              {/* Search */}
-              <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search chats..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-white/10 rounded-lg bg-white/10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
-                />
-              </div>
-
-              {/* Delete Selected Button */}
-              {selectedChats.size > 0 && (
-                <button
-                  onClick={handleDeleteSelected}
-                  disabled={isDeleting}
-                  className="w-full mt-3 px-4 py-2 bg-red-500/80 hover:bg-red-500 disabled:opacity-50 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  <FiTrash2 className="w-4 h-4" />
-                  {isDeleting ? 'Deleting...' : `Delete ${selectedChats.size} chat${selectedChats.size > 1 ? 's' : ''}`}
-                </button>
-              )}
-            </div>
-
-            {/* Chat List */}
-            <div className="flex-1 overflow-y-auto">
-              {Object.entries(groupedChats).map(([group, groupChats]) => {
-                if (groupChats.length === 0) return null;
-
-                return (
-                  <div key={group} className="p-4">
-                    <h3 className="text-sm font-medium text-white/60 mb-3 uppercase tracking-wider">
-                      {group}
-                    </h3>
-                    <div className="space-y-2">
-                      {groupChats.map((chat) => (
-                        <motion.div
-                          key={chat._id}
-                          layout
-                          className={`relative p-3 rounded-lg border transition-all cursor-pointer group backdrop-blur-sm ${
-                            currentChatId === chat._id
-                              ? 'bg-white/25 border-white/40 shadow-[0_10px_30px_rgba(15,23,42,0.35)]'
+            <FiPlus className="w-4 h-4" />
+            New Chat
+          </button>
+          <div className="relative">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search chats..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-zinc-200 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900"
+            />
+          </div>
+          {selectedChats.size > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              disabled={isDeleting}
+              className="w-full mt-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-60 flex items-center gap-2"
+            >
+              <FiTrash2 className="w-4 h-4" />
+              {isDeleting ? 'Deleting...' : `Delete ${selectedChats.size} chat${selectedChats.size > 1 ? 's' : ''}`}
+            </button>
+          )}
+        </div>
+        <ScrollArea className="h-[calc(100vh-180px)]">
+          <div className="pb-6">
+            {Object.entries(groupedChats).map(([group, groupChats]) => {
+              if (groupChats.length === 0) return null;
+              return (
+                <div key={group} className="px-4 py-3">
+                  <h3 className="text-xs font-medium text-zinc-500 mb-2 uppercase tracking-wide">
+                    {group}
+                  </h3>
+                  <div className="space-y-2">
+                    {groupChats.map((chat) => (
+                      <div
+                        key={chat._id}
+                        className={`relative p-3 rounded-lg border transition-colors cursor-pointer ${
+                          currentChatId === chat._id
+                            ? 'bg-zinc-50 border-zinc-300'
                             : selectedChats.has(chat._id)
-                              ? 'bg-red-500/20 border-red-300/40'
-                              : 'bg-white/10 border-white/15 hover:bg-white/16'
-                          }`}
-                          onClick={(e) => {
-                            if (e.ctrlKey || e.metaKey) {
-                              // Multi-select with Ctrl/Cmd
-                              const newSelected = new Set(selectedChats);
-                              if (newSelected.has(chat._id)) {
-                                newSelected.delete(chat._id);
-                              } else {
-                                newSelected.add(chat._id);
-                              }
-                              setSelectedChats(newSelected);
+                              ? 'bg-red-50 border-red-200'
+                              : 'bg-white border-zinc-200 hover:bg-zinc-50'
+                        }`}
+                        onClick={(e) => {
+                          if (e.ctrlKey || e.metaKey) {
+                            const newSelected = new Set(selectedChats);
+                            if (newSelected.has(chat._id)) {
+                              newSelected.delete(chat._id);
                             } else {
-                              onChatSelect(chat._id, chat);
+                              newSelected.add(chat._id);
                             }
-                          }}
-                        >
-                          {/* Chat Preview Image */}
-                          {chat.screenshot && (
-                            <div className="w-full h-20 mb-2 rounded-md overflow-hidden bg-white/5">
-                              <Image
-                                src={chat.screenshot}
-                                alt="Chat preview"
-                                width={300}
-                                height={80}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          )}
-
-                          <div className="flex items-start gap-3">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-white truncate">
-                                {chat.title}
-                              </h4>
-                              <p className="text-sm text-white/60 flex items-center gap-1 mt-1">
-                                <FiClock className="w-3 h-3 text-white/60" />
-                                {formatDate(chat.updatedAt)}
-                              </p>
-                              {chat.sandboxUrl && (
-                                <p className="text-xs text-blue-300 mt-1 flex items-center gap-1">
-                                  <FiMessageSquare className="w-3 h-3" />
-                                  Has sandbox
-                                </p>
-                              )}
-                            </div>
+                            setSelectedChats(newSelected);
+                          } else {
+                            onChatSelect(chat._id, chat);
+                          }
+                        }}
+                      >
+                        {chat.screenshot && (
+                          <div className="w-full h-20 mb-2 rounded-md overflow-hidden bg-zinc-100">
+                            <Image
+                              src={chat.screenshot}
+                              alt="Chat preview"
+                              width={300}
+                              height={80}
+                              className="w-full h-full object-cover"
+                            />
                           </div>
-
-                          {/* Selection Indicator */}
-                          {selectedChats.has(chat._id) && (
-                            <div className="absolute top-2 right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
-                              <FiX className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                        </motion.div>
-                      ))}
-                    </div>
+                        )}
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-zinc-900 truncate">
+                              {chat.title}
+                            </h4>
+                            <p className="text-sm text-zinc-600 flex items-center gap-1 mt-1">
+                              <FiClock className="w-3 h-3 text-zinc-500" />
+                              {formatDate(chat.updatedAt)}
+                            </p>
+                            {chat.sandboxUrl && (
+                              <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                                <FiMessageSquare className="w-3 h-3" />
+                                Has sandbox
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
-
-              {filteredChats.length === 0 && (
-                <div className="p-8 text-center text-white/60">
-                  <FiMessageSquare className="w-12 h-12 mx-auto mb-4 text-white/50" />
-                  <p className="text-lg font-medium mb-2">No chats found</p>
-                  <p className="text-sm">
-                    {searchTerm ? 'Try a different search term' : 'Start a new conversation to see it here'}
-                  </p>
                 </div>
-              )}
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+              );
+            })}
+            {filteredChats.length === 0 && (
+              <div className="px-4 py-8 text-center text-zinc-500">
+                <FiMessageSquare className="w-10 h-10 mx-auto mb-3 text-zinc-400" />
+                <p className="text-sm">{searchTerm ? 'Try a different search term' : 'Start a new conversation to see it here'}</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 }

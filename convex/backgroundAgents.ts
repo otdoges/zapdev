@@ -223,11 +223,11 @@ export const getTasks = query({
       .query("backgroundAgentTasks")
       .withIndex("by_user_id", (q) => q.eq("userId", args.userId));
 
-    if (args.status) {
+    if (args.status !== undefined) {
       query = ctx.db
         .query("backgroundAgentTasks")
-        .withIndex("by_user_status", (q) => 
-          q.eq("userId", args.userId).eq("status", args.status)
+        .withIndex("by_user_status", (q) =>
+          q.eq("userId", args.userId).eq("status", args.status as any)
         );
     }
 

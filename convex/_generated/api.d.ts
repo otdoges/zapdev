@@ -10,6 +10,7 @@
 
 import type * as aiRateLimit from "../aiRateLimit.js";
 import type * as analytics from "../analytics.js";
+import type * as backgroundAgents from "../backgroundAgents.js";
 import type * as billing from "../billing.js";
 import type * as chats from "../chats.js";
 import type * as deployments from "../deployments.js";
@@ -40,6 +41,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   aiRateLimit: typeof aiRateLimit;
   analytics: typeof analytics;
+  backgroundAgents: typeof backgroundAgents;
   billing: typeof billing;
   chats: typeof chats;
   deployments: typeof deployments;

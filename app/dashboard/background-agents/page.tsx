@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Doc } from "@/convex/_generated/dataModel";
+
+type BackgroundAgentTask = Doc<"backgroundAgentTasks">;
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Sparkles, 
@@ -298,7 +301,7 @@ function StatsCard({ title, value, icon, color }: {
   );
 }
 
-function TaskCard({ task }: { task: any }) {
+function TaskCard({ task }: { task: BackgroundAgentTask }) {
   const statusColors = {
     pending: "bg-yellow-100 text-yellow-800",
     running: "bg-blue-100 text-blue-800",
