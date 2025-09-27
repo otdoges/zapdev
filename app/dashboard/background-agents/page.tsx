@@ -327,7 +327,7 @@ function TaskCard({ task }: { task: BackgroundAgentTask }) {
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-4">
           <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-            {taskTypeIcons[task.type]}
+            {taskTypeIcons[task.type as keyof typeof taskTypeIcons]}
           </div>
           <div>
             <h3 className="font-semibold text-gray-900">{task.title}</h3>
@@ -491,7 +491,7 @@ function NewTaskModal({ isOpen, onClose, userId }: {
                         w-8 h-8 rounded flex items-center justify-center
                         ${taskType === value ? "bg-orange-100" : "bg-gray-100"}
                       `}>
-                        {taskTypeIcons[value]}
+                        {taskTypeIcons[value as keyof typeof taskTypeIcons]}
                       </div>
                       <span className="text-sm font-medium text-gray-900">{label}</span>
                     </div>

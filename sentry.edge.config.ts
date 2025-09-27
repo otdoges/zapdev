@@ -18,12 +18,6 @@ if (dsn) {
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false,
-
-    // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-    // See the following for more information:
-    // https://docs.sentry.io/product/crons/
-    // https://vercel.com/docs/cron-jobs
-    automaticVercelMonitors: true,
   });
 } else {
   // eslint-disable-next-line no-console
