@@ -116,56 +116,27 @@ export default function HomePage() {
       sessionStorage.setItem('autoStart', 'true');
       router.push('/generation');
     } else {
-      // It's a search term, fade out if results exist, then search
-      if (hasSearched && searchResults.length > 0) {
-        setIsFadingOut(true);
-        
-        setTimeout(async () => {
-          setSearchResults([]);
-          setIsFadingOut(false);
-          setShowSelectMessage(true);
-          
-          // Perform new search
-          await performSearch(inputValue);
-          setHasSearched(true);
-          setShowSearchTiles(true);
-          setShowSelectMessage(false);
-          
-          // Smooth scroll to carousel
-          setTimeout(() => {
-            const carouselSection = document.querySelector('.carousel-section');
-            if (carouselSection) {
-              carouselSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          }, 300);
-        }, 500);
-      } else {
-        // First search, no fade needed
-        setShowSelectMessage(true);
-        setIsSearching(true);
-        setHasSearched(true);
-        setShowSearchTiles(true);
-        
-        // Scroll to carousel area immediately
-        setTimeout(() => {
-          const carouselSection = document.querySelector('.carousel-section');
-          if (carouselSection) {
-            carouselSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
-        
-        await performSearch(inputValue);
-        setShowSelectMessage(false);
-        setIsSearching(false);
-        
-        // Smooth scroll to carousel
-        setTimeout(() => {
-          const carouselSection = document.querySelector('.carousel-section');
-          if (carouselSection) {
-            carouselSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 300);
+      // Treat plain text as build instructions instead of triggering search
+      try {
+        sessionStorage.removeItem('targetUrl');
+        sessionStorage.setItem('promptOnly', 'true');
+        sessionStorage.setItem('selectedStyle', selectedStyle);
+        sessionStorage.setItem('selectedModel', selectedModel);
+        sessionStorage.setItem('additionalInstructions', inputValue);
+        sessionStorage.setItem('autoStart', 'true');
+      } catch (error) {
+        console.error('Failed to stage prompt instructions for generation:', error);
       }
+
+      // Reset any search UI state before navigating away
+      setIsSearching(false);
+      setHasSearched(false);
+      setShowSearchTiles(false);
+      setSearchResults([]);
+      setShowSelectMessage(false);
+      setIsFadingOut(false);
+
+      router.push('/generation');
     }
   };
 
@@ -233,11 +204,6 @@ export default function HomePage() {
                 <SignedIn>
                   <UserButton />
                 </SignedIn>
-                <SignInButton>
-                  <ButtonUI variant="tertiary">
-                    Sign In
-                  </ButtonUI>
-                </SignInButton>
               </div>
             </div>
           </HeaderWrapper>
@@ -370,7 +336,7 @@ export default function HomePage() {
                       )}
                       <input
                         className="flex-1 bg-transparent text-body-input text-accent-black placeholder:text-black-alpha-48 focus:outline-none focus:ring-0 focus:border-transparent"
-                        placeholder="Enter URL or search term..."
+                        placeholder="Paste a URL or describe what you want to build..."
                         type="text"
                         value={url}
                         disabled={isSearching}
@@ -408,7 +374,7 @@ export default function HomePage() {
                       >
                         <HeroInputSubmitButton 
                           dirty={url.length > 0} 
-                          buttonText={isURL(url) ? 'Scrape Site' : 'Search'} 
+                          buttonText={isURL(url) ? 'Scrape Site' : 'Start Building'} 
                           disabled={isSearching}
                         />
                       </div>

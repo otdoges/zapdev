@@ -195,6 +195,7 @@ function AISandboxPage() {
       const storedStyle = templateParam || sessionStorage.getItem('selectedStyle');
       const storedModel = sessionStorage.getItem('selectedModel');
       const storedInstructions = sessionStorage.getItem('additionalInstructions');
+      const promptOnlyFlag = sessionStorage.getItem('promptOnly');
       
       if (storedUrl) {
         // Mark that we have an initial submission since we're loading with a URL
@@ -205,6 +206,7 @@ function AISandboxPage() {
         sessionStorage.removeItem('selectedStyle');
         sessionStorage.removeItem('selectedModel');
         sessionStorage.removeItem('additionalInstructions');
+        sessionStorage.removeItem('promptOnly');
         // Note: Don't clear siteMarkdown here, it will be cleared when used
         
         // Set the values in the component state
@@ -259,6 +261,33 @@ function AISandboxPage() {
         
         // Also set autoStart flag for the effect
         sessionStorage.setItem('autoStart', 'true');
+      } else if (promptOnlyFlag === 'true' && storedInstructions) {
+        // Plain prompt handoff from home page (no URL to scrape)
+        setHasInitialSubmission(true);
+
+        setHomeUrlInput('');
+        setHomeContextInput(storedInstructions);
+
+        setSelectedStyle(storedStyle || 'modern');
+
+        if (storedModel) {
+          setAiModel(storedModel);
+        }
+
+        // Clean up session storage values tied to the handoff
+        sessionStorage.removeItem('selectedStyle');
+        sessionStorage.removeItem('selectedModel');
+        sessionStorage.removeItem('additionalInstructions');
+        sessionStorage.removeItem('promptOnly');
+
+        // Skip the landing screen and auto-start once ready
+        setShowHomeScreen(false);
+        setHomeScreenFading(false);
+        setShouldAutoGenerate(true);
+        sessionStorage.setItem('autoStart', 'true');
+      } else if (promptOnlyFlag) {
+        // Prompt flag present without instructions; clear it to avoid stale state
+        sessionStorage.removeItem('promptOnly');
       }
       
       // Clear old conversation
@@ -476,21 +505,78 @@ function AISandboxPage() {
     }
   }, [sandboxData, currentChatId]);
 
-  const loadChatFromHistory = (chatId: string, chat: any) => {
+  const loadChatFromHistory = async (chatId: string, chat: any) => {
     setCurrentChatId(chatId);
     setChatTitle(chat.title);
     setShowHistorySidebar(false);
-    
-    // If the chat has a sandbox, restore it
+
+    // If the chat has a sandbox, restore it by creating a new sandbox with the old codebase
     if (chat.sandboxId && chat.sandboxUrl) {
-      setSandboxData({
-        sandboxId: chat.sandboxId,
-        url: chat.sandboxUrl
-      });
-      setStatus({ text: 'Connected to restored sandbox', active: true });
-      setActiveTab('preview');
+      setLoading(true);
+      setShowLoadingBackground(true);
+      updateStatus('Restoring sandbox...', false);
+
+      try {
+        const response = await fetch('/api/restore-sandbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ originalSandboxId: chat.sandboxId })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setSandboxData(data);
+          updateStatus('Sandbox restored', true);
+          log('Sandbox restored successfully!');
+          log(`New Sandbox ID: ${data.sandboxId}`);
+          log(`URL: ${data.url}`);
+
+          // Update URL with new sandbox ID
+          const newParams = new URLSearchParams(searchParams.toString());
+          newParams.set('sandbox', data.sandboxId);
+          newParams.set('model', aiModel);
+          router.push(`/generation?${newParams.toString()}`, { scroll: false });
+
+          // Fade out loading background after sandbox loads
+          setTimeout(() => {
+            setShowLoadingBackground(false);
+          }, 3000);
+
+          setActiveTab('preview');
+
+          // Fetch sandbox files after restoration
+          setTimeout(fetchSandboxFiles, 1000);
+
+          // Update the chat with the new sandbox info
+          if (currentChatId) {
+            await updateChatScreenshot({
+              chatId: currentChatId as any,
+              sandboxId: data.sandboxId,
+              sandboxUrl: data.url
+            });
+          }
+        } else {
+          throw new Error(data.error || 'Unknown error');
+        }
+      } catch (error: any) {
+        console.error('[loadChatFromHistory] Error restoring sandbox:', error);
+        updateStatus('Error restoring sandbox', false);
+        log(`Failed to restore sandbox: ${error.message}`, 'error');
+        addChatMessage(`Failed to restore sandbox: ${error.message}`, 'system');
+
+        // Fallback: just restore the old sandbox data if restoration fails
+        setSandboxData({
+          sandboxId: chat.sandboxId,
+          url: chat.sandboxUrl
+        });
+        setStatus({ text: 'Connected to previous sandbox (restoration failed)', active: true });
+        setActiveTab('preview');
+      } finally {
+        setLoading(false);
+      }
     }
-    
+
     // Clear current messages and load from history
     setChatMessages([{
       content: 'Chat loaded from history. You can continue the conversation!',

@@ -9,7 +9,7 @@ import { HeaderProvider } from "@/components/shared/header/HeaderContext";
 import HeaderWrapper from "@/components/shared/header/Wrapper/Wrapper";
 import HeaderDropdownWrapper from "@/components/shared/header/Dropdown/Wrapper/Wrapper";
 import ButtonUI from "@/components/ui/shadcn/button";
-import { SignInButton } from "@clerk/nextjs";
+import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 // Import hero section components
 import HomeHeroBackground from "@/components/app/(home)/sections/hero/Background/Background";
@@ -49,11 +49,16 @@ export default function LandingPage() {
               </div>
 
               <div className="flex gap-8">
-                <SignInButton>
-                  <ButtonUI variant="tertiary">
-                    Sign In
-                  </ButtonUI>
-                </SignInButton>
+                <SignedOut>
+                  <SignInButton>
+                    <ButtonUI variant="tertiary">
+                      Sign In
+                    </ButtonUI>
+                  </SignInButton>
+                </SignedOut>
+                <SignedIn>
+                  <UserButton />
+                </SignedIn>
               </div>
             </div>
           </HeaderWrapper>
