@@ -153,7 +153,7 @@ export class E2BProvider extends SandboxProvider {
       `);
       
       // Small delay to let HMR pick up the change
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
     } catch (error) {
       console.error(`[E2BProvider] Failed to write file ${fullPath}:`, error);
       throw new Error(`Failed to write file ${fullPath}: ${(error as Error).message}`);
