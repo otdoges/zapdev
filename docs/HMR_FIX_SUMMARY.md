@@ -6,7 +6,24 @@ Fixed the critical issue where Vite's Hot Module Replacement (HMR) was not detec
 
 ## Files Modified
 
-### 1. `/lib/sandbox/providers/vercel-provider.ts`
+### 1. `/app/generation/page.tsx`
+
+#### Change: Smart Refresh Logic (lines 1184-1264)
+```typescript
+// Before: Always forced iframe refresh after 2 seconds
+// After: Only force refresh when packages installed
+if (packagesInstalled) {
+  // Vite needs restart, force refresh after 5s
+  setTimeout(async () => { /* refresh logic */ }, 5000);
+} else {
+  // Trust HMR to update within ~300-400ms
+  console.log('Relying on Vite HMR for updates (no forced refresh)');
+}
+```
+
+**Why**: The frontend was forcefully reloading the iframe even when HMR worked perfectly, overriding the HMR update. Now it trusts HMR for file-only changes and only forces refresh when packages are installed (which requires Vite restart).
+
+### 2. `/lib/sandbox/providers/vercel-provider.ts`
 
 #### Change 1: Added Polling to Vite Configuration (lines 364-384)
 ```typescript
@@ -36,7 +53,7 @@ await new Promise(resolve => setTimeout(resolve, 300));
 - `touch` updates file modification time to trigger file watcher
 - 300ms delay allows Vite to detect and process the change
 
-### 2. `/lib/sandbox/providers/e2b-provider.ts`
+### 3. `/lib/sandbox/providers/e2b-provider.ts`
 
 #### Change: Reduced HMR Delay (line 156)
 ```typescript
@@ -46,7 +63,7 @@ await new Promise(resolve => setTimeout(resolve, 300));
 
 **Why**: Consistency with Vercel provider for uniform behavior across sandbox types.
 
-### 3. `/config/app.config.ts`
+### 4. `/config/app.config.ts`
 
 #### Change: Added HMR Configuration (lines 116-117)
 ```typescript
@@ -66,6 +83,7 @@ hmrSyncDelay: 300,
 4. **File Watcher Detection**: Vite's polling watcher detects the change within 100ms
 5. **HMR Update**: Vite sends update to browser via WebSocket
 6. **Module Replacement**: Browser replaces module without full page reload
+7. **Smart Frontend**: Frontend trusts HMR for file changes, only forces refresh when packages installed
 
 ### Timing Breakdown
 
@@ -144,6 +162,8 @@ defaultRefreshDelay: 2000ms
 - [x] Edit operations update correctly
 - [x] No linter errors introduced
 - [x] Console logs confirm HMR triggers
+- [x] Frontend doesn't force refresh for file-only changes
+- [x] Frontend only refreshes when packages installed
 
 ## Known Limitations
 
