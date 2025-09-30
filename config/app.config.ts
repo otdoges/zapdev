@@ -113,6 +113,9 @@ export const appConfig = {
     // Delay when packages are installed (milliseconds)
     packageInstallRefreshDelay: 5000,
     
+    // HMR file sync delay (milliseconds) - time to wait after writing files for HMR to detect changes
+    hmrSyncDelay: 300,
+    
     // Enable/disable automatic truncation recovery
     enableTruncationRecovery: false, // Disabled - too many false positives
     

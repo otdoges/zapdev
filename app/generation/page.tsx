@@ -1178,44 +1178,19 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           // but that's only available in the backend API routes
           console.log('[build-test] Skipping build test - would need API endpoint');
           
-          // Force iframe refresh after applying code
-          const refreshDelay = appConfig.codeApplication.defaultRefreshDelay; // Allow Vite to process changes
-          
-          setTimeout(() => {
-            const currentSandboxData = effectiveSandboxData;
-            if (iframeRef.current && currentSandboxData?.url) {
-              console.log('[home] Refreshing iframe after code application...');
-              
-              // Method 1: Change src with timestamp
-              const urlWithTimestamp = `${currentSandboxData.url}?t=${Date.now()}&applied=true`;
-              iframeRef.current.src = urlWithTimestamp;
-              
-              // Method 2: Force reload after a short delay
-              setTimeout(() => {
-                try {
-                  if (iframeRef.current?.contentWindow) {
-                    iframeRef.current.contentWindow.location.reload();
-                    console.log('[home] Force reloaded iframe content');
-                  }
-                } catch (e) {
-                  console.log('[home] Could not reload iframe (cross-origin):', e);
-                }
-                // Reload completed
-              }, 1000);
-            }
-          }, refreshDelay);
-          
           // Vite error checking removed - handled by template setup
         }
         
-          // Give Vite HMR a moment to detect changes, then ensure refresh
+          // Smart refresh logic: only force refresh when necessary
           const currentSandboxData = effectiveSandboxData;
           if (iframeRef.current && currentSandboxData?.url) {
-            // Wait for Vite to process the file changes
-            // If packages were installed, wait longer for Vite to restart
+            // Check if packages were installed (requires Vite restart)
             const packagesInstalled = results?.packagesInstalled?.length > 0 || data.results?.packagesInstalled?.length > 0;
-            const refreshDelay = packagesInstalled ? appConfig.codeApplication.packageInstallRefreshDelay : appConfig.codeApplication.defaultRefreshDelay;
-            console.log(`[applyGeneratedCode] Packages installed: ${packagesInstalled}, refresh delay: ${refreshDelay}ms`);
+            
+            if (packagesInstalled) {
+              // Packages were installed - Vite needs to restart, force refresh
+              const refreshDelay = appConfig.codeApplication.packageInstallRefreshDelay;
+              console.log(`[applyGeneratedCode] Packages installed, forcing iframe refresh after ${refreshDelay}ms`);
             
             setTimeout(async () => {
             if (iframeRef.current && currentSandboxData?.url) {
@@ -1281,7 +1256,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             } else {
               console.error('[applyGeneratedCode] No iframe or sandbox URL available for refresh');
             }
-          }, refreshDelay); // Dynamic delay based on whether packages were installed
+          }, refreshDelay); // Wait for Vite to restart after package installation
+            } else {
+              // No packages installed - trust HMR to update the preview
+              console.log('[applyGeneratedCode] No packages installed, relying on Vite HMR for updates (no forced refresh)');
+              console.log('[applyGeneratedCode] HMR should update preview within ~300-400ms');
+            }
         }
         
         } else {

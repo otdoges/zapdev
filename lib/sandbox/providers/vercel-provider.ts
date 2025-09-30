@@ -142,6 +142,22 @@ export class VercelProvider extends SandboxProvider {
       }]);
       
       this.existingFiles.add(path);
+      
+      // Force file system sync and trigger HMR
+      try {
+        await this.sandbox.runCommand({
+          cmd: 'sh',
+          args: ['-c', `sync && touch "${fullPath}"`],
+          cwd: '/vercel/sandbox'
+        });
+        console.log(`[VercelProvider] Triggered HMR for: ${fullPath}`);
+      } catch (hmrError) {
+        // Log but don't fail - HMR trigger is best-effort
+        console.warn(`[VercelProvider] Could not trigger HMR for ${fullPath}:`, hmrError);
+      }
+      
+      // Small delay to let HMR pick up the change
+      await new Promise(resolve => setTimeout(resolve, 300));
     } catch (writeError: any) {
       // Log detailed error information
       console.error(`[VercelProvider] writeFiles failed for ${fullPath}:`, {
@@ -182,6 +198,20 @@ export class VercelProvider extends SandboxProvider {
       
       if (writeResult.exitCode === 0) {
         this.existingFiles.add(path);
+        
+        // Trigger HMR for fallback method too
+        try {
+          await this.sandbox.runCommand({
+            cmd: 'sh',
+            args: ['-c', `sync && touch "${fullPath}"`],
+            cwd: '/vercel/sandbox'
+          });
+        } catch {
+          // Ignore HMR trigger errors in fallback
+        }
+        
+        // Small delay for HMR
+        await new Promise(resolve => setTimeout(resolve, 300));
       } else {
         throw new Error(`Failed to write file via command: ${writeResult.stderr}`);
       }
@@ -379,6 +409,10 @@ export default defineConfig({
     hmr: {
       clientPort: 443,
       protocol: 'wss'
+    },
+    watch: {
+      usePolling: true,
+      interval: 100
     }
   }
 })`;
