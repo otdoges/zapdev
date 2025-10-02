@@ -22,7 +22,9 @@ export default function CoreFlame(attrs: HTMLAttributes<HTMLDivElement>) {
 
         const newStr = data[index];
 
-        ref.current!.innerHTML = newStr;
+        if (ref.current) {
+          ref.current.innerHTML = newStr;
+        }
       },
       interval: 80,
     });

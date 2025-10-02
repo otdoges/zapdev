@@ -21,7 +21,9 @@ export function AsciiExplosion(attrs: HTMLAttributes<HTMLDivElement>) {
         if (index >= data.length) index = -40;
         if (index < 0) return;
 
-        ref.current!.innerHTML = data[index];
+        if (ref.current) {
+          ref.current.innerHTML = data[index];
+        }
       },
       interval: 40,
     });
