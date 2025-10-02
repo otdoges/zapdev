@@ -557,3 +557,113 @@ export const updateUserAvatar = mutation({
     return { success: true };
   },
 });
+
+// Sync user from Clerk webhook (no auth required - called by webhook)
+export const syncUser = mutation({
+  args: {
+    userId: v.string(),
+    email: v.string(),
+    fullName: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+    username: v.optional(v.string()),
+  },
+  handler: async (ctx: MutationCtx, args: { userId: string; email: string; fullName?: string; avatarUrl?: string; username?: string }) => {
+    const now = Date.now();
+
+    const sanitizedData = {
+      email: sanitizeEmail(args.email),
+      fullName: sanitizeString(args.fullName, 100),
+      avatarUrl: args.avatarUrl ? sanitizeUrl(args.avatarUrl) : undefined,
+      username: sanitizeUsername(args.username),
+    };
+
+    // Check if user already exists
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (existingUser) {
+      // Update existing user
+      await ctx.db.patch(existingUser._id, {
+        ...sanitizedData,
+        updatedAt: now,
+      });
+      return existingUser._id;
+    } else {
+      // Create new user
+      return await ctx.db.insert("users", {
+        userId: args.userId,
+        ...sanitizedData,
+        email: sanitizedData.email,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  },
+});
+
+// Delete user from Clerk webhook (no auth required - called by webhook)
+export const deleteUser = mutation({
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx: MutationCtx, { userId }: { userId: string }) => {
+    // Find user
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
+      .first();
+
+    if (!user) {
+      // User doesn't exist, nothing to delete
+      return { success: true };
+    }
+
+    // Delete user preferences
+    const preferences = await ctx.db
+      .query("userPreferences")
+      .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
+      .first();
+
+    if (preferences) {
+      await ctx.db.delete(preferences._id);
+    }
+
+    // Delete user chats and messages
+    const userChats = await ctx.db
+      .query("chats")
+      .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
+      .collect();
+
+    for (const chat of userChats) {
+      // Delete all messages in chat
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_chat_id", (q: any) => q.eq("chatId", chat._id))
+        .collect();
+
+      for (const message of messages) {
+        await ctx.db.delete(message._id);
+      }
+
+      // Delete chat
+      await ctx.db.delete(chat._id);
+    }
+
+    // Delete user subscriptions
+    const subscription = await ctx.db
+      .query("userSubscriptions")
+      .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
+      .first();
+
+    if (subscription) {
+      await ctx.db.delete(subscription._id);
+    }
+
+    // Finally delete user record
+    await ctx.db.delete(user._id);
+
+    return { success: true };
+  },
+});
