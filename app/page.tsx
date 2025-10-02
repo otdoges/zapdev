@@ -27,7 +27,7 @@ import HeaderWrapper from "@/components/shared/header/Wrapper/Wrapper";
 import HeaderDropdownWrapper from "@/components/shared/header/Dropdown/Wrapper/Wrapper";
 import GithubIcon from "@/components/shared/header/Github/_svg/GithubIcon";
 import ButtonUI from "@/components/ui/shadcn/button"
-import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
+import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton, useAuth } from "@clerk/nextjs"
 
 interface SearchResult {
   url: string;
@@ -38,6 +38,7 @@ interface SearchResult {
 }
 
 export default function HomePage() {
+  const { isSignedIn } = useAuth();
   const [url, setUrl] = useState<string>("");
   const [selectedStyle, setSelectedStyle] = useState<string>("1");
   const [selectedModel, setSelectedModel] = useState<string>(appConfig.ai.defaultModel);
@@ -83,8 +84,13 @@ export default function HomePage() {
   }));
 
   const handleSubmit = async (selectedResult?: SearchResult) => {
+    if (!isSignedIn) {
+      toast.error("Please sign in to use ZapDev");
+      return;
+    }
+
     const inputValue = url.trim();
-    
+
     if (!inputValue) {
       toast.error("Please enter a URL or search term");
       return;
@@ -399,9 +405,9 @@ export default function HomePage() {
                               key={style.id}
                               onClick={() => setSelectedStyle(style.id)}
                               className={`
-                                py-2.5 px-2 rounded text-[10px] font-medium border transition-all text-center
-                                ${selectedStyle === style.id 
-                                  ? 'border-orange-500 bg-orange-50 text-orange-900' 
+                                py-2.5 px-2 rounded-md text-[10px] font-medium border transition-all text-center
+                                ${selectedStyle === style.id
+                                  ? 'border-orange-500 bg-orange-50 text-orange-900'
                                   : 'border-gray-200 hover:border-gray-300 bg-white text-gray-700'
                                 }
                                 ${isValidUrl ? 'opacity-100' : 'opacity-0'}
@@ -425,7 +431,7 @@ export default function HomePage() {
                         <select
                           value={selectedModel}
                           onChange={(e) => setSelectedModel(e.target.value)}
-                          className="px-3 py-2.5 text-[10px] font-medium text-gray-700 bg-white rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          className="px-3 py-2.5 text-[10px] font-medium text-gray-700 bg-white rounded-md border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                         >
                           {models.map((model) => (
                             <option key={model.id} value={model.id}>
@@ -437,7 +443,7 @@ export default function HomePage() {
                         {/* Additional Instructions */}
                         <input
                           type="text"
-                          className="flex-1 px-3 py-2.5 text-[10px] text-gray-700 bg-gray-50 rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder:text-gray-400"
+                          className="flex-1 px-3 py-2.5 text-[10px] text-gray-700 bg-gray-50 rounded-md border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder:text-gray-400"
                           placeholder="Additional instructions (optional)"
                           onChange={(e) => sessionStorage.setItem('additionalInstructions', e.target.value)}
                         />
