@@ -2,7 +2,7 @@ export default {
   plugins: {
     "postcss-import": {},
     "postcss-nesting": {},
-    "tailwindcss": {},
+    "@tailwindcss/postcss": {},
     "autoprefixer": {},
   },
 };
