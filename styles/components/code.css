@@ -30,7 +30,9 @@ code:not(.language-html) .function,
 
 .prismjs {
   padding-top: 20px;
-  @apply text-sm leading-6 font-mono;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
 }
 
 .prismjs code {
