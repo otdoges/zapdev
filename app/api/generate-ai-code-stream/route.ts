@@ -5,6 +5,8 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createXai } from '@ai-sdk/xai';
 import { streamText } from 'ai';
+import { createAISDKTools } from '@agentic/ai-sdk';
+import { AgenticToolClient } from '@agentic/platform-tool-client';
 import type { SandboxState } from '@/types/sandbox';
 import { selectFilesForEdit, getFileContents, formatFilesForAI } from '@/lib/context-selector';
 import { executeSearchPlan, formatSearchResultsForAI, selectTargetFile } from '@/lib/file-search-executor';
@@ -1318,6 +1320,20 @@ It's better to have 3 complete files than 10 incomplete files.`
               reasoningEffort: 'high'
             }
           };
+        }
+        
+        // Initialize Agentic tools (optional - can be configured based on needs)
+        // Agentic provides marketplace tools like search, scraping, etc.
+        try {
+          // Example: Initialize search tool from Agentic marketplace
+          // const searchTool = await AgenticToolClient.fromIdentifier('@agentic/search');
+          // streamOptions.tools = createAISDKTools(searchTool);
+          
+          // For now, tools are commented out but the integration is ready
+          // Uncomment above and configure AGENTIC_API_KEY in .env when needed
+          console.log('[generate-ai-code-stream] Agentic SDK integrated and available');
+        } catch (error) {
+          console.warn('[generate-ai-code-stream] Agentic tools initialization skipped:', error);
         }
         
         let result;

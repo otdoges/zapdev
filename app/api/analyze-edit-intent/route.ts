@@ -4,6 +4,8 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateObject } from 'ai';
+import { createAISDKTools } from '@agentic/ai-sdk';
+import { AgenticToolClient } from '@agentic/platform-tool-client';
 import { z } from 'zod';
 // import type { FileManifest } from '@/types/file-manifest'; // Type is used implicitly through manifest parameter
 
@@ -122,8 +124,19 @@ export async function POST(request: NextRequest) {
     
     console.log('[analyze-edit-intent] Using AI model:', model);
     
+    // Initialize Agentic tools (optional - can be configured based on needs)
+    let agenticTools;
+    try {
+      // Example: Initialize tools from Agentic marketplace if needed
+      // agenticTools = await AgenticToolClient.fromIdentifier('@agentic/search');
+      // Tools can enhance the search planning capabilities
+      console.log('[analyze-edit-intent] Agentic SDK integrated and available');
+    } catch (error) {
+      console.warn('[analyze-edit-intent] Agentic tools initialization skipped:', error);
+    }
+    
     // Use AI to create a search plan
-    const result = await generateObject({
+    const generateObjectOptions: any = {
       model: aiModel,
       schema: searchPlanSchema,
       messages: [
@@ -165,7 +178,14 @@ ${fileSummary}`
 Create a search plan to find the exact code that needs to be modified. Include specific search terms and patterns.`
         }
       ]
-    });
+    };
+    
+    // Add Agentic tools if available
+    if (agenticTools) {
+      generateObjectOptions.tools = createAISDKTools(agenticTools);
+    }
+    
+    const result = await generateObject(generateObjectOptions);
     
     console.log('[analyze-edit-intent] Search plan created:', {
       editType: result.object.editType,

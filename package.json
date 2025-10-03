@@ -13,6 +13,8 @@
     "test:all": "npm run test:integration && npm run test:api && npm run test:code"
   },
   "dependencies": {
+    "@agentic/ai-sdk": "^8.4.4",
+    "@agentic/platform-tool-client": "^8.4.4",
     "@ai-sdk/anthropic": "^2.0.23",
     "@ai-sdk/google": "^2.0.17",
     "@ai-sdk/groq": "^2.0.22",
