@@ -30,7 +30,7 @@ code:not(.language-html) .function,
 
 .prismjs {
   padding-top: 20px;
-  @apply text-mono-medium font-mono;
+  @apply text-sm leading-6 font-mono;
 }
 
 .prismjs code {
