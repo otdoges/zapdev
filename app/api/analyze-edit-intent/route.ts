@@ -195,17 +195,19 @@ Create a search plan to find the exact code that needs to be modified. Include s
       }, { status: 500 });
     }
     
+    const searchPlan = result.object as z.infer<typeof searchPlanSchema>;
+    
     console.log('[analyze-edit-intent] Search plan created:', {
-      editType: result.object.editType,
-      searchTerms: result.object.searchTerms,
-      patterns: result.object.regexPatterns?.length || 0,
-      reasoning: result.object.reasoning
+      editType: searchPlan.editType,
+      searchTerms: searchPlan.searchTerms,
+      patterns: searchPlan.regexPatterns?.length || 0,
+      reasoning: searchPlan.reasoning
     });
     
     // Return the search plan, not file matches
     return NextResponse.json({
       success: true,
-      searchPlan: result.object
+      searchPlan
     });
     
   } catch (error) {
