@@ -187,6 +187,14 @@ Create a search plan to find the exact code that needs to be modified. Include s
     
     const result = await generateObject(generateObjectOptions);
     
+    if (!result.object) {
+      console.error('[analyze-edit-intent] No object returned from generateObject');
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to generate search plan'
+      }, { status: 500 });
+    }
+    
     console.log('[analyze-edit-intent] Search plan created:', {
       editType: result.object.editType,
       searchTerms: result.object.searchTerms,
