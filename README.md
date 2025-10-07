@@ -76,21 +76,35 @@ cp env.example .env
 # Set up database
 npx prisma migrate dev # Enter name "init" for migration
 
-# Start development servers (requires two terminals)
-# Terminal 1: Next.js app
+# Start development server
 npm run dev
-
-# Terminal 2: Inngest dev server (for AI code generation)
-npm run dev:inngest
-# OR
-npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
 ```
 
-**Important**: Both servers must be running for AI code generation to work:
-- Next.js app runs on `http://localhost:3000`
-- Inngest Dev UI runs on `http://localhost:8288`
+### Setting Up Inngest for AI Code Generation
 
-You can also use the helper script: `./start-dev.sh`
+You have two options for running Inngest:
+
+#### Option 1: Inngest Cloud (Recommended for Vercel Deployment)
+1. Create an account at [Inngest Cloud](https://app.inngest.com)
+2. Create a new app and get your Event Key and Signing Key
+3. Add these to your `.env` file:
+   ```bash
+   INNGEST_EVENT_KEY="your-event-key"
+   INNGEST_SIGNING_KEY="your-signing-key"
+   ```
+4. For local development with cloud, use ngrok/localtunnel:
+   ```bash
+   npx localtunnel --port 3000
+   # Then sync your tunnel URL with Inngest Cloud
+   ```
+
+#### Option 2: Local Inngest Dev Server (Development Only)
+```bash
+# In a second terminal:
+npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
+```
+- Inngest Dev UI will be available at `http://localhost:8288`
+- Note: This won't work for Vercel deployments
 
 ## Setting Up Vercel AI Gateway
 
@@ -135,7 +149,21 @@ NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
 NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
 NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL="/"
 NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL="/"
+
+# Inngest (for background job processing)
+INNGEST_EVENT_KEY=""
+INNGEST_SIGNING_KEY=""
 ```
+
+## Deployment to Vercel
+
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+Quick overview:
+1. Set up Inngest Cloud account and get your keys
+2. Deploy to Vercel with all required environment variables
+3. Sync your app with Inngest Cloud (`https://your-app.vercel.app/api/inngest`)
+4. Run database migrations on your production database
 
 ## Additional Commands
 
