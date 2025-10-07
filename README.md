@@ -25,7 +25,7 @@ AI-powered development platform that lets you create web applications by chattin
 - tRPC
 - Prisma ORM
 - PostgreSQL
-- OpenAI, Anthropic or Grok
+- Vercel AI Gateway (supports OpenAI, Anthropic, Grok, and more)
 - E2B Code Interpreter
 - Clerk Authentication
 - Inngest
@@ -59,7 +59,7 @@ e2b template build --name your-template-name --cmd "/compile_page.sh"
 After building the template, update the template name in `src/inngest/functions.ts`:
 
 ```typescript
-// Replace "vibe-nextjs-test-2" with your template name
+// Replace "zapdev" with your template name (line 22)
 const sandbox = await Sandbox.create("your-template-name");
 ```
 
@@ -76,8 +76,41 @@ cp env.example .env
 # Set up database
 npx prisma migrate dev # Enter name "init" for migration
 
-# Start development server
+# Start development servers (requires two terminals)
+# Terminal 1: Next.js app
 npm run dev
+
+# Terminal 2: Inngest dev server (for AI code generation)
+npm run dev:inngest
+# OR
+npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
+```
+
+**Important**: Both servers must be running for AI code generation to work:
+- Next.js app runs on `http://localhost:3000`
+- Inngest Dev UI runs on `http://localhost:8288`
+
+You can also use the helper script: `./start-dev.sh`
+
+## Setting Up Vercel AI Gateway
+
+1. **Create a Vercel Account**: Go to [Vercel](https://vercel.com) and sign up or log in
+2. **Navigate to AI Gateway**: Go to the [AI Gateway Dashboard](https://vercel.com/dashboard/ai-gateway)
+3. **Create API Key**: Generate a new API key from the dashboard
+4. **Choose Your Model**: The configuration uses OpenAI models by default, but you can switch to other providers like Anthropic, xAI, etc.
+
+### Migrating from Direct OpenAI
+
+If you're upgrading from a previous version that used OpenAI directly:
+1. Remove `OPENAI_API_KEY` from your `.env.local`
+2. Add `AI_GATEWAY_API_KEY` and `AI_GATEWAY_BASE_URL` as shown below
+3. The application now routes all AI requests through Vercel AI Gateway for better monitoring and reliability
+
+### Testing the Connection
+
+Run the included test script to verify your Vercel AI Gateway setup:
+```bash
+node test-vercel-ai-gateway.js
 ```
 
 ## Environment Variables
@@ -88,8 +121,9 @@ Create a `.env` file with the following variables:
 DATABASE_URL=""
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
-# OpenAI
-OPENAI_API_KEY=""
+# Vercel AI Gateway (replaces OpenAI)
+AI_GATEWAY_API_KEY=""
+AI_GATEWAY_BASE_URL="https://ai-gateway.vercel.sh/v1/"
 
 # E2B
 E2B_API_KEY=""
