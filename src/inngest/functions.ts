@@ -18,34 +18,70 @@ export const codeAgentFunction = inngest.createFunction(
   { id: "code-agent" },
   { event: "code-agent/run" },
   async ({ event, step }) => {
+    console.log("[DEBUG] Starting code-agent function");
+    console.log("[DEBUG] Event data:", JSON.stringify(event.data));
+    console.log("[DEBUG] E2B_API_KEY present:", !!process.env.E2B_API_KEY);
+    console.log("[DEBUG] AI_GATEWAY_API_KEY present:", !!process.env.AI_GATEWAY_API_KEY);
+    
     const sandboxId = await step.run("get-sandbox-id", async () => {
-      const sandbox = await Sandbox.create("zapdev");
-      await sandbox.setTimeout(SANDBOX_TIMEOUT);
-      return sandbox.sandboxId;
+      console.log("[DEBUG] Creating E2B sandbox...");
+      
+      try {
+        let sandbox;
+        try {
+          // Try with zapdev template first
+          console.log("[DEBUG] Attempting to create sandbox with 'zapdev' template");
+          sandbox = await Sandbox.create("zapdev", {
+            apiKey: process.env.E2B_API_KEY,
+          });
+        } catch {
+          // Fallback to default template if zapdev doesn't exist
+          console.log("[DEBUG] 'zapdev' template not found, using default template");
+          sandbox = await Sandbox.create({
+            apiKey: process.env.E2B_API_KEY,
+          });
+        }
+        
+        console.log("[DEBUG] Sandbox created successfully:", sandbox.sandboxId);
+        await sandbox.setTimeout(SANDBOX_TIMEOUT);
+        return sandbox.sandboxId;
+      } catch (error) {
+        console.error("[ERROR] Failed to create E2B sandbox:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
+      }
     });
 
     const previousMessages = await step.run("get-previous-messages", async () => {
+      console.log("[DEBUG] Fetching previous messages for project:", event.data.projectId);
       const formattedMessages: Message[] = [];
 
-      const messages = await prisma.message.findMany({
-        where: {
-          projectId: event.data.projectId,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: 5,
-      });
+      try {
+        const messages = await prisma.message.findMany({
+          where: {
+            projectId: event.data.projectId,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 5,
+        });
+        
+        console.log("[DEBUG] Found", messages.length, "previous messages");
 
-      for (const message of messages) {
-        formattedMessages.push({
-          type: "text",
-          role: message.role === "ASSISTANT" ? "assistant" : "user",
-          content: message.content,
-        })
+        for (const message of messages) {
+          formattedMessages.push({
+            type: "text",
+            role: message.role === "ASSISTANT" ? "assistant" : "user",
+            content: message.content,
+          })
+        }
+
+        return formattedMessages.reverse();
+      } catch (error) {
+        console.error("[ERROR] Failed to fetch previous messages:", error);
+        return [];
       }
-
-      return formattedMessages.reverse();
     });
 
     const state = createState<AgentState>(
@@ -62,10 +98,10 @@ export const codeAgentFunction = inngest.createFunction(
       name: "code-agent",
       description: "An expert coding agent",
       system: PROMPT,
-      model: openai({ 
-        model: "openai/gpt-4o-mini",
-        apiKey: process.env.AI_GATEWAY_API_KEY,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL,
+      model: openai({
+        model: "xai/grok-code-fast-1",
+        apiKey: process.env.AI_GATEWAY_API_KEY!,
+        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
           temperature: 0.1,
         },
@@ -191,16 +227,19 @@ export const codeAgentFunction = inngest.createFunction(
       },
     });
 
+    console.log("[DEBUG] Running network with input:", event.data.value);
     const result = await network.run(event.data.value, { state });
+    console.log("[DEBUG] Network run complete. Summary:", result.state.data.summary ? "Present" : "Missing");
+    console.log("[DEBUG] Files generated:", Object.keys(result.state.data.files || {}).length);
 
     const fragmentTitleGenerator = createAgent({
       name: "fragment-title-generator",
       description: "A fragment title generator",
       system: FRAGMENT_TITLE_PROMPT,
-      model: openai({ 
+      model: openai({
         model: "openai/gpt-4o",
-        apiKey: process.env.AI_GATEWAY_API_KEY,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL,
+        apiKey: process.env.AI_GATEWAY_API_KEY!,
+        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
       }),
     })
 
@@ -208,10 +247,10 @@ export const codeAgentFunction = inngest.createFunction(
       name: "response-generator",
       description: "A response generator",
       system: RESPONSE_PROMPT,
-      model: openai({ 
+      model: openai({
         model: "openai/gpt-4o",
-        apiKey: process.env.AI_GATEWAY_API_KEY,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL,
+        apiKey: process.env.AI_GATEWAY_API_KEY!,
+        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
       }),
     });
 

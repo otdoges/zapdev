@@ -10,5 +10,4 @@ export const { GET, POST, PUT } = serve({
     codeAgentFunction,
   ],
   signingKey: process.env.INNGEST_SIGNING_KEY,
-  landingPage: true, // Enable landing page in development
 });
