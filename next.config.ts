@@ -1,8 +1,24 @@
 import {withSentryConfig} from "@sentry/nextjs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const nullLoaderPath = path.join(__dirname, "loaders/null-loader.js");
 
 const nextConfig: NextConfig = {
   /* config options here */
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.d\.ts$/,
+      use: {
+        loader: nullLoaderPath,
+      },
+    });
+
+    return config;
+  },
 };
 
 export default withSentryConfig(nextConfig, {
