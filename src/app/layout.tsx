@@ -117,11 +117,13 @@ export default function RootLayout({
               <Toaster />
               {children}
               <Databuddy
-                clientId="idyqxiu_d_-8iTANsiprw"
+                clientId={process.env.NEXT_PUBLIC_DATABUDDY_CLIENT_ID!}
+                trackHashChanges={true}
                 trackAttributes={true}
                 trackOutgoingLinks={true}
                 trackInteractions={true}
                 trackEngagement={true}
+                trackScrollDepth={true}
                 trackExitIntent={true}
                 trackBounceRate={true}
                 trackWebVitals={true}
