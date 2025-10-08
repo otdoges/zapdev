@@ -1,6 +1,6 @@
 # Deployment Guide for Vercel
 
-This guide will help you deploy the Vibe application to Vercel with Inngest Cloud integration.
+This guide will help you deploy the ZapDev application to Vercel with Inngest Cloud integration.
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ This guide will help you deploy the Vibe application to Vercel with Inngest Clou
 
 2. **Create a New App**
    - Click "Create App" in the dashboard
-   - Name your app (e.g., "vibe-production")
+   - Name your app (e.g., "zapdev-production")
    
 3. **Get Your Keys**
    - Navigate to your app settings
@@ -31,7 +31,7 @@ This guide will help you deploy the Vibe application to Vercel with Inngest Clou
 1. **Fork or Clone the Repository**
    ```bash
    git clone <your-repo-url>
-   cd nextjs-vibe
+   cd nextjs-zapdev
    ```
 
 2. **Push to GitHub**

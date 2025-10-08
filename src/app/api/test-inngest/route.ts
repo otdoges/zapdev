@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { inngest } from '@/inngest/client';
 
 export async function GET() {
   try {
@@ -8,7 +7,7 @@ export async function GET() {
       configured: !!process.env.INNGEST_EVENT_KEY && !!process.env.INNGEST_SIGNING_KEY,
       hasEventKey: !!process.env.INNGEST_EVENT_KEY,
       hasSigningKey: !!process.env.INNGEST_SIGNING_KEY,
-      inngestId: 'vibe-production',
+      inngestId: 'zapdev-production',
       apiEndpoint: '/api/inngest'
     };
 

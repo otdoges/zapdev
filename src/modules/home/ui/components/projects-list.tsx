@@ -19,7 +19,7 @@ export const ProjectsList = () => {
   return (
     <div className="w-full bg-white dark:bg-sidebar rounded-xl p-8 border flex flex-col gap-y-6 sm:gap-y-4">
       <h2 className="text-2xl font-semibold">
-        {user?.firstName}&apos;s Vibes
+{user?.firstName}&apos;s Apps
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {projects?.length === 0 && (
@@ -40,7 +40,7 @@ export const ProjectsList = () => {
               <div className="flex items-center gap-x-4">
                 <Image
                   src="/logo.svg"
-                  alt="Vibe"
+                  alt="ZapDev"
                   width={32}
                   height={32}
                   className="object-contain"

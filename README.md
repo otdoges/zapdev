@@ -1,4 +1,4 @@
-# Vibe
+# ZapDev
 
 AI-powered development platform that lets you create web applications by chatting with AI agents in real-time sandboxes.
 
