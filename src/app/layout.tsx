@@ -83,28 +83,30 @@ export default function RootLayout({
     >
       <TRPCReactProvider>
         <html lang="en" suppressHydrationWarning>
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                "@context": "https://schema.org",
-                "@type": "Organization",
-                name: "Zapdev",
-                url: "https://zapdev.link",
-                logo: "https://zapdev.link/logo.png",
-                description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-                contactPoint: {
-                  "@type": "ContactPoint",
-                  contactType: "sales",
-                  availableLanguage: "English"
-                },
-                sameAs: [
-                  "https://twitter.com/zapdev",
-                  "https://linkedin.com/company/zapdev"
-                ]
-              }),
-            }}
-          />
+          <head>
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  "@context": "https://schema.org",
+                  "@type": "Organization",
+                  name: "Zapdev",
+                  url: "https://zapdev.link",
+                  logo: "https://zapdev.link/logo.png",
+                  description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
+                  contactPoint: {
+                    "@type": "ContactPoint",
+                    contactType: "sales",
+                    availableLanguage: "English"
+                  },
+                  sameAs: [
+                    "https://twitter.com/zapdev",
+                    "https://linkedin.com/company/zapdev"
+                  ]
+                }),
+              }}
+            />
+          </head>
           <body
             className={`${geistSans.variable} ${geistMono.variable} antialiased`}
           >
