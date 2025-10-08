@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
-import { openai, createAgent, createTool, createNetwork, type Tool, type Message, createState } from "@inngest/agent-kit";
+import { openai, createAgent, createTool, createNetwork, type Tool, type Message, createState, type NetworkRun } from "@inngest/agent-kit";
 
 import { prisma } from "@/lib/db";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "@/prompt";
@@ -8,6 +8,38 @@ import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "@/prompt";
 import { inngest } from "./client";
 import { SANDBOX_TIMEOUT } from "./types";
 import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
+
+const AUTO_FIX_MAX_ATTEMPTS = 1;
+const AUTO_FIX_ERROR_PATTERNS = [
+  /ESLint/i,
+  /Type error/i,
+  /Module not found/i,
+  /Cannot find module/i,
+  /Parsing error/i,
+  /unexpected token/i,
+];
+
+const shouldTriggerAutoFix = (message?: string) => {
+  if (!message) {
+    return false;
+  }
+
+  return AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(message));
+};
+
+const getLastAssistantMessage = (
+  networkRun: NetworkRun<AgentState>,
+): string | undefined => {
+  const results = networkRun.state.results;
+
+  if (results.length === 0) {
+    return undefined;
+  }
+
+  const latestResult = results[results.length - 1];
+
+  return lastAssistantTextMessageContent(latestResult);
+};
 
 interface AgentState {
   summary: string;
@@ -228,7 +260,30 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     console.log("[DEBUG] Running network with input:", event.data.value);
-    const result = await network.run(event.data.value, { state });
+    let result = await network.run(event.data.value, { state });
+
+    let autoFixAttempts = 0;
+    let lastAssistantMessage = getLastAssistantMessage(result);
+
+    while (
+      autoFixAttempts < AUTO_FIX_MAX_ATTEMPTS &&
+      shouldTriggerAutoFix(lastAssistantMessage)
+    ) {
+      autoFixAttempts += 1;
+      const errorDetails = lastAssistantMessage ?? "No error details provided.";
+
+      console.log(
+        `\n[DEBUG] Auto-fix triggered (attempt ${autoFixAttempts}). Last assistant message indicated an error.\n${errorDetails}\n`
+      );
+
+      result = await network.run(
+        `The previous attempt encountered an error and must be corrected immediately.\n\nError details:\n${errorDetails}\n\nIdentify the root cause, apply the fix, rerun any required steps, and provide an updated summary and file list.`,
+        { state: result.state }
+      );
+
+      lastAssistantMessage = getLastAssistantMessage(result);
+    }
+
     console.log("[DEBUG] Network run complete. Summary:", result.state.data.summary ? "Present" : "Missing");
     console.log("[DEBUG] Files generated:", Object.keys(result.state.data.files || {}).length);
 
@@ -237,7 +292,7 @@ export const codeAgentFunction = inngest.createFunction(
       description: "A fragment title generator",
       system: FRAGMENT_TITLE_PROMPT,
       model: openai({
-        model: "openai/gpt-4o",
+        model: "google/gemini-2.5-flash-lite",
         apiKey: process.env.AI_GATEWAY_API_KEY!,
         baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
       }),
@@ -248,7 +303,7 @@ export const codeAgentFunction = inngest.createFunction(
       description: "A response generator",
       system: RESPONSE_PROMPT,
       model: openai({
-        model: "openai/gpt-4o",
+        model: "google/gemini-2.5-flash-lite",
         apiKey: process.env.AI_GATEWAY_API_KEY!,
         baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
       }),
@@ -291,6 +346,7 @@ export const codeAgentFunction = inngest.createFunction(
           type: "RESULT",
           fragment: {
             create: {
+              sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
               title: parseAgentOutput(fragmentTitleOuput),
               files: result.state.data.files,
@@ -300,11 +356,98 @@ export const codeAgentFunction = inngest.createFunction(
       })
     });
 
-    return { 
+    return {
       url: sandboxUrl,
       title: "Fragment",
       files: result.state.data.files,
       summary: result.state.data.summary,
+    };
+  },
+);
+
+export const sandboxTransferFunction = inngest.createFunction(
+  { id: "sandbox-transfer" },
+  { event: "sandbox-transfer/run" },
+  async ({ event, step }) => {
+    console.log("[DEBUG] Starting sandbox transfer function");
+    console.log("[DEBUG] Event data:", JSON.stringify(event.data));
+
+    const fragment = await step.run("get-fragment", async () => {
+      return await prisma.fragment.findUnique({
+        where: { id: event.data.fragmentId },
+      });
+    });
+
+    if (!fragment) {
+      throw new Error("Fragment not found");
+    }
+
+    const newSandboxId = await step.run("create-new-sandbox", async () => {
+      console.log("[DEBUG] Creating new E2B sandbox for transfer...");
+
+      try {
+        let sandbox;
+        try {
+          console.log("[DEBUG] Attempting to create sandbox with 'zapdev' template");
+          sandbox = await Sandbox.create("zapdev", {
+            apiKey: process.env.E2B_API_KEY,
+          });
+        } catch {
+          console.log("[DEBUG] 'zapdev' template not found, using default template");
+          sandbox = await Sandbox.create({
+            apiKey: process.env.E2B_API_KEY,
+          });
+        }
+
+        console.log("[DEBUG] New sandbox created successfully:", sandbox.sandboxId);
+        await sandbox.setTimeout(SANDBOX_TIMEOUT);
+        return sandbox.sandboxId;
+      } catch (error) {
+        console.error("[ERROR] Failed to create new E2B sandbox:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
+      }
+    });
+
+    await step.run("transfer-files", async () => {
+      console.log("[DEBUG] Transferring files to new sandbox...");
+
+      try {
+        const sandbox = await getSandbox(newSandboxId);
+        const files = fragment.files as { [path: string]: string };
+
+        for (const [path, content] of Object.entries(files)) {
+          await sandbox.files.write(path, content);
+        }
+
+        console.log("[DEBUG] Successfully transferred", Object.keys(files).length, "files");
+      } catch (error) {
+        console.error("[ERROR] Failed to transfer files:", error);
+        throw error;
+      }
+    });
+
+    const newSandboxUrl = await step.run("get-new-sandbox-url", async () => {
+      const sandbox = await getSandbox(newSandboxId);
+      const host = sandbox.getHost(3000);
+      return `https://${host}`;
+    });
+
+    await step.run("update-fragment", async () => {
+      return await prisma.fragment.update({
+        where: { id: event.data.fragmentId },
+        data: {
+          sandboxId: newSandboxId,
+          sandboxUrl: newSandboxUrl,
+        },
+      });
+    });
+
+    console.log("[DEBUG] Sandbox transfer complete. New URL:", newSandboxUrl);
+
+    return {
+      sandboxId: newSandboxId,
+      sandboxUrl: newSandboxUrl,
     };
   },
 );
