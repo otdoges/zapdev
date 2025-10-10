@@ -1,12 +1,22 @@
 import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
 import { openai, createAgent, createTool, createNetwork, type Tool, type Message, createState, type NetworkRun } from "@inngest/agent-kit";
+import { Framework as PrismaFramework } from "@/generated/prisma";
 
 import { prisma } from "@/lib/db";
-import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "@/prompt";
+import {
+  FRAGMENT_TITLE_PROMPT,
+  RESPONSE_PROMPT,
+  FRAMEWORK_SELECTOR_PROMPT,
+  NEXTJS_PROMPT,
+  ANGULAR_PROMPT,
+  REACT_PROMPT,
+  VUE_PROMPT,
+  SVELTE_PROMPT,
+} from "@/prompt";
 
 import { inngest } from "./client";
-import { SANDBOX_TIMEOUT } from "./types";
+import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
 import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
 
 const AUTO_FIX_MAX_ATTEMPTS = 1;
@@ -41,10 +51,148 @@ const getLastAssistantMessage = (
   return lastAssistantTextMessageContent(latestResult);
 };
 
-interface AgentState {
-  summary: string;
-  files: { [path: string]: string };
+const getE2BTemplate = (framework: Framework): string => {
+  switch (framework) {
+    case 'nextjs':
+      return 'zapdev';
+    case 'angular':
+      return 'zapdev-angular';
+    case 'react':
+      return 'zapdev-react';
+    case 'vue':
+      return 'zapdev-vue';
+    case 'svelte':
+      return 'zapdev-svelte';
+    default:
+      return 'zapdev';
+  }
 };
+
+const getFrameworkPort = (framework: Framework): number => {
+  switch (framework) {
+    case 'nextjs':
+      return 3000;
+    case 'angular':
+      return 4200;
+    case 'react':
+    case 'vue':
+    case 'svelte':
+      return 5173;
+    default:
+      return 3000;
+  }
+};
+
+const getFrameworkPrompt = (framework: Framework): string => {
+  switch (framework) {
+    case 'nextjs':
+      return NEXTJS_PROMPT;
+    case 'angular':
+      return ANGULAR_PROMPT;
+    case 'react':
+      return REACT_PROMPT;
+    case 'vue':
+      return VUE_PROMPT;
+    case 'svelte':
+      return SVELTE_PROMPT;
+    default:
+      return NEXTJS_PROMPT;
+  }
+};
+
+const toPrismaFramework = (framework: Framework): PrismaFramework => {
+  return framework.toUpperCase() as PrismaFramework;
+};
+
+const createCodeAgentTools = (sandboxId: string) => [
+  createTool({
+    name: "terminal",
+    description: "Use the terminal to run commands",
+    parameters: z.object({
+      command: z.string(),
+    }),
+    handler: async ({ command }, { step }) => {
+      return await step?.run("terminal", async () => {
+        const buffers = { stdout: "", stderr: "" };
+
+        try {
+          const sandbox = await getSandbox(sandboxId);
+          const result = await sandbox.commands.run(command, {
+            onStdout: (data: string) => {
+              buffers.stdout += data;
+            },
+            onStderr: (data: string) => {
+              buffers.stderr += data;
+            }
+          });
+          return result.stdout;
+        } catch (e) {
+          console.error(
+            `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderror: ${buffers.stderr}`,
+          );
+          return `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderr: ${buffers.stderr}`;
+        }
+      });
+    },
+  }),
+  createTool({
+    name: "createOrUpdateFiles",
+    description: "Create or update files in the sandbox",
+    parameters: z.object({
+      files: z.array(
+        z.object({
+          path: z.string(),
+          content: z.string(),
+        }),
+      ),
+    }),
+    handler: async (
+      { files },
+      { step, network }: Tool.Options<AgentState>
+    ) => {
+      const newFiles = await step?.run("createOrUpdateFiles", async () => {
+        try {
+          const updatedFiles = network.state.data.files || {};
+          const sandbox = await getSandbox(sandboxId);
+          for (const file of files) {
+            await sandbox.files.write(file.path, file.content);
+            updatedFiles[file.path] = file.content;
+          }
+
+          return updatedFiles;
+        } catch (e) {
+          return "Error: " + e;
+        }
+      });
+
+      if (typeof newFiles === "object") {
+        network.state.data.files = newFiles;
+      }
+    }
+  }),
+  createTool({
+    name: "readFiles",
+    description: "Read files from the sandbox",
+    parameters: z.object({
+      files: z.array(z.string()),
+    }),
+    handler: async ({ files }, { step }) => {
+      return await step?.run("readFiles", async () => {
+        try {
+          const sandbox = await getSandbox(sandboxId);
+          const contents = [];
+          for (const file of files) {
+            const content = await sandbox.files.read(file);
+            contents.push({ path: file, content });
+          }
+          return JSON.stringify(contents);
+        } catch (e) {
+          return "Error: " + e;
+        }
+      })
+    },
+  })
+];
 
 export const codeAgentFunction = inngest.createFunction(
   { id: "code-agent" },
@@ -55,23 +203,77 @@ export const codeAgentFunction = inngest.createFunction(
     console.log("[DEBUG] E2B_API_KEY present:", !!process.env.E2B_API_KEY);
     console.log("[DEBUG] AI_GATEWAY_API_KEY present:", !!process.env.AI_GATEWAY_API_KEY);
     
+    // Get project to check if framework is already set
+    const project = await step.run("get-project", async () => {
+      return await prisma.project.findUnique({
+        where: { id: event.data.projectId },
+      });
+    });
+
+    let selectedFramework: Framework = project?.framework?.toLowerCase() as Framework || 'nextjs';
+
+    // If project doesn't have a framework set, use framework selector
+    if (!project?.framework) {
+      console.log("[DEBUG] No framework set, running framework selector...");
+      
+      const frameworkSelectorAgent = createAgent({
+        name: "framework-selector",
+        description: "Determines the best framework for the user's request",
+        system: FRAMEWORK_SELECTOR_PROMPT,
+        model: openai({
+          model: "google/gemini-2.5-flash-lite",
+          apiKey: process.env.AI_GATEWAY_API_KEY!,
+          baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+        }),
+      });
+
+      const frameworkResult = await frameworkSelectorAgent.run(event.data.value);
+      const frameworkOutput = frameworkResult.output[0];
+      
+      if (frameworkOutput.type === "text") {
+        const detectedFramework = (typeof frameworkOutput.content === "string" 
+          ? frameworkOutput.content 
+          : frameworkOutput.content.map((c) => c.text).join("")).trim().toLowerCase();
+        
+        console.log("[DEBUG] Framework selector output:", detectedFramework);
+        
+        if (['nextjs', 'angular', 'react', 'vue', 'svelte'].includes(detectedFramework)) {
+          selectedFramework = detectedFramework as Framework;
+        }
+      }
+      
+      console.log("[DEBUG] Selected framework:", selectedFramework);
+      
+      // Update project with selected framework
+      await step.run("update-project-framework", async () => {
+        return await prisma.project.update({
+          where: { id: event.data.projectId },
+          data: { framework: toPrismaFramework(selectedFramework) },
+        });
+      });
+    } else {
+      console.log("[DEBUG] Using existing framework:", selectedFramework);
+    }
+    
     const sandboxId = await step.run("get-sandbox-id", async () => {
-      console.log("[DEBUG] Creating E2B sandbox...");
+      console.log("[DEBUG] Creating E2B sandbox for framework:", selectedFramework);
+      const template = getE2BTemplate(selectedFramework);
       
       try {
         let sandbox;
         try {
-          // Try with zapdev template first
-          console.log("[DEBUG] Attempting to create sandbox with 'zapdev' template");
-          sandbox = await Sandbox.create("zapdev", {
+          console.log("[DEBUG] Attempting to create sandbox with template:", template);
+          sandbox = await Sandbox.create(template, {
             apiKey: process.env.E2B_API_KEY,
           });
         } catch {
-          // Fallback to default template if zapdev doesn't exist
-          console.log("[DEBUG] 'zapdev' template not found, using default template");
-          sandbox = await Sandbox.create({
+          // Fallback to default zapdev template if framework-specific doesn't exist
+          console.log("[DEBUG] Framework template not found, using default 'zapdev' template");
+          sandbox = await Sandbox.create("zapdev", {
             apiKey: process.env.E2B_API_KEY,
           });
+          // Fallback framework to nextjs if template doesn't exist
+          selectedFramework = 'nextjs';
         }
         
         console.log("[DEBUG] Sandbox created successfully:", sandbox.sandboxId);
@@ -120,16 +322,20 @@ export const codeAgentFunction = inngest.createFunction(
       {
         summary: "",
         files: {},
+        selectedFramework,
       },
       {
         messages: previousMessages,
       },
     );
 
+    const frameworkPrompt = getFrameworkPrompt(selectedFramework);
+    console.log("[DEBUG] Using prompt for framework:", selectedFramework);
+
     const codeAgent = createAgent<AgentState>({
-      name: "code-agent",
-      description: "An expert coding agent",
-      system: PROMPT,
+      name: `${selectedFramework}-code-agent`,
+      description: `An expert ${selectedFramework} coding agent`,
+      system: frameworkPrompt,
       model: openai({
         model: "xai/grok-code-fast-1",
         apiKey: process.env.AI_GATEWAY_API_KEY!,
@@ -138,95 +344,7 @@ export const codeAgentFunction = inngest.createFunction(
           temperature: 0.1,
         },
       }),
-      tools: [
-        createTool({
-          name: "terminal",
-          description: "Use the terminal to run commands",
-          parameters: z.object({
-            command: z.string(),
-          }),
-          handler: async ({ command }, { step }) => {
-            return await step?.run("terminal", async () => {
-              const buffers = { stdout: "", stderr: "" };
-
-              try {
-                const sandbox = await getSandbox(sandboxId);
-                const result = await sandbox.commands.run(command, {
-                  onStdout: (data: string) => {
-                    buffers.stdout += data;
-                  },
-                  onStderr: (data: string) => {
-                    buffers.stderr += data;
-                  }
-                });
-                return result.stdout;
-              } catch (e) {
-                console.error(
-                  `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderror: ${buffers.stderr}`,
-                );
-                return `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderr: ${buffers.stderr}`;
-              }
-            });
-          },
-        }),
-        createTool({
-          name: "createOrUpdateFiles",
-          description: "Create or update files in the sandbox",
-          parameters: z.object({
-            files: z.array(
-              z.object({
-                path: z.string(),
-                content: z.string(),
-              }),
-            ),
-          }),
-          handler: async (
-            { files },
-            { step, network }: Tool.Options<AgentState>
-          ) => {
-            const newFiles = await step?.run("createOrUpdateFiles", async () => {
-              try {
-                const updatedFiles = network.state.data.files || {};
-                const sandbox = await getSandbox(sandboxId);
-                for (const file of files) {
-                  await sandbox.files.write(file.path, file.content);
-                  updatedFiles[file.path] = file.content;
-                }
-
-                return updatedFiles;
-              } catch (e) {
-                return "Error: " + e;
-              }
-            });
-
-            if (typeof newFiles === "object") {
-              network.state.data.files = newFiles;
-            }
-          }
-        }),
-        createTool({
-          name: "readFiles",
-          description: "Read files from the sandbox",
-          parameters: z.object({
-            files: z.array(z.string()),
-          }),
-          handler: async ({ files }, { step }) => {
-            return await step?.run("readFiles", async () => {
-              try {
-                const sandbox = await getSandbox(sandboxId);
-                const contents = [];
-                for (const file of files) {
-                  const content = await sandbox.files.read(file);
-                  contents.push({ path: file, content });
-                }
-                return JSON.stringify(contents);
-              } catch (e) {
-                return "Error: " + e;
-              }
-            })
-          },
-        })
-      ],
+      tools: createCodeAgentTools(sandboxId),
       lifecycle: {
         onResponse: async ({ result, network }) => {
           const lastAssistantMessageText =
@@ -322,7 +440,8 @@ export const codeAgentFunction = inngest.createFunction(
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       const sandbox = await getSandbox(sandboxId);
-      const host = sandbox.getHost(3000);
+      const port = getFrameworkPort(selectedFramework);
+      const host = sandbox.getHost(port);
       return `https://${host}`;
     });
 
@@ -350,6 +469,7 @@ export const codeAgentFunction = inngest.createFunction(
               sandboxUrl: sandboxUrl,
               title: parseAgentOutput(fragmentTitleOuput),
               files: result.state.data.files,
+              framework: toPrismaFramework(selectedFramework),
             },
           },
         },
@@ -382,19 +502,22 @@ export const sandboxTransferFunction = inngest.createFunction(
       throw new Error("Fragment not found");
     }
 
+    const fragmentFramework = (fragment.framework?.toLowerCase() || 'nextjs') as Framework;
+    const template = getE2BTemplate(fragmentFramework);
+
     const newSandboxId = await step.run("create-new-sandbox", async () => {
-      console.log("[DEBUG] Creating new E2B sandbox for transfer...");
+      console.log("[DEBUG] Creating new E2B sandbox for transfer with framework:", fragmentFramework);
 
       try {
         let sandbox;
         try {
-          console.log("[DEBUG] Attempting to create sandbox with 'zapdev' template");
-          sandbox = await Sandbox.create("zapdev", {
+          console.log("[DEBUG] Attempting to create sandbox with template:", template);
+          sandbox = await Sandbox.create(template, {
             apiKey: process.env.E2B_API_KEY,
           });
         } catch {
-          console.log("[DEBUG] 'zapdev' template not found, using default template");
-          sandbox = await Sandbox.create({
+          console.log("[DEBUG] Template not found, using default 'zapdev' template");
+          sandbox = await Sandbox.create("zapdev", {
             apiKey: process.env.E2B_API_KEY,
           });
         }
@@ -429,7 +552,8 @@ export const sandboxTransferFunction = inngest.createFunction(
 
     const newSandboxUrl = await step.run("get-new-sandbox-url", async () => {
       const sandbox = await getSandbox(newSandboxId);
-      const host = sandbox.getHost(3000);
+      const port = getFrameworkPort(fragmentFramework);
+      const host = sandbox.getHost(port);
       return `https://${host}`;
     });
 
