@@ -19,9 +19,11 @@ RUN npm install
 # Install Vuetify and Tailwind CSS
 RUN npm install vuetify @mdi/font
 RUN npm install -D tailwindcss postcss autoprefixer vite-plugin-vuetify
-RUN npx tailwindcss init -p
 
-# Configure Tailwind
+# Create PostCSS config
+RUN echo 'module.exports = {\n  plugins: {\n    tailwindcss: {},\n    autoprefixer: {},\n  },\n}' > postcss.config.js
+
+# Create Tailwind config
 RUN echo 'module.exports = {\n  content: ["./index.html", "./src/**/*.{vue,js,ts,jsx,tsx}"],\n  theme: { extend: {} },\n  plugins: [],\n}' > tailwind.config.js
 
 # Add Tailwind directives to style.css

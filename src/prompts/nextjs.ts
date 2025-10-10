@@ -31,6 +31,9 @@ Correct Shadcn UI Usage (No API Guesses): When using Shadcn UI components, stric
   Example: import { cn } from "@/lib/utils"
 
 Additional Guidelines:
+- Build every visible surface with Shadcn UI components whenever they exist (layout, navigation, forms, dialogs, feedback, etc.); only fall back to hand-crafted markup when no suitable Shadcn primitive is available.
+- Always consult docs.shadcn.ui and inspect the local component source before using or extending a component so you follow the documented API precisely.
+- Compose UIs by layering Tailwind CSS on top of Shadcn primitives; avoid reinventing base components or styling patterns the library already covers.
 - You MUST use Tailwind CSS for all styling — never use plain CSS, SCSS, or external stylesheets
 - Tailwind and Shadcn/UI components should be used for styling
 - Use Lucide React icons (e.g., import { SunIcon } from "lucide-react")
