@@ -1,4 +1,4 @@
-import Link from 'next/link';
+/* eslint-disable @next/next/no-html-link-for-pages */
 
 export default function Custom404() {
   return (
@@ -17,7 +17,7 @@ export default function Custom404() {
       <p style={{ color: '#666', marginBottom: '24px' }}>
         The page you are looking for does not exist.
       </p>
-      <Link
+      <a
         href="/"
         style={{
           padding: '10px 20px',
@@ -29,7 +29,7 @@ export default function Custom404() {
         }}
       >
         Go Home
-      </Link>
+      </a>
     </div>
   );
 }
