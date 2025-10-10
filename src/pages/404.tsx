@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Custom404() {
   return (
     <div style={{
@@ -15,7 +17,7 @@ export default function Custom404() {
       <p style={{ color: '#666', marginBottom: '24px' }}>
         The page you are looking for does not exist.
       </p>
-      <a
+      <Link
         href="/"
         style={{
           padding: '10px 20px',
@@ -27,7 +29,7 @@ export default function Custom404() {
         }}
       >
         Go Home
-      </a>
+      </Link>
     </div>
   );
 }
