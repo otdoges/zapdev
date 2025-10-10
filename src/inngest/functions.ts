@@ -111,9 +111,12 @@ const createCodeAgentTools = (sandboxId: string) => [
     parameters: z.object({
       command: z.string(),
     }),
-    handler: async ({ command }, { step }) => {
-      return await step?.run("terminal", async () => {
-        const buffers = { stdout: "", stderr: "" };
+    handler: async (
+      { command }: { command: string },
+      opts: Tool.Options<AgentState>
+    ) => {
+      return await opts.step?.run("terminal", async () => {
+        const buffers: { stdout: string; stderr: string } = { stdout: "", stderr: "" };
 
         try {
           const sandbox = await getSandbox(sandboxId);
