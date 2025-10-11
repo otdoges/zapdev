@@ -204,7 +204,7 @@ export default function TermsOfService() {
           
           <h3 className="text-xl font-semibold mb-2 mt-4">13.2 Arbitration</h3>
           <p>
-            If we cannot resolve a dispute informally, any disputes arising out of or related to these Terms or the Service shall be resolved through binding arbitration in accordance with the rules of the American Arbitration Association, except as otherwise provided herein. The arbitration shall be conducted in English and take place in [Your Jurisdiction].
+            If we cannot resolve a dispute informally, any disputes arising out of or related to these Terms or the Service shall be resolved through binding arbitration in accordance with the rules of the American Arbitration Association, except as otherwise provided herein. The arbitration shall be conducted in English.
           </p>
           
           <h3 className="text-xl font-semibold mb-2 mt-4">13.3 Class Action Waiver</h3>
@@ -224,7 +224,7 @@ export default function TermsOfService() {
           <h2 className="text-2xl font-semibold mb-4">15. General Provisions</h2>
           <h3 className="text-xl font-semibold mb-2">15.1 Governing Law</h3>
           <p>
-            These Terms shall be governed by and construed in accordance with the laws of [Your Jurisdiction], without regard to its conflict of law provisions.
+            These Terms shall be governed by and construed in accordance with applicable laws, without regard to conflict of law provisions.
           </p>
           
           <h3 className="text-xl font-semibold mb-2 mt-4">15.2 Entire Agreement</h3>
@@ -259,8 +259,8 @@ export default function TermsOfService() {
             If you have any questions about these Terms, please contact us at:
           </p>
           <p className="mt-4">
-            <strong>Email:</strong> support@zapdev.com<br />
-            <strong>Address:</strong> [Your Company Address]
+            <strong>Email:</strong> support@zapdev.link<br />
+            <strong>Website:</strong> https://zapdev.link
           </p>
         </section>
 
