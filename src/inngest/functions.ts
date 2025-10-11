@@ -127,7 +127,7 @@ const toPrismaFramework = (framework: Framework): PrismaFramework => {
   return framework.toUpperCase() as PrismaFramework;
 };
 
-const createCodeAgentTools = (sandboxId: string) => [
+const createCodeAgentTools = (sandboxId: string, draftId: string) => [
   createTool({
     name: "terminal",
     description: "Use the terminal to run commands",
@@ -185,6 +185,11 @@ const createCodeAgentTools = (sandboxId: string) => [
             updatedFiles[file.path] = file.content;
           }
 
+          await prisma.fragmentDraft.update({
+            where: { id: draftId },
+            data: { files: updatedFiles },
+          });
+
           return updatedFiles;
         } catch (e) {
           return "Error: " + e;
@@ -229,14 +234,17 @@ export const codeAgentFunction = inngest.createFunction(
     console.log("[DEBUG] E2B_API_KEY present:", !!process.env.E2B_API_KEY);
     console.log("[DEBUG] AI_GATEWAY_API_KEY present:", !!process.env.AI_GATEWAY_API_KEY);
     
-    // Get project to check if framework is already set
-    const project = await step.run("get-project", async () => {
-      return await prisma.project.findUnique({
-        where: { id: event.data.projectId },
-      });
-    });
+    let fragmentDraftId: string | null = null;
 
-    let selectedFramework: Framework = project?.framework?.toLowerCase() as Framework || 'nextjs';
+    try {
+      // Get project to check if framework is already set
+      const project = await step.run("get-project", async () => {
+        return await prisma.project.findUnique({
+          where: { id: event.data.projectId },
+        });
+      });
+
+      let selectedFramework: Framework = project?.framework?.toLowerCase() as Framework || 'nextjs';
 
     // If project doesn't have a framework set, use framework selector
     if (!project?.framework) {
@@ -281,39 +289,62 @@ export const codeAgentFunction = inngest.createFunction(
       console.log("[DEBUG] Using existing framework:", selectedFramework);
     }
     
-    const sandboxId = await step.run("get-sandbox-id", async () => {
-      console.log("[DEBUG] Creating E2B sandbox for framework:", selectedFramework);
-      const template = getE2BTemplate(selectedFramework);
-      
-      try {
-        let sandbox;
+      const { sandboxId, sandboxUrl: initialSandboxUrl } = await step.run("create-sandbox", async () => {
+        console.log("[DEBUG] Creating E2B sandbox for framework:", selectedFramework);
+        const template = getE2BTemplate(selectedFramework);
+
         try {
-          console.log("[DEBUG] Attempting to create sandbox with template:", template);
-          sandbox = await Sandbox.betaCreate(template, {
-            apiKey: process.env.E2B_API_KEY,
-            autoPause: true,
-            timeoutMs: SANDBOX_TIMEOUT,
-          });
-        } catch {
-          // Fallback to default zapdev template if framework-specific doesn't exist
-          console.log("[DEBUG] Framework template not found, using default 'zapdev' template");
-          sandbox = await Sandbox.betaCreate("zapdev", {
-            apiKey: process.env.E2B_API_KEY,
-            autoPause: true,
-            timeoutMs: SANDBOX_TIMEOUT,
-          });
-          // Fallback framework to nextjs if template doesn't exist
-          selectedFramework = 'nextjs';
+          let sandbox;
+          try {
+            console.log("[DEBUG] Attempting to create sandbox with template:", template);
+            sandbox = await Sandbox.create(template, {
+              apiKey: process.env.E2B_API_KEY,
+              timeoutMs: SANDBOX_TIMEOUT,
+            });
+          } catch {
+            console.log("[DEBUG] Framework template not found, using default 'zapdev' template");
+            sandbox = await Sandbox.create("zapdev", {
+              apiKey: process.env.E2B_API_KEY,
+              timeoutMs: SANDBOX_TIMEOUT,
+            });
+            selectedFramework = 'nextjs';
+          }
+
+          const port = getFrameworkPort(selectedFramework);
+          const host = sandbox.getHost(port);
+
+          console.log("[DEBUG] Sandbox created successfully:", sandbox.sandboxId);
+          return {
+            sandboxId: sandbox.sandboxId,
+            sandboxUrl: `https://${host}`,
+          };
+        } catch (error) {
+          console.error("[ERROR] Failed to create E2B sandbox:", error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
         }
-        
-        console.log("[DEBUG] Sandbox created successfully:", sandbox.sandboxId);
-        return sandbox.sandboxId;
-      } catch (error) {
-        console.error("[ERROR] Failed to create E2B sandbox:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
-      }
-    });
+      });
+
+      const fragmentDraft = await step.run("upsert-fragment-draft", async () => {
+        return await prisma.fragmentDraft.upsert({
+          where: { projectId: event.data.projectId },
+          update: {
+            sandboxId,
+            sandboxUrl: initialSandboxUrl,
+            files: {} as Record<string, string>,
+            framework: toPrismaFramework(selectedFramework),
+          },
+          create: {
+            projectId: event.data.projectId,
+            sandboxId,
+            sandboxUrl: initialSandboxUrl,
+            files: {} as Record<string, string>,
+            framework: toPrismaFramework(selectedFramework),
+          },
+        });
+      });
+
+      fragmentDraftId = fragmentDraft.id;
 
     const previousMessages = await step.run("get-previous-messages", async () => {
       console.log("[DEBUG] Fetching previous messages for project:", event.data.projectId);
@@ -385,7 +416,7 @@ export const codeAgentFunction = inngest.createFunction(
     const state = createState<AgentState>(
       {
         summary: "",
-        files: {},
+        files: (fragmentDraft.files as { [path: string]: string }) ?? {},
         selectedFramework,
       },
       {
@@ -408,7 +439,7 @@ export const codeAgentFunction = inngest.createFunction(
           temperature: 0.9,
         },
       }),
-      tools: createCodeAgentTools(sandboxId),
+      tools: createCodeAgentTools(sandboxId, fragmentDraft.id),
       lifecycle: {
         onResponse: async ({ result, network }) => {
           const lastAssistantMessageText =
@@ -540,12 +571,26 @@ export const codeAgentFunction = inngest.createFunction(
       })
     });
 
-    return {
-      url: sandboxUrl,
-      title: "Fragment",
-      files: result.state.data.files,
-      summary: result.state.data.summary,
-    };
+      return {
+        url: sandboxUrl,
+        title: "Fragment",
+        files: result.state.data.files,
+        summary: result.state.data.summary,
+      };
+    } finally {
+      if (fragmentDraftId) {
+        const draftId = fragmentDraftId;
+        try {
+          await step.run("cleanup-draft", async () => {
+            await prisma.fragmentDraft.deleteMany({
+              where: { id: draftId },
+            });
+          });
+        } catch (error) {
+          console.error("[ERROR] Failed to cleanup fragment draft:", error);
+        }
+      }
+    }
   },
 );
 
@@ -576,16 +621,14 @@ export const sandboxTransferFunction = inngest.createFunction(
         let sandbox;
         try {
           console.log("[DEBUG] Attempting to create sandbox with template:", template);
-          sandbox = await Sandbox.betaCreate(template, {
+          sandbox = await Sandbox.create(template, {
             apiKey: process.env.E2B_API_KEY,
-            autoPause: true,
             timeoutMs: SANDBOX_TIMEOUT,
           });
         } catch {
           console.log("[DEBUG] Template not found, using default 'zapdev' template");
-          sandbox = await Sandbox.betaCreate("zapdev", {
+          sandbox = await Sandbox.create("zapdev", {
             apiKey: process.env.E2B_API_KEY,
-            autoPause: true,
             timeoutMs: SANDBOX_TIMEOUT,
           });
         }
