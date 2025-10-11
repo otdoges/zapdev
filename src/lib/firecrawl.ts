@@ -55,17 +55,12 @@ export const scrapeUrl = async (targetUrl: string): Promise<ScrapedContent | nul
   }
 
   try {
-    const response = await client.scrapeUrl(targetUrl, {
+    const document = await client.scrape(targetUrl, {
       formats: ["markdown"],
       onlyMainContent: true,
     });
 
-    if (!response.success) {
-      console.warn("[firecrawl] Scrape failed", { targetUrl, error: response.error });
-      return null;
-    }
-
-    const content = response.markdown ?? response.html ?? "";
+    const content = document.markdown ?? document.html ?? "";
 
     if (!content) {
       console.warn("[firecrawl] Empty scrape content", { targetUrl });
@@ -73,7 +68,7 @@ export const scrapeUrl = async (targetUrl: string): Promise<ScrapedContent | nul
     }
 
     return {
-      url: response.url ?? targetUrl,
+      url: document.metadata?.url ?? targetUrl,
       content: truncateContent(content.trim()),
     };
   } catch (error) {
