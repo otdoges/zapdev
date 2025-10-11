@@ -1,0 +1,16 @@
+# This is a config for E2B sandbox template.
+# You can use template ID (4aiopuh36j6376lfcdap) or template name (zapdev-vue) to create a sandbox:
+
+# Python SDK
+# from e2b import Sandbox, AsyncSandbox
+# sandbox = Sandbox.create("zapdev-vue") # Sync sandbox
+# sandbox = await AsyncSandbox.create("zapdev-vue") # Async sandbox
+
+# JS SDK
+# import { Sandbox } from 'e2b'
+# const sandbox = await Sandbox.create('zapdev-vue')
+
+team_id = "1db440ba-8980-4fca-b8f5-46375679ee47"
+dockerfile = "e2b.Dockerfile"
+template_name = "zapdev-vue"
+template_id = "4aiopuh36j6376lfcdap"
