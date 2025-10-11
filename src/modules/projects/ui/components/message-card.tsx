@@ -1,12 +1,9 @@
 import Image from "next/image";
-import { useMemo, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { format } from "date-fns";
-import { FilePenLineIcon } from "lucide-react";
+import { ChevronRightIcon, Code2Icon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Fragment, MessageRole, MessageType } from "@/generated/prisma";
 
 interface UserMessageProps {
@@ -34,84 +31,26 @@ const FragmentCard = ({
   isActiveFragment,
   onFragmentClick,
 }: FragmentCardProps) => {
-  const filePaths = useMemo(() => {
-    const files = fragment.files as unknown;
-
-    if (!files || typeof files !== "object" || Array.isArray(files)) {
-      return [];
-    }
-
-    return Object.keys(files as Record<string, unknown>);
-  }, [fragment.files]);
-
-  const primaryFile = filePaths[0] ?? fragment.title;
-  const remainingFiles = filePaths.slice(1);
-  const [showAllFiles, setShowAllFiles] = useState(false);
-
-  const formatPath = (path: string) => {
-    const segments = path.split("/");
-    return segments[segments.length - 1] || path;
-  };
-
-  const handleToggle = (event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    setShowAllFiles((prev) => !prev);
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      onFragmentClick(fragment);
-    }
-  };
-
   return (
-    <div
+    <button
       className={cn(
-        "flex flex-col gap-2 rounded-lg border bg-muted/70 p-3 text-sm text-muted-foreground transition-colors cursor-pointer hover:bg-muted",
+        "flex items-start text-start gap-2 border rounded-lg bg-muted w-fit p-3 hover:bg-secondary transition-colors",
         isActiveFragment && 
-          "border-primary bg-primary/10 text-foreground hover:bg-primary/10",
+          "bg-primary text-primary-foreground border-primary hover:bg-primary",
       )}
       onClick={() => onFragmentClick(fragment)}
-      onKeyDown={handleKeyDown}
-      role="button"
-      tabIndex={0}
     >
-      <div className="flex items-center gap-2">
-        <FilePenLineIcon className="size-4 shrink-0" />
-        <Badge
-          variant="secondary"
-          className="shrink-0 text-[10px] uppercase tracking-wide"
-        >
-          Editing
-        </Badge>
-        <span className="truncate font-medium text-foreground">
-          {formatPath(primaryFile)}
+      <Code2Icon className="size-4 mt-0.5" />
+      <div className="flex flex-col flex-1">
+        <span className="text-sm font-medium line-clamp-1">
+          {fragment.title}
         </span>
-        {remainingFiles.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto h-6 px-2 text-xs"
-            onClick={handleToggle}
-          >
-            {showAllFiles ? "Hide" : "Show all"}
-          </Button>
-        )}
+        <span className="text-sm">Preview</span>
       </div>
-      {showAllFiles && remainingFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 pl-6">
-          {remainingFiles.map((path) => (
-            <span
-              key={path}
-              className="rounded-md bg-background/70 px-2 py-1 text-xs font-medium text-muted-foreground"
-            >
-              {formatPath(path)}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
+      <div className="flex items-center justify-center mt-0.5">
+        <ChevronRightIcon className="size-4" />
+      </div>
+    </button>
   );
 };
 
@@ -132,8 +71,6 @@ const AssistantMessage = ({
   onFragmentClick,
   type,
 }: AssistantMessageProps) => {
-  const formattedContent = useMemo(() => content.trim(), [content]);
-
   return (
     <div className={cn(
       "flex flex-col group px-2 pb-4",
@@ -152,10 +89,8 @@ const AssistantMessage = ({
           {format(createdAt, "HH:mm 'on' MMM dd, yyyy")}
         </span>
       </div>
-      <div className="pl-8 flex flex-col gap-y-4">
-        <div className="w-fit max-w-full rounded-lg border border-border/80 bg-card px-4 py-3 text-sm leading-relaxed text-foreground whitespace-pre-wrap shadow-sm">
-          {formattedContent}
-        </div>
+      <div className="pl-8.5 flex flex-col gap-y-4">
+        <span>{content}</span>
         {fragment && type === "RESULT" && (
           <FragmentCard
             fragment={fragment}
