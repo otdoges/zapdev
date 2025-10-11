@@ -1,0 +1,16 @@
+# This is a config for E2B sandbox template.
+# You can use template ID (nf78dt2eufzn1y2gzfac) or template name (zapdev-angular) to create a sandbox:
+
+# Python SDK
+# from e2b import Sandbox, AsyncSandbox
+# sandbox = Sandbox.create("zapdev-angular") # Sync sandbox
+# sandbox = await AsyncSandbox.create("zapdev-angular") # Async sandbox
+
+# JS SDK
+# import { Sandbox } from 'e2b'
+# const sandbox = await Sandbox.create('zapdev-angular')
+
+team_id = "1db440ba-8980-4fca-b8f5-46375679ee47"
+dockerfile = "e2b.Dockerfile"
+template_name = "zapdev-angular"
+template_id = "nf78dt2eufzn1y2gzfac"
