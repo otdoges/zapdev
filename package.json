@@ -57,6 +57,7 @@
     "dotenv": "^17.2.3",
     "e2b": "^2.2.6",
     "embla-carousel-react": "^8.6.0",
+    "firecrawl": "^4.3.8",
     "inngest": "^3.39.2",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.518.0",
