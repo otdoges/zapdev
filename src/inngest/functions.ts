@@ -289,21 +289,24 @@ export const codeAgentFunction = inngest.createFunction(
         let sandbox;
         try {
           console.log("[DEBUG] Attempting to create sandbox with template:", template);
-          sandbox = await Sandbox.create(template, {
+          sandbox = await Sandbox.betaCreate(template, {
             apiKey: process.env.E2B_API_KEY,
+            autoPause: true,
+            timeoutMs: SANDBOX_TIMEOUT,
           });
         } catch {
           // Fallback to default zapdev template if framework-specific doesn't exist
           console.log("[DEBUG] Framework template not found, using default 'zapdev' template");
-          sandbox = await Sandbox.create("zapdev", {
+          sandbox = await Sandbox.betaCreate("zapdev", {
             apiKey: process.env.E2B_API_KEY,
+            autoPause: true,
+            timeoutMs: SANDBOX_TIMEOUT,
           });
           // Fallback framework to nextjs if template doesn't exist
           selectedFramework = 'nextjs';
         }
         
         console.log("[DEBUG] Sandbox created successfully:", sandbox.sandboxId);
-        await sandbox.setTimeout(SANDBOX_TIMEOUT);
         return sandbox.sandboxId;
       } catch (error) {
         console.error("[ERROR] Failed to create E2B sandbox:", error);
@@ -573,18 +576,21 @@ export const sandboxTransferFunction = inngest.createFunction(
         let sandbox;
         try {
           console.log("[DEBUG] Attempting to create sandbox with template:", template);
-          sandbox = await Sandbox.create(template, {
+          sandbox = await Sandbox.betaCreate(template, {
             apiKey: process.env.E2B_API_KEY,
+            autoPause: true,
+            timeoutMs: SANDBOX_TIMEOUT,
           });
         } catch {
           console.log("[DEBUG] Template not found, using default 'zapdev' template");
-          sandbox = await Sandbox.create("zapdev", {
+          sandbox = await Sandbox.betaCreate("zapdev", {
             apiKey: process.env.E2B_API_KEY,
+            autoPause: true,
+            timeoutMs: SANDBOX_TIMEOUT,
           });
         }
 
         console.log("[DEBUG] New sandbox created successfully:", sandbox.sandboxId);
-        await sandbox.setTimeout(SANDBOX_TIMEOUT);
         return sandbox.sandboxId;
       } catch (error) {
         console.error("[ERROR] Failed to create new E2B sandbox:", error);
