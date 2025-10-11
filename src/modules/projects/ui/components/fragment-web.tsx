@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ExternalLinkIcon, RefreshCcwIcon } from "lucide-react";
+import { ExternalLinkIcon, RefreshCcwIcon, DownloadIcon } from "lucide-react";
 
 import { Hint } from "@/components/hint";
 import { Fragment } from "@/generated/prisma";
@@ -124,6 +124,35 @@ export function FragmentWeb({ data }: Props) {
             <span className="truncate">
               {currentUrl}
             </span>
+          </Button>
+        </Hint>
+        <Hint text="Download files" side="bottom" align="start">
+          <Button
+            size="sm"
+            disabled={!data.id}
+            variant="outline"
+            onClick={async () => {
+              if (!data.id) return;
+              try {
+                const response = await fetch(`/api/fragment/${data.id}/download`);
+
+                if (!response.ok) {
+                  throw new Error("Unable to download fragment");
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `${data.title || "fragment"}.zip`;
+                link.click();
+                window.URL.revokeObjectURL(url);
+              } catch (error) {
+                console.error("Download failed", error);
+              }
+            }}
+          >
+            <DownloadIcon />
           </Button>
         </Hint>
         <Hint text="Open in a new tab" side="bottom" align="start">
