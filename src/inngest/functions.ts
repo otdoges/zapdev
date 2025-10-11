@@ -3,6 +3,7 @@ import { Sandbox } from "@e2b/code-interpreter";
 import { openai, createAgent, createTool, createNetwork, type Tool, type Message, createState, type NetworkRun } from "@inngest/agent-kit";
 
 import { prisma } from "@/lib/db";
+import { scrapeUrl, type ScrapedContent } from "@/lib/firecrawl";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "@/prompt";
 
 import { inngest } from "./client";
@@ -18,6 +19,28 @@ const AUTO_FIX_ERROR_PATTERNS = [
   /Parsing error/i,
   /unexpected token/i,
 ];
+
+const URL_REGEX = /(https?:\/\/[^\s\]\)"'<>]+)/gi;
+
+const extractUrls = (value: string) => {
+  const matches = value.matchAll(URL_REGEX);
+  const urls = new Set<string>();
+
+  for (const match of matches) {
+    const candidate = match[0];
+
+    try {
+      const parsed = new URL(candidate);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        urls.add(parsed.toString());
+      }
+    } catch (error) {
+      console.warn("[DEBUG] Skipping invalid URL", { candidate, error });
+    }
+  }
+
+  return Array.from(urls);
+};
 
 const shouldTriggerAutoFix = (message?: string) => {
   if (!message) {
@@ -116,13 +139,48 @@ export const codeAgentFunction = inngest.createFunction(
       }
     });
 
+    const scrapedContexts = await step.run("scrape-url-context", async () => {
+      try {
+        const urls = extractUrls(event.data.value ?? "").slice(0, 2);
+
+        if (urls.length === 0) {
+          return [] as ScrapedContent[];
+        }
+
+        console.log("[DEBUG] Found URLs in input:", urls);
+
+        const results: ScrapedContent[] = [];
+
+        for (const url of urls) {
+          const scraped = await scrapeUrl(url);
+
+          if (scraped) {
+            results.push(scraped);
+          }
+        }
+
+        return results;
+      } catch (error) {
+        console.error("[ERROR] Failed to scrape URLs", error);
+        return [] as ScrapedContent[];
+      }
+    });
+
+    const contextMessages: Message[] = (scrapedContexts ?? []).map((context) => ({
+      type: "text",
+      role: "system",
+      content: `Scraped context from ${context.url}:\n${context.content}`,
+    }));
+
+    const initialMessages = [...contextMessages, ...previousMessages];
+
     const state = createState<AgentState>(
       {
         summary: "",
         files: {},
       },
       {
-        messages: previousMessages,
+        messages: initialMessages,
       },
     );
 

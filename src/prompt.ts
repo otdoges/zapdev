@@ -83,6 +83,8 @@ Additional Guidelines:
 - Use backticks (\`) for all strings to support embedded quotes safely.
 - Do not assume existing file contents — use readFiles if unsure
 - Do not include any commentary, explanation, or markdown — use only tool outputs
+- When users request database-backed features, default to Drizzle ORM with a Prisma Console–hosted PostgreSQL instance and manage schema via Drizzle migrations.
+- When users request authentication capabilities, implement them with Better Auth on top of the Drizzle/PostgreSQL setup.
 - Always build full, real-world features or screens — not demos, stubs, or isolated widgets
 - Unless explicitly asked otherwise, always assume the task requires a full page layout — including all structural elements like headers, navbars, footers, content sections, and appropriate containers
 - Always implement realistic behavior and interactivity — not just static UI
