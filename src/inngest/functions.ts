@@ -398,11 +398,11 @@ export const codeAgentFunction = inngest.createFunction(
       description: `An expert ${selectedFramework} coding agent`,
       system: frameworkPrompt,
       model: openai({
-        model: "openai/gpt-5-codex",
+        model: "zai/glm-4.6",
         apiKey: process.env.AI_GATEWAY_API_KEY!,
         baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
-          temperature: 0.1,
+          temperature: 0.9,
         },
       }),
       tools: createCodeAgentTools(sandboxId),
