@@ -1,27 +1,37 @@
-"use client";
+import type { Metadata } from "next";
 
-import { dark } from "@clerk/themes";
-import { SignUp } from "@clerk/nextjs";
+import { SignUpContent } from "@/modules/home/ui/components/sign-up-content";
 
-import { useCurrentTheme } from "@/hooks/use-current-theme";
+export const metadata: Metadata = {
+  title: "Sign Up | Zapdev",
+  description: "Create a Zapdev account and start building AI-assisted applications in minutes.",
+  alternates: {
+    canonical: "/sign-up",
+  },
+  robots: {
+    index: false,
+  },
+};
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "RegisterAction",
+  name: "Zapdev Sign Up",
+  target: "https://zapdev.link/sign-up",
+  result: {
+    "@type": "Person",
+    description: "Zapdev user account",
+  },
+};
 
 const Page = () => {
-  const currentTheme = useCurrentTheme();
-
   return ( 
     <div className="flex flex-col max-w-3xl mx-auto w-full">
-      <section className="space-y-6 pt-[16vh] 2xl:pt-48">
-        <div className="flex flex-col items-center">
-          <SignUp
-            appearance={{
-              baseTheme: currentTheme === "dark" ? dark : undefined,
-              elements: {
-                cardBox: "border! shadow-none! rounded-lg!"
-              },
-            }}
-          />
-        </div>
-      </section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <SignUpContent />
     </div>
    );
 }

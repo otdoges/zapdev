@@ -1,27 +1,39 @@
-"use client";
+import type { Metadata } from "next";
 
-import { dark } from "@clerk/themes";
-import { SignIn } from "@clerk/nextjs";
+import { SignInContent } from "@/modules/home/ui/components/sign-in-content";
 
-import { useCurrentTheme } from "@/hooks/use-current-theme";
+export const metadata: Metadata = {
+  title: "Sign In | Zapdev",
+  description: "Access your Zapdev workspace to continue building with AI-powered development tools.",
+  alternates: {
+    canonical: "/sign-in",
+  },
+  robots: {
+    index: false,
+  },
+};
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Zapdev Sign In",
+  url: "https://zapdev.link/sign-in",
+  applicationCategory: "DeveloperApplication",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+};
 
 const Page = () => {
-  const currentTheme = useCurrentTheme();
-
-  return ( 
+  return (
     <div className="flex flex-col max-w-3xl mx-auto w-full">
-      <section className="space-y-6 pt-[16vh] 2xl:pt-48">
-        <div className="flex flex-col items-center">
-          <SignIn
-            appearance={{
-              baseTheme: currentTheme === "dark" ? dark : undefined,
-              elements: {
-                cardBox: "border! shadow-none! rounded-lg!"
-              },
-            }}
-          />
-        </div>
-      </section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <SignInContent />
     </div>
    );
 }

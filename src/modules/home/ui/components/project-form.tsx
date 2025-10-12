@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
 
 import { PROJECT_TEMPLATES } from "../../constants";
 
@@ -22,7 +23,27 @@ const formSchema = z.object({
   value: z.string()
     .min(1, { message: "Value is required" })
     .max(10000, { message: "Value is too long" }),
-})
+});
+
+const JsonLdScript = () => {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Action",
+    name: "Generate project with Zapdev",
+    target: "https://zapdev.link/",
+    agent: {
+      "@type": "Organization",
+      name: "Zapdev",
+    },
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
+};
 
 export const ProjectForm = () => {
   const router = useRouter();
@@ -130,21 +151,35 @@ export const ProjectForm = () => {
               )}
             </Button>
           </div>
-        </form>
-        <div className="flex-wrap justify-center gap-2 hidden md:flex max-w-3xl">
-          {PROJECT_TEMPLATES.map((template) => (
-            <Button 
-              key={template.title}
-              variant="outline"
-              size="sm"
-              className="bg-white dark:bg-sidebar"
-              onClick={() => onSelect(template.prompt)}
-            >
-              {template.emoji} {template.title}
-            </Button>
-          ))}
+          {selectedTemplate && (
+            <div className="flex gap-2 items-center">
+              <span className="text-muted-foreground text-sm">
+                Selected template:
+              </span>
+              <Badge variant="secondary">{selectedTemplate.title}</Badge>
+            </div>
+          )}
         </div>
-      </section>
+        <div className="flex justify-end gap-2">
+          <JsonLdScript />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            onClick={handleTemplateToggle}
+          >
+            {showTemplates ? "Hide templates" : "Browse templates"}
+          </Button>
+          <Button type="submit" size="sm" disabled={isButtonDisabled}>
+            {isPending ? (
+              <Loader2Icon className="h-4 w-4 animate-spin" />
+            ) : (
+              <ArrowUpIcon className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </form>
     </Form>
   );
 };

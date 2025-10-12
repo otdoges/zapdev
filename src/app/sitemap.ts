@@ -1,38 +1,51 @@
-import { MetadataRoute } from 'next'
+import { MetadataRoute } from "next";
+
+const baseUrl = "https://zapdev.link";
+
+const staticRoutes: Array<{
+  path: string;
+  changeFrequency: NonNullable<MetadataRoute.Sitemap[number]["changeFrequency"]>;
+  priority: number;
+}> = [
+  {
+    path: "/",
+    changeFrequency: "weekly",
+    priority: 1,
+  },
+  {
+    path: "/pricing",
+    changeFrequency: "monthly",
+    priority: 0.8,
+  },
+  {
+    path: "/sign-in",
+    changeFrequency: "yearly",
+    priority: 0.3,
+  },
+  {
+    path: "/sign-up",
+    changeFrequency: "yearly",
+    priority: 0.4,
+  },
+  {
+    path: "/privacy",
+    changeFrequency: "yearly",
+    priority: 0.5,
+  },
+  {
+    path: "/terms",
+    changeFrequency: "yearly",
+    priority: 0.5,
+  },
+];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://zapdev.link'
-  
-  return [
-    {
-      url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 1,
-    },
-    {
-      url: `${baseUrl}/home`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/home/pricing`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/home/sign-in`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.5,
-    },
-    {
-      url: `${baseUrl}/home/sign-up`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.5,
-    },
-  ]
+  const lastModified = new Date();
+
+  return staticRoutes.map(({ path, changeFrequency, priority }) => ({
+    url: `${baseUrl}${path}`,
+    lastModified,
+    changeFrequency,
+    priority,
+  }));
 }
