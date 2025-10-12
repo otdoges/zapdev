@@ -14,7 +14,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
-import { Form, FormField } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 
 import { PROJECT_TEMPLATES } from "../../constants";
@@ -44,6 +50,8 @@ const JsonLdScript = () => {
     />
   );
 };
+
+type ProjectTemplate = (typeof PROJECT_TEMPLATES)[number];
 
 export const ProjectForm = () => {
   const router = useRouter();
@@ -86,6 +94,8 @@ export const ProjectForm = () => {
     });
   };
 
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
   const onSelect = (value: string) => {
     form.setValue("value", value, {
       shouldDirty: true,
@@ -98,13 +108,24 @@ export const ProjectForm = () => {
   const isPending = createProject.isPending;
   const isButtonDisabled = isPending || !form.formState.isValid;
 
+  const handleTemplateToggle = () => {
+    setShowTemplates((prev) => !prev);
+  };
+
+  const handleTemplateSelect = (template: ProjectTemplate) => {
+    setSelectedTemplate(template);
+    onSelect(template.prompt);
+    setShowTemplates(false);
+  };
+
   return (
     <Form {...form}>
       <section className="space-y-6">
+        <JsonLdScript />
         <form
           onSubmit={form.handleSubmit(onSubmit)}
           className={cn(
-            "relative border p-4 pt-1 rounded-xl bg-sidebar dark:bg-sidebar transition-all",
+            "relative space-y-4 rounded-xl border bg-sidebar p-4 transition-all dark:bg-sidebar",
             isFocused && "shadow-xs",
           )}
         >
@@ -112,36 +133,51 @@ export const ProjectForm = () => {
             control={form.control}
             name="value"
             render={({ field }) => (
-              <TextareaAutosize
-                {...field}
-                disabled={isPending}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                minRows={2}
-                maxRows={8}
-                className="pt-4 resize-none border-none w-full outline-none bg-transparent"
-                placeholder="What would you like to build?"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    form.handleSubmit(onSubmit)(e);
-                  }
-                }}
-              />
+              <FormItem>
+                <FormControl>
+                  <TextareaAutosize
+                    {...field}
+                    disabled={isPending}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    minRows={2}
+                    maxRows={8}
+                    className="w-full resize-none border-none bg-transparent pt-4 outline-none"
+                    placeholder="What would you like to build?"
+                    onChange={(event) => {
+                      field.onChange(event);
+                      if (
+                        selectedTemplate &&
+                        event.target.value !== selectedTemplate.prompt
+                      ) {
+                        setSelectedTemplate(null);
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                        event.preventDefault();
+                        form.handleSubmit(onSubmit)(event);
+                      }
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
           />
-          <div className="flex gap-x-2 items-end justify-between pt-2">
-            <div className="text-[10px] text-muted-foreground font-mono">
-              <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+          <div className="flex items-end justify-between gap-2">
+            <div className="text-[10px] font-mono text-muted-foreground">
+              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                 <span>&#8984;</span>Enter
               </kbd>
               &nbsp;to submit
             </div>
             <Button
+              type="submit"
               disabled={isButtonDisabled}
               className={cn(
                 "size-8 rounded-full",
-                isButtonDisabled && "bg-muted-foreground border"
+                isButtonDisabled && "border bg-muted-foreground"
               )}
             >
               {isPending ? (
@@ -152,34 +188,59 @@ export const ProjectForm = () => {
             </Button>
           </div>
           {selectedTemplate && (
-            <div className="flex gap-2 items-center">
-              <span className="text-muted-foreground text-sm">
-                Selected template:
-              </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Selected template:</span>
               <Badge variant="secondary">{selectedTemplate.title}</Badge>
             </div>
           )}
-        </div>
-        <div className="flex justify-end gap-2">
-          <JsonLdScript />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={isPending}
-            onClick={handleTemplateToggle}
-          >
-            {showTemplates ? "Hide templates" : "Browse templates"}
-          </Button>
-          <Button type="submit" size="sm" disabled={isButtonDisabled}>
-            {isPending ? (
-              <Loader2Icon className="h-4 w-4 animate-spin" />
-            ) : (
-              <ArrowUpIcon className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-      </form>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isPending}
+              onClick={handleTemplateToggle}
+            >
+              {showTemplates ? "Hide templates" : "Browse templates"}
+            </Button>
+            <Button type="submit" size="sm" disabled={isButtonDisabled}>
+              {isPending ? (
+                <Loader2Icon className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowUpIcon className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </form>
+        {showTemplates && (
+          <div className="grid gap-2 md:grid-cols-2">
+            {PROJECT_TEMPLATES.map((template) => {
+              const isActive = selectedTemplate?.title === template.title;
+
+              return (
+                <button
+                  key={template.title}
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => handleTemplateSelect(template)}
+                  className={cn(
+                    "flex items-start gap-3 rounded-lg border p-4 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    isActive && "border-primary bg-primary/5"
+                  )}
+                >
+                  <span className="text-xl">{template.emoji}</span>
+                  <span className="space-y-1">
+                    <span className="block font-medium">{template.title}</span>
+                    <span className="block text-sm text-muted-foreground">
+                      {template.prompt}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </Form>
   );
 };

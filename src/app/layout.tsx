@@ -52,6 +52,14 @@ export const metadata: Metadata = {
     description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
     creator: "@zapdev",
   },
+  icons: {
+    icon: [
+      {
+        url: "/icon.png",
+        type: "image/png",
+      },
+    ],
+  },
   robots: {
     index: true,
     follow: true,
