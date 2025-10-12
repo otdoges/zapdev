@@ -94,7 +94,6 @@ export const ProjectForm = () => {
     });
   };
 
-  const [showTemplates, setShowTemplates] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
   const onSelect = (value: string) => {
     form.setValue("value", value, {
@@ -108,14 +107,9 @@ export const ProjectForm = () => {
   const isPending = createProject.isPending;
   const isButtonDisabled = isPending || !form.formState.isValid;
 
-  const handleTemplateToggle = () => {
-    setShowTemplates((prev) => !prev);
-  };
-
   const handleTemplateSelect = (template: ProjectTemplate) => {
     setSelectedTemplate(template);
     onSelect(template.prompt);
-    setShowTemplates(false);
   };
 
   return (
@@ -193,53 +187,33 @@ export const ProjectForm = () => {
               <Badge variant="secondary">{selectedTemplate.title}</Badge>
             </div>
           )}
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isPending}
-              onClick={handleTemplateToggle}
-            >
-              {showTemplates ? "Hide templates" : "Browse templates"}
-            </Button>
-            <Button type="submit" size="sm" disabled={isButtonDisabled}>
-              {isPending ? (
-                <Loader2Icon className="h-4 w-4 animate-spin" />
-              ) : (
-                <ArrowUpIcon className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
         </form>
-        {showTemplates && (
-          <div className="grid gap-2 md:grid-cols-2">
-            {PROJECT_TEMPLATES.map((template) => {
-              const isActive = selectedTemplate?.title === template.title;
+        <div className="grid gap-2 md:grid-cols-2">
+          {PROJECT_TEMPLATES.map((template) => {
+            const isActive = selectedTemplate?.title === template.title;
 
-              return (
-                <button
-                  key={template.title}
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => handleTemplateSelect(template)}
-                  className={cn(
-                    "flex items-start gap-3 rounded-lg border p-4 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                    isActive && "border-primary bg-primary/5"
-                  )}
-                >
-                  <span className="text-xl">{template.emoji}</span>
-                  <span className="space-y-1">
-                    <span className="block font-medium">{template.title}</span>
-                    <span className="block text-sm text-muted-foreground">
-                      {template.prompt}
-                    </span>
+            return (
+              <button
+                key={template.title}
+                type="button"
+                disabled={isPending}
+                onClick={() => handleTemplateSelect(template)}
+                className={cn(
+                  "flex items-start gap-3 rounded-lg border p-4 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  isActive && "border-primary bg-primary/5"
+                )}
+              >
+                <span className="text-xl">{template.emoji}</span>
+                <span className="space-y-1">
+                  <span className="block font-medium">{template.title}</span>
+                  <span className="block text-sm text-muted-foreground">
+                    {template.prompt}
                   </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </section>
     </Form>
   );
