@@ -11,15 +11,11 @@ export const fragmentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ input, ctx }) => {
-      if (!ctx.auth.userId) {
-        throw new Error("Unauthorized");
-      }
-
       // First verify the project belongs to the user
       const project = await prisma.project.findUnique({
         where: {
           id: input.projectId,
-          userId: ctx.auth.userId,
+          userId: ctx.auth.userId!,
         },
       });
 
