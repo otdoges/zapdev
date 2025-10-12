@@ -1,3 +1,17 @@
+-- Ensure Framework enum exists
+DO $$
+BEGIN
+    CREATE TYPE "Framework" AS ENUM ('NEXTJS', 'ANGULAR', 'REACT', 'VUE', 'SVELTE');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Ensure Project.framework column exists
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "framework" "Framework" NOT NULL DEFAULT 'NEXTJS';
+
+-- Ensure Fragment.framework column exists
+ALTER TABLE "Fragment" ADD COLUMN IF NOT EXISTS "framework" "Framework" NOT NULL DEFAULT 'NEXTJS';
+
 -- CreateTable
 CREATE TABLE "FragmentDraft" (
     "id" TEXT NOT NULL,
