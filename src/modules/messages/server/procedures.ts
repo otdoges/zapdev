@@ -14,6 +14,10 @@ export const messagesRouter = createTRPCRouter({
       }),
     )
     .query(async ({ input, ctx }) => {
+      if (!ctx.auth.userId) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
+      }
+
       const messages = await prisma.message.findMany({
         where: {
           projectId: input.projectId,
@@ -41,6 +45,10 @@ export const messagesRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input, ctx }) => {
+      if (!ctx.auth.userId) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
+      }
+
       const existingProject = await prisma.project.findUnique({
         where: {
           id: input.projectId,

@@ -1,27 +1,21 @@
-import { authMiddleware } from "@clerk/nextjs";
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-const publicRoutes = [
-  "/",
-  "/pricing",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/terms",
-  "/privacy",
-  "/api/sentry-example-api",
-  "/api/test-inngest",
-  "/api/transfer-sandbox",
-  "/api/trpc(.*)",
-  "/sitemap.xml",
-  "/robots.txt",
-];
+const isProtectedRoute = createRouteMatcher([
+  '/generation(.*)',
+  '/dashboard(.*)',
+])
 
-export default authMiddleware({
-  publicRoutes,
-});
+export default clerkMiddleware(async (auth, req) => {
+  if (isProtectedRoute(req)) {
+    await auth.protect()
+  }
+})
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-    "/",
+    // Skip Next.js internals and all static files, unless found in search params
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes
+    '/(api|trpc)(.*)',
   ],
-};
+}

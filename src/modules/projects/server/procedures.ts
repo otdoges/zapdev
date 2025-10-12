@@ -13,6 +13,10 @@ export const projectsRouter = createTRPCRouter({
       id: z.string().min(1, { message: "Id is required" }),
     }))
     .query(async ({ input, ctx }) => {
+      if (!ctx.auth.userId) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
+      }
+
       const existingProject = await prisma.project.findUnique({
         where: {
           id: input.id,
@@ -28,6 +32,10 @@ export const projectsRouter = createTRPCRouter({
     }),
   getMany: protectedProcedure
     .query(async ({ ctx }) => {
+      if (!ctx.auth.userId) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
+      }
+
       const projects = await prisma.project.findMany({
         where: {
           userId: ctx.auth.userId,
@@ -48,6 +56,10 @@ export const projectsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input, ctx }) => {
+      if (!ctx.auth.userId) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized" });
+      }
+
       try {
         await consumeCredits();
       } catch (error) {
