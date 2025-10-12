@@ -1,17 +1,16 @@
 import { useEffect, useRef } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 
 import { useTRPC } from "@/trpc/client";
-import { Fragment } from "@/generated/prisma";
-
 import { MessageCard } from "./message-card";
 import { MessageForm } from "./message-form";
 import { MessageLoading } from "./message-loading";
+import { FragmentDisplay } from "../../types";
 
 interface Props {
   projectId: string;
-  activeFragment: Fragment | null;
-  setActiveFragment: (fragment: Fragment | null) => void;
+  activeFragment: FragmentDisplay | null;
+  setActiveFragment: (fragment: FragmentDisplay | null) => void;
 };
 
 export const MessagesContainer = ({ 
@@ -29,6 +28,19 @@ export const MessagesContainer = ({
     refetchInterval: 2000,
   }));
 
+  const lastMessage = messages[messages.length - 1];
+  const isLastMessageUser = lastMessage?.role === "USER";
+
+  const { data: draft } = useQuery(
+    trpc.fragments.getDraft.queryOptions(
+      { projectId },
+      {
+        refetchInterval: isLastMessageUser ? 1500 : false,
+        enabled: Boolean(isLastMessageUser),
+      },
+    ),
+  );
+
   useEffect(() => {
     const lastAssistantMessage = messages.findLast(
       (message) => message.role === "ASSISTANT"
@@ -38,17 +50,37 @@ export const MessagesContainer = ({
       lastAssistantMessage?.fragment &&
       lastAssistantMessage.id !== lastAssistantMessageIdRef.current
     ) {
-      setActiveFragment(lastAssistantMessage.fragment);
+      const fragment = lastAssistantMessage.fragment;
+      setActiveFragment({
+        id: fragment.id,
+        sandboxId: fragment.sandboxId,
+        sandboxUrl: fragment.sandboxUrl,
+        title: fragment.title,
+        files: fragment.files as { [path: string]: string },
+        createdAt: fragment.createdAt,
+        isDraft: false,
+      });
       lastAssistantMessageIdRef.current = lastAssistantMessage.id;
     }
   }, [messages, setActiveFragment]);
 
   useEffect(() => {
+    if (isLastMessageUser && draft) {
+      setActiveFragment({
+        id: draft.id,
+        sandboxId: draft.sandboxId,
+        sandboxUrl: draft.sandboxUrl,
+        files: (draft.files as { [path: string]: string }) ?? {},
+        createdAt: draft.createdAt,
+        isDraft: true,
+        title: null,
+      });
+    }
+  }, [draft, isLastMessageUser, setActiveFragment]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView();
   }, [messages.length]);
-
-  const lastMessage = messages[messages.length - 1];
-  const isLastMessageUser = lastMessage?.role === "USER";
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -62,7 +94,20 @@ export const MessagesContainer = ({
               fragment={message.fragment}
               createdAt={message.createdAt}
               isActiveFragment={activeFragment?.id === message.fragment?.id}
-              onFragmentClick={() => setActiveFragment(message.fragment)}
+              onFragmentClick={() => {
+                if (!message.fragment) {
+                  return;
+                }
+                setActiveFragment({
+                  id: message.fragment.id,
+                  sandboxId: message.fragment.sandboxId,
+                  sandboxUrl: message.fragment.sandboxUrl,
+                  title: message.fragment.title,
+                  files: message.fragment.files as { [path: string]: string },
+                  createdAt: message.fragment.createdAt,
+                  isDraft: false,
+                });
+              }}
               type={message.type}
             />
           ))}

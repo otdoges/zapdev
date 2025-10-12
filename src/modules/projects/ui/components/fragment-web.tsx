@@ -2,24 +2,31 @@ import { useState, useEffect } from "react";
 import { ExternalLinkIcon, RefreshCcwIcon, DownloadIcon } from "lucide-react";
 
 import { Hint } from "@/components/hint";
-import { Fragment } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
+import { FragmentDisplay } from "../../types";
 
 interface Props {
-  data: Fragment;
+  data: FragmentDisplay;
 };
 
 export function FragmentWeb({ data }: Props) {
   const [copied, setCopied] = useState(false);
   const [fragmentKey, setFragmentKey] = useState(0);
   const [isTransferring, setIsTransferring] = useState(false);
-  const [currentUrl, setCurrentUrl] = useState(data.sandboxUrl);
+  const [currentUrl, setCurrentUrl] = useState<string | null | undefined>(data.sandboxUrl);
+
+  useEffect(() => {
+    setCurrentUrl(data.sandboxUrl);
+  }, [data.id, data.sandboxUrl]);
 
   const onRefresh = () => {
     setFragmentKey((prev) => prev + 1);
   };
 
   const handleCopy = () => {
+    if (!currentUrl) {
+      return;
+    }
     navigator.clipboard.writeText(currentUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -28,9 +35,15 @@ export function FragmentWeb({ data }: Props) {
   // Check if sandbox is older than 55 minutes and auto-transfer
   useEffect(() => {
     const checkAndTransferSandbox = async () => {
-      if (!data.createdAt) return;
+      if (!data.createdAt || data.isDraft) return;
 
-      const sandboxAge = Date.now() - new Date(data.createdAt).getTime();
+      const createdAt = typeof data.createdAt === "string"
+        ? new Date(data.createdAt)
+        : data.createdAt;
+
+      if (!createdAt) return;
+
+      const sandboxAge = Date.now() - createdAt.getTime();
       const FIFTY_FIVE_MINUTES = 55 * 60 * 1000;
 
       if (sandboxAge >= FIFTY_FIVE_MINUTES) {
@@ -87,7 +100,7 @@ export function FragmentWeb({ data }: Props) {
     };
 
     checkAndTransferSandbox();
-  }, [data.id, data.createdAt, currentUrl]);
+  }, [data.id, data.createdAt, data.isDraft, currentUrl]);
 
   if (isTransferring) {
     return (
@@ -113,6 +126,11 @@ export function FragmentWeb({ data }: Props) {
             <RefreshCcwIcon />
           </Button>
         </Hint>
+        {data.isDraft && (
+          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            Live build in progress
+          </span>
+        )}
         <Hint text="Click to copy" side="bottom">
           <Button
             size="sm"
@@ -129,10 +147,10 @@ export function FragmentWeb({ data }: Props) {
         <Hint text="Download files" side="bottom" align="start">
           <Button
             size="sm"
-            disabled={!data.id}
+            disabled={!data.id || data.isDraft}
             variant="outline"
             onClick={async () => {
-              if (!data.id) return;
+              if (!data.id || data.isDraft) return;
               try {
                 const response = await fetch(`/api/fragment/${data.id}/download`);
 
@@ -174,7 +192,7 @@ export function FragmentWeb({ data }: Props) {
         className="h-full w-full"
         sandbox="allow-forms allow-scripts allow-same-origin"
         loading="lazy"
-        src={currentUrl}
+        src={currentUrl ?? undefined}
       />
     </div>
   )

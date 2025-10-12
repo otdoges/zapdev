@@ -5,7 +5,6 @@ import { useAuth } from "@clerk/nextjs";
 import { Suspense, useState } from "react";
 import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
 
-import { Fragment } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
 import { FileExplorer } from "@/components/file-explorer";
@@ -20,6 +19,7 @@ import { FragmentWeb } from "../components/fragment-web";
 import { ProjectHeader } from "../components/project-header";
 import { MessagesContainer } from "../components/messages-container";
 import { ErrorBoundary } from "react-error-boundary";
+import { FragmentDisplay } from "../../types";
 
 interface Props {
   projectId: string;
@@ -29,7 +29,7 @@ export const ProjectView = ({ projectId }: Props) => {
   const { has } = useAuth();
   const hasProAccess = has?.({ plan: "pro" });
 
-  const [activeFragment, setActiveFragment] = useState<Fragment | null>(null);
+  const [activeFragment, setActiveFragment] = useState<FragmentDisplay | null>(null);
   const [tabState, setTabState] = useState<"preview" | "code">("preview");
 
   return (
@@ -91,9 +91,7 @@ export const ProjectView = ({ projectId }: Props) => {
             </TabsContent>
             <TabsContent value="code" className="min-h-0">
               {!!activeFragment?.files && (
-                <FileExplorer
-                  files={activeFragment.files as { [path: string]: string }}
-                />
+                <FileExplorer files={activeFragment.files} />
               )}
             </TabsContent>
           </Tabs>

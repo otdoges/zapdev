@@ -48,10 +48,11 @@ export async function GET(
     }
 
     const archive = await zip.generateAsync({ type: "nodebuffer" });
+    const archiveView = new Uint8Array(archive);
 
     const fileName = `${(fragment.title || "fragment").replace(/[^a-z0-9-_]+/gi, "-") || "fragment"}.zip`;
 
-    return new Response(archive, {
+    return new Response(archiveView, {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
