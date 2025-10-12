@@ -11,12 +11,22 @@ export const fragmentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ input, ctx }) => {
-      const draft = await prisma.fragmentDraft.findFirst({
+      // First verify the project belongs to the user
+      const project = await prisma.project.findUnique({
+        where: {
+          id: input.projectId,
+          userId: ctx.auth.userId,
+        },
+      });
+
+      if (!project) {
+        return null;
+      }
+
+      // Then fetch the draft
+      const draft = await prisma.fragmentDraft.findUnique({
         where: {
           projectId: input.projectId,
-          project: {
-            userId: ctx.auth.userId,
-          },
         },
       });
 
