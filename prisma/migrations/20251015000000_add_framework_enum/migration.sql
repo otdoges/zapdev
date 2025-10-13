@@ -1,0 +1,18 @@
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type WHERE typname = 'framework'
+  ) THEN
+    CREATE TYPE "Framework" AS ENUM ('NEXTJS', 'ANGULAR', 'REACT', 'VUE', 'SVELTE');
+  END IF;
+END
+$$;
+
+ALTER TABLE IF EXISTS "Project"
+  ADD COLUMN IF NOT EXISTS "framework" "Framework" NOT NULL DEFAULT 'NEXTJS';
+
+ALTER TABLE IF EXISTS "Fragment"
+  ADD COLUMN IF NOT EXISTS "framework" "Framework" NOT NULL DEFAULT 'NEXTJS';
+
+ALTER TABLE IF EXISTS "FragmentDraft"
+  ADD COLUMN IF NOT EXISTS "framework" "Framework" NOT NULL DEFAULT 'NEXTJS';
