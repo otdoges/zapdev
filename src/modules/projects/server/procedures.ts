@@ -67,7 +67,7 @@ export const projectsRouter = createTRPCRouter({
           name: generateSlug(2, {
             format: "kebab",
           }),
-          messages: {
+          Message: {
             create: {
               content: input.value,
               role: "USER",

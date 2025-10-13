@@ -35,10 +35,10 @@ export const MessagesContainer = ({
     );
 
     if (
-      lastAssistantMessage?.fragment &&
+      lastAssistantMessage?.Fragment &&
       lastAssistantMessage.id !== lastAssistantMessageIdRef.current
     ) {
-      setActiveFragment(lastAssistantMessage.fragment);
+      setActiveFragment(lastAssistantMessage.Fragment);
       lastAssistantMessageIdRef.current = lastAssistantMessage.id;
     }
   }, [messages, setActiveFragment]);
@@ -59,12 +59,12 @@ export const MessagesContainer = ({
               key={message.id}
               content={message.content}
               role={message.role}
-              fragment={message.fragment}
+              fragment={message.Fragment}
               createdAt={message.createdAt}
-              isActiveFragment={activeFragment?.id === message.fragment?.id}
-              onFragmentClick={() => setActiveFragment(message.fragment)}
+              isActiveFragment={activeFragment?.id === message.Fragment?.id}
+              onFragmentClick={() => setActiveFragment(message.Fragment)}
               type={message.type}
-              attachments={message.attachments}
+              attachments={message.Attachment}
             />
           ))}
           {isLastMessageUser && <MessageLoading />}
