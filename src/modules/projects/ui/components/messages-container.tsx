@@ -64,6 +64,7 @@ export const MessagesContainer = ({
               isActiveFragment={activeFragment?.id === message.fragment?.id}
               onFragmentClick={() => setActiveFragment(message.fragment)}
               type={message.type}
+              attachments={message.attachments}
             />
           ))}
           {isLastMessageUser && <MessageLoading />}

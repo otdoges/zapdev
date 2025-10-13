@@ -23,6 +23,7 @@ export const messagesRouter = createTRPCRouter({
         },
         include: {
           fragment: true,
+          attachments: true,
         },
         orderBy: {
           updatedAt: "asc",
@@ -38,6 +39,14 @@ export const messagesRouter = createTRPCRouter({
           .min(1, { message: "Value is required" })
           .max(10000, { message: "Value is too long" }),
         projectId: z.string().min(1, { message: "Project ID is required" }),
+        attachments: z.array(
+          z.object({
+            url: z.string(),
+            size: z.number(),
+            width: z.number().optional(),
+            height: z.number().optional(),
+          })
+        ).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -71,6 +80,17 @@ export const messagesRouter = createTRPCRouter({
           content: input.value,
           role: "USER",
           type: "RESULT",
+          attachments: input.attachments?.length
+            ? {
+                create: input.attachments.map((attachment) => ({
+                  type: "IMAGE",
+                  url: attachment.url,
+                  size: attachment.size,
+                  width: attachment.width,
+                  height: attachment.height,
+                })),
+              }
+            : undefined,
         },
       });
 
