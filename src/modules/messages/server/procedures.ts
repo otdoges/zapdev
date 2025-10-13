@@ -17,13 +17,13 @@ export const messagesRouter = createTRPCRouter({
       const messages = await prisma.message.findMany({
         where: {
           projectId: input.projectId,
-          project: {
+          Project: {
             userId: ctx.auth.userId,
           },
         },
         include: {
-          fragment: true,
-          attachments: true,
+          Fragment: true,
+          Attachment: true,
         },
         orderBy: {
           updatedAt: "asc",
@@ -80,7 +80,7 @@ export const messagesRouter = createTRPCRouter({
           content: input.value,
           role: "USER",
           type: "RESULT",
-          attachments: input.attachments?.length
+          Attachment: input.attachments?.length
             ? {
                 create: input.attachments.map((attachment) => ({
                   type: "IMAGE",

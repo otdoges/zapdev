@@ -586,7 +586,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
           content: parseAgentOutput(responseOutput),
           role: "ASSISTANT",
           type: "RESULT",
-          fragment: {
+          Fragment: {
             create: {
               sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
