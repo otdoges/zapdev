@@ -4,18 +4,36 @@ import { ChevronRightIcon, Code2Icon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { Fragment, MessageRole, MessageType } from "@/generated/prisma";
+import { Fragment, MessageRole, MessageType, Attachment } from "@/generated/prisma";
 
 interface UserMessageProps {
   content: string;
+  attachments?: Attachment[];
 }
 
-const UserMessage = ({ content }: UserMessageProps) => {
+const UserMessage = ({ content, attachments }: UserMessageProps) => {
   return (
     <div className="flex justify-end pb-4 pr-2 pl-10">
-      <Card className="rounded-lg bg-muted p-3 shadow-none border-none max-w-[80%] break-words">
-        {content}
-      </Card>
+      <div className="flex flex-col gap-2 max-w-[80%]">
+        {attachments && attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 justify-end">
+            {attachments.map((attachment) => (
+              <div key={attachment.id} className="relative">
+                <Image
+                  src={attachment.url}
+                  alt="Attachment"
+                  width={attachment.width || 200}
+                  height={attachment.height || 200}
+                  className="rounded-lg object-cover border max-h-48 w-auto"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <Card className="rounded-lg bg-muted p-3 shadow-none border-none break-words">
+          {content}
+        </Card>
+      </div>
     </div>
   );
 }
@@ -111,6 +129,7 @@ interface MessageCardProps {
   isActiveFragment: boolean;
   onFragmentClick: (fragment: Fragment) => void;
   type: MessageType;
+  attachments?: Attachment[];
 };
 
 export const MessageCard = ({
@@ -121,6 +140,7 @@ export const MessageCard = ({
   isActiveFragment,
   onFragmentClick,
   type,
+  attachments,
 }: MessageCardProps) => {
   if (role === "ASSISTANT") {
     return (
@@ -136,6 +156,6 @@ export const MessageCard = ({
   }
 
   return (
-    <UserMessage content={content} />
+    <UserMessage content={content} attachments={attachments} />
   );
 };
