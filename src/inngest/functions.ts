@@ -20,14 +20,54 @@ import { inngest } from "./client";
 import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
 import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
 
-const AUTO_FIX_MAX_ATTEMPTS = 1;
+const AUTO_FIX_MAX_ATTEMPTS = 2;
 const AUTO_FIX_ERROR_PATTERNS = [
+  // TypeScript & Linting Errors
   /ESLint/i,
   /Type error/i,
+  /TypeError/i,
+  /TS\d+/i, // TypeScript error codes
+
+  // Module & Import Errors
   /Module not found/i,
   /Cannot find module/i,
+  /Failed to resolve/i,
+  /Import.*not found/i,
+  /Cannot resolve/i,
+
+  // Syntax & Parsing Errors
   /Parsing error/i,
+  /Syntax error/i,
   /unexpected token/i,
+  /Unexpected identifier/i,
+
+  // Runtime Errors
+  /ReferenceError/i,
+  /undefined is not/i,
+  /null is not/i,
+  /Cannot read propert/i,
+  /is not a function/i,
+  /is not defined/i,
+
+  // Build & Compilation Errors
+  /Build failed/i,
+  /Compilation error/i,
+  /Failed to compile/i,
+  /Error compiling/i,
+
+  // Dependency Errors
+  /npm.*error/i,
+  /pnpm.*error/i,
+  /yarn.*error/i,
+  /dependency.*error/i,
+  /Package.*not installed/i,
+
+  // Security Warnings (treat as errors to force fixes)
+  /security/i,
+  /vulnerable/i,
+  /XSS/i,
+  /injection/i,
+  /CSRF/i,
 ];
 
 const URL_REGEX = /(https?:\/\/[^\s\]\)"'<>]+)/gi;
@@ -456,7 +496,29 @@ export const codeAgentFunction = inngest.createFunction(
       );
 
       result = await network.run(
-        `The previous attempt encountered an error and must be corrected immediately.\n\nError details:\n${errorDetails}\n\nIdentify the root cause, apply the fix, rerun any required steps, and provide an updated summary and file list.`,
+        `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
+
+The previous attempt encountered an error that must be corrected before proceeding.
+
+Error details:
+${errorDetails}
+
+REQUIRED ACTIONS:
+1. Carefully analyze the error message to identify the root cause
+2. Check for common issues:
+   - Missing imports or incorrect import paths
+   - TypeScript type errors or incorrect type usage
+   - Missing package installations
+   - Syntax errors or typos
+   - Security vulnerabilities (XSS, injection, etc.)
+   - Runtime errors (undefined variables, null references)
+3. Apply the necessary fix to resolve the error completely
+4. Verify the fix by checking the code logic and types
+5. If needed, install missing packages or update configurations
+6. Rerun any commands that failed and verify they now succeed
+7. Provide an updated <task_summary> only after the error is fully resolved
+
+DO NOT proceed until the error is completely fixed. The fix must be thorough and address the root cause, not just mask the symptoms.`,
         { state: result.state }
       );
 
