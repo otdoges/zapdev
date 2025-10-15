@@ -35,9 +35,43 @@ export const projectsRouter = createTRPCRouter({
         orderBy: {
           updatedAt: "desc",
         },
+        include: {
+          Message: {
+            select: {
+              Attachment: {
+                where: {
+                  type: "IMAGE",
+                },
+                orderBy: {
+                  createdAt: "desc",
+                },
+                take: 1,
+                select: {
+                  id: true,
+                  url: true,
+                  width: true,
+                  height: true,
+                  size: true,
+                },
+              },
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+            take: 1,
+          },
+        },
       });
 
-      return projects;
+      return projects.map(({ Message, ...rest }) => {
+        const [latestMessage] = Message;
+        const [previewAttachment] = latestMessage?.Attachment ?? [];
+
+        return {
+          ...rest,
+          previewAttachment: previewAttachment ?? null,
+        };
+      });
     }),
   create: protectedProcedure
     .input(

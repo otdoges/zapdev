@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export const ProjectsList = () => {
   const trpc = useTRPC();
@@ -29,7 +30,11 @@ export const ProjectsList = () => {
             </p>
           </div>
         )}
-        {projects?.map((project) => (
+        {projects?.map((project) => {
+          const imageSrc = project.previewAttachment?.url ?? "/logo.svg";
+          const hasPreviewImage = !!project.previewAttachment?.url;
+
+          return (
           <Button
             key={project.id}
             variant="outline"
@@ -39,11 +44,14 @@ export const ProjectsList = () => {
             <Link href={`/projects/${project.id}`}>
               <div className="flex items-center gap-x-4">
                 <Image
-                  src="/logo.svg"
-                  alt="ZapDev"
-                  width={32}
-                  height={32}
-                  className="object-contain"
+                  src={imageSrc}
+                  alt={hasPreviewImage ? `${project.name} preview` : "ZapDev"}
+                  width={48}
+                  height={48}
+                  className={cn(
+                    "rounded-md border object-cover",
+                    !hasPreviewImage && "border-none object-contain bg-muted p-2"
+                  )}
                 />
                 <div className="flex flex-col">
                   <h3 className="truncate font-medium">
@@ -58,7 +66,7 @@ export const ProjectsList = () => {
               </div>
             </Link>
           </Button>
-        ))}
+        )})}
       </div>
     </div>
   );
