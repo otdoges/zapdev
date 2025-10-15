@@ -4,7 +4,7 @@ import { openai, createAgent, createTool, createNetwork, type Tool, type Message
 import { Framework as PrismaFramework } from "@/generated/prisma";
 
 import { prisma } from "@/lib/db";
-import { scrapeUrl, type ScrapedContent } from "@/lib/firecrawl";
+import { crawlUrl, type CrawledContent } from "@/lib/firecrawl";
 import {
   FRAGMENT_TITLE_PROMPT,
   RESPONSE_PROMPT,
@@ -22,11 +22,34 @@ import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from ".
 
 const AUTO_FIX_MAX_ATTEMPTS = 2;
 const AUTO_FIX_ERROR_PATTERNS = [
+  // Generic Error indicators - catches most errors
+  /\bError:/i,
+  /\[ERROR\]/i,
+  /ERROR/,
+  /\bFailed\b/i,
+  /\bfailure\b/i,
+  /\bException\b/i,
+
+  // ECMAScript & JavaScript Errors
+  /ECMAScript/i,
+  /EcmaScript/i,
+  /ES\d+.*error/i,
+  /ESNext.*error/i,
+  /Script error/i,
+  /JavaScript error/i,
+  /SyntaxError/i,
+  /EvalError/i,
+  /RangeError/i,
+  /URIError/i,
+  /AggregateError/i,
+  /InternalError/i,
+
   // TypeScript & Linting Errors
   /ESLint/i,
   /Type error/i,
   /TypeError/i,
-  /TS\d+/i, // TypeScript error codes
+  /TS\d+/i,
+  /tsc.*error/i,
 
   // Module & Import Errors
   /Module not found/i,
@@ -34,35 +57,72 @@ const AUTO_FIX_ERROR_PATTERNS = [
   /Failed to resolve/i,
   /Import.*not found/i,
   /Cannot resolve/i,
+  /require.*is not defined/i,
+  /ERR_MODULE_NOT_FOUND/i,
 
   // Syntax & Parsing Errors
   /Parsing error/i,
   /Syntax error/i,
   /unexpected token/i,
   /Unexpected identifier/i,
+  /Unexpected end of input/i,
+  /Unexpected string/i,
+  /Invalid or unexpected token/i,
 
   // Runtime Errors
   /ReferenceError/i,
   /undefined is not/i,
   /null is not/i,
   /Cannot read propert/i,
+  /Cannot access/i,
   /is not a function/i,
   /is not defined/i,
+  /is not iterable/i,
+  /Assignment to constant/i,
+  /Maximum call stack/i,
+  /stack overflow/i,
 
   // Build & Compilation Errors
   /Build failed/i,
   /Compilation error/i,
   /Failed to compile/i,
   /Error compiling/i,
+  /Minification failed/i,
+  /Bundling failed/i,
+
+  // Vite/Webpack/Bundler Errors
+  /\[vite\].*error/i,
+  /webpack.*error/i,
+  /rollup.*error/i,
+  /esbuild.*error/i,
+
+  // Framework Errors
+  /Hydration.*error/i,
+  /React.*error/i,
+  /Vue.*error/i,
+  /Angular.*error/i,
+  /Svelte.*error/i,
+  /Next\.js.*error/i,
 
   // Dependency Errors
   /npm.*error/i,
   /pnpm.*error/i,
   /yarn.*error/i,
+  /bun.*error/i,
   /dependency.*error/i,
   /Package.*not installed/i,
+  /ENOENT/i,
+  /EACCES/i,
 
-  // Security Warnings (treat as errors to force fixes)
+  // Network & API Errors
+  /Network error/i,
+  /Fetch.*failed/i,
+  /CORS.*error/i,
+  /timeout/i,
+  /ETIMEDOUT/i,
+  /ECONNREFUSED/i,
+
+  // Security Warnings
   /security/i,
   /vulnerable/i,
   /XSS/i,
@@ -384,37 +444,37 @@ export const codeAgentFunction = inngest.createFunction(
       }
     });
 
-    const scrapedContexts = await step.run("scrape-url-context", async () => {
+    const crawledContexts = await step.run("crawl-url-context", async () => {
       try {
         const urls = extractUrls(event.data.value ?? "").slice(0, 2);
 
         if (urls.length === 0) {
-          return [] as ScrapedContent[];
+          return [] as CrawledContent[];
         }
 
         console.log("[DEBUG] Found URLs in input:", urls);
 
-        const results: ScrapedContent[] = [];
+        const results: CrawledContent[] = [];
 
         for (const url of urls) {
-          const scraped = await scrapeUrl(url);
+          const crawled = await crawlUrl(url);
 
-          if (scraped) {
-            results.push(scraped);
+          if (crawled) {
+            results.push(crawled);
           }
         }
 
         return results;
       } catch (error) {
-        console.error("[ERROR] Failed to scrape URLs", error);
-        return [] as ScrapedContent[];
+        console.error("[ERROR] Failed to crawl URLs", error);
+        return [] as CrawledContent[];
       }
     });
 
-    const contextMessages: Message[] = (scrapedContexts ?? []).map((context) => ({
+    const contextMessages: Message[] = (crawledContexts ?? []).map((context) => ({
       type: "text",
       role: "system",
-      content: `Scraped context from ${context.url}:\n${context.content}`,
+      content: `Crawled context from ${context.url}:\n${context.content}`,
     }));
 
     const initialMessages = [...contextMessages, ...previousMessages];

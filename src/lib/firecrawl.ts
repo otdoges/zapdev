@@ -37,16 +37,17 @@ const truncateContent = (value: string) => {
   return `${value.slice(0, MAX_CONTENT_LENGTH)}...`;
 };
 
-export interface ScrapedContent {
+export interface CrawledContent {
   url: string;
   content: string;
+  screenshots?: string[];
 }
 
-export const scrapeUrl = async (targetUrl: string): Promise<ScrapedContent | null> => {
+export const crawlUrl = async (targetUrl: string): Promise<CrawledContent | null> => {
   const client = getFirecrawlClient();
 
   if (!client) {
-    console.warn("[firecrawl] FIRECRAWL_API_KEY is missing; skipping scrape");
+    console.warn("[firecrawl] FIRECRAWL_API_KEY is missing; skipping crawl");
     return null;
   }
 
@@ -55,24 +56,47 @@ export const scrapeUrl = async (targetUrl: string): Promise<ScrapedContent | nul
   }
 
   try {
-    const document = await client.scrape(targetUrl, {
-      formats: ["markdown"],
-      onlyMainContent: true,
+    const crawlResult = await client.crawl(targetUrl, {
+      limit: 1,
+      scrapeOptions: {
+        formats: ["markdown"],
+        onlyMainContent: true,
+      },
     });
+
+    if (crawlResult.status !== "completed") {
+      console.warn("[firecrawl] Crawl did not complete", {
+        targetUrl,
+        status: crawlResult.status,
+      });
+      return null;
+    }
+
+    const [document] = crawlResult.data ?? [];
+
+    if (!document) {
+      console.warn("[firecrawl] Crawl returned no documents", { targetUrl });
+      return null;
+    }
 
     const content = document.markdown ?? document.html ?? "";
 
     if (!content) {
-      console.warn("[firecrawl] Empty scrape content", { targetUrl });
+      console.warn("[firecrawl] Empty crawl content", { targetUrl });
       return null;
     }
+
+    const screenshots = [
+      document.metadata?.ogImage,
+    ].filter((value): value is string => typeof value === "string" && value.length > 0);
 
     return {
       url: document.metadata?.url ?? targetUrl,
       content: truncateContent(content.trim()),
+      ...(screenshots.length > 0 ? { screenshots } : {}),
     };
   } catch (error) {
-    console.error("[firecrawl] Unexpected scrape error", { targetUrl, error });
+    console.error("[firecrawl] Unexpected crawl error", { targetUrl, error });
     return null;
   }
 };
