@@ -1,0 +1,117 @@
+export const SEO_CONFIG = {
+  siteName: "Zapdev",
+  siteUrl: "https://zapdev.link",
+  defaultTitle: "Zapdev - Build Fast, Scale Smart",
+  titleTemplate: "%s | Zapdev",
+  defaultDescription:
+    "Zapdev is a leading AI-powered development platform that helps you build apps and websites through intelligent conversation. Transform your ideas into reality with cutting-edge technology.",
+  defaultKeywords: [
+    "AI development",
+    "software development",
+    "web development",
+    "mobile apps",
+    "enterprise solutions",
+    "Zapdev",
+    "app development",
+    "custom software",
+    "no-code platform",
+    "AI builder",
+    "rapid prototyping",
+    "scalable applications",
+    "cloud development",
+    "agile development",
+  ],
+  author: "Zapdev",
+  creator: "Zapdev",
+  publisher: "Zapdev",
+  company: {
+    name: "Zapdev",
+    legalName: "Zapdev Inc.",
+    foundingDate: "2024",
+    slogan: "Build Fast, Scale Smart",
+  },
+  contact: {
+    email: "contact@zapdev.link",
+    supportEmail: "support@zapdev.link",
+    salesEmail: "sales@zapdev.link",
+  },
+  social: {
+    twitter: "@zapdev",
+    twitterUrl: "https://twitter.com/zapdev",
+    linkedin: "https://linkedin.com/company/zapdev",
+    github: "https://github.com/zapdev",
+    facebook: "https://facebook.com/zapdev",
+  },
+  locale: "en_US",
+  locales: ["en_US", "en_GB", "es_ES", "fr_FR", "de_DE"],
+  twitterHandle: "@zapdev",
+  ogImage: {
+    url: "/og-image.png",
+    width: 1200,
+    height: 630,
+    alt: "Zapdev - Build Fast, Scale Smart",
+  },
+  logo: {
+    url: "/logo.svg",
+    width: 512,
+    height: 512,
+  },
+  verification: {
+    google: "your-google-verification-code",
+    bing: "your-bing-verification-code",
+    yandex: "your-yandex-verification-code",
+    pinterest: "your-pinterest-verification-code",
+  },
+  structuredData: {
+    organizationType: "Corporation" as const,
+    priceRange: "$$",
+    areaServed: "Worldwide",
+    availableLanguage: ["English", "Spanish", "French", "German"],
+  },
+  features: [
+    "AI-Powered Development",
+    "Instant Prototyping",
+    "Multi-Framework Support",
+    "Real-time Collaboration",
+    "Cloud Deployment",
+    "Enterprise Security",
+  ],
+  openingHours: "Mo-Fr 09:00-18:00",
+} as const;
+
+export const ROBOTS_CONFIG = {
+  index: true,
+  follow: true,
+  nocache: false,
+  googleBot: {
+    index: true,
+    follow: true,
+    noimageindex: false,
+    "max-video-preview": -1,
+    "max-image-preview": "large" as const,
+    "max-snippet": -1,
+  },
+} as const;
+
+export const PAGE_PRIORITIES = {
+  home: 1.0,
+  pricing: 0.9,
+  features: 0.9,
+  projects: 0.8,
+  documentation: 0.7,
+  blog: 0.8,
+  blogPost: 0.6,
+  legal: 0.3,
+  signIn: 0.5,
+  signUp: 0.5,
+} as const;
+
+export const CHANGE_FREQUENCIES = {
+  always: "always" as const,
+  hourly: "hourly" as const,
+  daily: "daily" as const,
+  weekly: "weekly" as const,
+  monthly: "monthly" as const,
+  yearly: "yearly" as const,
+  never: "never" as const,
+};
