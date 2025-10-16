@@ -140,7 +140,7 @@ export default function FrameworksPage() {
               <div className="text-4xl mb-4">🎯</div>
               <h3 className="text-xl font-semibold mb-2">Framework Expertise</h3>
               <p className="text-muted-foreground">
-                Deep understanding of each framework's patterns, optimizations, and ecosystem
+                Deep understanding of each framework&apos;s patterns, optimizations, and ecosystem
               </p>
             </div>
             <div className="text-center">

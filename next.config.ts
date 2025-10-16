@@ -1,11 +1,25 @@
 import {withSentryConfig} from "@sentry/nextjs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
+const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const nullLoaderPath = path.join(__dirname, "loaders/null-loader.js");
+
+const hasCritters = (() => {
+  try {
+    require.resolve("critters");
+    return true;
+  } catch {
+    console.warn(
+      "critters dependency not found; disabling experimental.optimizeCss. Install `critters` to re-enable."
+    );
+    return false;
+  }
+})();
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -28,11 +42,9 @@ const nextConfig: NextConfig = {
   },
   // Experimental performance optimizations
   experimental: {
-    optimizeCss: true,
+    optimizeCss: hasCritters,
     scrollRestoration: true,
   },
-  // Reduce bundle size by excluding unnecessary files
-  compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
   webpack: (config, { isServer }) => {

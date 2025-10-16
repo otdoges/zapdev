@@ -6,13 +6,12 @@ import { generateMetadata as generateSEOMetadata, generateStructuredData, genera
 import { StructuredData } from '@/components/seo/structured-data';
 import { Breadcrumbs } from '@/components/seo/breadcrumbs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowRight, CheckCircle2, Zap, Code2, Rocket } from 'lucide-react';
 
 interface PageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateStaticParams() {
@@ -23,7 +22,8 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const framework = getFramework(params.slug);
+  const { slug } = await params;
+  const framework = getFramework(slug);
   
   if (!framework) {
     return generateSEOMetadata({
@@ -57,8 +57,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 }
 
-export default function FrameworkPage({ params }: PageProps) {
-  const framework = getFramework(params.slug);
+export default async function FrameworkPage({ params }: PageProps) {
+  const { slug } = await params;
+  const framework = getFramework(slug);
   
   if (!framework) {
     notFound();
@@ -69,7 +70,7 @@ export default function FrameworkPage({ params }: PageProps) {
   const faqs = [
     {
       question: `What makes Zapdev ideal for ${framework.name} development?`,
-      answer: `Zapdev's AI is specifically trained on ${framework.name} best practices, patterns, and ecosystem. It generates optimized, production-ready code that follows ${framework.name} conventions and leverages the framework's unique features.`
+      answer: `Zapdev&apos;s AI is specifically trained on ${framework.name} best practices, patterns, and ecosystem. It generates optimized, production-ready code that follows ${framework.name} conventions and leverages the framework&apos;s unique features.`
     },
     {
       question: `Can I use TypeScript with ${framework.name} on Zapdev?`,
@@ -77,10 +78,10 @@ export default function FrameworkPage({ params }: PageProps) {
     },
     {
       question: `How fast can I build a ${framework.name} app with Zapdev?`,
-      answer: `With Zapdev's AI assistance, you can create a functional ${framework.name} application in minutes. Complex features that typically take hours can be implemented in seconds with our intelligent code generation.`
+      answer: `With Zapdev&apos;s AI assistance, you can create a functional ${framework.name} application in minutes. Complex features that typically take hours can be implemented in seconds with our intelligent code generation.`
     },
     {
-      question: `Does Zapdev support ${framework.name}'s latest features?`,
+      question: `Does Zapdev support ${framework.name}&apos;s latest features?`,
       answer: `Absolutely! Our AI models are continuously updated to support the latest ${framework.name} features, APIs, and best practices. We ensure compatibility with the most recent stable versions.`
     }
   ];
@@ -170,7 +171,7 @@ export default function FrameworkPage({ params }: PageProps) {
                       <div>
                         <h3 className="font-semibold">{feature}</h3>
                         <p className="text-muted-foreground">
-                          Leverage {framework.name}'s {feature.toLowerCase()} to build better applications faster.
+                          Leverage {framework.name}&apos;s {feature.toLowerCase()} to build better applications faster.
                         </p>
                       </div>
                     </div>

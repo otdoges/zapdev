@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 export const imageLoader = ({ src, width, quality }: { src: string; width: number; quality?: number }) => {
   if (src.startsWith('http')) {
     return src;
@@ -62,7 +64,7 @@ export const optimizeBundle = {
           return module.size() > 160000 && /node_modules[/\\]/.test(module.identifier());
         },
         name(module: { identifier: () => string }) {
-          const hash = require('crypto').createHash('sha1');
+          const hash = crypto.createHash('sha1');
           hash.update(module.identifier());
           return hash.digest('hex').substring(0, 8);
         },

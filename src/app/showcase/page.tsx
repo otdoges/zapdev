@@ -130,7 +130,7 @@ export default async function ShowcasePage() {
             Project Showcase
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-            Explore amazing applications built by our community using Zapdev's AI-powered development platform
+            Explore amazing applications built by our community using Zapdev&apos;s AI-powered development platform
           </p>
           
           <div className="flex justify-center gap-8 mb-8">
