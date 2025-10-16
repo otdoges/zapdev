@@ -6,6 +6,7 @@ import { Databuddy } from "@databuddy/sdk";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TRPCReactProvider } from "@/trpc/client";
+import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 
 import "./globals.css";
 
@@ -117,6 +118,7 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               <Toaster />
+              <WebVitalsReporter />
               {children}
               <Databuddy
                 clientId={process.env.NEXT_PUBLIC_DATABUDDY_CLIENT_ID!}
