@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Databuddy } from "@databuddy/sdk";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TRPCReactProvider } from "@/trpc/client";
+import { defaultMetadata } from "@/seo/metadata";
+import { JsonLd, organizationJsonLd, websiteJsonLd } from "@/seo/jsonld";
+import { AppProviders } from "./providers";
 
 import "./globals.css";
 
@@ -19,54 +21,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Zapdev - Build Fast, Scale Smart",
-    template: "%s | Zapdev"
-  },
-  description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions. Transform your ideas into reality with our expert development team.",
-  keywords: ["software development", "web development", "mobile apps", "enterprise solutions", "Zapdev", "app development", "custom software"],
-  authors: [{ name: "Zapdev" }],
-  creator: "Zapdev",
-  publisher: "Zapdev",
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-  metadataBase: new URL("https://zapdev.link"),
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: "https://zapdev.link",
-    title: "Zapdev - Build Fast, Scale Smart",
-    description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-    siteName: "Zapdev",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Zapdev - Build Fast, Scale Smart",
-    description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-    creator: "@zapdev",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
-  verification: {
-    google: "your-google-verification-code",
-  },
-};
+export const metadata: Metadata = defaultMetadata;
 
 export default function RootLayout({
   children,
@@ -74,38 +29,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      appearance={{
-        variables: {
-          colorPrimary: "#C96342",
-        },
-      }}
-    >
+    <AppProviders>
       <TRPCReactProvider>
         <html lang="en" suppressHydrationWarning>
           <head>
-            <script
-              type="application/ld+json"
-              dangerouslySetInnerHTML={{
-                __html: JSON.stringify({
-                  "@context": "https://schema.org",
-                  "@type": "Organization",
-                  name: "Zapdev",
-                  url: "https://zapdev.link",
-                  logo: "https://zapdev.link/logo.png",
-                  description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-                  contactPoint: {
-                    "@type": "ContactPoint",
-                    contactType: "sales",
-                    availableLanguage: "English"
-                  },
-                  sameAs: [
-                    "https://twitter.com/zapdev",
-                    "https://linkedin.com/company/zapdev"
-                  ]
-                }),
-              }}
-            />
+            <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
           </head>
           <body
             className={`${geistSans.variable} ${geistMono.variable} antialiased`}
@@ -136,6 +64,6 @@ export default function RootLayout({
           </body>
         </html>
       </TRPCReactProvider>
-    </ClerkProvider>
+    </AppProviders>
   );
 };

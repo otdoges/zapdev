@@ -3,7 +3,6 @@
 import { z } from "zod";
 import { toast } from "sonner";
 import { useState } from "react";
-import { useClerk } from "@clerk/nextjs";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,7 +26,6 @@ const formSchema = z.object({
 export const ProjectForm = () => {
   const router = useRouter();
   const trpc = useTRPC();
-  const clerk = useClerk();
   const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,7 +48,7 @@ export const ProjectForm = () => {
       toast.error(error.message);
       
       if (error.data?.code === "UNAUTHORIZED") {
-        clerk.openSignIn();
+        router.push("/home/sign-in");
       }
 
       if (error.data?.code === "TOO_MANY_REQUESTS") {

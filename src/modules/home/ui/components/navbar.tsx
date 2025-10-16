@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/nextjs";
 
 import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
-import { UserControl } from "@/components/user-control";
 
 export const Navbar = () => {
   const isScrolled = useScroll();
@@ -24,23 +22,16 @@ export const Navbar = () => {
           <Image src="/logo.svg" alt="ZapDev" width={24} height={24} />
           <span className="font-semibold text-lg">ZapDev</span>
         </Link>
-        <SignedOut>
-          <div className="flex gap-2">
-            <SignUpButton>
-              <Button variant="outline" size="sm">
-                Sign up
-              </Button>
-            </SignUpButton>
-            <SignInButton>
-              <Button size="sm">
-                Sign in
-              </Button>
-            </SignInButton>
-          </div>
-        </SignedOut>
-        <SignedIn>
-          <UserControl showName />
-        </SignedIn>
+        <div className="flex gap-2">
+          <Link href="/home/sign-up">
+            <Button variant="outline" size="sm">
+              Sign up
+            </Button>
+          </Link>
+          <Link href="/home/sign-in">
+            <Button size="sm">Sign in</Button>
+          </Link>
+        </div>
       </div>
     </nav>
   );

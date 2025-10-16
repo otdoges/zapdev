@@ -1,7 +1,11 @@
 import Image from "next/image";
+import type { Metadata } from "next";
+import { createPageMetadata } from "@/seo/metadata";
 
 import { ProjectForm } from "@/modules/home/ui/components/project-form";
-import { ProjectsList } from "@/modules/home/ui/components/projects-list";
+// ProjectsList uses Clerk client hooks; render only on client via wrapper
+import { Suspense } from "react";
+const ProjectsList = () => null;
 
 const Page = () => {
   return (
@@ -26,9 +30,22 @@ const Page = () => {
           <ProjectForm />
         </div>
       </section>
-      <ProjectsList />
+      <Suspense>
+        <ProjectsList />
+      </Suspense>
     </div>
   );
 };
  
 export default Page;
+
+export const metadata: Metadata = createPageMetadata({
+  title: "ZapDev – AI App Builder",
+  description: "Create apps and websites by chatting with AI.",
+  path: "/home",
+  keywords: [
+    "AI app builder",
+    "AI website builder",
+    "generate apps with AI",
+  ],
+});
