@@ -1,0 +1,213 @@
+import { Metadata } from 'next';
+
+export interface SEOConfig {
+  title: string;
+  description: string;
+  keywords?: string[];
+  canonical?: string;
+  openGraph?: {
+    title?: string;
+    description?: string;
+    images?: Array<{
+      url: string;
+      width?: number;
+      height?: number;
+      alt?: string;
+    }>;
+    type?: 'website' | 'article' | 'profile';
+  };
+  twitter?: {
+    card?: 'summary' | 'summary_large_image' | 'app' | 'player';
+    title?: string;
+    description?: string;
+    images?: string[];
+  };
+  alternates?: {
+    canonical?: string;
+    languages?: Record<string, string>;
+  };
+  robots?: {
+    index?: boolean;
+    follow?: boolean;
+  };
+}
+
+export const DEFAULT_SEO_CONFIG: SEOConfig = {
+  title: 'Zapdev - Build Fast, Scale Smart',
+  description: 'Create production-ready applications with AI-powered development. Build web apps, mobile apps, and enterprise solutions faster than ever.',
+  keywords: [
+    'AI development',
+    'code generation',
+    'web development',
+    'mobile development',
+    'React development',
+    'Vue.js development',
+    'Angular development',
+    'Svelte development',
+    'Next.js development',
+    'enterprise software',
+    'custom software development',
+    'app development',
+    'AI coding assistant',
+    'rapid prototyping',
+    'full-stack development'
+  ],
+  openGraph: {
+    type: 'website',
+    images: [{
+      url: '/og-image.png',
+      width: 1200,
+      height: 630,
+      alt: 'Zapdev - AI-Powered Development Platform'
+    }]
+  },
+  twitter: {
+    card: 'summary_large_image'
+  },
+  robots: {
+    index: true,
+    follow: true
+  }
+};
+
+export function generateMetadata(config: Partial<SEOConfig> = {}): Metadata {
+  const merged = { ...DEFAULT_SEO_CONFIG, ...config };
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zapdev.link';
+
+  return {
+    title: merged.title,
+    description: merged.description,
+    keywords: merged.keywords,
+    authors: [{ name: 'Zapdev Team' }],
+    creator: 'Zapdev',
+    publisher: 'Zapdev',
+    metadataBase: new URL(baseUrl),
+    alternates: {
+      canonical: merged.canonical || merged.alternates?.canonical,
+      languages: merged.alternates?.languages
+    },
+    openGraph: {
+      title: merged.openGraph?.title || merged.title,
+      description: merged.openGraph?.description || merged.description,
+      type: merged.openGraph?.type || 'website',
+      siteName: 'Zapdev',
+      locale: 'en_US',
+      url: baseUrl,
+      images: merged.openGraph?.images
+    },
+    twitter: {
+      card: merged.twitter?.card || 'summary_large_image',
+      title: merged.twitter?.title || merged.title,
+      description: merged.twitter?.description || merged.description,
+      creator: '@zapdev',
+      images: merged.twitter?.images || merged.openGraph?.images?.map(img => img.url)
+    },
+    robots: {
+      index: merged.robots?.index ?? true,
+      follow: merged.robots?.follow ?? true,
+      googleBot: {
+        index: merged.robots?.index ?? true,
+        follow: merged.robots?.follow ?? true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      }
+    }
+  };
+}
+
+export function generateStructuredData(type: 'Organization' | 'WebApplication' | 'SoftwareApplication' | 'Article' | 'Service', data: Record<string, unknown>) {
+  const baseData = {
+    '@context': 'https://schema.org',
+    '@type': type,
+  };
+
+  switch (type) {
+    case 'Organization':
+      return {
+        ...baseData,
+        name: 'Zapdev',
+        url: 'https://zapdev.link',
+        logo: 'https://zapdev.link/logo.png',
+        description: DEFAULT_SEO_CONFIG.description,
+        contactPoint: {
+          '@type': 'ContactPoint',
+          contactType: 'customer support',
+          availableLanguage: ['English'],
+          email: 'support@zapdev.link'
+        },
+        sameAs: [
+          'https://twitter.com/zapdev',
+          'https://linkedin.com/company/zapdev',
+          'https://github.com/zapdev'
+        ],
+        ...data
+      };
+
+    case 'WebApplication':
+      return {
+        ...baseData,
+        name: data.name || 'Zapdev Platform',
+        description: data.description || DEFAULT_SEO_CONFIG.description,
+        applicationCategory: 'DeveloperApplication',
+        operatingSystem: 'Web Browser',
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'USD'
+        },
+        ...data
+      };
+
+    case 'Service':
+      return {
+        ...baseData,
+        name: data.name,
+        description: data.description,
+        provider: {
+          '@type': 'Organization',
+          name: 'Zapdev'
+        },
+        serviceType: data.serviceType || 'Software Development',
+        areaServed: {
+          '@type': 'Country',
+          name: 'Worldwide'
+        },
+        ...data
+      };
+
+    default:
+      return {
+        ...baseData,
+        ...data
+      };
+  }
+}
+
+export function generateBreadcrumbStructuredData(items: Array<{ name: string; url: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: `https://zapdev.link${item.url}`
+    }))
+  };
+}
+
+export function generateFAQStructuredData(faqs: Array<{ question: string; answer: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map(faq => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.answer
+      }
+    }))
+  };
+}
