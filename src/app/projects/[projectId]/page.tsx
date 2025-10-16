@@ -2,11 +2,10 @@ import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import { getQueryClient, trpc } from "@/trpc/server";
 import { prisma } from "@/lib/db";
-import { generateMetadata as generateSEOMetadata, generateStructuredData } from "@/lib/seo";
+import { generateMetadata as generateSEOMetadata } from "@/lib/seo";
 
 import { ProjectView } from "@/modules/projects/ui/views/project-view";
 
@@ -52,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     
     return generateSEOMetadata({
       title: `${project.name} - ${frameworkName} Project Built with Zapdev`,
-      description: `Explore ${project.name}, a ${frameworkName} application built using Zapdev's AI-powered development platform. See how AI can accelerate your development workflow.`,
+      description: `Explore ${project.name}, a ${frameworkName} application built using Zapdev&apos;s AI-powered development platform. See how AI can accelerate your development workflow.`,
       keywords: [
         `${frameworkName} project`,
         'AI-built application',
@@ -78,7 +77,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         follow: true
       }
     });
-  } catch (error) {
+  } catch {
     return generateSEOMetadata({
       title: 'Project - Zapdev',
       description: 'View project details and code'

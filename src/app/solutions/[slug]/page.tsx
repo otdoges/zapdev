@@ -1,6 +1,5 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { getSolution, getAllSolutions } from '@/lib/solutions';
 import { generateMetadata as generateSEOMetadata, generateStructuredData, generateFAQStructuredData } from '@/lib/seo';
 import { StructuredData } from '@/components/seo/structured-data';
@@ -10,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 
 interface PageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateStaticParams() {
@@ -21,7 +20,8 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const solution = getSolution(params.slug);
+  const { slug } = await params;
+  const solution = getSolution(slug);
   
   if (!solution) {
     return generateSEOMetadata({
@@ -50,8 +50,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 }
 
-export default function SolutionPage({ params }: PageProps) {
-  const solution = getSolution(params.slug);
+export default async function SolutionPage({ params }: PageProps) {
+  const { slug } = await params;
+  const solution = getSolution(slug);
   
   if (!solution) {
     notFound();
