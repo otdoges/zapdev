@@ -7,6 +7,9 @@ Host: https://zapdev.link
 # Sitemaps
 Sitemap: https://zapdev.link/sitemap.xml
 
+# RSS Feed
+Sitemap: https://zapdev.link/rss.xml
+
 # Block common non-content paths
 Disallow: /api/
 Disallow: /_next/
