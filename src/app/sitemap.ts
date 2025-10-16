@@ -1,38 +1,53 @@
-import { MetadataRoute } from 'next'
+import { MetadataRoute } from "next";
+import { absoluteUrl } from "@/lib/seo";
+import { prisma } from "@/lib/db";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://zapdev.link'
-  
-  return [
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const base = absoluteUrl("/");
+  const staticRoutes: MetadataRoute.Sitemap = [
     {
-      url: baseUrl,
+      url: base,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
+      changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: `${baseUrl}/home`,
+      url: absoluteUrl("/pricing"),
       lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/home/pricing`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/home/sign-in`,
+      url: absoluteUrl("/sign-in"),
       lastModified: new Date(),
-      changeFrequency: 'yearly',
+      changeFrequency: "yearly",
       priority: 0.5,
     },
     {
-      url: `${baseUrl}/home/sign-up`,
+      url: absoluteUrl("/sign-up"),
       lastModified: new Date(),
-      changeFrequency: 'yearly',
+      changeFrequency: "yearly",
       priority: 0.5,
     },
-  ]
+  ];
+
+  try {
+    if (!process.env.DATABASE_URL) {
+      return staticRoutes;
+    }
+    const projects = await prisma.project.findMany({
+      select: { id: true, updatedAt: true },
+      take: 1000,
+      orderBy: { updatedAt: "desc" },
+    });
+    const projectRoutes: MetadataRoute.Sitemap = projects.map((p) => ({
+      url: absoluteUrl(`/projects/${p.id}`),
+      lastModified: p.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    }));
+    return [...staticRoutes, ...projectRoutes];
+  } catch {
+    return staticRoutes;
+  }
 }

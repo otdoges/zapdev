@@ -11,6 +11,14 @@ import {
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -83,6 +91,21 @@ export const ProjectHeader = ({ projectId }: Props) => {
           </DropdownMenuSub>
         </DropdownMenuContent>
       </DropdownMenu>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/">Home</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/projects">Projects</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{project.name}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
     </header>
   );
 };

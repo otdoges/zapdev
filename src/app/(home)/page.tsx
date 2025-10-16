@@ -1,4 +1,6 @@
 import Image from "next/image";
+import type { Metadata } from "next";
+import { buildPageMetadata } from "@/lib/seo";
 
 import { ProjectForm } from "@/modules/home/ui/components/project-form";
 import { ProjectsList } from "@/modules/home/ui/components/projects-list";
@@ -32,3 +34,10 @@ const Page = () => {
 };
  
 export default Page;
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Build something with ZapDev",
+  description: "Create apps and websites by chatting with AI.",
+  canonicalPath: "/",
+  imagePath: "/api/og/home",
+});

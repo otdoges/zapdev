@@ -11,6 +11,7 @@ import { UserControl } from "@/components/user-control";
 
 export const Navbar = () => {
   const isScrolled = useScroll();
+  const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   return (
     <nav
@@ -24,23 +25,27 @@ export const Navbar = () => {
           <Image src="/logo.svg" alt="ZapDev" width={24} height={24} />
           <span className="font-semibold text-lg">ZapDev</span>
         </Link>
-        <SignedOut>
-          <div className="flex gap-2">
-            <SignUpButton>
-              <Button variant="outline" size="sm">
-                Sign up
-              </Button>
-            </SignUpButton>
-            <SignInButton>
-              <Button size="sm">
-                Sign in
-              </Button>
-            </SignInButton>
-          </div>
-        </SignedOut>
-        <SignedIn>
-          <UserControl showName />
-        </SignedIn>
+        {hasClerk ? (
+          <>
+            <SignedOut>
+              <div className="flex gap-2">
+                <SignUpButton>
+                  <Button variant="outline" size="sm">
+                    Sign up
+                  </Button>
+                </SignUpButton>
+                <SignInButton>
+                  <Button size="sm">
+                    Sign in
+                  </Button>
+                </SignInButton>
+              </div>
+            </SignedOut>
+            <SignedIn>
+              <UserControl showName />
+            </SignedIn>
+          </>
+        ) : null}
       </div>
     </nav>
   );
