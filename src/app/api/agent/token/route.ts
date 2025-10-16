@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
-import { inngest } from "@/inngest/client";
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     const { userId } = await auth();
 
@@ -12,13 +11,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate a realtime token for this user
-    const token = await inngest.createRealtimeToken({
-      user: userId,
-      expiresIn: "1h",
-    });
-
-    return Response.json({ token });
+    // Placeholder: Inngest realtime token disabled; implement provider when available
+    return Response.json({ ok: true });
   } catch (error) {
     console.error("[ERROR] Failed to generate realtime token:", error);
     return Response.json(

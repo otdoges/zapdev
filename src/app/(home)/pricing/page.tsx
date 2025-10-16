@@ -40,9 +40,3 @@ const Page = () => {
 }
  
 export default Page;
-
-export const metadata: Metadata = buildPageMetadata({
-  title: "Pricing",
-  description: "Choose the plan that fits your needs",
-  path: "/pricing",
-});

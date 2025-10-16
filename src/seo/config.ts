@@ -1,5 +1,3 @@
-import { headers } from "next/headers";
-
 export interface SiteConfig {
   siteName: string;
   siteDescription: string;
@@ -14,20 +12,8 @@ function getEnv(key: string): string | undefined {
   return undefined;
 }
 
-function inferRuntimeSiteUrl(): string | undefined {
-  try {
-    const h = headers();
-    const host = h.get("x-forwarded-host") ?? h.get("host");
-    const proto = h.get("x-forwarded-proto") ?? "https";
-    if (host) return `${proto}://${host}`;
-  } catch {
-    // headers() is not available at build time; ignore
-  }
-  return undefined;
-}
-
 const envSiteUrl =
-  getEnv("NEXT_PUBLIC_SITE_URL") || getEnv("NEXT_PUBLIC_APP_URL") || inferRuntimeSiteUrl();
+  getEnv("NEXT_PUBLIC_SITE_URL") || getEnv("NEXT_PUBLIC_APP_URL");
 
 export const siteConfig: SiteConfig = {
   siteName: getEnv("NEXT_PUBLIC_SITE_NAME") || "Zapdev",
