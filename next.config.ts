@@ -20,32 +20,22 @@ const nextConfig: NextConfig = {
         hostname: "images.unsplash.com",
       },
     ],
-<<<<<<< HEAD
     // Enable aggressive image optimization
-    formats: ["image/avif", "image/webp"],
-  },
-  // Experimental performance optimizations
-  experimental: {
-    // optimizeCss requires 'critters' dependency - disable if not installed
-  },
-  // Reduce bundle size by excluding unnecessary files
-  webpack: (config) => {
-=======
     formats: ["image/avif", "image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     minimumCacheTTL: 60 * 60 * 24 * 365, // 1 year
   },
+  // Experimental performance optimizations
   experimental: {
     optimizeCss: true,
     scrollRestoration: true,
   },
+  // Reduce bundle size by excluding unnecessary files
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
-  swcMinify: true,
   webpack: (config, { isServer }) => {
->>>>>>> c4ad2c4a70f3b9ec63a569cab720e3fd03d08ee2
     config.module.rules.push({
       test: /\.d\.ts$/,
       use: {
@@ -53,15 +43,14 @@ const nextConfig: NextConfig = {
       },
     });
 
-<<<<<<< HEAD
-    // Optimize bundle size
+    // Optimize bundle size with tree-shaking and intelligent splitting
     config.optimization = {
       ...config.optimization,
       // Enable tree-shaking for all dependencies
       usedExports: true,
     };
-=======
-    // Optimize bundle splitting
+
+    // Optimize bundle splitting for better caching
     if (!isServer) {
       config.optimization.splitChunks = {
         chunks: 'all',
@@ -109,7 +98,6 @@ const nextConfig: NextConfig = {
         },
       };
     }
->>>>>>> c4ad2c4a70f3b9ec63a569cab720e3fd03d08ee2
 
     return config;
   },
