@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Databuddy } from "@databuddy/sdk";
+import Script from "next/script";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TRPCReactProvider } from "@/trpc/client";
@@ -12,11 +12,13 @@ import "./globals.css";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -74,42 +76,44 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      appearance={{
-        variables: {
-          colorPrimary: "#C96342",
-        },
-      }}
-    >
-      <TRPCReactProvider>
-        <html lang="en" suppressHydrationWarning>
-          <head>
-            <script
-              type="application/ld+json"
-              dangerouslySetInnerHTML={{
-                __html: JSON.stringify({
-                  "@context": "https://schema.org",
-                  "@type": "Organization",
-                  name: "Zapdev",
-                  url: "https://zapdev.link",
-                  logo: "https://zapdev.link/logo.png",
-                  description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-                  contactPoint: {
-                    "@type": "ContactPoint",
-                    contactType: "sales",
-                    availableLanguage: "English"
-                  },
-                  sameAs: [
-                    "https://twitter.com/zapdev",
-                    "https://linkedin.com/company/zapdev"
-                  ]
-                }),
-              }}
-            />
-          </head>
-          <body
-            className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-          >
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script
+          id="ld-json-schema"
+          type="application/ld+json"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "Zapdev",
+              url: "https://zapdev.link",
+              logo: "https://zapdev.link/logo.png",
+              description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
+              contactPoint: {
+                "@type": "ContactPoint",
+                contactType: "sales",
+                availableLanguage: "English"
+              },
+              sameAs: [
+                "https://twitter.com/zapdev",
+                "https://linkedin.com/company/zapdev"
+              ]
+            }),
+          }}
+        />
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <ClerkProvider
+          appearance={{
+            variables: {
+              colorPrimary: "#C96342",
+            },
+          }}
+        >
+          <TRPCReactProvider>
             <ThemeProvider
               attribute="class"
               defaultTheme="system"
@@ -118,24 +122,10 @@ export default function RootLayout({
             >
               <Toaster />
               {children}
-              <Databuddy
-                clientId={process.env.NEXT_PUBLIC_DATABUDDY_CLIENT_ID!}
-                trackHashChanges={true}
-                trackAttributes={true}
-                trackOutgoingLinks={true}
-                trackInteractions={true}
-                trackEngagement={true}
-                trackScrollDepth={true}
-                trackExitIntent={true}
-                trackBounceRate={true}
-                trackWebVitals={true}
-                trackErrors={true}
-                enableBatching={true}
-              />
             </ThemeProvider>
-          </body>
-        </html>
-      </TRPCReactProvider>
-    </ClerkProvider>
+          </TRPCReactProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 };

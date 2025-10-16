@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useAuth } from "@clerk/nextjs";
 import { Suspense, useState } from "react";
 import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
@@ -8,7 +9,6 @@ import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
 import { Fragment } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
-import { FileExplorer } from "@/components/file-explorer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ResizableHandle,
@@ -16,10 +16,20 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 
-import { FragmentWeb } from "../components/fragment-web";
 import { ProjectHeader } from "../components/project-header";
 import { MessagesContainer } from "../components/messages-container";
 import { ErrorBoundary } from "react-error-boundary";
+
+// Dynamically import heavy components
+const FileExplorer = dynamic(() => import("@/components/file-explorer").then(m => m.FileExplorer), {
+  loading: () => <p className="p-4">Loading file explorer...</p>,
+  ssr: false,
+});
+
+const FragmentWeb = dynamic(() => import("../components/fragment-web").then(m => m.FragmentWeb), {
+  loading: () => <p className="p-4">Loading preview...</p>,
+  ssr: false,
+});
 
 interface Props {
   projectId: string;

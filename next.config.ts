@@ -16,7 +16,14 @@ const nextConfig: NextConfig = {
         hostname: "utfs.io",
       },
     ],
+    // Enable aggressive image optimization
+    formats: ["image/avif", "image/webp"],
   },
+  // Experimental performance optimizations
+  experimental: {
+    // optimizeCss requires 'critters' dependency - disable if not installed
+  },
+  // Reduce bundle size by excluding unnecessary files
   webpack: (config) => {
     config.module.rules.push({
       test: /\.d\.ts$/,
@@ -25,8 +32,19 @@ const nextConfig: NextConfig = {
       },
     });
 
+    // Optimize bundle size
+    config.optimization = {
+      ...config.optimization,
+      // Enable tree-shaking for all dependencies
+      usedExports: true,
+    };
+
     return config;
   },
+  // Compress responses
+  compress: true,
+  // Optimize production builds
+  productionBrowserSourceMaps: false,
 };
 
 export default withSentryConfig(nextConfig, {
