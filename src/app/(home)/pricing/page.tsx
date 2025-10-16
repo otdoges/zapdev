@@ -5,6 +5,7 @@ import { dark } from "@clerk/themes";
 import { PricingTable } from "@clerk/nextjs";
 
 import { useCurrentTheme } from "@/hooks/use-current-theme";
+// page metadata must be defined in a server file; this page is client-side only
 
 const Page = () => {
   const currentTheme = useCurrentTheme();
@@ -39,3 +40,9 @@ const Page = () => {
 }
  
 export default Page;
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Pricing",
+  description: "Choose the plan that fits your needs",
+  path: "/pricing",
+});

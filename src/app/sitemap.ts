@@ -1,38 +1,32 @@
-import { MetadataRoute } from 'next'
+import type { MetadataRoute } from "next";
+import { absoluteUrl } from "@/seo/config";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://zapdev.link'
-  
+  const now = new Date();
   return [
     {
-      url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
+      url: absoluteUrl("/"),
+      lastModified: now,
+      changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: `${baseUrl}/home`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/home/pricing`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
+      url: absoluteUrl("/pricing"),
+      lastModified: now,
+      changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/home/sign-in`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.5,
+      url: absoluteUrl("/sign-in"),
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.2,
     },
     {
-      url: `${baseUrl}/home/sign-up`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.5,
+      url: absoluteUrl("/sign-up"),
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.2,
     },
-  ]
+  ];
 }

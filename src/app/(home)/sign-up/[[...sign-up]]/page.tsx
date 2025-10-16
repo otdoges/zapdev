@@ -1,5 +1,4 @@
 "use client";
-
 import { dark } from "@clerk/themes";
 import { SignUp } from "@clerk/nextjs";
 

@@ -1,4 +1,6 @@
 import { Navbar } from "@/modules/home/ui/components/navbar";
+import type { Metadata } from "next";
+import { buildPageMetadata } from "@/seo/metadata";
 
 interface Props {
   children: React.ReactNode;
@@ -17,3 +19,7 @@ const Layout = ({ children }: Props) => {
 };
  
 export default Layout;
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "ZapDev",
+});
