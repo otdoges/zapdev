@@ -1,41 +1,76 @@
-"use client";
+import { Metadata } from "next";
+import { generateMetadata as generateSEOMetadata, generateStructuredData } from "@/lib/seo";
+import { StructuredData } from "@/components/seo/structured-data";
+import { PricingPageContent } from "./page-content";
 
-import Image from "next/image";
-import { dark } from "@clerk/themes";
-import { PricingTable } from "@clerk/nextjs";
-
-import { useCurrentTheme } from "@/hooks/use-current-theme";
+export const metadata: Metadata = generateSEOMetadata({
+  title: 'Pricing - Affordable AI Development Plans | Zapdev',
+  description: 'Choose the perfect plan for your development needs. Start free with Zapdev and scale as you grow. Transparent pricing for individuals and teams.',
+  keywords: [
+    'Zapdev pricing',
+    'AI development pricing',
+    'development platform cost',
+    'code generation pricing',
+    'free tier',
+    'developer tools pricing',
+    'subscription plans'
+  ],
+  canonical: '/home/pricing',
+  openGraph: {
+    title: 'Zapdev Pricing - Start Building for Free',
+    description: 'Transparent pricing for AI-powered development. Free tier available.',
+    type: 'website'
+  }
+});
 
 const Page = () => {
-  const currentTheme = useCurrentTheme();
+  const structuredData = [
+    generateStructuredData('Service', {
+      name: 'Zapdev Development Platform',
+      description: 'AI-powered development platform with flexible pricing',
+      provider: {
+        '@type': 'Organization',
+        name: 'Zapdev'
+      },
+      offers: {
+        '@type': 'AggregateOffer',
+        priceCurrency: 'USD',
+        lowPrice: '0',
+        highPrice: '99',
+        offerCount: '3',
+        offers: [
+          {
+            '@type': 'Offer',
+            name: 'Free Plan',
+            price: '0',
+            priceCurrency: 'USD',
+            description: 'Perfect for hobbyists and learning'
+          },
+          {
+            '@type': 'Offer',
+            name: 'Pro Plan',
+            price: '29',
+            priceCurrency: 'USD',
+            description: 'For professional developers'
+          },
+          {
+            '@type': 'Offer',
+            name: 'Team Plan',
+            price: '99',
+            priceCurrency: 'USD',
+            description: 'For teams and organizations'
+          }
+        ]
+      }
+    })
+  ];
 
-  return ( 
-    <div className="flex flex-col max-w-3xl mx-auto w-full">
-      <section className="space-y-6 pt-[16vh] 2xl:pt-48">
-        <div className="flex flex-col items-center">
-          <Image 
-            src="/logo.svg"
-            alt="ZapDev"
-            width={50}
-            height={50}
-            className="hidden md:block"
-          />
-        </div>
-        <h1 className="text-xl md:text-3xl font-bold text-center">Pricing</h1>
-        <p className="text-muted-foreground text-center text-sm md:text-base">
-          Choose the plan that fits your needs
-        </p>
-        <PricingTable
-          appearance={{
-            baseTheme: currentTheme === "dark" ? dark : undefined,
-            elements: {
-              pricingTableCard: "border! shadow-none! rounded-lg!"
-            }
-          }}
-        />
-      </section>
-    </div>
-   );
+  return (
+    <>
+      <StructuredData data={structuredData} />
+      <PricingPageContent />
+    </>
+  );
 }
  
 export default Page;
