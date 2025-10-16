@@ -6,4 +6,11 @@ export interface AgentState {
   summary: string;
   files: { [path: string]: string };
   selectedFramework?: Framework;
+  title?: string;
+  response?: string;
+}
+
+export interface ClientState {
+  projectId: string;
+  userId?: string;
 }
