@@ -588,34 +588,34 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     console.log("[DEBUG] Network run complete. Summary:", result.state.data.summary ? "Present" : "Missing");
     console.log("[DEBUG] Files generated:", Object.keys(result.state.data.files || {}).length);
 
+    // Generate title and response inline with the fast model
+    const titleModel = openai({
+      model: "google/gemini-2.5-flash-lite",
+      apiKey: process.env.AI_GATEWAY_API_KEY!,
+      baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+    });
+
     const fragmentTitleGenerator = createAgent({
       name: "fragment-title-generator",
       description: "A fragment title generator",
       system: FRAGMENT_TITLE_PROMPT,
-      model: openai({
-        model: "google/gemini-2.5-flash-lite",
-        apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-      }),
-    })
+      model: titleModel,
+    });
 
     const responseGenerator = createAgent({
       name: "response-generator",
       description: "A response generator",
       system: RESPONSE_PROMPT,
-      model: openai({
-        model: "google/gemini-2.5-flash-lite",
-        apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-      }),
+      model: titleModel,
     });
 
-    const { 
-      output: fragmentTitleOuput
-    } = await fragmentTitleGenerator.run(result.state.data.summary);
-    const { 
-      output: responseOutput
-    } = await responseGenerator.run(result.state.data.summary);
+    const fragmentTitlePromise = fragmentTitleGenerator.run(result.state.data.summary);
+    const responsePromise = responseGenerator.run(result.state.data.summary);
+
+    const [{ output: fragmentTitleOutput }, { output: responseOutput }] = await Promise.all([
+      fragmentTitlePromise,
+      responsePromise,
+    ]);
 
     const isError =
       !result.state.data.summary ||
@@ -650,7 +650,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
             create: {
               sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
-              title: parseAgentOutput(fragmentTitleOuput),
+              title: parseAgentOutput(fragmentTitleOutput),
               files: result.state.data.files,
               framework: toPrismaFramework(selectedFramework),
             },
