@@ -6,6 +6,7 @@ import { Databuddy } from "@databuddy/sdk";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TRPCReactProvider } from "@/trpc/client";
+import { generateMetadata as createMetadata } from "@/lib/seo/metadata";
 
 import "./globals.css";
 
@@ -20,48 +21,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  ...createMetadata({
+    title: "Zapdev - Build Fast, Scale Smart",
+    description: "Build apps and websites by chatting with AI. Transform your ideas into reality with our AI-powered development platform. Support for Next.js, React, Vue, Angular, and Svelte.",
+    keywords: [
+      "ai development",
+      "code generation",
+      "web development",
+      "nextjs",
+      "react",
+      "vue",
+      "angular",
+      "svelte",
+      "ai code builder",
+      "automated development",
+    ],
+    canonical: "/",
+  }),
+  metadataBase: new URL("https://zapdev.link"),
   title: {
     default: "Zapdev - Build Fast, Scale Smart",
-    template: "%s | Zapdev"
+    template: "%s | Zapdev",
   },
-  description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions. Transform your ideas into reality with our expert development team.",
-  keywords: ["software development", "web development", "mobile apps", "enterprise solutions", "Zapdev", "app development", "custom software"],
-  authors: [{ name: "Zapdev" }],
-  creator: "Zapdev",
-  publisher: "Zapdev",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
-  },
-  metadataBase: new URL("https://zapdev.link"),
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: "https://zapdev.link",
-    title: "Zapdev - Build Fast, Scale Smart",
-    description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-    siteName: "Zapdev",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Zapdev - Build Fast, Scale Smart",
-    description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-    creator: "@zapdev",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
   },
   verification: {
     google: "your-google-verification-code",
@@ -83,30 +68,6 @@ export default function RootLayout({
     >
       <TRPCReactProvider>
         <html lang="en" suppressHydrationWarning>
-          <head>
-            <script
-              type="application/ld+json"
-              dangerouslySetInnerHTML={{
-                __html: JSON.stringify({
-                  "@context": "https://schema.org",
-                  "@type": "Organization",
-                  name: "Zapdev",
-                  url: "https://zapdev.link",
-                  logo: "https://zapdev.link/logo.png",
-                  description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-                  contactPoint: {
-                    "@type": "ContactPoint",
-                    contactType: "sales",
-                    availableLanguage: "English"
-                  },
-                  sameAs: [
-                    "https://twitter.com/zapdev",
-                    "https://linkedin.com/company/zapdev"
-                  ]
-                }),
-              }}
-            />
-          </head>
           <body
             className={`${geistSans.variable} ${geistMono.variable} antialiased`}
           >

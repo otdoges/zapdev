@@ -1,14 +1,45 @@
 User-agent: *
 Allow: /
 
-# Host
-Host: https://zapdev.link
-
-# Sitemaps
-Sitemap: https://zapdev.link/sitemap.xml
-
 # Block common non-content paths
 Disallow: /api/
 Disallow: /_next/
 Disallow: /admin/
 Disallow: /.well-known/
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /dashboard/
+
+# Allow SEO pages
+Allow: /frameworks/
+Allow: /use-cases/
+Allow: /pricing
+
+# Block specific bots
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+# Crawl delay for aggressive bots
+User-agent: SemrushBot
+Crawl-delay: 10
+
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+# Host
+Host: https://zapdev.link
+
+# Sitemaps
+Sitemap: https://zapdev.link/sitemap.xml

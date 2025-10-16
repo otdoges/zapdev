@@ -8,7 +8,6 @@ const __dirname = path.dirname(__filename);
 const nullLoaderPath = path.join(__dirname, "loaders/null-loader.js");
 
 const nextConfig: NextConfig = {
-  /* config options here */
   images: {
     remotePatterns: [
       {
@@ -16,7 +15,59 @@ const nextConfig: NextConfig = {
         hostname: "utfs.io",
       },
     ],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 60,
   },
+  compress: true,
+  poweredByHeader: false,
+  headers: async () => [
+    {
+      source: "/:path*",
+      headers: [
+        {
+          key: "X-DNS-Prefetch-Control",
+          value: "on",
+        },
+        {
+          key: "X-Frame-Options",
+          value: "SAMEORIGIN",
+        },
+        {
+          key: "X-Content-Type-Options",
+          value: "nosniff",
+        },
+        {
+          key: "Referrer-Policy",
+          value: "strict-origin-when-cross-origin",
+        },
+      ],
+    },
+    {
+      source: "/api/:path*",
+      headers: [
+        {
+          key: "Cache-Control",
+          value: "public, max-age=0, must-revalidate",
+        },
+      ],
+    },
+    {
+      source: "/(.*)",
+      has: [
+        {
+          type: "header",
+          key: "Accept-Encoding",
+          value: "(?:.*,)?\\s*br\\s*(?:,.*)?",
+        },
+      ],
+      headers: [
+        {
+          key: "Vary",
+          value: "Accept-Encoding",
+        },
+      ],
+    },
+  ],
   webpack: (config) => {
     config.module.rules.push({
       test: /\.d\.ts$/,
@@ -26,6 +77,9 @@ const nextConfig: NextConfig = {
     });
 
     return config;
+  },
+  experimental: {
+    optimizePackageImports: ["lucide-react", "@radix-ui/react-icons"],
   },
 };
 
