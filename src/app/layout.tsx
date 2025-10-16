@@ -6,6 +6,7 @@ import Script from "next/script";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TRPCReactProvider } from "@/trpc/client";
+import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 
 import "./globals.css";
 
@@ -121,6 +122,7 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               <Toaster />
+              <WebVitalsReporter />
               {children}
             </ThemeProvider>
           </TRPCReactProvider>
