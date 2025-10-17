@@ -82,13 +82,24 @@ const AUTO_FIX_ERROR_PATTERNS = [
   /Maximum call stack/i,
   /stack overflow/i,
 
+  // Specific Import/Typo Errors
+  /useDate is not defined/i,
+  /useState is not defined/i,
+  /useEffect is not defined/i,
+  /useRef is not defined/i,
+  /is not exported/i,
+  /Named export.*not found/i,
+  /Default export.*not found/i,
+
   // Build & Compilation Errors
   /Build failed/i,
+  /Build error/i,
   /Compilation error/i,
   /Failed to compile/i,
   /Error compiling/i,
   /Minification failed/i,
   /Bundling failed/i,
+  /✖/,  // ESLint error indicator
 
   // Vite/Webpack/Bundler Errors
   /\[vite\].*error/i,
@@ -128,7 +139,18 @@ const AUTO_FIX_ERROR_PATTERNS = [
   /XSS/i,
   /injection/i,
   /CSRF/i,
+
+  // ESLint specific output
+  /eslint/i,
+  /problems?/i,
+  /warnings?/i,
+  /errors?/i,
+  /issues?/i,
+  /line \d+/i,  // ESLint line number format
 ];
+
+// Additional stricter pattern for lint output that contains error indicators
+const LINT_OUTPUT_ERROR_PATTERN = /(?:error|warning|✖|problem)[\s\S]*?(?:line \d+|at |^)/i;
 
 const URL_REGEX = /(https?:\/\/[^\s\]\)"'<>]+)/gi;
 
@@ -157,7 +179,13 @@ const shouldTriggerAutoFix = (message?: string) => {
     return false;
   }
 
-  return AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(message));
+  // Check if any of the standard error patterns match
+  const standardPatternMatch = AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(message));
+
+  // Also check for lint-specific output patterns
+  const lintPatternMatch = LINT_OUTPUT_ERROR_PATTERN.test(message);
+
+  return standardPatternMatch || lintPatternMatch;
 };
 
 const getLastAssistantMessage = (
@@ -172,6 +200,45 @@ const getLastAssistantMessage = (
   const latestResult = results[results.length - 1];
 
   return lastAssistantTextMessageContent(latestResult);
+};
+
+const runLintCheck = async (sandboxId: string): Promise<string | null> => {
+  try {
+    const sandbox = await getSandbox(sandboxId);
+    const buffers: { stdout: string; stderr: string } = { stdout: "", stderr: "" };
+
+    const result = await sandbox.commands.run("bun run lint", {
+      onStdout: (data: string) => {
+        buffers.stdout += data;
+      },
+      onStderr: (data: string) => {
+        buffers.stderr += data;
+      }
+    });
+
+    const output = buffers.stdout + buffers.stderr;
+
+    // If lint found errors (non-zero exit code and has output)
+    if (result.exitCode !== 0 && output.length > 0) {
+      // Check if output contains actual error indicators (not just warnings)
+      if (/error|✖/i.test(output)) {
+        console.log("[DEBUG] Lint check found ERRORS:\n", output);
+        return output;
+      }
+      // Also check for any pattern match indicating a problem
+      if (AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(output))) {
+        console.log("[DEBUG] Lint check found issues:\n", output);
+        return output;
+      }
+    }
+
+    console.log("[DEBUG] Lint check passed with no errors");
+    return null;
+  } catch (error) {
+    console.error("[DEBUG] Lint check failed:", error);
+    // Don't fail the entire process if lint check fails
+    return null;
+  }
 };
 
 const getE2BTemplate = (framework: Framework): string => {
@@ -541,8 +608,20 @@ export const codeAgentFunction = inngest.createFunction(
     console.log("[DEBUG] Running network with input:", event.data.value);
     let result = await network.run(event.data.value, { state });
 
+    // Post-completion validation: Run lint check to catch any errors the agent missed
+    console.log("[DEBUG] Running post-completion lint check...");
+    const lintErrors = await step.run("post-completion-lint-check", async () => {
+      return await runLintCheck(sandboxId);
+    });
+
     let autoFixAttempts = 0;
     let lastAssistantMessage = getLastAssistantMessage(result);
+
+    // If lint check found errors, inject them into the auto-fix loop
+    if (lintErrors && !shouldTriggerAutoFix(lastAssistantMessage)) {
+      console.log("[DEBUG] Lint errors detected, triggering auto-fix...");
+      lastAssistantMessage = `Lint Check Errors:\n${lintErrors}`;
+    }
 
     while (
       autoFixAttempts < AUTO_FIX_MAX_ATTEMPTS &&
