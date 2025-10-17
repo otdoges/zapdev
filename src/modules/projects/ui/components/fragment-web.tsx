@@ -53,7 +53,7 @@ export function FragmentWeb({ data }: Props) {
 
           // Poll for the updated fragment
           let attempts = 0;
-          const maxAttempts = 60;
+          const maxAttempts = 120; // 4 minutes total (120 * 2 seconds)
 
           const pollInterval = setInterval(async () => {
             attempts++;
@@ -77,6 +77,7 @@ export function FragmentWeb({ data }: Props) {
             if (attempts >= maxAttempts) {
               clearInterval(pollInterval);
               setIsTransferring(false);
+              console.error("Sandbox transfer polling timeout after 4 minutes");
             }
           }, 2000);
         } catch (error) {

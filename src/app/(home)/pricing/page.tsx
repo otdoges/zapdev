@@ -15,7 +15,7 @@ export const metadata: Metadata = generateSEOMetadata({
     'developer tools pricing',
     'subscription plans'
   ],
-  canonical: '/home/pricing',
+  canonical: '/pricing',
   openGraph: {
     title: 'Zapdev Pricing - Start Building for Free',
     description: 'Transparent pricing for AI-powered development. Free tier available.',

@@ -3,33 +3,21 @@
 import Link from "next/link";
 import Image from "next/image";
 import { SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/nextjs";
-import { usePathname } from "next/navigation";
-
 import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
 import {
   NavigationMenu,
-  NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
 
-const frameworks = [
-  { name: "React", href: "/frameworks/react", icon: "⚛️" },
-  { name: "Vue.js", href: "/frameworks/vue", icon: "🟢" },
-  { name: "Angular", href: "/frameworks/angular", icon: "🅰️" },
-  { name: "Svelte", href: "/frameworks/svelte", icon: "🔥" },
-  { name: "Next.js", href: "/frameworks/nextjs", icon: "▲" },
-];
 
 export const Navbar = () => {
   const isScrolled = useScroll();
-  const pathname = usePathname();
 
   return (
     <nav
@@ -48,59 +36,7 @@ export const Navbar = () => {
           <NavigationMenu className="hidden md:flex">
             <NavigationMenuList>
               <NavigationMenuItem>
-                <NavigationMenuTrigger>Frameworks</NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2">
-                    {frameworks.map((framework) => (
-                      <li key={framework.href}>
-                        <NavigationMenuLink asChild>
-                          <Link
-                            href={framework.href}
-                            className={cn(
-                              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-                              pathname === framework.href && "bg-accent"
-                            )}
-                          >
-                            <div className="flex items-center gap-2 text-sm font-medium leading-none">
-                              <span>{framework.icon}</span>
-                              {framework.name}
-                            </div>
-                            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                              Build {framework.name} apps with AI assistance
-                            </p>
-                          </Link>
-                        </NavigationMenuLink>
-                      </li>
-                    ))}
-                    <li className="col-span-2">
-                      <NavigationMenuLink asChild>
-                        <Link
-                          href="/frameworks"
-                          className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
-                        >
-                          <div className="mb-2 mt-4 text-lg font-medium">
-                            All Frameworks
-                          </div>
-                          <p className="text-sm leading-tight text-muted-foreground">
-                            Compare all supported frameworks and choose the best for your project
-                          </p>
-                        </Link>
-                      </NavigationMenuLink>
-                    </li>
-                  </ul>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-              
-              <NavigationMenuItem>
-                <Link href="/showcase" legacyBehavior passHref>
-                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                    Showcase
-                  </NavigationMenuLink>
-                </Link>
-              </NavigationMenuItem>
-              
-              <NavigationMenuItem>
-                <Link href="/home/pricing" legacyBehavior passHref>
+                <Link href="/pricing" legacyBehavior passHref>
                   <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                     Pricing
                   </NavigationMenuLink>

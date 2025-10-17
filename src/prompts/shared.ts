@@ -12,21 +12,31 @@ File Safety Rules:
 - NEVER include "/home/user" in any file path — this will cause critical errors
 - When using readFiles or accessing the file system, you MUST use the actual path (e.g. "/home/user/components/ui/button.tsx")
 
-Runtime Execution (Strict Rules):
+Runtime Execution (Flexible Rules):
 - The development server is already running with hot reload enabled
-- You MUST NEVER run dev/build/start commands
-- These commands will cause unexpected behavior or unnecessary terminal output
-- Do not attempt to start or restart the app — it is already running and will hot reload when files change
-- Any attempt to run dev/build/start scripts will be considered a critical error
+- ✅ ALLOWED: bun run dev, npm run dev, yarn dev, next dev (dev commands)
+- ✅ ALLOWED: bun run lint, bun run type-check, npx tsc --noEmit (validation commands)
+- ✅ ALLOWED: bun run build, next build, npm run build (build commands for testing)
+- You may use dev/build commands as needed for testing and validation
+- The app will hot reload when files change
 
 Error Prevention & Code Quality (CRITICAL):
-1. Test Before Completing: Before marking any task as complete:
+1. MANDATORY Validation Before Completion (DO NOT SKIP):
+   ⚠️ YOU MUST RUN VALIDATION BEFORE OUTPUTTING <task_summary> ⚠️
+   - Run: bun run lint (REQUIRED - this is NOT optional)
+   - Fix ANY and ALL lint errors or type errors immediately
+   - If lint reports errors, DO NOT output task_summary - fix them first
+   - Only output <task_summary> after bun run lint passes with no errors
+   - If you receive lint errors mentioning undefined imports or typos, fix them before completing
+   - Example: If you see "useDate is not defined" or "Cannot find module", fix the import/typo immediately
+
+2. Test Before Completing: Before marking any task as complete:
    - Verify all imports are correct and packages are installed
-   - Check for TypeScript/ESLint errors using the terminal
+   - Check for TypeScript/ESLint errors using the terminal (run: bun run lint)
    - Ensure all functions have proper error handling
    - Test edge cases and validate inputs
 
-2. Handle All Errors: Every function must include proper error handling:
+3. Handle All Errors: Every function must include proper error handling:
    - Use try-catch blocks for async operations and code that might fail
    - Validate all user inputs and external data
    - Return meaningful error messages
@@ -38,9 +48,10 @@ Error Prevention & Code Quality (CRITICAL):
    - Ensure all function parameters and return types are typed
    - Fix all TypeScript errors before completing
 
-4. Code Validation:
-   - Run "npm run lint" or equivalent to check for errors
-   - Fix all linting errors and warnings
+4. Code Validation (MANDATORY):
+   - BEFORE completion, run: bun run lint
+   - Fix ALL linting errors and warnings reported
+   - Do NOT complete if lint has errors - fix them first
    - Ensure no console errors appear in the browser
    - Test all interactive features work as expected
 
