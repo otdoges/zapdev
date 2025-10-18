@@ -1,3 +1,5 @@
+import { memoize } from './cache';
+
 export interface SolutionData {
   slug: string;
   title: string;
@@ -284,10 +286,14 @@ export const solutions: Record<string, SolutionData> = {
   }
 };
 
-export function getSolution(slug: string): SolutionData | undefined {
-  return solutions[slug];
-}
+export const getSolution = memoize(
+  (slug: string): SolutionData | undefined => {
+    return solutions[slug];
+  }
+);
 
-export function getAllSolutions(): SolutionData[] {
-  return Object.values(solutions);
-}
+export const getAllSolutions = memoize(
+  (): SolutionData[] => {
+    return Object.values(solutions);
+  }
+);

@@ -3,74 +3,79 @@ import { getAllFrameworks } from '@/lib/frameworks'
 import { getAllSolutions } from '@/lib/solutions'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://zapdev.link'
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zapdev.link'
+  const now = new Date()
   const frameworks = getAllFrameworks()
   const solutions = getAllSolutions()
   
-  const staticPages = [
+  // High priority pages - main entry points
+  const staticPages: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 1,
+      lastModified: now,
+      changeFrequency: 'daily' as const,
+      priority: 1.0,
     },
     {
-      url: `${baseUrl}/home`,
-      lastModified: new Date(),
+      url: `${baseUrl}/frameworks`,
+      lastModified: now,
       changeFrequency: 'weekly' as const,
+      priority: 0.95,
+    },
+    {
+      url: `${baseUrl}/solutions`,
+      lastModified: now,
+      changeFrequency: 'weekly' as const,
+      priority: 0.95,
+    },
+    {
+      url: `${baseUrl}/showcase`,
+      lastModified: now,
+      changeFrequency: 'daily' as const,
       priority: 0.9,
     },
     {
       url: `${baseUrl}/home/pricing`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'monthly' as const,
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/frameworks`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/showcase`,
-      lastModified: new Date(),
-      changeFrequency: 'daily' as const,
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/solutions`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.9,
+      priority: 0.85,
     },
     {
       url: `${baseUrl}/home/sign-in`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'yearly' as const,
-      priority: 0.5,
+      priority: 0.3,
     },
     {
       url: `${baseUrl}/home/sign-up`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'yearly' as const,
-      priority: 0.5,
+      priority: 0.3,
     },
   ]
 
-  const frameworkPages = frameworks.map(framework => ({
-    url: `${baseUrl}/frameworks/${framework.slug}`,
-    lastModified: new Date(),
-    changeFrequency: 'weekly' as const,
-    priority: 0.8,
-  }))
+  // Framework pages - sorted by popularity for better crawling
+  const frameworkPages: MetadataRoute.Sitemap = frameworks
+    .sort((a, b) => b.popularity - a.popularity)
+    .map(framework => ({
+      url: `${baseUrl}/frameworks/${framework.slug}`,
+      lastModified: now,
+      changeFrequency: 'weekly' as const,
+      priority: 0.8 + (framework.popularity / 1000), // Higher priority for popular frameworks
+    }));
 
-  const solutionPages = solutions.map(solution => ({
+  // Solution pages - programmatic SEO content
+  const solutionPages: MetadataRoute.Sitemap = solutions.map(solution => ({
     url: `${baseUrl}/solutions/${solution.slug}`,
-    lastModified: new Date(),
+    lastModified: now,
     changeFrequency: 'weekly' as const,
-    priority: 0.8,
-  }))
+    priority: 0.85,
+  }));
 
-  return [...staticPages, ...frameworkPages, ...solutionPages]
+  // Combine all pages with high-value content first
+  return [
+    ...staticPages,
+    ...frameworkPages,
+    ...solutionPages,
+  ];
 }

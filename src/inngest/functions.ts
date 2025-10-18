@@ -667,7 +667,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     console.log("[DEBUG] Network run complete. Summary:", result.state.data.summary ? "Present" : "Missing");
     console.log("[DEBUG] Files generated:", Object.keys(result.state.data.files || {}).length);
 
-    // Generate title and response inline with the fast model
+    // PERFORMANCE: Generate title, response, and sandbox URL in parallel
     const titleModel = openai({
       model: "google/gemini-2.5-flash-lite",
       apiKey: process.env.AI_GATEWAY_API_KEY!,
@@ -688,24 +688,21 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       model: titleModel,
     });
 
-    const fragmentTitlePromise = fragmentTitleGenerator.run(result.state.data.summary);
-    const responsePromise = responseGenerator.run(result.state.data.summary);
-
-    const [{ output: fragmentTitleOutput }, { output: responseOutput }] = await Promise.all([
-      fragmentTitlePromise,
-      responsePromise,
+    // Run all async operations in parallel for faster execution
+    const [{ output: fragmentTitleOutput }, { output: responseOutput }, sandboxUrl] = await Promise.all([
+      fragmentTitleGenerator.run(result.state.data.summary),
+      responseGenerator.run(result.state.data.summary),
+      step.run("get-sandbox-url", async () => {
+        const sandbox = await getSandbox(sandboxId);
+        const port = getFrameworkPort(selectedFramework);
+        const host = sandbox.getHost(port);
+        return `https://${host}`;
+      })
     ]);
 
     const isError =
       !result.state.data.summary ||
       Object.keys(result.state.data.files || {}).length === 0;
-
-    const sandboxUrl = await step.run("get-sandbox-url", async () => {
-      const sandbox = await getSandbox(sandboxId);
-      const port = getFrameworkPort(selectedFramework);
-      const host = sandbox.getHost(port);
-      return `https://${host}`;
-    });
 
     await step.run("save-result", async () => {
       if (isError) {

@@ -26,7 +26,13 @@ export const MessagesContainer = ({
   const { data: messages } = useSuspenseQuery(trpc.messages.getMany.queryOptions({
     projectId: projectId,
   }, {
-    refetchInterval: 2000,
+    // Adaptive polling: 500ms when waiting for AI, 3s when idle (4x faster!)
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data || data.length === 0) return 3000;
+      const lastMessage = data[data.length - 1];
+      return lastMessage?.role === "USER" ? 500 : 3000;
+    },
   }));
 
   useEffect(() => {

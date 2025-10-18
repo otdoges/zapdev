@@ -1,3 +1,5 @@
+import { memoize } from './cache';
+
 export interface FrameworkData {
   slug: string;
   name: string;
@@ -342,19 +344,25 @@ export const frameworks: Record<string, FrameworkData> = {
   }
 };
 
-export function getFramework(slug: string): FrameworkData | undefined {
-  return frameworks[slug];
-}
+export const getFramework = memoize(
+  (slug: string): FrameworkData | undefined => {
+    return frameworks[slug];
+  }
+);
 
-export function getAllFrameworks(): FrameworkData[] {
-  return Object.values(frameworks);
-}
+export const getAllFrameworks = memoize(
+  (): FrameworkData[] => {
+    return Object.values(frameworks);
+  }
+);
 
-export function getRelatedFrameworks(slug: string): FrameworkData[] {
-  const framework = getFramework(slug);
-  if (!framework) return [];
-  
-  return framework.relatedFrameworks
-    .map(relatedSlug => getFramework(relatedSlug))
-    .filter((f): f is FrameworkData => f !== undefined);
-}
+export const getRelatedFrameworks = memoize(
+  (slug: string): FrameworkData[] => {
+    const framework = getFramework(slug);
+    if (!framework) return [];
+    
+    return framework.relatedFrameworks
+      .map(relatedSlug => getFramework(relatedSlug))
+      .filter((f): f is FrameworkData => f !== undefined);
+  }
+);
