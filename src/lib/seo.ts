@@ -211,3 +211,99 @@ export function generateFAQStructuredData(faqs: Array<{ question: string; answer
     }))
   };
 }
+
+/**
+ * Generate internal links for SEO
+ */
+export interface InternalLink {
+  href: string;
+  text: string;
+  rel?: string;
+}
+
+export function generateInternalLinks(currentPath: string): InternalLink[] {
+  const links: InternalLink[] = [
+    { href: '/', text: 'Home' },
+    { href: '/frameworks', text: 'Frameworks' },
+    { href: '/solutions', text: 'Solutions' },
+    { href: '/showcase', text: 'Showcase' },
+    { href: '/home/pricing', text: 'Pricing' },
+  ];
+
+  return links.filter(link => link.href !== currentPath);
+}
+
+/**
+ * Generate dynamic keywords based on content
+ */
+export function generateDynamicKeywords(baseKeywords: string[], additions: string[]): string[] {
+  const combined = [...baseKeywords, ...additions];
+  return Array.from(new Set(combined)).slice(0, 20); // Limit to 20 keywords
+}
+
+/**
+ * Calculate reading time for content
+ */
+export function calculateReadingTime(content: string): number {
+  const wordsPerMinute = 200;
+  const words = content.trim().split(/\s+/).length;
+  return Math.ceil(words / wordsPerMinute);
+}
+
+/**
+ * Generate article structured data
+ */
+export function generateArticleStructuredData(data: {
+  headline: string;
+  description: string;
+  image?: string;
+  datePublished?: string;
+  dateModified?: string;
+  author?: string;
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: data.headline,
+    description: data.description,
+    image: data.image || 'https://zapdev.link/og-image.png',
+    datePublished: data.datePublished || new Date().toISOString(),
+    dateModified: data.dateModified || new Date().toISOString(),
+    author: {
+      '@type': 'Organization',
+      name: data.author || 'Zapdev'
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Zapdev',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://zapdev.link/logo.png'
+      }
+    }
+  };
+}
+
+/**
+ * Generate How-To structured data for tutorials
+ */
+export function generateHowToStructuredData(data: {
+  name: string;
+  description: string;
+  steps: Array<{ name: string; text: string }>;
+  totalTime?: string;
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: data.name,
+    description: data.description,
+    totalTime: data.totalTime,
+    step: data.steps.map((step, index) => ({
+      '@type': 'HowToStep',
+      position: index + 1,
+      name: step.name,
+      text: step.text
+    }))
+  };
+}
