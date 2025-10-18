@@ -140,7 +140,7 @@ export function RelatedContent({ currentSlug, type, limit = 3 }: RelatedContentP
             ? `/frameworks/${item.slug}` 
             : `/solutions/${item.slug}`;
           const title = 'name' in item ? item.name : item.title;
-          const description = 'metaDescription' in item ? item.metaDescription : item.description;
+          const description = item.metaDescription || ('description' in item ? item.description : '');
 
           return (
             <Link
