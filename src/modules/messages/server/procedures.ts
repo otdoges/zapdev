@@ -11,7 +11,6 @@ import { consumeCredits } from "@/lib/usage";
 const aiGateway = createOpenAI({
   apiKey: process.env.AI_GATEWAY_API_KEY!,
   baseURL: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-  compatibility: "compatible",
 });
 
 export const messagesRouter = createTRPCRouter({
@@ -149,21 +148,79 @@ export const messagesRouter = createTRPCRouter({
         message: "Initializing code generation...",
       };
 
-      const interval = setInterval(async () => {
+      let lastStatus: string | null = null;
+      let maxAttempts = 0;
+      const maxPollingAttempts = 600; // 10 minutes max with 1s poll
+
+      while (maxAttempts < maxPollingAttempts) {
+        maxAttempts++;
+
         const updatedMessage = await prisma.message.findUnique({
           where: { id: input.messageId },
           include: { Fragment: true },
         });
 
-        if (updatedMessage?.status === "COMPLETE") {
-          clearInterval(interval);
+        if (!updatedMessage) {
+          yield {
+            type: "status" as const,
+            status: "error",
+            message: "Message was deleted",
+          };
+          return;
         }
-      }, 1000);
 
+        // Stream status changes when message status updates
+        if (updatedMessage.status !== lastStatus) {
+          lastStatus = updatedMessage.status;
+
+          switch (updatedMessage.status) {
+            case "PENDING":
+              yield {
+                type: "status" as const,
+                status: "pending",
+                message: "Waiting to start code generation...",
+              };
+              break;
+            case "STREAMING":
+              yield {
+                type: "status" as const,
+                status: "generating",
+                message: "Code generation in progress...",
+              };
+              break;
+            case "COMPLETE":
+              // Check if this is an error completion
+              if (updatedMessage.type === "ERROR") {
+                yield {
+                  type: "status" as const,
+                  status: "error",
+                  message: "Code generation failed",
+                };
+              } else {
+                yield {
+                  type: "status" as const,
+                  status: "complete",
+                  message: "Code generation complete",
+                };
+                yield {
+                  type: "result" as const,
+                  fragment: updatedMessage.Fragment,
+                  content: updatedMessage.content,
+                };
+              }
+              return;
+          }
+        }
+
+        // Poll every 500ms for more responsive updates
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      // If we hit the max polling attempts, consider it a timeout
       yield {
         type: "status" as const,
-        status: "complete",
-        message: "Code generation complete",
+        status: "error",
+        message: "Code generation timed out",
       };
     }),
   streamResponse: protectedProcedure
@@ -173,7 +230,7 @@ export const messagesRouter = createTRPCRouter({
         model: z.enum(["gemini", "kimi"]).default("gemini"),
       })
     )
-    .mutation(async ({ input }) {
+    .mutation(async ({ input }) => {
       const model = input.model === "gemini" 
         ? aiGateway("google/gemini-2.5-flash-lite")
         : aiGateway("moonshotai/kimi-k2-0905");
@@ -182,7 +239,6 @@ export const messagesRouter = createTRPCRouter({
         model,
         prompt: input.prompt,
         temperature: input.model === "gemini" ? 0.3 : 0.7,
-        maxTokens: 4000,
       });
 
       const chunks: string[] = [];

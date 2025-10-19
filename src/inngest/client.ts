@@ -1,13 +1,11 @@
 import { Inngest } from "inngest";
-import { realtime } from "@inngest/realtime";
+import { validateEnv } from "@/lib/env";
 
-// Create a client to send and receive events with realtime middleware
+validateEnv();
+
+// Create a client to send and receive events
 export const inngest = new Inngest({
   id: "zapdev-production",
   eventKey: process.env.INNGEST_EVENT_KEY,
-  middleware: [
-    realtime({
-      apiKey: process.env.INNGEST_REALTIME_KEY || process.env.INNGEST_EVENT_KEY,
-    }),
-  ],
+  // Note: Realtime middleware removed - using database polling for streaming instead
 });

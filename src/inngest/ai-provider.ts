@@ -1,6 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateText, type LanguageModelV1 } from "ai";
+import { generateText } from "ai";
 import type { Message } from "@inngest/agent-kit";
+import { openai as createAgentModel } from "@inngest/agent-kit";
 
 export interface AIProviderConfig {
   model: string;
@@ -13,17 +14,14 @@ export interface AIProviderConfig {
 const aiGateway = createOpenAI({
   apiKey: process.env.AI_GATEWAY_API_KEY!,
   baseURL: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-  compatibility: "compatible",
 });
 
 export const createAIModel = (config: AIProviderConfig) => {
-  const model = aiGateway(config.model, {
-    structuredOutputs: false,
-  });
+  const model = aiGateway(config.model);
 
   return {
     model: config.model,
-    async complete(messages: Message[], options?: { temperature?: number; tools?: any[] }) {
+    async complete(messages: Message[], options?: { temperature?: number; tools?: Record<string, unknown>[] }) {
       try {
         const formattedMessages = messages.map((msg) => {
           if (msg.type === "text") {
@@ -43,8 +41,6 @@ export const createAIModel = (config: AIProviderConfig) => {
           messages: formattedMessages,
           temperature: options?.temperature ?? config.temperature ?? 0.7,
           frequencyPenalty: config.frequencyPenalty,
-          maxTokens: 8000,
-          tools: options?.tools || {},
         });
 
         return {
@@ -82,3 +78,24 @@ export const kimiK2ErrorFixModel = createAIModel({
   temperature: 0.5,
   frequencyPenalty: 0.5,
 });
+
+export const createAgentModelConfig = (modelName: string, temperature: number, frequencyPenalty?: number) => {
+  return createAgentModel({
+    model: modelName,
+    apiKey: process.env.AI_GATEWAY_API_KEY!,
+    baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+    defaultParameters: {
+      temperature,
+      ...(frequencyPenalty && { frequency_penalty: frequencyPenalty }),
+    },
+  });
+};
+
+export const geminiFlashAgentModel = () =>
+  createAgentModelConfig("google/gemini-2.5-flash-lite", 0.3);
+
+export const kimiK2AgentModel = () =>
+  createAgentModelConfig("moonshotai/kimi-k2-0905", 0.7, 0.5);
+
+export const kimiK2ErrorFixAgentModel = () =>
+  createAgentModelConfig("moonshotai/kimi-k2-0905", 0.5, 0.5);

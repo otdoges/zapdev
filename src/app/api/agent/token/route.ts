@@ -1,5 +1,4 @@
 import { auth } from "@clerk/nextjs/server";
-import { createRealtimeToken } from "@inngest/realtime";
 
 export async function POST() {
   try {
@@ -12,21 +11,12 @@ export async function POST() {
       );
     }
 
-    if (!process.env.INNGEST_REALTIME_KEY && !process.env.INNGEST_EVENT_KEY) {
-      console.error("[ERROR] INNGEST_REALTIME_KEY or INNGEST_EVENT_KEY not configured");
-      return Response.json(
-        { error: "Realtime feature not configured" },
-        { status: 503 }
-      );
-    }
-
-    const token = await createRealtimeToken({
-      apiKey: process.env.INNGEST_REALTIME_KEY || process.env.INNGEST_EVENT_KEY!,
-      userId,
-      expiresAt: Date.now() + 1000 * 60 * 60,
-    });
-
-    return Response.json({ token });
+    // Realtime token generation is currently not supported
+    // Using database polling for streaming instead
+    return Response.json(
+      { error: "Realtime token generation is not available" },
+      { status: 503 }
+    );
   } catch (error) {
     console.error("[ERROR] Failed to generate realtime token:", error);
     return Response.json(
