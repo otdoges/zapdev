@@ -80,6 +80,7 @@ export const messagesRouter = createTRPCRouter({
           content: input.value,
           role: "USER",
           type: "RESULT",
+          status: "COMPLETE",
           Attachment: input.attachments?.length
             ? {
                 create: input.attachments.map((attachment) => ({

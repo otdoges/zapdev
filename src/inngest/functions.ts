@@ -481,6 +481,9 @@ export const codeAgentFunction = inngest.createFunction(
           model: "google/gemini-2.5-flash-lite",
           apiKey: process.env.AI_GATEWAY_API_KEY!,
           baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+          defaultParameters: {
+            temperature: 0.3,
+          },
         }),
       });
 
@@ -555,7 +558,7 @@ export const codeAgentFunction = inngest.createFunction(
           orderBy: {
             createdAt: "desc",
           },
-          take: 5,
+          take: 3,
         });
         
         console.log("[DEBUG] Found", messages.length, "previous messages");
@@ -633,7 +636,8 @@ export const codeAgentFunction = inngest.createFunction(
         apiKey: process.env.AI_GATEWAY_API_KEY!,
         baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
-          temperature: 0.9,
+          temperature: 0.7,
+          frequency_penalty: 0.5,
         },
       }),
       tools: createCodeAgentTools(sandboxId),
@@ -656,7 +660,7 @@ export const codeAgentFunction = inngest.createFunction(
     const network = createNetwork<AgentState>({
       name: "coding-agent-network",
       agents: [codeAgent],
-      maxIter: 15,
+      maxIter: 8,
       defaultState: state,
       router: async ({ network }) => {
         const summary = network.state.data.summary;
@@ -742,6 +746,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       model: "google/gemini-2.5-flash-lite",
       apiKey: process.env.AI_GATEWAY_API_KEY!,
       baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+      defaultParameters: {
+        temperature: 0.3,
+      },
     });
 
     const fragmentTitleGenerator = createAgent({
@@ -782,6 +789,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
             content: "Something went wrong. Please try again.",
             role: "ASSISTANT",
             type: "ERROR",
+            status: "COMPLETE",
           },
         });
       }
@@ -792,6 +800,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
           content: parseAgentOutput(responseOutput),
           role: "ASSISTANT",
           type: "RESULT",
+          status: "COMPLETE",
           Fragment: {
             create: {
               sandboxId: sandboxId,
@@ -999,7 +1008,8 @@ export const errorFixFunction = inngest.createFunction(
         apiKey: process.env.AI_GATEWAY_API_KEY!,
         baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
-          temperature: 0.7,
+          temperature: 0.5,
+          frequency_penalty: 0.5,
         },
       }),
       tools: createCodeAgentTools(sandboxId),

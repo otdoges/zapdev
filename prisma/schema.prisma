@@ -39,6 +39,7 @@ model Message {
   content    String
   role       MessageRole
   type       MessageType
+  status     MessageStatus @default(COMPLETE)
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
   projectId  String
@@ -80,6 +81,13 @@ enum MessageRole {
 enum MessageType {
   RESULT
   ERROR
+  STREAMING
+}
+
+enum MessageStatus {
+  PENDING
+  STREAMING
+  COMPLETE
 }
 
 enum AttachmentType {
