@@ -1128,10 +1128,12 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         try {
           const latestFragment = await prisma.fragment.findUnique({
             where: { id: event.data.fragmentId },
-            select: { metadata: true },
           });
 
-          latestMetadata = toJsonObject(latestFragment?.metadata);
+          if (latestFragment) {
+            const fragmentData = latestFragment as Record<string, unknown>;
+            latestMetadata = toJsonObject(fragmentData.metadata);
+          }
         } catch (metadataReadError) {
           console.error("[ERROR] Failed to load latest metadata:", metadataReadError);
         }

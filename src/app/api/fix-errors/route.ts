@@ -50,15 +50,15 @@ export async function POST(request: Request) {
     const fragment = await prisma.fragment.findUnique({
       where: { id: fragmentId },
       include: {
-        message: {
+        Message: {
           include: {
-            project: true,
+            Project: true,
           },
         },
       },
     });
 
-    if (!fragment || fragment.message?.project?.userId !== userId) {
+    if (!fragment || fragment.Message?.Project?.userId !== userId) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }
