@@ -3,6 +3,7 @@ import { Sandbox } from "@e2b/code-interpreter";
 import { openai, createAgent, createTool, createNetwork, type Tool, type Message, createState, type NetworkRun } from "@inngest/agent-kit";
 import { Prisma, Framework as PrismaFramework } from "@/generated/prisma";
 import { inspect } from "util";
+import { getOptimizedModelConfig } from "@/lib/ai-gateway";
 
 import { prisma } from "@/lib/db";
 import { crawlUrl, type CrawledContent } from "@/lib/firecrawl";
@@ -477,14 +478,7 @@ export const codeAgentFunction = inngest.createFunction(
         name: "framework-selector",
         description: "Determines the best framework for the user's request",
         system: FRAMEWORK_SELECTOR_PROMPT,
-        model: openai({
-          model: "google/gemini-2.5-flash-lite",
-          apiKey: process.env.AI_GATEWAY_API_KEY!,
-          baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-          defaultParameters: {
-            temperature: 0.3,
-          },
-        }),
+        model: openai(getOptimizedModelConfig('frameworkSelectorModel')),
       });
 
       const frameworkResult = await frameworkSelectorAgent.run(event.data.value);
@@ -631,15 +625,7 @@ export const codeAgentFunction = inngest.createFunction(
       name: `${selectedFramework}-code-agent`,
       description: `An expert ${selectedFramework} coding agent`,
       system: frameworkPrompt,
-      model: openai({
-        model: "moonshotai/kimi-k2-0905",
-        apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-        defaultParameters: {
-          temperature: 0.7,
-          frequency_penalty: 0.5,
-        },
-      }),
+      model: openai(getOptimizedModelConfig('smartModel')),
       tools: createCodeAgentTools(sandboxId),
       lifecycle: {
         onResponse: async ({ result, network }) => {
@@ -742,14 +728,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     console.log("[DEBUG] Files generated:", Object.keys(result.state.data.files || {}).length);
 
     // PERFORMANCE: Generate title, response, and sandbox URL in parallel
-    const titleModel = openai({
-      model: "google/gemini-2.5-flash-lite",
-      apiKey: process.env.AI_GATEWAY_API_KEY!,
-      baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-      defaultParameters: {
-        temperature: 0.3,
-      },
-    });
+    const titleModelConfig = getOptimizedModelConfig('titleGeneratorModel');
+    const titleModel = openai(titleModelConfig);
 
     const fragmentTitleGenerator = createAgent({
       name: "fragment-title-generator",
@@ -1003,15 +983,7 @@ export const errorFixFunction = inngest.createFunction(
       name: `${fragmentFramework}-error-fix-agent`,
       description: `An expert ${fragmentFramework} coding agent for fixing errors`,
       system: frameworkPrompt,
-      model: openai({
-        model: "moonshotai/kimi-k2-0905",
-        apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-        defaultParameters: {
-          temperature: 0.5,
-          frequency_penalty: 0.5,
-        },
-      }),
+      model: openai(getOptimizedModelConfig('errorFixModel')),
       tools: createCodeAgentTools(sandboxId),
       lifecycle: {
         onResponse: async ({ result, network }) => {
