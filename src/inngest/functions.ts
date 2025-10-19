@@ -558,7 +558,7 @@ export const codeAgentFunction = inngest.createFunction(
           orderBy: {
             createdAt: "desc",
           },
-          take: 3,
+          take: 2,
         });
         
         console.log("[DEBUG] Found", messages.length, "previous messages");
@@ -660,7 +660,7 @@ export const codeAgentFunction = inngest.createFunction(
     const network = createNetwork<AgentState>({
       name: "coding-agent-network",
       agents: [codeAgent],
-      maxIter: 8,
+      maxIter: 5,
       defaultState: state,
       router: async ({ network }) => {
         const summary = network.state.data.summary;
@@ -1029,7 +1029,7 @@ export const errorFixFunction = inngest.createFunction(
     const network = createNetwork<AgentState>({
       name: "error-fix-network",
       agents: [codeAgent],
-      maxIter: 10,
+      maxIter: 6,
       defaultState: state,
       router: async ({ network }) => {
         const summary = network.state.data.summary;

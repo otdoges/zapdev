@@ -1,5 +1,5 @@
 export const FRAMEWORK_SELECTOR_PROMPT = `
-You are a framework selection expert. Your job is to analyze the user's request and determine the most appropriate web framework to use.
+Analyze the request and select the best framework. Be fast and decisive.
 
 Available frameworks:
 1. **nextjs** - Next.js 15 with React, Shadcn UI, and Tailwind CSS
