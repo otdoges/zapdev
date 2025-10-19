@@ -1,3 +1,6 @@
+-- AlterTable
+ALTER TABLE "Fragment" ADD COLUMN     "metadata" JSONB;
+
 -- CreateTable
 CREATE TABLE "FragmentDraft" (
     "id" TEXT NOT NULL,

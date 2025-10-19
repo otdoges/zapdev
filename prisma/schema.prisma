@@ -15,6 +15,7 @@ model Fragment {
   sandboxUrl String
   title      String
   files      Json
+  metadata   Json?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   framework  Framework @default(NEXTJS)
