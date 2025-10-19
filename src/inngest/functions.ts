@@ -251,7 +251,7 @@ const runLintCheck = async (sandboxId: string): Promise<string | null> => {
   }
 };
 
-const runBuildCheck = async (sandboxId: string, framework: Framework): Promise<string | null> => {
+const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
   try {
     const sandbox = await getSandbox(sandboxId);
     const buffers: { stdout: string; stderr: string } = { stdout: "", stderr: "" };
@@ -679,7 +679,7 @@ export const codeAgentFunction = inngest.createFunction(
         return await runLintCheck(sandboxId);
       }),
       step.run("post-completion-build-check", async () => {
-        return await runBuildCheck(sandboxId, selectedFramework);
+        return await runBuildCheck(sandboxId);
       })
     ]);
 
@@ -961,7 +961,7 @@ export const errorFixFunction = inngest.createFunction(
         return await runLintCheck(sandboxId);
       }),
       step.run("error-fix-build-check", async () => {
-        return await runBuildCheck(sandboxId, fragmentFramework);
+        return await runBuildCheck(sandboxId);
       })
     ]);
 

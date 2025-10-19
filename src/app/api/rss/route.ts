@@ -1,5 +1,3 @@
-import { MetadataRoute } from 'next';
-
 export async function GET() {
   const baseUrl = 'https://zapdev.link';
 
