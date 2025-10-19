@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ExternalLinkIcon, RefreshCcwIcon } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { ExternalLinkIcon, RefreshCcwIcon, WrenchIcon } from "lucide-react";
 
 import { Hint } from "@/components/hint";
 import { Fragment } from "@/generated/prisma";
@@ -13,7 +13,27 @@ export function FragmentWeb({ data }: Props) {
   const [copied, setCopied] = useState(false);
   const [fragmentKey, setFragmentKey] = useState(0);
   const [isTransferring, setIsTransferring] = useState(false);
+  const [isFixingErrors, setIsFixingErrors] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(data.sandboxUrl);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearFixErrorTimers = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (pollTimeoutRef.current) {
+      clearTimeout(pollTimeoutRef.current);
+      pollTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearFixErrorTimers();
+    };
+  }, [clearFixErrorTimers]);
 
   const onRefresh = () => {
     setFragmentKey((prev) => prev + 1);
@@ -23,6 +43,55 @@ export function FragmentWeb({ data }: Props) {
     navigator.clipboard.writeText(currentUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleFixErrors = async () => {
+    setIsFixingErrors(true);
+    try {
+      const response = await fetch("/api/fix-errors", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fragmentId: data.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error fix failed");
+      }
+
+      clearFixErrorTimers();
+
+      const pollIntervalMs = 2000;
+      const maxAttempts = 60;
+      const pollTimeoutMs = maxAttempts * pollIntervalMs;
+      let attempts = 0;
+      let isComplete = false;
+
+      const finish = () => {
+        if (isComplete) return;
+        isComplete = true;
+        clearFixErrorTimers();
+        setIsFixingErrors(false);
+      };
+
+      pollIntervalRef.current = setInterval(() => {
+        attempts += 1;
+        setFragmentKey((prev) => prev + 1);
+
+        if (attempts >= maxAttempts) {
+          finish();
+        }
+      }, pollIntervalMs);
+
+      pollTimeoutRef.current = setTimeout(finish, pollTimeoutMs);
+    } catch (error) {
+      console.error("Error fix failed:", error);
+      clearFixErrorTimers();
+      setIsFixingErrors(false);
+    }
   };
 
   // Check if sandbox is older than 55 minutes and auto-transfer
@@ -106,12 +175,41 @@ export function FragmentWeb({ data }: Props) {
     );
   }
 
+  if (isFixingErrors) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full h-full bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="text-center">
+            <h3 className="text-lg font-semibold">Fixing Errors</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              AI is analyzing and fixing the errors in your code...
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              ✨ No credits will be charged for error fixes
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col w-full h-full">
       <div className="p-2 border-b bg-sidebar flex items-center gap-x-2">
         <Hint text="Refresh" side="bottom" align="start">
           <Button size="sm" variant="outline" onClick={onRefresh}>
             <RefreshCcwIcon />
+          </Button>
+        </Hint>
+        <Hint text="Fix Errors (Free)" side="bottom" align="start">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={handleFixErrors}
+            disabled={isFixingErrors}
+          >
+            <WrenchIcon />
           </Button>
         </Hint>
         <Hint text="Click to copy" side="bottom">

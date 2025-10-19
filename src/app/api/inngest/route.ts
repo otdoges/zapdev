@@ -1,7 +1,7 @@
 import { serve } from "inngest/next";
 
 import { inngest } from "@/inngest/client";
-import { codeAgentFunction, sandboxTransferFunction } from "@/inngest/functions";
+import { codeAgentFunction, sandboxTransferFunction, errorFixFunction } from "@/inngest/functions";
 
 // Create an API that serves the Inngest functions
 export const { GET, POST, PUT } = serve({
@@ -9,6 +9,7 @@ export const { GET, POST, PUT } = serve({
   functions: [
     codeAgentFunction,
     sandboxTransferFunction,
+    errorFixFunction,
   ],
   signingKey: process.env.INNGEST_SIGNING_KEY,
 });

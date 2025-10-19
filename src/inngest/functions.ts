@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
 import { openai, createAgent, createTool, createNetwork, type Tool, type Message, createState, type NetworkRun } from "@inngest/agent-kit";
-import { Framework as PrismaFramework } from "@/generated/prisma";
+import { Prisma, Framework as PrismaFramework } from "@/generated/prisma";
+import { inspect } from "util";
 
 import { prisma } from "@/lib/db";
 import { crawlUrl, type CrawledContent } from "@/lib/firecrawl";
@@ -60,14 +61,18 @@ const AUTO_FIX_ERROR_PATTERNS = [
   /require.*is not defined/i,
   /ERR_MODULE_NOT_FOUND/i,
 
-  // Syntax & Parsing Errors
+  // Syntax & Parsing Errors (ENHANCED)
   /Parsing error/i,
+  /Parsing encountered/i,
+  /Parse failed/i,
+  /sources with failed/i,
   /Syntax error/i,
   /unexpected token/i,
   /Unexpected identifier/i,
   /Unexpected end of input/i,
   /Unexpected string/i,
   /Invalid or unexpected token/i,
+  /Unterminated/i,
 
   // Runtime Errors
   /ReferenceError/i,
@@ -91,15 +96,20 @@ const AUTO_FIX_ERROR_PATTERNS = [
   /Named export.*not found/i,
   /Default export.*not found/i,
 
-  // Build & Compilation Errors
+  // Build & Compilation Errors (ENHANCED)
   /Build failed/i,
   /Build error/i,
+  /Build State/i,
   /Compilation error/i,
   /Failed to compile/i,
   /Error compiling/i,
   /Minification failed/i,
   /Bundling failed/i,
+  /Transform failed/i,
+  /Transpile.*error/i,
   /✖/,  // ESLint error indicator
+  /❌/,  // Error emoji
+  /EcmaScript error/i,
 
   // Vite/Webpack/Bundler Errors
   /\[vite\].*error/i,
@@ -238,6 +248,60 @@ const runLintCheck = async (sandboxId: string): Promise<string | null> => {
     console.error("[DEBUG] Lint check failed:", error);
     // Don't fail the entire process if lint check fails
     return null;
+  }
+};
+
+const runBuildCheck = async (sandboxId: string, framework: Framework): Promise<string | null> => {
+  try {
+    const sandbox = await getSandbox(sandboxId);
+    const buffers: { stdout: string; stderr: string } = { stdout: "", stderr: "" };
+
+    // Try to build the project to catch build-time errors
+    const buildCommand = 'bun run build';
+    console.log("[DEBUG] Running build check with command:", buildCommand);
+
+    const result = await sandbox.commands.run(buildCommand, {
+      onStdout: (data: string) => {
+        buffers.stdout += data;
+      },
+      onStderr: (data: string) => {
+        buffers.stderr += data;
+      },
+      timeoutMs: 60000, // 60 second timeout for build
+    });
+
+    const output = buffers.stdout + buffers.stderr;
+
+    // If build failed (non-zero exit code)
+    if (result.exitCode !== 0) {
+      console.log("[DEBUG] Build check FAILED with exit code:", result.exitCode);
+      console.log("[DEBUG] Build output:\n", output);
+      
+      // Check if output contains error patterns
+      if (AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(output))) {
+        return `Build failed with errors:\n${output}`;
+      }
+      
+      // Even if no specific pattern matches, if build failed it's an error
+      return `Build failed with exit code ${result.exitCode}:\n${output}`;
+    }
+
+    console.log("[DEBUG] Build check passed successfully");
+    return null;
+  } catch (error) {
+    console.error("[DEBUG] Build check failed with exception:", error);
+    if (error instanceof Error && error.stack) {
+      console.error("[DEBUG] Stack trace:", error.stack);
+    } else {
+      console.error("[DEBUG] Serialized exception:", inspect(error, { depth: null }));
+    }
+
+    const serializedError = error instanceof Error
+      ? `${error.message}${error.stack ? `\n${error.stack}` : ""}`.trim()
+      : inspect(error, { depth: null });
+
+    // Return the error as it likely indicates a build problem
+    return `Build check exception: ${serializedError}`;
   }
 };
 
@@ -608,19 +672,25 @@ export const codeAgentFunction = inngest.createFunction(
     console.log("[DEBUG] Running network with input:", event.data.value);
     let result = await network.run(event.data.value, { state });
 
-    // Post-completion validation: Run lint check to catch any errors the agent missed
-    console.log("[DEBUG] Running post-completion lint check...");
-    const lintErrors = await step.run("post-completion-lint-check", async () => {
-      return await runLintCheck(sandboxId);
-    });
+    // Post-completion validation: Run lint and build checks to catch any errors the agent missed
+    console.log("[DEBUG] Running post-completion validation checks...");
+    const [lintErrors, buildErrors] = await Promise.all([
+      step.run("post-completion-lint-check", async () => {
+        return await runLintCheck(sandboxId);
+      }),
+      step.run("post-completion-build-check", async () => {
+        return await runBuildCheck(sandboxId, selectedFramework);
+      })
+    ]);
 
     let autoFixAttempts = 0;
     let lastAssistantMessage = getLastAssistantMessage(result);
 
-    // If lint check found errors, inject them into the auto-fix loop
-    if (lintErrors && !shouldTriggerAutoFix(lastAssistantMessage)) {
-      console.log("[DEBUG] Lint errors detected, triggering auto-fix...");
-      lastAssistantMessage = `Lint Check Errors:\n${lintErrors}`;
+    // If lint or build checks found errors, inject them into the auto-fix loop
+    const validationErrors = [lintErrors, buildErrors].filter(Boolean).join("\n\n");
+    if (validationErrors && !shouldTriggerAutoFix(lastAssistantMessage)) {
+      console.log("[DEBUG] Validation errors detected, triggering auto-fix...");
+      lastAssistantMessage = `Validation Errors Detected:\n${validationErrors}`;
     }
 
     while (
@@ -832,5 +902,268 @@ export const sandboxTransferFunction = inngest.createFunction(
       sandboxId: newSandboxId,
       sandboxUrl: newSandboxUrl,
     };
+  },
+);
+
+export const errorFixFunction = inngest.createFunction(
+  { id: "error-fix" },
+  { event: "error-fix/run" },
+  async ({ event, step }) => {
+    console.log("[DEBUG] Starting error-fix function (no credit charge)");
+    console.log("[DEBUG] Event data:", JSON.stringify(event.data));
+
+    const fragment = await step.run("get-fragment", async () => {
+      return await prisma.fragment.findUnique({
+        where: { id: event.data.fragmentId },
+      });
+    });
+
+    if (!fragment) {
+      throw new Error("Fragment not found");
+    }
+
+    if (!fragment.sandboxId) {
+      throw new Error("Fragment has no active sandbox");
+    }
+
+    const fragmentFramework = (fragment.framework?.toLowerCase() || 'nextjs') as Framework;
+    const sandboxId = fragment.sandboxId;
+
+    await step.run("validate-sandbox", async () => {
+      try {
+        await getSandbox(sandboxId);
+      } catch (error) {
+        console.error("[ERROR] Sandbox validation failed:", error);
+        throw new Error("Sandbox is no longer active. Please refresh the fragment.");
+      }
+    });
+
+    const toJsonObject = (value: unknown): Prisma.JsonObject => {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return {} as Prisma.JsonObject;
+      }
+
+      return { ...(value as Prisma.JsonObject) };
+    };
+
+    const fragmentRecord = fragment as Record<string, unknown>;
+    const supportsMetadata = Object.prototype.hasOwnProperty.call(fragmentRecord, "metadata");
+    const initialMetadata = supportsMetadata ? toJsonObject(fragmentRecord.metadata) : ({} as Prisma.JsonObject);
+
+    const fragmentFiles = (fragment.files || {}) as Record<string, string>;
+    const originalFiles = { ...fragmentFiles };
+
+    console.log("[DEBUG] Running error detection on sandbox:", sandboxId);
+
+    // Run validation checks to detect errors
+    const [lintErrors, buildErrors] = await Promise.all([
+      step.run("error-fix-lint-check", async () => {
+        return await runLintCheck(sandboxId);
+      }),
+      step.run("error-fix-build-check", async () => {
+        return await runBuildCheck(sandboxId, fragmentFramework);
+      })
+    ]);
+
+    const validationErrors = [lintErrors, buildErrors].filter(Boolean).join("\n\n");
+
+    if (!validationErrors) {
+      console.log("[DEBUG] No errors detected in fragment");
+      return {
+        success: true,
+        message: "No errors detected",
+      };
+    }
+
+    console.log("[DEBUG] Errors detected, running fix agent...");
+
+    // Create a minimal state with existing files
+    const state = createState<AgentState>(
+      {
+        summary: "",
+        files: { ...fragmentFiles },
+        selectedFramework: fragmentFramework,
+      },
+      {
+        messages: [],
+      },
+    );
+
+    const frameworkPrompt = getFrameworkPrompt(fragmentFramework);
+    const codeAgent = createAgent<AgentState>({
+      name: `${fragmentFramework}-error-fix-agent`,
+      description: `An expert ${fragmentFramework} coding agent for fixing errors`,
+      system: frameworkPrompt,
+      model: openai({
+        model: "moonshotai/kimi-k2-0905",
+        apiKey: process.env.AI_GATEWAY_API_KEY!,
+        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+        defaultParameters: {
+          temperature: 0.7,
+        },
+      }),
+      tools: createCodeAgentTools(sandboxId),
+      lifecycle: {
+        onResponse: async ({ result, network }) => {
+          const lastAssistantMessageText = lastAssistantTextMessageContent(result);
+          if (lastAssistantMessageText && network) {
+            if (lastAssistantMessageText.includes("<task_summary>")) {
+              network.state.data.summary = lastAssistantMessageText;
+            }
+          }
+          return result;
+        },
+      },
+    });
+
+    const network = createNetwork<AgentState>({
+      name: "error-fix-network",
+      agents: [codeAgent],
+      maxIter: 10,
+      defaultState: state,
+      router: async ({ network }) => {
+        const summary = network.state.data.summary;
+        if (summary) {
+          return;
+        }
+        return codeAgent;
+      },
+    });
+
+    const fixPrompt = `CRITICAL ERROR FIX REQUEST
+
+The following errors were detected in the application and need to be fixed immediately:
+
+${validationErrors}
+
+REQUIRED ACTIONS:
+1. Carefully analyze the error messages to identify the root cause
+2. Check for common issues:
+   - Missing imports or incorrect import paths
+   - TypeScript type errors or incorrect type usage
+   - Syntax errors or typos in the code
+   - Missing package installations
+   - Configuration issues
+3. Apply the necessary fixes to resolve ALL errors completely
+4. Verify the fixes by ensuring the code is syntactically correct
+5. Provide a <task_summary> explaining what was fixed
+
+DO NOT proceed until all errors are completely resolved. Focus on fixing the root cause, not just masking symptoms.`;
+
+    try {
+      const result = await network.run(fixPrompt, { state });
+
+      const backupMetadata = await step.run("backup-original-files", async () => {
+        if (!supportsMetadata) {
+          console.warn("[WARN] Fragment metadata field not available; skipping backup snapshot");
+          return null;
+        }
+
+        console.log("[DEBUG] Backing up original files before applying fixes");
+        const metadata: Prisma.JsonObject = {
+          ...initialMetadata,
+          previousFiles: originalFiles,
+          fixedAt: new Date().toISOString(),
+        };
+
+        await prisma.fragment.update({
+          where: { id: event.data.fragmentId },
+          data: {
+            metadata,
+          } as Prisma.FragmentUpdateInput,
+        });
+
+        return metadata;
+      });
+
+      await step.run("update-fragment-files", async () => {
+        const metadataUpdate = supportsMetadata
+          ? ({
+              ...((backupMetadata ?? initialMetadata) as Prisma.JsonObject),
+              previousFiles: originalFiles,
+              fixedAt: new Date().toISOString(),
+              lastFixSuccess: {
+                summary: result.state.data.summary,
+                occurredAt: new Date().toISOString(),
+              },
+            } satisfies Prisma.JsonObject)
+          : null;
+
+        return await prisma.fragment.update({
+          where: { id: event.data.fragmentId },
+          data: {
+            files: result.state.data.files,
+            ...(metadataUpdate
+              ? {
+                  metadata: metadataUpdate,
+                }
+              : {}),
+          } as Prisma.FragmentUpdateInput,
+        });
+      });
+
+      console.log("[DEBUG] Error fix complete");
+
+      return {
+        success: true,
+        message: "Errors fixed successfully",
+        summary: result.state.data.summary,
+      };
+    } catch (error) {
+      console.error("[ERROR] Error fix failed:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const friendlyMessage = errorMessage.toLowerCase().includes("timeout")
+        ? "Automatic fix timed out. Please refresh the fragment."
+        : "Automatic fix failed. Please review the sandbox and try again.";
+
+      await step.run("record-error-fix-failure", async () => {
+        if (!supportsMetadata) {
+          console.warn("[WARN] Fragment metadata field not available; skipping failure metadata update");
+          return null;
+        }
+
+        console.log("[DEBUG] Recording failure details for fragment", event.data.fragmentId);
+
+        let latestMetadata = initialMetadata;
+        try {
+          const latestFragment = await prisma.fragment.findUnique({
+            where: { id: event.data.fragmentId },
+            select: { metadata: true },
+          });
+
+          latestMetadata = toJsonObject(latestFragment?.metadata);
+        } catch (metadataReadError) {
+          console.error("[ERROR] Failed to load latest metadata:", metadataReadError);
+        }
+
+        const failureMetadata: Prisma.JsonObject = {
+          ...latestMetadata,
+          lastFixFailure: {
+            message: errorMessage,
+            occurredAt: new Date().toISOString(),
+            friendlyMessage,
+          },
+        };
+
+        try {
+          await prisma.fragment.update({
+            where: { id: event.data.fragmentId },
+            data: {
+              metadata: failureMetadata,
+            } as Prisma.FragmentUpdateInput,
+          });
+        } catch (metadataError) {
+          console.error("[ERROR] Failed to persist failure metadata:", metadataError);
+        }
+
+        return failureMetadata;
+      });
+
+      return {
+        success: false,
+        message: friendlyMessage,
+        error: errorMessage,
+      };
+    }
   },
 );
