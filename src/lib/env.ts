@@ -32,7 +32,6 @@ export const validateEnv = () => {
 export const getEnv = () => ({
   DATABASE_URL: process.env.DATABASE_URL!,
   AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY!,
-  AI_GATEWAY_BASE_URL: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
   E2B_API_KEY: process.env.E2B_API_KEY!,
   INNGEST_EVENT_KEY: process.env.INNGEST_EVENT_KEY!,
   INNGEST_SIGNING_KEY: process.env.INNGEST_SIGNING_KEY,

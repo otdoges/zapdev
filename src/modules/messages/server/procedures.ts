@@ -1,17 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createOpenAI } from "@ai-sdk/openai";
+import { gateway } from "@ai-sdk/gateway";
 import { streamText } from "ai";
 
 import { prisma } from "@/lib/db";
 import { inngest } from "@/inngest/client";
 import { protectedProcedure, createTRPCRouter } from "@/trpc/init";
 import { consumeCredits } from "@/lib/usage";
-
-const aiGateway = createOpenAI({
-  apiKey: process.env.AI_GATEWAY_API_KEY!,
-  baseURL: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-});
 
 export const messagesRouter = createTRPCRouter({
   getMany: protectedProcedure
@@ -231,12 +226,14 @@ export const messagesRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input }) => {
-      const model = input.model === "gemini" 
-        ? aiGateway("google/gemini-2.5-flash-lite")
-        : aiGateway("moonshotai/kimi-k2-0905");
+      const model = input.model === "gemini"
+        ? gateway("google/gemini-2.5-flash-lite")
+        : gateway("moonshotai/kimi-k2-0905");
 
+      // Type assertion needed for LanguageModelV2 compatibility with ai@4.3.19
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await streamText({
-        model,
+        model: model as any, // eslint-disable-line @typescript-eslint/no-explicit-any
         prompt: input.prompt,
         temperature: input.model === "gemini" ? 0.3 : 0.7,
       });

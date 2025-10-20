@@ -1,0 +1,18 @@
+0 verbose cli /home/jackson/.nvm/versions/node/v22.18.0/bin/node /home/jackson/.nvm/versions/node/v22.18.0/lib/node_modules/npm/bin/npm-cli.js
+1 info using npm@11.5.2
+2 info using node@v22.18.0
+3 silly config load:file:/home/jackson/.nvm/versions/node/v22.18.0/lib/node_modules/npm/npmrc
+4 silly config load:file:/home/jackson/zapdev/.npmrc
+5 silly config load:file:/home/jackson/.nvm/versions/node/v22.18.0/etc/npmrc
+6 verbose title npm exec claude --help
+7 verbose argv "exec" "--" "claude" "--help"
+8 verbose logfile logs-max:10 dir:/home/jackson/zapdev/.npm/_logs/2025-10-20T05_47_41_996Z-
+9 verbose logfile /home/jackson/zapdev/.npm/_logs/2025-10-20T05_47_41_996Z-debug-0.log
+10 silly logfile done cleaning log files
+11 http fetch GET https://registry.npmjs.org/npm attempt 1 failed with EAI_AGAIN
+12 verbose cwd /home/jackson/zapdev
+13 verbose os Linux 6.8.0-85-generic
+14 verbose node v22.18.0
+15 verbose npm  v11.5.2
+16 verbose exit 0
+17 info ok

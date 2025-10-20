@@ -1,26 +1,19 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { gateway } from "@ai-sdk/gateway";
 import { generateText } from "ai";
 import type { Message } from "@inngest/agent-kit";
 import { openai as createAgentModel } from "@inngest/agent-kit";
 
 export interface AIProviderConfig {
-  model: string;
-  apiKey: string;
-  baseUrl: string;
+  modelName: string;
   temperature?: number;
   frequencyPenalty?: number;
 }
 
-const aiGateway = createOpenAI({
-  apiKey: process.env.AI_GATEWAY_API_KEY!,
-  baseURL: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-});
-
 export const createAIModel = (config: AIProviderConfig) => {
-  const model = aiGateway(config.model);
+  const model = gateway(config.modelName);
 
   return {
-    model: config.model,
+    model: config.modelName,
     async complete(messages: Message[], options?: { temperature?: number; tools?: Record<string, unknown>[] }) {
       try {
         const formattedMessages = messages.map((msg) => {
@@ -36,8 +29,11 @@ export const createAIModel = (config: AIProviderConfig) => {
           };
         });
 
+        // Type assertion needed for LanguageModelV2 compatibility with ai@4.3.19
+        // The gateway provider returns LanguageModelV2 which is compatible with generateText
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result = await generateText({
-          model,
+          model: model as any, // eslint-disable-line @typescript-eslint/no-explicit-any
           messages: formattedMessages,
           temperature: options?.temperature ?? config.temperature ?? 0.7,
           frequencyPenalty: config.frequencyPenalty,
@@ -57,24 +53,18 @@ export const createAIModel = (config: AIProviderConfig) => {
 };
 
 export const geminiFlashModel = createAIModel({
-  model: "google/gemini-2.5-flash-lite",
-  apiKey: process.env.AI_GATEWAY_API_KEY!,
-  baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+  modelName: "google/gemini-2.5-flash-lite",
   temperature: 0.3,
 });
 
 export const kimiK2Model = createAIModel({
-  model: "moonshotai/kimi-k2-0905",
-  apiKey: process.env.AI_GATEWAY_API_KEY!,
-  baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+  modelName: "moonshotai/kimi-k2-0905",
   temperature: 0.7,
   frequencyPenalty: 0.5,
 });
 
 export const kimiK2ErrorFixModel = createAIModel({
-  model: "moonshotai/kimi-k2-0905",
-  apiKey: process.env.AI_GATEWAY_API_KEY!,
-  baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+  modelName: "moonshotai/kimi-k2-0905",
   temperature: 0.5,
   frequencyPenalty: 0.5,
 });
@@ -83,7 +73,7 @@ export const createAgentModelConfig = (modelName: string, temperature: number, f
   return createAgentModel({
     model: modelName,
     apiKey: process.env.AI_GATEWAY_API_KEY!,
-    baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+    baseUrl: "https://ai-gateway.vercel.sh/v1",
     defaultParameters: {
       temperature,
       ...(frequencyPenalty && { frequency_penalty: frequencyPenalty }),
