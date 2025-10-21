@@ -523,14 +523,18 @@ export const codeAgentFunction = inngest.createFunction(
         let sandbox;
         try {
           console.log("[DEBUG] Attempting to create sandbox with template:", template);
-          sandbox = await Sandbox.create(template, {
+          sandbox = await Sandbox.betaCreate(template, {
             apiKey: process.env.E2B_API_KEY,
+            autoPause: true,
+            timeoutMs: SANDBOX_TIMEOUT,
           });
         } catch {
           // Fallback to default zapdev template if framework-specific doesn't exist
           console.log("[DEBUG] Framework template not found, using default 'zapdev' template");
-          sandbox = await Sandbox.create("zapdev", {
+          sandbox = await Sandbox.betaCreate("zapdev", {
             apiKey: process.env.E2B_API_KEY,
+            autoPause: true,
+            timeoutMs: SANDBOX_TIMEOUT,
           });
           // Fallback framework to nextjs if template doesn't exist
           selectedFramework = 'nextjs';
@@ -827,7 +831,7 @@ export const sandboxTransferFunction = inngest.createFunction(
   { id: "sandbox-transfer" },
   { event: "sandbox-transfer/run" },
   async ({ event, step }) => {
-    console.log("[DEBUG] Starting sandbox transfer function");
+    console.log("[DEBUG] Starting sandbox resume function");
     console.log("[DEBUG] Event data:", JSON.stringify(event.data));
 
     const fragment = await step.run("get-fragment", async () => {
@@ -840,57 +844,27 @@ export const sandboxTransferFunction = inngest.createFunction(
       throw new Error("Fragment not found");
     }
 
-    const fragmentFramework = (fragment.framework?.toLowerCase() || 'nextjs') as Framework;
-    const template = getE2BTemplate(fragmentFramework);
+    if (!fragment.sandboxId) {
+      throw new Error("Fragment has no sandbox");
+    }
 
-    const newSandboxId = await step.run("create-new-sandbox", async () => {
-      console.log("[DEBUG] Creating new E2B sandbox for transfer with framework:", fragmentFramework);
+    const sandboxId = fragment.sandboxId;
+    const framework = (fragment.framework?.toLowerCase() || "nextjs") as Framework;
 
+    const sandbox = await step.run("resume-sandbox", async () => {
       try {
-        let sandbox;
-        try {
-          console.log("[DEBUG] Attempting to create sandbox with template:", template);
-          sandbox = await Sandbox.create(template, {
-            apiKey: process.env.E2B_API_KEY,
-          });
-        } catch {
-          console.log("[DEBUG] Template not found, using default 'zapdev' template");
-          sandbox = await Sandbox.create("zapdev", {
-            apiKey: process.env.E2B_API_KEY,
-          });
-        }
-
-        console.log("[DEBUG] New sandbox created successfully:", sandbox.sandboxId);
-        await sandbox.setTimeout(SANDBOX_TIMEOUT);
-        return sandbox.sandboxId;
+        console.log("[DEBUG] Connecting to sandbox to resume:", sandboxId);
+        const connection = await getSandbox(sandboxId);
+        console.log("[DEBUG] Sandbox resumed successfully");
+        return connection;
       } catch (error) {
-        console.error("[ERROR] Failed to create new E2B sandbox:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
+        console.error("[ERROR] Failed to resume sandbox:", error);
+        throw new Error("Sandbox resume failed. Please trigger a new build.");
       }
     });
 
-    await step.run("transfer-files", async () => {
-      console.log("[DEBUG] Transferring files to new sandbox...");
-
-      try {
-        const sandbox = await getSandbox(newSandboxId);
-        const files = fragment.files as { [path: string]: string };
-
-        for (const [path, content] of Object.entries(files)) {
-          await sandbox.files.write(path, content);
-        }
-
-        console.log("[DEBUG] Successfully transferred", Object.keys(files).length, "files");
-      } catch (error) {
-        console.error("[ERROR] Failed to transfer files:", error);
-        throw error;
-      }
-    });
-
-    const newSandboxUrl = await step.run("get-new-sandbox-url", async () => {
-      const sandbox = await getSandbox(newSandboxId);
-      const port = getFrameworkPort(fragmentFramework);
+    const sandboxUrl = await step.run("get-sandbox-url", async () => {
+      const port = getFrameworkPort(framework);
       const host = sandbox.getHost(port);
       return `https://${host}`;
     });
@@ -899,17 +873,16 @@ export const sandboxTransferFunction = inngest.createFunction(
       return await prisma.fragment.update({
         where: { id: event.data.fragmentId },
         data: {
-          sandboxId: newSandboxId,
-          sandboxUrl: newSandboxUrl,
+          sandboxUrl,
         },
       });
     });
 
-    console.log("[DEBUG] Sandbox transfer complete. New URL:", newSandboxUrl);
+    console.log("[DEBUG] Sandbox resume complete. URL:", sandboxUrl);
 
     return {
-      sandboxId: newSandboxId,
-      sandboxUrl: newSandboxUrl,
+      sandboxId,
+      sandboxUrl,
     };
   },
 );
@@ -1177,5 +1150,51 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         error: errorMessage,
       };
     }
+  },
+);
+
+export const sandboxCleanupFunction = inngest.createFunction(
+  { id: "sandbox-cleanup" },
+  {
+    cron: "0 0 * * *", // Every day at midnight UTC
+  },
+  async ({ step }) => {
+    console.log("[DEBUG] Running sandbox cleanup job");
+
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - thirtyDays;
+    const killedSandboxIds: string[] = [];
+
+    await step.run("cleanup-paused-sandboxes", async () => {
+      const paginator = Sandbox.list({
+        query: {
+          state: ["paused"],
+        },
+      });
+
+      while (paginator.hasNext) {
+        const items = await paginator.nextItems();
+
+        for (const item of items) {
+          const createdAt = new Date(item.createdAt).getTime();
+
+          if (Number.isFinite(createdAt) && createdAt <= cutoff) {
+            try {
+              await Sandbox.kill(item.id);
+              killedSandboxIds.push(item.id);
+              console.log("[DEBUG] Killed sandbox due to age:", item.id);
+            } catch (error) {
+              console.error("[ERROR] Failed to kill sandbox", item.id, error);
+            }
+          }
+        }
+      }
+    });
+
+    console.log("[DEBUG] Sandbox cleanup complete. Killed:", killedSandboxIds);
+
+    return {
+      killedSandboxIds,
+    };
   },
 );
