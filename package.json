@@ -52,7 +52,7 @@
     "@trpc/server": "^11.6.0",
     "@trpc/tanstack-react-query": "^11.6.0",
     "@uploadthing/react": "^7.3.3",
-    "ai": "^4.3.19",
+    "ai": "^5.0.76",
     "class-variance-authority": "^0.7.1",
     "claude": "^0.1.2",
     "client-only": "^0.0.1",
