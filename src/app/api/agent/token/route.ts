@@ -11,10 +11,10 @@ export async function POST() {
       );
     }
 
-    // Realtime token generation is not available without @inngest/realtime middleware
-    // TODO: Install @inngest/realtime if needed
+    // Realtime token generation is currently not supported
+    // Using database polling for streaming instead
     return Response.json(
-      { error: "Realtime feature not configured" },
+      { error: "Realtime token generation is not available" },
       { status: 503 }
     );
   } catch (error) {

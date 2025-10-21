@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
-import { openai, createAgent, createTool, createNetwork, type Tool, type Message, createState, type NetworkRun } from "@inngest/agent-kit";
+import { createAgent, createTool, createNetwork, type Tool, type Message, createState, type NetworkRun } from "@inngest/agent-kit";
 import { Prisma, Framework as PrismaFramework } from "@/generated/prisma";
 import { inspect } from "util";
 
@@ -16,6 +16,11 @@ import {
   VUE_PROMPT,
   SVELTE_PROMPT,
 } from "@/prompt";
+import {
+  geminiFlashAgentModel,
+  kimiK2AgentModel,
+  kimiK2ErrorFixAgentModel,
+} from "@/inngest/ai-provider";
 
 import { inngest } from "./client";
 import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
@@ -477,14 +482,7 @@ export const codeAgentFunction = inngest.createFunction(
         name: "framework-selector",
         description: "Determines the best framework for the user's request",
         system: FRAMEWORK_SELECTOR_PROMPT,
-        model: openai({
-          model: "google/gemini-2.5-flash-lite",
-          apiKey: process.env.AI_GATEWAY_API_KEY!,
-          baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-          defaultParameters: {
-            temperature: 0.3,
-          },
-        }),
+        model: geminiFlashAgentModel(),
       });
 
       const frameworkResult = await frameworkSelectorAgent.run(event.data.value);
@@ -558,7 +556,7 @@ export const codeAgentFunction = inngest.createFunction(
           orderBy: {
             createdAt: "desc",
           },
-          take: 3,
+          take: 2,
         });
         
         console.log("[DEBUG] Found", messages.length, "previous messages");
@@ -631,15 +629,7 @@ export const codeAgentFunction = inngest.createFunction(
       name: `${selectedFramework}-code-agent`,
       description: `An expert ${selectedFramework} coding agent`,
       system: frameworkPrompt,
-      model: openai({
-        model: "moonshotai/kimi-k2-0905",
-        apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-        defaultParameters: {
-          temperature: 0.7,
-          frequency_penalty: 0.5,
-        },
-      }),
+      model: kimiK2AgentModel(),
       tools: createCodeAgentTools(sandboxId),
       lifecycle: {
         onResponse: async ({ result, network }) => {
@@ -660,7 +650,7 @@ export const codeAgentFunction = inngest.createFunction(
     const network = createNetwork<AgentState>({
       name: "coding-agent-network",
       agents: [codeAgent],
-      maxIter: 8,
+      maxIter: 5,
       defaultState: state,
       router: async ({ network }) => {
         const summary = network.state.data.summary;
@@ -742,27 +732,18 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     console.log("[DEBUG] Files generated:", Object.keys(result.state.data.files || {}).length);
 
     // PERFORMANCE: Generate title, response, and sandbox URL in parallel
-    const titleModel = openai({
-      model: "google/gemini-2.5-flash-lite",
-      apiKey: process.env.AI_GATEWAY_API_KEY!,
-      baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-      defaultParameters: {
-        temperature: 0.3,
-      },
-    });
-
     const fragmentTitleGenerator = createAgent({
       name: "fragment-title-generator",
       description: "A fragment title generator",
       system: FRAGMENT_TITLE_PROMPT,
-      model: titleModel,
+      model: geminiFlashAgentModel(),
     });
 
     const responseGenerator = createAgent({
       name: "response-generator",
       description: "A response generator",
       system: RESPONSE_PROMPT,
-      model: titleModel,
+      model: geminiFlashAgentModel(),
     });
 
     // Run all async operations in parallel for faster execution
@@ -1003,15 +984,7 @@ export const errorFixFunction = inngest.createFunction(
       name: `${fragmentFramework}-error-fix-agent`,
       description: `An expert ${fragmentFramework} coding agent for fixing errors`,
       system: frameworkPrompt,
-      model: openai({
-        model: "moonshotai/kimi-k2-0905",
-        apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-        defaultParameters: {
-          temperature: 0.5,
-          frequency_penalty: 0.5,
-        },
-      }),
+      model: kimiK2ErrorFixAgentModel(),
       tools: createCodeAgentTools(sandboxId),
       lifecycle: {
         onResponse: async ({ result, network }) => {
@@ -1029,7 +1002,7 @@ export const errorFixFunction = inngest.createFunction(
     const network = createNetwork<AgentState>({
       name: "error-fix-network",
       agents: [codeAgent],
-      maxIter: 10,
+      maxIter: 6,
       defaultState: state,
       router: async ({ network }) => {
         const summary = network.state.data.summary;
