@@ -523,17 +523,15 @@ export const codeAgentFunction = inngest.createFunction(
         let sandbox;
         try {
           console.log("[DEBUG] Attempting to create sandbox with template:", template);
-          sandbox = await Sandbox.betaCreate(template, {
+          sandbox = await Sandbox.create(template, {
             apiKey: process.env.E2B_API_KEY,
-            autoPause: true,
             timeoutMs: SANDBOX_TIMEOUT,
           });
         } catch {
           // Fallback to default zapdev template if framework-specific doesn't exist
           console.log("[DEBUG] Framework template not found, using default 'zapdev' template");
-          sandbox = await Sandbox.betaCreate("zapdev", {
+          sandbox = await Sandbox.create("zapdev", {
             apiKey: process.env.E2B_API_KEY,
-            autoPause: true,
             timeoutMs: SANDBOX_TIMEOUT,
           });
           // Fallback framework to nextjs if template doesn't exist
@@ -865,8 +863,14 @@ export const sandboxTransferFunction = inngest.createFunction(
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       const port = getFrameworkPort(framework);
-      const host = sandbox.getHost(port);
-      return `https://${host}`;
+      const host = sandbox.sandboxDomain;
+      if (!host) {
+        throw new Error("Sandbox domain unavailable");
+      }
+
+      const url = new URL(host.startsWith("http") ? host : `https://${host}`);
+      url.port = String(port);
+      return url.toString();
     });
 
     await step.run("update-fragment", async () => {
@@ -1166,26 +1170,22 @@ export const sandboxCleanupFunction = inngest.createFunction(
     const killedSandboxIds: string[] = [];
 
     await step.run("cleanup-paused-sandboxes", async () => {
-      const paginator = Sandbox.list({
-        query: {
-          state: ["paused"],
-        },
-      });
+      const sandboxes = await Sandbox.list();
 
-      while (paginator.hasNext) {
-        const items = await paginator.nextItems();
+      for (const sandbox of sandboxes) {
+        const startedAt = sandbox.startedAt instanceof Date ? sandbox.startedAt.getTime() : new Date(sandbox.startedAt).getTime();
 
-        for (const item of items) {
-          const createdAt = new Date(item.createdAt).getTime();
-
-          if (Number.isFinite(createdAt) && createdAt <= cutoff) {
-            try {
-              await Sandbox.kill(item.id);
-              killedSandboxIds.push(item.id);
-              console.log("[DEBUG] Killed sandbox due to age:", item.id);
-            } catch (error) {
-              console.error("[ERROR] Failed to kill sandbox", item.id, error);
-            }
+        if (
+          sandbox.state === "paused" &&
+          Number.isFinite(startedAt) &&
+          startedAt <= cutoff
+        ) {
+          try {
+            await Sandbox.kill(sandbox.sandboxId);
+            killedSandboxIds.push(sandbox.sandboxId);
+            console.log("[DEBUG] Killed sandbox due to age:", sandbox.sandboxId);
+          } catch (error) {
+            console.error("[ERROR] Failed to kill sandbox", sandbox.sandboxId, error);
           }
         }
       }
