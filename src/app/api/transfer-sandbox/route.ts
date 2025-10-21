@@ -14,7 +14,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Trigger the sandbox transfer Inngest function
     await inngest.send({
       name: "sandbox-transfer/run",
       data: {
@@ -24,12 +23,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Sandbox transfer initiated",
+      message: "Sandbox resume initiated",
     });
   } catch (error) {
-    console.error("[ERROR] Failed to trigger sandbox transfer:", error);
+    console.error("[ERROR] Failed to resume sandbox:", error);
     return NextResponse.json(
-      { error: "Failed to initiate sandbox transfer" },
+      { error: "Failed to resume sandbox" },
       { status: 500 }
     );
   }
