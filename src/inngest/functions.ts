@@ -863,14 +863,12 @@ export const sandboxTransferFunction = inngest.createFunction(
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       const port = getFrameworkPort(framework);
-      const host = sandbox.sandboxDomain;
+      const host = sandbox.getHost(port);
       if (!host) {
-        throw new Error("Sandbox domain unavailable");
+        throw new Error("Sandbox host unavailable");
       }
 
-      const url = new URL(host.startsWith("http") ? host : `https://${host}`);
-      url.port = String(port);
-      return url.toString();
+      return host.startsWith("http") ? host : `https://${host}`;
     });
 
     await step.run("update-fragment", async () => {
