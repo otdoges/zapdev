@@ -21,6 +21,10 @@ import { inngest } from "./client";
 import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
 import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
 
+type SandboxWithHost = Sandbox & {
+  getHost?: (port: number) => string | undefined;
+};
+
 const AUTO_FIX_MAX_ATTEMPTS = 2;
 const AUTO_FIX_ERROR_PATTERNS = [
   // Generic Error indicators - catches most errors
@@ -743,45 +747,70 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     console.log("[DEBUG] Network run complete. Summary:", result.state.data.summary ? "Present" : "Missing");
     console.log("[DEBUG] Files generated:", Object.keys(result.state.data.files || {}).length);
 
-    // PERFORMANCE: Generate title, response, and sandbox URL in parallel
-    const titleModel = openai({
-      model: "google/gemini-2.5-flash-lite",
-      apiKey: process.env.AI_GATEWAY_API_KEY!,
-      baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-      defaultParameters: {
-        temperature: 0.3,
-      },
+    const summaryRaw = typeof result.state.data.summary === "string" ? result.state.data.summary : "";
+    const summary = summaryRaw.trim();
+    const hasSummary = summary.length > 0;
+    const files = result.state.data.files || {};
+    const hasFiles = Object.keys(files).length > 0;
+    const isError = !hasSummary || !hasFiles;
+
+    const sandboxUrl = await step.run("get-sandbox-url", async () => {
+      const sandbox = await getSandbox(sandboxId);
+
+      if (typeof (sandbox as SandboxWithHost).getHost === "function") {
+        const host = (sandbox as SandboxWithHost).getHost(getFrameworkPort(selectedFramework));
+
+        if (host && host.length > 0) {
+          return host.startsWith("http") ? host : `https://${host}`;
+        }
+      }
+
+      const fallbackHost = `https://${sandboxId}.sandbox.e2b.dev`;
+      console.warn("[WARN] Using fallback sandbox host:", fallbackHost);
+      return fallbackHost;
     });
 
-    const fragmentTitleGenerator = createAgent({
-      name: "fragment-title-generator",
-      description: "A fragment title generator",
-      system: FRAGMENT_TITLE_PROMPT,
-      model: titleModel,
-    });
+    let fragmentTitleOutput: Message[] | undefined;
+    let responseOutput: Message[] | undefined;
 
-    const responseGenerator = createAgent({
-      name: "response-generator",
-      description: "A response generator",
-      system: RESPONSE_PROMPT,
-      model: titleModel,
-    });
+    if (hasSummary && hasFiles) {
+      try {
+        const titleModel = openai({
+          model: "google/gemini-2.5-flash-lite",
+          apiKey: process.env.AI_GATEWAY_API_KEY!,
+          baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+          defaultParameters: {
+            temperature: 0.3,
+          },
+        });
 
-    // Run all async operations in parallel for faster execution
-    const [{ output: fragmentTitleOutput }, { output: responseOutput }, sandboxUrl] = await Promise.all([
-      fragmentTitleGenerator.run(result.state.data.summary),
-      responseGenerator.run(result.state.data.summary),
-      step.run("get-sandbox-url", async () => {
-        const sandbox = await getSandbox(sandboxId);
-        const port = getFrameworkPort(selectedFramework);
-        const host = sandbox.getHost(port);
-        return `https://${host}`;
-      })
-    ]);
+        const fragmentTitleGenerator = createAgent({
+          name: "fragment-title-generator",
+          description: "A fragment title generator",
+          system: FRAGMENT_TITLE_PROMPT,
+          model: titleModel,
+        });
 
-    const isError =
-      !result.state.data.summary ||
-      Object.keys(result.state.data.files || {}).length === 0;
+        const responseGenerator = createAgent({
+          name: "response-generator",
+          description: "A response generator",
+          system: RESPONSE_PROMPT,
+          model: titleModel,
+        });
+
+        const [titleResult, responseResult] = await Promise.all([
+          fragmentTitleGenerator.run(summary),
+          responseGenerator.run(summary),
+        ]);
+
+        fragmentTitleOutput = titleResult.output;
+        responseOutput = responseResult.output;
+      } catch (gatewayError) {
+        console.error("[ERROR] Failed to generate fragment metadata:", gatewayError);
+        fragmentTitleOutput = undefined;
+        responseOutput = undefined;
+      }
+    }
 
     await step.run("save-result", async () => {
       if (isError) {
@@ -796,10 +825,13 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         });
       }
 
+      const parsedResponse = parseAgentOutput(responseOutput);
+      const parsedTitle = parseAgentOutput(fragmentTitleOutput);
+
       return await prisma.message.create({
         data: {
           projectId: event.data.projectId,
-          content: parseAgentOutput(responseOutput),
+          content: parsedResponse ?? "Generated code is ready.",
           role: "ASSISTANT",
           type: "RESULT",
           status: "COMPLETE",
@@ -807,7 +839,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
             create: {
               sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
-              title: parseAgentOutput(fragmentTitleOutput),
+              title: parsedTitle ?? "Generated Fragment",
               files: result.state.data.files,
               framework: toPrismaFramework(selectedFramework),
             },
@@ -862,13 +894,16 @@ export const sandboxTransferFunction = inngest.createFunction(
     });
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
-      const port = getFrameworkPort(framework);
-      const host = sandbox.getHost(port);
-      if (!host) {
-        throw new Error("Sandbox host unavailable");
+      if (typeof (sandbox as SandboxWithHost).getHost === "function") {
+        const host = (sandbox as SandboxWithHost).getHost(getFrameworkPort(framework));
+        if (host && host.length > 0) {
+          return host.startsWith("http") ? host : `https://${host}`;
+        }
       }
 
-      return host.startsWith("http") ? host : `https://${host}`;
+      const fallbackHost = `https://${sandboxId}.sandbox.e2b.dev`;
+      console.warn("[WARN] Using fallback sandbox host:", fallbackHost);
+      return fallbackHost;
     });
 
     await step.run("update-fragment", async () => {
