@@ -37,7 +37,11 @@ export function lastAssistantTextMessageContent(result: AgentResult) {
     : undefined;
 };
 
-export const parseAgentOutput = (value: Message[]) => {
+export const parseAgentOutput = (value?: Message[]) => {
+  if (!value || value.length === 0) {
+    return "Fragment";
+  }
+
   const output = value[0];
 
   if (output.type !== "text") {
@@ -45,7 +49,7 @@ export const parseAgentOutput = (value: Message[]) => {
   }
 
   if (Array.isArray(output.content)) {
-    return output.content.map((txt) => txt).join("")
+    return output.content.map((txt) => (typeof txt === "string" ? txt : txt.text ?? "")).join("")
   } else {
     return output.content
   }
