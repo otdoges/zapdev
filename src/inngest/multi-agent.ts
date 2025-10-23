@@ -15,8 +15,8 @@ import {
 import { getSandbox } from "./utils";
 import type { AgentState } from "./types";
 
-export const createPlannerAgent = () => {
-  return createAgent({
+export const createPlannerAgent = (): Agent<AgentState> => {
+  return createAgent<AgentState>({
     name: "planner",
     description: "Expert software architect that creates implementation plans",
     system: PLANNER_AGENT_PROMPT,
@@ -57,7 +57,7 @@ export const createPlannerAgent = () => {
   });
 };
 
-export const createCoderAgent = (sandboxId: string, frameworkPrompt: string) => {
+export const createCoderAgent = (sandboxId: string, frameworkPrompt: string): Agent<AgentState> => {
   const coderTools = [
     createTool({
       name: "terminal",
@@ -194,7 +194,7 @@ export const createCoderAgent = (sandboxId: string, frameworkPrompt: string) => 
   });
 };
 
-export const createTesterAgent = (sandboxId: string) => {
+export const createTesterAgent = (sandboxId: string): Agent<AgentState> => {
   const testerTools = [
     createTool({
       name: "terminal",
@@ -326,7 +326,7 @@ export const createTesterAgent = (sandboxId: string) => {
   });
 };
 
-export const createReviewerAgent = (sandboxId: string) => {
+export const createReviewerAgent = (sandboxId: string): Agent<AgentState> => {
   const reviewerTools = [
     createTool({
       name: "readFiles",
