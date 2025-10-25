@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { inngest } from "@/inngest/client";
 import { protectedProcedure, createTRPCRouter } from "@/trpc/init";
 import { consumeCredits } from "@/lib/usage";
+import { getAgentEventName } from "@/lib/agent-mode";
 
 export const messagesRouter = createTRPCRouter({
   getMany: protectedProcedure
@@ -96,7 +97,7 @@ export const messagesRouter = createTRPCRouter({
       });
 
       await inngest.send({
-        name: "code-agent/run",
+        name: getAgentEventName(),
         data: {
           value: input.value,
           projectId: input.projectId,
