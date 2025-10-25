@@ -20,6 +20,17 @@ import {
 import { inngest } from "./client";
 import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
 import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
+import {
+  createPlannerAgent,
+  createCoderAgent,
+  createTesterAgent,
+  createReviewerAgent,
+  createMultiAgentRouter,
+} from "./multi-agent";
+
+type SandboxWithHost = Sandbox & {
+  getHost?: (port: number) => string | undefined;
+};
 
 const AUTO_FIX_MAX_ATTEMPTS = 2;
 const AUTO_FIX_ERROR_PATTERNS = [
@@ -525,12 +536,14 @@ export const codeAgentFunction = inngest.createFunction(
           console.log("[DEBUG] Attempting to create sandbox with template:", template);
           sandbox = await Sandbox.create(template, {
             apiKey: process.env.E2B_API_KEY,
+            timeoutMs: SANDBOX_TIMEOUT,
           });
         } catch {
           // Fallback to default zapdev template if framework-specific doesn't exist
           console.log("[DEBUG] Framework template not found, using default 'zapdev' template");
           sandbox = await Sandbox.create("zapdev", {
             apiKey: process.env.E2B_API_KEY,
+            timeoutMs: SANDBOX_TIMEOUT,
           });
           // Fallback framework to nextjs if template doesn't exist
           selectedFramework = 'nextjs';
@@ -741,45 +754,70 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     console.log("[DEBUG] Network run complete. Summary:", result.state.data.summary ? "Present" : "Missing");
     console.log("[DEBUG] Files generated:", Object.keys(result.state.data.files || {}).length);
 
-    // PERFORMANCE: Generate title, response, and sandbox URL in parallel
-    const titleModel = openai({
-      model: "google/gemini-2.5-flash-lite",
-      apiKey: process.env.AI_GATEWAY_API_KEY!,
-      baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-      defaultParameters: {
-        temperature: 0.3,
-      },
+    const summaryRaw = typeof result.state.data.summary === "string" ? result.state.data.summary : "";
+    const summary = summaryRaw.trim();
+    const hasSummary = summary.length > 0;
+    const files = result.state.data.files || {};
+    const hasFiles = Object.keys(files).length > 0;
+    const isError = !hasSummary || !hasFiles;
+
+    const sandboxUrl = await step.run("get-sandbox-url", async () => {
+      const sandbox = await getSandbox(sandboxId);
+
+      if (typeof (sandbox as SandboxWithHost).getHost === "function") {
+        const host = (sandbox as SandboxWithHost).getHost(getFrameworkPort(selectedFramework));
+
+        if (host && host.length > 0) {
+          return host.startsWith("http") ? host : `https://${host}`;
+        }
+      }
+
+      const fallbackHost = `https://${sandboxId}.sandbox.e2b.dev`;
+      console.warn("[WARN] Using fallback sandbox host:", fallbackHost);
+      return fallbackHost;
     });
 
-    const fragmentTitleGenerator = createAgent({
-      name: "fragment-title-generator",
-      description: "A fragment title generator",
-      system: FRAGMENT_TITLE_PROMPT,
-      model: titleModel,
-    });
+    let fragmentTitleOutput: Message[] | undefined;
+    let responseOutput: Message[] | undefined;
 
-    const responseGenerator = createAgent({
-      name: "response-generator",
-      description: "A response generator",
-      system: RESPONSE_PROMPT,
-      model: titleModel,
-    });
+    if (hasSummary && hasFiles) {
+      try {
+        const titleModel = openai({
+          model: "google/gemini-2.5-flash-lite",
+          apiKey: process.env.AI_GATEWAY_API_KEY!,
+          baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+          defaultParameters: {
+            temperature: 0.3,
+          },
+        });
 
-    // Run all async operations in parallel for faster execution
-    const [{ output: fragmentTitleOutput }, { output: responseOutput }, sandboxUrl] = await Promise.all([
-      fragmentTitleGenerator.run(result.state.data.summary),
-      responseGenerator.run(result.state.data.summary),
-      step.run("get-sandbox-url", async () => {
-        const sandbox = await getSandbox(sandboxId);
-        const port = getFrameworkPort(selectedFramework);
-        const host = sandbox.getHost(port);
-        return `https://${host}`;
-      })
-    ]);
+        const fragmentTitleGenerator = createAgent({
+          name: "fragment-title-generator",
+          description: "A fragment title generator",
+          system: FRAGMENT_TITLE_PROMPT,
+          model: titleModel,
+        });
 
-    const isError =
-      !result.state.data.summary ||
-      Object.keys(result.state.data.files || {}).length === 0;
+        const responseGenerator = createAgent({
+          name: "response-generator",
+          description: "A response generator",
+          system: RESPONSE_PROMPT,
+          model: titleModel,
+        });
+
+        const [titleResult, responseResult] = await Promise.all([
+          fragmentTitleGenerator.run(summary),
+          responseGenerator.run(summary),
+        ]);
+
+        fragmentTitleOutput = titleResult.output;
+        responseOutput = responseResult.output;
+      } catch (gatewayError) {
+        console.error("[ERROR] Failed to generate fragment metadata:", gatewayError);
+        fragmentTitleOutput = undefined;
+        responseOutput = undefined;
+      }
+    }
 
     await step.run("save-result", async () => {
       if (isError) {
@@ -794,10 +832,13 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         });
       }
 
+      const parsedResponse = parseAgentOutput(responseOutput);
+      const parsedTitle = parseAgentOutput(fragmentTitleOutput);
+
       return await prisma.message.create({
         data: {
           projectId: event.data.projectId,
-          content: parseAgentOutput(responseOutput),
+          content: parsedResponse ?? "Generated code is ready.",
           role: "ASSISTANT",
           type: "RESULT",
           status: "COMPLETE",
@@ -805,7 +846,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
             create: {
               sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
-              title: parseAgentOutput(fragmentTitleOutput),
+              title: parsedTitle ?? "Generated Fragment",
               files: result.state.data.files,
               framework: toPrismaFramework(selectedFramework),
             },
@@ -823,11 +864,330 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
   },
 );
 
+export const multiAgentFunction = inngest.createFunction(
+  { id: "multi-agent-code" },
+  { event: "multi-agent/run" },
+  async ({ event, step }) => {
+    console.log("[MULTI-AGENT] Starting multi-agent code generation");
+    console.log("[MULTI-AGENT] Event data:", JSON.stringify(event.data));
+
+    const project = await step.run("get-project", async () => {
+      return await prisma.project.findUnique({
+        where: { id: event.data.projectId },
+      });
+    });
+
+    let selectedFramework: Framework = project?.framework?.toLowerCase() as Framework || 'nextjs';
+
+    if (!project?.framework) {
+      console.log("[MULTI-AGENT] No framework set, running framework selector...");
+      
+      const frameworkSelectorAgent = createAgent({
+        name: "framework-selector",
+        description: "Determines the best framework for the user's request",
+        system: FRAMEWORK_SELECTOR_PROMPT,
+        model: openai({
+          model: "google/gemini-2.5-flash-lite",
+          apiKey: process.env.AI_GATEWAY_API_KEY!,
+          baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+          defaultParameters: {
+            temperature: 0.3,
+          },
+        }),
+      });
+
+      const frameworkResult = await frameworkSelectorAgent.run(event.data.value);
+      const frameworkOutput = frameworkResult.output[0];
+      
+      if (frameworkOutput.type === "text") {
+        const detectedFramework = (typeof frameworkOutput.content === "string" 
+          ? frameworkOutput.content 
+          : frameworkOutput.content.map((c) => c.text).join("")).trim().toLowerCase();
+        
+        console.log("[MULTI-AGENT] Framework selector output:", detectedFramework);
+        
+        if (['nextjs', 'angular', 'react', 'vue', 'svelte'].includes(detectedFramework)) {
+          selectedFramework = detectedFramework as Framework;
+        }
+      }
+      
+      console.log("[MULTI-AGENT] Selected framework:", selectedFramework);
+      
+      await step.run("update-project-framework", async () => {
+        return await prisma.project.update({
+          where: { id: event.data.projectId },
+          data: { framework: toPrismaFramework(selectedFramework) },
+        });
+      });
+    } else {
+      console.log("[MULTI-AGENT] Using existing framework:", selectedFramework);
+    }
+
+    const sandboxId = await step.run("get-sandbox-id", async () => {
+      console.log("[MULTI-AGENT] Creating E2B sandbox for framework:", selectedFramework);
+      const template = getE2BTemplate(selectedFramework);
+      
+      try {
+        let sandbox;
+        try {
+          console.log("[MULTI-AGENT] Attempting to create sandbox with template:", template);
+          sandbox = await Sandbox.create(template, {
+            apiKey: process.env.E2B_API_KEY,
+            timeoutMs: SANDBOX_TIMEOUT,
+          });
+        } catch {
+          console.log("[MULTI-AGENT] Framework template not found, using default 'zapdev' template");
+          sandbox = await Sandbox.create("zapdev", {
+            apiKey: process.env.E2B_API_KEY,
+            timeoutMs: SANDBOX_TIMEOUT,
+          });
+          selectedFramework = 'nextjs';
+        }
+        
+        console.log("[MULTI-AGENT] Sandbox created successfully:", sandbox.sandboxId);
+        await sandbox.setTimeout(SANDBOX_TIMEOUT);
+        return sandbox.sandboxId;
+      } catch (error) {
+        console.error("[MULTI-AGENT] Failed to create E2B sandbox:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
+      }
+    });
+
+    const previousMessages = await step.run("get-previous-messages", async () => {
+      console.log("[MULTI-AGENT] Fetching previous messages for project:", event.data.projectId);
+      const formattedMessages: Message[] = [];
+
+      try {
+        const messages = await prisma.message.findMany({
+          where: {
+            projectId: event.data.projectId,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 5,
+        });
+        
+        console.log("[MULTI-AGENT] Found", messages.length, "previous messages");
+
+        for (const message of messages) {
+          formattedMessages.push({
+            type: "text",
+            role: message.role === "ASSISTANT" ? "assistant" : "user",
+            content: message.content,
+          })
+        }
+
+        return formattedMessages.reverse();
+      } catch (error) {
+        console.error("[MULTI-AGENT] Failed to fetch previous messages:", error);
+        return [];
+      }
+    });
+
+    const crawledContexts = await step.run("crawl-url-context", async () => {
+      try {
+        const urls = extractUrls(event.data.value ?? "").slice(0, 2);
+
+        if (urls.length === 0) {
+          return [] as CrawledContent[];
+        }
+
+        console.log("[MULTI-AGENT] Found URLs in input:", urls);
+
+        const results: CrawledContent[] = [];
+
+        for (const url of urls) {
+          const crawled = await crawlUrl(url);
+
+          if (crawled) {
+            results.push(crawled);
+          }
+        }
+
+        return results;
+      } catch (error) {
+        console.error("[MULTI-AGENT] Failed to crawl URLs", error);
+        return [] as CrawledContent[];
+      }
+    });
+
+    const contextMessages: Message[] = (crawledContexts ?? []).map((context) => ({
+      type: "text",
+      role: "system",
+      content: `Crawled context from ${context.url}:\n${context.content}`,
+    }));
+
+    const initialMessages = [...contextMessages, ...previousMessages];
+
+    const state = createState<AgentState>(
+      {
+        summary: "",
+        files: {},
+        selectedFramework,
+        currentPhase: "planning",
+        agentDecisions: [],
+        iterations: 0,
+      },
+      {
+        messages: initialMessages,
+      },
+    );
+
+    const frameworkPrompt = getFrameworkPrompt(selectedFramework);
+    console.log("[MULTI-AGENT] Creating multi-agent network for framework:", selectedFramework);
+
+    const plannerAgent = createPlannerAgent();
+    const coderAgent = createCoderAgent(sandboxId, frameworkPrompt);
+    const testerAgent = createTesterAgent(sandboxId);
+    const reviewerAgent = createReviewerAgent(sandboxId);
+
+    const network = createNetwork<AgentState>({
+      name: "multi-agent-coding-network",
+      agents: [plannerAgent, coderAgent, testerAgent, reviewerAgent],
+      maxIter: 20,
+      defaultState: state,
+      router: createMultiAgentRouter(plannerAgent, coderAgent, testerAgent, reviewerAgent),
+    });
+
+    console.log("[MULTI-AGENT] Running multi-agent network with input:", event.data.value);
+    const result = await network.run(event.data.value, { state });
+
+    console.log("[MULTI-AGENT] Network run complete");
+    console.log("[MULTI-AGENT] Final phase:", result.state.data.currentPhase);
+    console.log("[MULTI-AGENT] Total iterations:", result.state.data.iterations);
+    console.log("[MULTI-AGENT] Agent decisions:", result.state.data.agentDecisions?.length || 0);
+    console.log("[MULTI-AGENT] Files generated:", Object.keys(result.state.data.files || {}).length);
+
+    const summaryRaw = typeof result.state.data.summary === "string" ? result.state.data.summary : "";
+    const summary = summaryRaw.trim();
+    const hasSummary = summary.length > 0;
+    const files = result.state.data.files || {};
+    const hasFiles = Object.keys(files).length > 0;
+    const isError = !hasSummary || !hasFiles;
+
+    const sandboxUrl = await step.run("get-sandbox-url", async () => {
+      const sandbox = await getSandbox(sandboxId);
+
+      if (typeof (sandbox as SandboxWithHost).getHost === "function") {
+        const host = (sandbox as SandboxWithHost).getHost(getFrameworkPort(selectedFramework));
+
+        if (host && host.length > 0) {
+          return host.startsWith("http") ? host : `https://${host}`;
+        }
+      }
+
+      const fallbackHost = `https://${sandboxId}.sandbox.e2b.dev`;
+      console.warn("[MULTI-AGENT] Using fallback sandbox host:", fallbackHost);
+      return fallbackHost;
+    });
+
+    let fragmentTitleOutput: Message[] | undefined;
+    let responseOutput: Message[] | undefined;
+
+    if (hasSummary && hasFiles) {
+      try {
+        const titleModel = openai({
+          model: "google/gemini-2.5-flash-lite",
+          apiKey: process.env.AI_GATEWAY_API_KEY!,
+          baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+          defaultParameters: {
+            temperature: 0.3,
+          },
+        });
+
+        const fragmentTitleGenerator = createAgent({
+          name: "fragment-title-generator",
+          description: "A fragment title generator",
+          system: FRAGMENT_TITLE_PROMPT,
+          model: titleModel,
+        });
+
+        const responseGenerator = createAgent({
+          name: "response-generator",
+          description: "A response generator",
+          system: RESPONSE_PROMPT,
+          model: titleModel,
+        });
+
+        const [titleResult, responseResult] = await Promise.all([
+          fragmentTitleGenerator.run(summary),
+          responseGenerator.run(summary),
+        ]);
+
+        fragmentTitleOutput = titleResult.output;
+        responseOutput = responseResult.output;
+      } catch (gatewayError) {
+        console.error("[MULTI-AGENT] Failed to generate fragment metadata:", gatewayError);
+        fragmentTitleOutput = undefined;
+        responseOutput = undefined;
+      }
+    }
+
+    await step.run("save-result", async () => {
+      if (isError) {
+        return await prisma.message.create({
+          data: {
+            projectId: event.data.projectId,
+            content: "Something went wrong. Please try again.",
+            role: "ASSISTANT",
+            type: "ERROR",
+            status: "COMPLETE",
+          },
+        });
+      }
+
+      const parsedResponse = parseAgentOutput(responseOutput);
+      const parsedTitle = parseAgentOutput(fragmentTitleOutput);
+
+      const metadata = {
+        multiAgent: true,
+        agentDecisions: result.state.data.agentDecisions,
+        testResults: result.state.data.testResults,
+        codeReview: result.state.data.codeReview,
+        iterations: result.state.data.iterations,
+      };
+
+      return await prisma.message.create({
+        data: {
+          projectId: event.data.projectId,
+          content: parsedResponse ?? "Generated code is ready.",
+          role: "ASSISTANT",
+          type: "RESULT",
+          status: "COMPLETE",
+          Fragment: {
+            create: {
+              sandboxId: sandboxId,
+              sandboxUrl: sandboxUrl,
+              title: parsedTitle ?? "Generated Fragment",
+              files: result.state.data.files,
+              framework: toPrismaFramework(selectedFramework),
+              metadata: metadata as Prisma.JsonObject,
+            },
+          },
+        },
+      })
+    });
+
+    return {
+      url: sandboxUrl,
+      title: "Fragment",
+      files: result.state.data.files,
+      summary: result.state.data.summary,
+      multiAgent: true,
+      agentDecisions: result.state.data.agentDecisions,
+      testResults: result.state.data.testResults,
+      codeReview: result.state.data.codeReview,
+    };
+  },
+);
+
 export const sandboxTransferFunction = inngest.createFunction(
   { id: "sandbox-transfer" },
   { event: "sandbox-transfer/run" },
   async ({ event, step }) => {
-    console.log("[DEBUG] Starting sandbox transfer function");
+    console.log("[DEBUG] Starting sandbox resume function");
     console.log("[DEBUG] Event data:", JSON.stringify(event.data));
 
     const fragment = await step.run("get-fragment", async () => {
@@ -840,76 +1200,52 @@ export const sandboxTransferFunction = inngest.createFunction(
       throw new Error("Fragment not found");
     }
 
-    const fragmentFramework = (fragment.framework?.toLowerCase() || 'nextjs') as Framework;
-    const template = getE2BTemplate(fragmentFramework);
+    if (!fragment.sandboxId) {
+      throw new Error("Fragment has no sandbox");
+    }
 
-    const newSandboxId = await step.run("create-new-sandbox", async () => {
-      console.log("[DEBUG] Creating new E2B sandbox for transfer with framework:", fragmentFramework);
+    const sandboxId = fragment.sandboxId;
+    const framework = (fragment.framework?.toLowerCase() || "nextjs") as Framework;
 
+    const sandbox = await step.run("resume-sandbox", async () => {
       try {
-        let sandbox;
-        try {
-          console.log("[DEBUG] Attempting to create sandbox with template:", template);
-          sandbox = await Sandbox.create(template, {
-            apiKey: process.env.E2B_API_KEY,
-          });
-        } catch {
-          console.log("[DEBUG] Template not found, using default 'zapdev' template");
-          sandbox = await Sandbox.create("zapdev", {
-            apiKey: process.env.E2B_API_KEY,
-          });
-        }
-
-        console.log("[DEBUG] New sandbox created successfully:", sandbox.sandboxId);
-        await sandbox.setTimeout(SANDBOX_TIMEOUT);
-        return sandbox.sandboxId;
+        console.log("[DEBUG] Connecting to sandbox to resume:", sandboxId);
+        const connection = await getSandbox(sandboxId);
+        console.log("[DEBUG] Sandbox resumed successfully");
+        return connection;
       } catch (error) {
-        console.error("[ERROR] Failed to create new E2B sandbox:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
+        console.error("[ERROR] Failed to resume sandbox:", error);
+        throw new Error("Sandbox resume failed. Please trigger a new build.");
       }
     });
 
-    await step.run("transfer-files", async () => {
-      console.log("[DEBUG] Transferring files to new sandbox...");
-
-      try {
-        const sandbox = await getSandbox(newSandboxId);
-        const files = fragment.files as { [path: string]: string };
-
-        for (const [path, content] of Object.entries(files)) {
-          await sandbox.files.write(path, content);
+    const sandboxUrl = await step.run("get-sandbox-url", async () => {
+      if (typeof (sandbox as SandboxWithHost).getHost === "function") {
+        const host = (sandbox as SandboxWithHost).getHost(getFrameworkPort(framework));
+        if (host && host.length > 0) {
+          return host.startsWith("http") ? host : `https://${host}`;
         }
-
-        console.log("[DEBUG] Successfully transferred", Object.keys(files).length, "files");
-      } catch (error) {
-        console.error("[ERROR] Failed to transfer files:", error);
-        throw error;
       }
-    });
 
-    const newSandboxUrl = await step.run("get-new-sandbox-url", async () => {
-      const sandbox = await getSandbox(newSandboxId);
-      const port = getFrameworkPort(fragmentFramework);
-      const host = sandbox.getHost(port);
-      return `https://${host}`;
+      const fallbackHost = `https://${sandboxId}.sandbox.e2b.dev`;
+      console.warn("[WARN] Using fallback sandbox host:", fallbackHost);
+      return fallbackHost;
     });
 
     await step.run("update-fragment", async () => {
       return await prisma.fragment.update({
         where: { id: event.data.fragmentId },
         data: {
-          sandboxId: newSandboxId,
-          sandboxUrl: newSandboxUrl,
+          sandboxUrl,
         },
       });
     });
 
-    console.log("[DEBUG] Sandbox transfer complete. New URL:", newSandboxUrl);
+    console.log("[DEBUG] Sandbox resume complete. URL:", sandboxUrl);
 
     return {
-      sandboxId: newSandboxId,
-      sandboxUrl: newSandboxUrl,
+      sandboxId,
+      sandboxUrl,
     };
   },
 );
@@ -1177,5 +1513,47 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         error: errorMessage,
       };
     }
+  },
+);
+
+export const sandboxCleanupFunction = inngest.createFunction(
+  { id: "sandbox-cleanup" },
+  {
+    cron: "0 0 * * *", // Every day at midnight UTC
+  },
+  async ({ step }) => {
+    console.log("[DEBUG] Running sandbox cleanup job");
+
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - thirtyDays;
+    const killedSandboxIds: string[] = [];
+
+    await step.run("cleanup-paused-sandboxes", async () => {
+      const sandboxes = await Sandbox.list();
+
+      for (const sandbox of sandboxes) {
+        const startedAt = sandbox.startedAt instanceof Date ? sandbox.startedAt.getTime() : new Date(sandbox.startedAt).getTime();
+
+        if (
+          sandbox.state === "paused" &&
+          Number.isFinite(startedAt) &&
+          startedAt <= cutoff
+        ) {
+          try {
+            await Sandbox.kill(sandbox.sandboxId);
+            killedSandboxIds.push(sandbox.sandboxId);
+            console.log("[DEBUG] Killed sandbox due to age:", sandbox.sandboxId);
+          } catch (error) {
+            console.error("[ERROR] Failed to kill sandbox", sandbox.sandboxId, error);
+          }
+        }
+      }
+    });
+
+    console.log("[DEBUG] Sandbox cleanup complete. Killed:", killedSandboxIds);
+
+    return {
+      killedSandboxIds,
+    };
   },
 );

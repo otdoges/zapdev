@@ -63,6 +63,23 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  
+  const content = (
+    <TRPCReactProvider>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <Toaster />
+        <WebVitalsReporter />
+        {children}
+      </ThemeProvider>
+    </TRPCReactProvider>
+  );
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -94,26 +111,19 @@ export default function RootLayout({
       <body
         className="antialiased"
       >
-        <ClerkProvider
-          appearance={{
-            variables: {
-              colorPrimary: "#C96342",
-            },
-          }}
-        >
-          <TRPCReactProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              <Toaster />
-              <WebVitalsReporter />
-              {children}
-            </ThemeProvider>
-          </TRPCReactProvider>
-        </ClerkProvider>
+        {clerkPublishableKey ? (
+          <ClerkProvider
+            appearance={{
+              variables: {
+                colorPrimary: "#C96342",
+              },
+            }}
+          >
+            {content}
+          </ClerkProvider>
+        ) : (
+          content
+        )}
       </body>
     </html>
   );
