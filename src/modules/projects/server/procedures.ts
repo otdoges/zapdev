@@ -6,6 +6,7 @@ import { TRPCError } from "@trpc/server";
 import { inngest } from "@/inngest/client";
 import { consumeCredits } from "@/lib/usage";
 import { protectedProcedure, createTRPCRouter } from "@/trpc/init";
+import { getAgentEventName } from "@/lib/agent-mode";
 
 export const projectsRouter = createTRPCRouter({
   getOne: protectedProcedure
@@ -112,7 +113,7 @@ export const projectsRouter = createTRPCRouter({
       });
 
       await inngest.send({
-        name: "code-agent/run",
+        name: getAgentEventName(),
         data: {
           value: input.value,
           projectId: createdProject.id,
