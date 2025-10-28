@@ -3,6 +3,8 @@ import { generateMetadata as generateSEOMetadata, generateStructuredData } from 
 import { StructuredData } from "@/components/seo/structured-data";
 import { PricingPageContent } from "./page-content";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = generateSEOMetadata({
   title: 'Pricing - Affordable AI Development Plans | Zapdev',
   description: 'Choose the perfect plan for your development needs. Start free with Zapdev and scale as you grow. Transparent pricing for individuals and teams.',
