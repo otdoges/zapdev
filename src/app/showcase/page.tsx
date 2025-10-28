@@ -9,6 +9,8 @@ import { ArrowRight, Star, GitBranch, Clock, Users } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { formatDistanceToNow } from 'date-fns';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = generateSEOMetadata({
   title: 'Project Showcase - See What Others Built with Zapdev',
   description: 'Explore amazing projects built with Zapdev. Get inspired by real applications created using our AI-powered development platform across React, Vue, Angular, and more.',

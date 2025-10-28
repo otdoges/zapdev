@@ -38,23 +38,8 @@ export const projectsRouter = createTRPCRouter({
         },
         include: {
           Message: {
-            select: {
-              Attachment: {
-                where: {
-                  type: "IMAGE",
-                },
-                orderBy: {
-                  createdAt: "desc",
-                },
-                take: 1,
-                select: {
-                  id: true,
-                  url: true,
-                  width: true,
-                  height: true,
-                  size: true,
-                },
-              },
+            include: {
+              Attachment: true,
             },
             orderBy: {
               createdAt: "desc",
@@ -66,11 +51,16 @@ export const projectsRouter = createTRPCRouter({
 
       return projects.map(({ Message, ...rest }) => {
         const [latestMessage] = Message;
-        const [previewAttachment] = latestMessage?.Attachment ?? [];
+        
+        const imageAttachments = (latestMessage?.Attachment ?? [])
+          .filter(att => att.type === "IMAGE")
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        
+        const previewAttachment = imageAttachments[0] ?? null;
 
         return {
           ...rest,
-          previewAttachment: previewAttachment ?? null,
+          previewAttachment,
         };
       });
     }),

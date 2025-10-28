@@ -9,6 +9,8 @@ import { generateMetadata as generateSEOMetadata } from "@/lib/seo";
 
 import { ProjectView } from "@/modules/projects/ui/views/project-view";
 
+export const dynamic = 'force-dynamic';
+
 interface Props {
   params: Promise<{
     projectId: string;
