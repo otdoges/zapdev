@@ -62,6 +62,22 @@ const extractUrls = (value: string) => {
   return Array.from(urls);
 };
 
+const SUMMARY_TAG_REGEX = /<task_summary>([\s\S]*?)<\/task_summary>/i;
+
+const extractSummaryText = (value: string): string => {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return "";
+  }
+
+  const match = SUMMARY_TAG_REGEX.exec(trimmed);
+  if (match && typeof match[1] === "string") {
+    return match[1].trim();
+  }
+
+  return trimmed;
+};
+
 const getLastAssistantMessage = (
   networkRun: NetworkRun<AgentState>,
 ): string | undefined => {
@@ -484,6 +500,7 @@ export const codeAgentFunction = inngest.createFunction(
         summary: "",
         files: {},
         selectedFramework,
+        summaryRetryCount: 0,
       },
       {
         messages: initialMessages,
@@ -513,8 +530,13 @@ export const codeAgentFunction = inngest.createFunction(
             lastAssistantTextMessageContent(result);
 
           if (lastAssistantMessageText && network) {
-            if (lastAssistantMessageText.includes("<task_summary>")) {
-              network.state.data.summary = lastAssistantMessageText;
+            const containsSummaryTag = lastAssistantMessageText.includes("<task_summary>");
+            console.log(
+              `[DEBUG] Agent response received (contains summary tag: ${containsSummaryTag})`
+            );
+            if (containsSummaryTag) {
+              network.state.data.summary = extractSummaryText(lastAssistantMessageText);
+              network.state.data.summaryRetryCount = 0;
             }
           }
 
@@ -529,12 +551,32 @@ export const codeAgentFunction = inngest.createFunction(
       maxIter: 8,
       defaultState: state,
       router: async ({ network }) => {
-        const summary = network.state.data.summary;
+        const summaryText = extractSummaryText(network.state.data.summary ?? "");
+        const fileEntries = network.state.data.files ?? {};
+        const fileCount = Object.keys(fileEntries).length;
 
-        if (summary) {
+        if (summaryText.length > 0) {
           return;
         }
 
+        if (fileCount === 0) {
+          network.state.data.summaryRetryCount = 0;
+          return codeAgent;
+        }
+
+        const currentRetry = network.state.data.summaryRetryCount ?? 0;
+        if (currentRetry >= 2) {
+          console.warn(
+            "[WARN] Missing <task_summary> after multiple attempts despite generated files; proceeding with fallback handling."
+          );
+          return;
+        }
+
+        const nextRetry = currentRetry + 1;
+        network.state.data.summaryRetryCount = nextRetry;
+        console.log(
+          `[DEBUG] No <task_summary> yet; retrying agent to request summary (attempt ${nextRetry}).`
+        );
         return codeAgent;
       },
     });
@@ -604,15 +646,62 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       lastAssistantMessage = getLastAssistantMessage(result);
     }
 
-    console.log("[DEBUG] Network run complete. Summary:", result.state.data.summary ? "Present" : "Missing");
-    console.log("[DEBUG] Files generated:", Object.keys(result.state.data.files || {}).length);
+    lastAssistantMessage = getLastAssistantMessage(result);
 
-    const summaryRaw = typeof result.state.data.summary === "string" ? result.state.data.summary : "";
-    const summary = summaryRaw.trim();
-    const hasSummary = summary.length > 0;
     const files = result.state.data.files || {};
-    const hasFiles = Object.keys(files).length > 0;
-    const isError = !hasSummary || !hasFiles;
+    const filePaths = Object.keys(files);
+    const hasFiles = filePaths.length > 0;
+
+    let summaryText = extractSummaryText(
+      typeof result.state.data.summary === "string" ? result.state.data.summary : ""
+    );
+    const agentProvidedSummary = summaryText.length > 0;
+    const agentReportedError = shouldTriggerAutoFix(lastAssistantMessage);
+
+    if (!agentProvidedSummary && hasFiles) {
+      const previewFiles = filePaths.slice(0, 5);
+      const remainingCount = filePaths.length - previewFiles.length;
+      summaryText = `Generated or updated ${filePaths.length} file${filePaths.length === 1 ? "" : "s"}: ${previewFiles.join(", ")}${remainingCount > 0 ? ` (and ${remainingCount} more)` : ""}.`;
+      console.warn(
+        "[WARN] Missing <task_summary> from agent despite generated files; using fallback summary."
+      );
+    }
+
+    result.state.data.summary = summaryText;
+
+    const hasSummary = summaryText.length > 0;
+
+    console.log(
+      `[DEBUG] Network run complete. Summary status: ${hasSummary ? "present" : "missing"}`
+    );
+    if (hasSummary) {
+      console.log("[DEBUG] Summary preview:", summaryText.slice(0, 160));
+    }
+    console.log("[DEBUG] Files generated:", filePaths.length);
+    if (filePaths.length > 0) {
+      console.log("[DEBUG] File list preview:", filePaths.slice(0, 10));
+    }
+    if (agentReportedError) {
+      console.warn("[WARN] Last assistant message still signals an unresolved error.");
+    }
+
+    const errorReasons: string[] = [];
+    if (!hasFiles) {
+      errorReasons.push("no files generated");
+    }
+    if (!hasSummary) {
+      errorReasons.push("no summary available");
+    }
+    if (agentReportedError) {
+      errorReasons.push("agent reported unresolved error");
+    }
+
+    const isError = errorReasons.length > 0;
+    if (isError) {
+      console.warn(`[WARN] Completion flagged as error: ${errorReasons.join(", ")}`);
+    } else {
+      console.log("[DEBUG] Completion flagged as success.");
+    }
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       const sandbox = await getSandbox(sandboxId);
@@ -633,7 +722,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     let fragmentTitleOutput: Message[] | undefined;
     let responseOutput: Message[] | undefined;
 
-    if (hasSummary && hasFiles) {
+    if (!isError && hasSummary && hasFiles) {
       try {
         const titleModel = openai({
           model: "google/gemini-2.5-flash-lite",
@@ -659,8 +748,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         });
 
         const [titleResult, responseResult] = await Promise.all([
-          fragmentTitleGenerator.run(summary),
-          responseGenerator.run(summary),
+          fragmentTitleGenerator.run(summaryText),
+          responseGenerator.run(summaryText),
         ]);
 
         fragmentTitleOutput = titleResult.output;
@@ -859,9 +948,10 @@ export const errorFixFunction = inngest.createFunction(
     // Create a minimal state with existing files
     const state = createState<AgentState>(
       {
-        summary: "",
-        files: { ...fragmentFiles },
+        summary: (fragmentRecord.metadata as Record<string, unknown>)?.summary as string ?? "",
+        files: fragmentFiles,
         selectedFramework: fragmentFramework,
+        summaryRetryCount: 0,
       },
       {
         messages: [],
@@ -887,8 +977,13 @@ export const errorFixFunction = inngest.createFunction(
         onResponse: async ({ result, network }) => {
           const lastAssistantMessageText = lastAssistantTextMessageContent(result);
           if (lastAssistantMessageText && network) {
-            if (lastAssistantMessageText.includes("<task_summary>")) {
-              network.state.data.summary = lastAssistantMessageText;
+            const containsSummaryTag = lastAssistantMessageText.includes("<task_summary>");
+            console.log(
+              `[DEBUG] Error-fix agent response received (contains summary tag: ${containsSummaryTag})`
+            );
+            if (containsSummaryTag) {
+              network.state.data.summary = extractSummaryText(lastAssistantMessageText);
+              network.state.data.summaryRetryCount = 0;
             }
           }
           return result;
@@ -902,10 +997,32 @@ export const errorFixFunction = inngest.createFunction(
       maxIter: 10,
       defaultState: state,
       router: async ({ network }) => {
-        const summary = network.state.data.summary;
-        if (summary) {
+        const summaryText = extractSummaryText(network.state.data.summary ?? "");
+        const fileEntries = network.state.data.files ?? {};
+        const fileCount = Object.keys(fileEntries).length;
+
+        if (summaryText.length > 0) {
           return;
         }
+
+        if (fileCount === 0) {
+          network.state.data.summaryRetryCount = 0;
+          return codeAgent;
+        }
+
+        const currentRetry = network.state.data.summaryRetryCount ?? 0;
+        if (currentRetry >= 3) {
+          console.warn(
+            "[WARN] Error-fix agent missing <task_summary> after multiple retries; proceeding with collected fixes."
+          );
+          return;
+        }
+
+        const nextRetry = currentRetry + 1;
+        network.state.data.summaryRetryCount = nextRetry;
+        console.log(
+          `[DEBUG] Error-fix agent missing <task_summary>; retrying (attempt ${nextRetry}).`
+        );
         return codeAgent;
       },
     });
