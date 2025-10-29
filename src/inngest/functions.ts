@@ -37,6 +37,15 @@ const AUTO_FIX_ERROR_PATTERNS = [
   /ESLint/i, /Type error/i, /TS\d+/i,
 ];
 
+const usesShadcnComponents = (files: Record<string, string>) => {
+  return Object.entries(files).some(([path, content]) => {
+    if (!path.endsWith(".tsx")) {
+      return false;
+    }
+    return content.includes("@/components/ui/");
+  });
+};
+
 const shouldTriggerAutoFix = (message?: string): boolean => {
   if (!message) return false;
   return AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(message));
@@ -598,6 +607,19 @@ export const codeAgentFunction = inngest.createFunction(
     let autoFixAttempts = 0;
     let lastAssistantMessage = getLastAssistantMessage(result);
 
+    if (selectedFramework === 'nextjs') {
+      const currentFiles = (result.state.data.files || {}) as Record<string, string>;
+      if (Object.keys(currentFiles).length > 0 && !usesShadcnComponents(currentFiles)) {
+        const shadcnErrorMessage = "[ERROR] Missing Shadcn UI usage. Rebuild the UI using components imported from '@/components/ui/*' instead of plain HTML elements.";
+        console.warn("[WARN] Shadcn usage check failed. Triggering auto-fix.");
+        if (!shouldTriggerAutoFix(lastAssistantMessage)) {
+          lastAssistantMessage = shadcnErrorMessage;
+        } else {
+          lastAssistantMessage = `${lastAssistantMessage}\n${shadcnErrorMessage}`;
+        }
+      }
+    }
+
     // If lint or build checks found errors, inject them into the auto-fix loop
     const validationErrors = [lintErrors, buildErrors].filter(Boolean).join("\n\n");
     if (validationErrors && !shouldTriggerAutoFix(lastAssistantMessage)) {
@@ -648,7 +670,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     lastAssistantMessage = getLastAssistantMessage(result);
 
-    const files = result.state.data.files || {};
+    const files = (result.state.data.files || {}) as Record<string, string>;
     const filePaths = Object.keys(files);
     const hasFiles = filePaths.length > 0;
 
@@ -686,6 +708,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     }
 
     const errorReasons: string[] = [];
+    const shadcnCompliant = selectedFramework !== 'nextjs' || usesShadcnComponents(files);
+
     if (!hasFiles) {
       errorReasons.push("no files generated");
     }
@@ -694,6 +718,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     }
     if (agentReportedError) {
       errorReasons.push("agent reported unresolved error");
+    }
+    if (!shadcnCompliant) {
+      errorReasons.push("missing Shadcn UI components");
     }
 
     const isError = errorReasons.length > 0;

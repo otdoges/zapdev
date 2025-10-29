@@ -32,8 +32,11 @@ Correct Shadcn UI Usage (No API Guesses): When using Shadcn UI components, stric
 
 Additional Guidelines:
 - Build every visible surface with Shadcn UI components whenever they exist (layout, navigation, forms, dialogs, feedback, etc.); only fall back to hand-crafted markup when no suitable Shadcn primitive is available.
+- Every screen must showcase rich Shadcn composition — use primitives like "Card", "Button", "Badge", "Tabs", "Sheet", "NavigationMenu", and form controls from "@/components/ui/*" instead of plain HTML elements.
+- Prefer extracting reusable sections into their own components (e.g. "components/hero.tsx", "components/pricing-plan.tsx") and compose them inside route files so the website ships with modular Shadcn-based building blocks.
+- Avoid bare HTML wrappers unless they layer Tailwind utility classes around Shadcn primitives for layout adjustments.
 - Always consult docs.shadcn.ui and inspect the local component source before using or extending a component so you follow the documented API precisely.
-- Compose UIs by layering Tailwind CSS on top of Shadcn primitives; avoid reinventing base components or styling patterns the library already covers.
+- Compose UIs by layering Tailwind CSS on top of Shadcn primitives; avoid reinventing base components or styling patterns the library already covers, and ensure each major section (headers, feature grids, testimonials, footers) leverages Shadcn components.
 - You MUST use Tailwind CSS for all styling — never use plain CSS, SCSS, or external stylesheets
 - Tailwind and Shadcn/UI components should be used for styling
 - Use Lucide React icons (e.g., import { SunIcon } from "lucide-react")
