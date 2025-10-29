@@ -20,6 +20,7 @@ export function FragmentWeb({ data }: Props) {
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resumePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resumeAttemptRef = useRef(0);
 
   const clearFixErrorTimers = useCallback(() => {
     if (pollIntervalRef.current) {
@@ -53,10 +54,15 @@ export function FragmentWeb({ data }: Props) {
         return prev;
       }
       setHasAttemptedResume(false);
+      resumeAttemptRef.current = 0;
       return nextId;
     });
     setCurrentUrl(data.sandboxUrl);
   }, [data.sandboxId, data.sandboxUrl]);
+
+  useEffect(() => {
+    resumeAttemptRef.current = 0;
+  }, [sandboxId]);
 
   const onRefresh = () => {
     setFragmentKey((prev) => prev + 1);
@@ -117,14 +123,23 @@ export function FragmentWeb({ data }: Props) {
     }
   };
 
-  useEffect(() => {
-    if (!sandboxId || hasAttemptedResume) {
-      return;
-    }
+  const resumeSandbox = useCallback(
+    async (force = false) => {
+      if (!sandboxId || isResuming) {
+        return;
+      }
 
-    let cancelled = false;
+      if (!force && hasAttemptedResume) {
+        return;
+      }
 
-    const resumeSandbox = async () => {
+      const MAX_ATTEMPTS = 3;
+      if (resumeAttemptRef.current >= MAX_ATTEMPTS) {
+        console.error("Sandbox resume attempts exceeded");
+        return;
+      }
+
+      resumeAttemptRef.current += 1;
       setIsResuming(true);
       setHasAttemptedResume(true);
 
@@ -150,11 +165,6 @@ export function FragmentWeb({ data }: Props) {
         resumePollRef.current = setInterval(async () => {
           attempts += 1;
 
-          if (cancelled) {
-            clearResumePoll();
-            return;
-          }
-
           try {
             const checkResponse = await fetch(`/api/fragment/${data.id}`);
             if (checkResponse.ok) {
@@ -165,6 +175,7 @@ export function FragmentWeb({ data }: Props) {
                 setSandboxId(updatedFragment.sandboxId ?? null);
                 setFragmentKey((prev) => prev + 1);
                 clearResumePoll();
+                resumeAttemptRef.current = 0;
                 setIsResuming(false);
               }
             }
@@ -180,30 +191,35 @@ export function FragmentWeb({ data }: Props) {
         }, 1000);
       } catch (error) {
         console.error("Resume error:", error);
-        if (!cancelled) {
-          setIsResuming(false);
-        }
+        setIsResuming(false);
       }
-    };
+    },
+    [sandboxId, isResuming, hasAttemptedResume, clearResumePoll, data.id],
+  );
 
-    resumeSandbox();
+  useEffect(() => {
+    if (!sandboxId || hasAttemptedResume) {
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-      clearResumePoll();
-    };
-  }, [sandboxId, hasAttemptedResume, data.id, clearResumePoll]);
+    if (!data.sandboxUrl) {
+      resumeSandbox();
+    }
+  }, [sandboxId, hasAttemptedResume, data.sandboxUrl, resumeSandbox]);
 
-  if (isResuming) {
+  const handleIframeError = useCallback(() => {
+    setHasAttemptedResume(false);
+    resumeSandbox(true);
+  }, [resumeSandbox]);
+
+  if (isResuming && !currentUrl) {
     return (
       <div className="flex flex-col items-center justify-center w-full h-full bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <div className="text-center">
             <h3 className="text-lg font-semibold">Resuming Sandbox</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Restoring your environment. This usually takes a few seconds.
-            </p>
+            <p className="text-sm text-muted-foreground mt-1">Restoring your environment. This usually takes a few seconds.</p>
           </div>
         </div>
       </div>
@@ -230,10 +246,28 @@ export function FragmentWeb({ data }: Props) {
   }
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <div className="relative flex flex-col w-full h-full">
+      {isResuming && currentUrl && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/80">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="text-center">
+            <h3 className="text-base font-semibold">Resuming Sandbox</h3>
+            <p className="text-xs text-muted-foreground mt-1">Trying to restore the environment while keeping the preview available.</p>
+          </div>
+        </div>
+      )}
       <div className="p-2 border-b bg-sidebar flex items-center gap-x-2">
         <Hint text="Refresh" side="bottom" align="start">
-          <Button size="sm" variant="outline" onClick={onRefresh}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              onRefresh();
+              if (!currentUrl) {
+                resumeSandbox(true);
+              }
+            }}
+          >
             <RefreshCcwIcon />
           </Button>
         </Hint>
@@ -280,7 +314,8 @@ export function FragmentWeb({ data }: Props) {
         sandbox="allow-forms allow-scripts allow-same-origin"
         loading="lazy"
         src={currentUrl}
+        onError={handleIframeError}
       />
     </div>
-  )
+  );
 };
