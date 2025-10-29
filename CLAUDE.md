@@ -13,11 +13,9 @@ ZapDev is an AI-powered development platform that enables users to create web ap
    - Supports multiple AI models (OpenAI, Anthropic, Grok)
    - Centralized API key management
 
-2. **Multi-Agent System**
-   - **Planner Agent**: Analyzes requirements and creates implementation plans
-   - **Coder Agent**: Implements code based on plans
-   - **Tester Agent**: Validates code quality and functionality
-   - **Reviewer Agent**: Reviews code for best practices and improvements
+2. **Code Generation Agent**
+   - Executes framework-specific prompts to build the requested app
+   - Writes files, runs commands, and validates output inside E2B sandboxes
 
 3. **Framework Support**
    - **Next.js 15**: Full-stack React with SSR, Shadcn UI, Tailwind CSS
@@ -39,11 +37,6 @@ ZapDev is an AI-powered development platform that enables users to create web ap
 User Request → Framework Selection → Code Generation → Preview
 ```
 
-### Multi-Agent Mode
-```
-User Request → Framework Selection → Planner → Coder → Tester → Reviewer → Complete
-```
-
 ## Configuration
 
 ### Environment Variables
@@ -52,9 +45,6 @@ User Request → Framework Selection → Planner → Coder → Tester → Review
 # AI Gateway (Claude AI)
 AI_GATEWAY_API_KEY="your-api-key"
 AI_GATEWAY_BASE_URL="https://ai-gateway.vercel.sh/v1/"
-
-# Agent Mode
-AGENT_MODE="single"  # or "multi"
 
 # E2B Sandboxes
 E2B_API_KEY="your-e2b-key"
@@ -70,15 +60,6 @@ CLERK_SECRET_KEY="..."
 INNGEST_EVENT_KEY="..."
 INNGEST_SIGNING_KEY="..."
 ```
-
-### Agent Mode Selection
-
-The system supports two agent modes:
-
-- **Single Agent**: Traditional approach with one AI agent handling all tasks
-- **Multi-Agent**: Collaborative system with specialized agents
-
-Switch modes by setting `AGENT_MODE` environment variable.
 
 ## Framework Detection
 
@@ -110,7 +91,7 @@ The platform automatically detects the appropriate framework based on user input
 ### 4. Iteration & Refinement
 - Users can request modifications
 - AI agents can iterate based on feedback
-- Multi-agent system provides quality assurance
+- Automated lint and build checks provide quality assurance
 
 ## API Integration
 
@@ -121,109 +102,4 @@ await inngest.send({
   name: "code-agent/run",
   data: { projectId, value: userMessage }
 });
-
-// Multi-agent
-await inngest.send({
-  name: "multi-agent/run", 
-  data: { projectId, value: userMessage }
-});
 ```
-
-### Framework Selection
-```typescript
-const frameworkSelectorAgent = createAgent({
-  name: "framework-selector",
-  system: FRAMEWORK_SELECTOR_PROMPT,
-  model: openai({
-    model: "google/gemini-2.5-flash-lite",
-    apiKey: process.env.AI_GATEWAY_API_KEY!,
-    baseUrl: process.env.AI_GATEWAY_BASE_URL
-  })
-});
-```
-
-## Best Practices
-
-### For AI Prompts
-- Use framework-specific prompts for better code generation
-- Include clear role definitions and responsibilities
-- Specify output formats with structured tags
-- Provide examples and guidelines
-
-### For Code Quality
-- Implement proper error handling
-- Use TypeScript with strict types
-- Follow framework conventions
-- Include accessibility features
-- Optimize for performance
-
-### For User Experience
-- Provide real-time feedback
-- Show progress indicators
-- Enable easy iteration
-- Support multiple frameworks
-- Maintain conversation history
-
-## Monitoring & Analytics
-
-### Agent Performance
-- Track agent decision-making
-- Monitor iteration cycles
-- Measure code quality metrics
-- Analyze framework selection accuracy
-
-### User Engagement
-- Message processing times
-- Project completion rates
-- Framework usage patterns
-- Error rates and resolution
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Framework Detection Errors**
-   - Check framework selector prompt
-   - Verify user input parsing
-   - Review framework mapping
-
-2. **Code Generation Failures**
-   - Validate AI Gateway connectivity
-   - Check sandbox template availability
-   - Review agent prompts
-
-3. **Multi-Agent Loops**
-   - Monitor iteration limits
-   - Check agent routing logic
-   - Validate state management
-
-### Debug Mode
-
-Enable detailed logging by setting:
-```bash
-DEBUG=true
-```
-
-## Future Enhancements
-
-- **Custom Agent Roles**: User-defined specialized agents
-- **Framework Extensions**: Support for additional frameworks
-- **Collaborative Editing**: Multi-user real-time collaboration
-- **Advanced Testing**: Automated test generation
-- **Deployment Integration**: Direct deployment to cloud platforms
-
-## Security Considerations
-
-- **Sandbox Isolation**: All code execution in isolated environments
-- **API Key Management**: Secure storage and rotation
-- **Input Validation**: Sanitize user inputs
-- **Rate Limiting**: Prevent abuse and overuse
-- **Access Control**: User authentication and authorization
-
-## Performance Optimization
-
-- **Caching**: Cache framework templates and prompts
-- **Parallel Processing**: Concurrent agent execution
-- **Resource Management**: Efficient sandbox lifecycle
-- **CDN Integration**: Fast asset delivery
-- **Database Optimization**: Efficient queries and indexing
