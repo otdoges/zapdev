@@ -3,7 +3,6 @@ import { serve } from "inngest/next";
 import { inngest } from "@/inngest/client";
 import { 
   codeAgentFunction, 
-  multiAgentFunction,
   sandboxTransferFunction, 
   errorFixFunction, 
   sandboxCleanupFunction 
@@ -13,7 +12,6 @@ export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
     codeAgentFunction,
-    multiAgentFunction,
     sandboxTransferFunction,
     errorFixFunction,
     sandboxCleanupFunction,
