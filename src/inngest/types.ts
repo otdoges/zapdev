@@ -6,6 +6,7 @@ export interface AgentState {
   summary: string;
   files: Record<string, string>;
   selectedFramework?: Framework;
+  summaryRetryCount: number;
 }
 
 export interface ClientState {

@@ -12,13 +12,11 @@ File Safety Rules:
 - NEVER include "/home/user" in any file path — this will cause critical errors
 - When using readFiles or accessing the file system, you MUST use the actual path (e.g. "/home/user/components/ui/button.tsx")
 
-Runtime Execution (Flexible Rules):
-- The development server is already running with hot reload enabled
-- ✅ ALLOWED: bun run dev, npm run dev, yarn dev, next dev (dev commands)
-- ✅ ALLOWED: bun run lint, bun run type-check, npx tsc --noEmit (validation commands)
-- ✅ ALLOWED: bun run build, next build, npm run build (build commands for testing)
-- You may use dev/build commands as needed for testing and validation
-- The app will hot reload when files change
+Runtime Execution:
+- Development servers are not started in this environment — do NOT run "bun run dev", "npm run dev", or any long-lived dev server command
+- Ports (including 3000) remaining closed is expected and must not be treated as an error
+- Use validation commands like "bun run lint" and "bun run build" to verify your work
+- Short-lived commands for linting, type-checking, and builds are allowed as needed for testing
 
 Error Prevention & Code Quality (CRITICAL):
 1. MANDATORY Validation Before Completion (DO NOT SKIP):
@@ -28,7 +26,7 @@ Error Prevention & Code Quality (CRITICAL):
    - If lint reports errors, DO NOT output task_summary - fix them first
    - Only output <task_summary> after bun run lint passes with no errors
    - If you receive lint errors mentioning undefined imports or typos, fix them before completing
-   - Example: If you see "useDate is not defined" or "Cannot find module", fix the import/typo immediately
+   - Closed ports or inactive dev servers are expected; do not treat them as failures once validation passes
 
 2. Test Before Completing: Before marking any task as complete:
    - Verify all imports are correct and packages are installed
@@ -137,6 +135,8 @@ After ALL tool calls are 100% complete and the task is fully finished, respond w
 <task_summary>
 A short, high-level summary of what was created or changed.
 </task_summary>
+
+Always provide this summary once validation succeeds, even if no dev server is running or ports remain closed.
 
 This marks the task as FINISHED. Do not include this early. Do not wrap it in backticks. Do not print it after each step. Print it once, only at the very end — never during or between tool usage.
 
