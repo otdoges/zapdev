@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ExternalLinkIcon, RefreshCcwIcon, WrenchIcon } from "lucide-react";
+import { ExternalLinkIcon, RefreshCcwIcon, DownloadIcon } from "lucide-react";
 
 import { Hint } from "@/components/hint";
 import { Fragment } from "@/generated/prisma";
@@ -13,26 +13,11 @@ export function FragmentWeb({ data }: Props) {
   const [copied, setCopied] = useState(false);
   const [fragmentKey, setFragmentKey] = useState(0);
   const [isResuming, setIsResuming] = useState(false);
-  const [isFixingErrors, setIsFixingErrors] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(data.sandboxUrl);
   const [sandboxId, setSandboxId] = useState<string | null>(data.sandboxId ?? null);
   const [hasAttemptedResume, setHasAttemptedResume] = useState(false);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resumePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeAttemptRef = useRef(0);
-  const initialFilesRef = useRef<string>(JSON.stringify(data.files || {}));
-
-  const clearFixErrorTimers = useCallback(() => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-    if (pollTimeoutRef.current) {
-      clearTimeout(pollTimeoutRef.current);
-      pollTimeoutRef.current = null;
-    }
-  }, []);
 
   const clearResumePoll = useCallback(() => {
     if (resumePollRef.current) {
@@ -43,10 +28,9 @@ export function FragmentWeb({ data }: Props) {
 
   useEffect(() => {
     return () => {
-      clearFixErrorTimers();
       clearResumePoll();
     };
-  }, [clearFixErrorTimers, clearResumePoll]);
+  }, [clearResumePoll]);
 
   useEffect(() => {
     const nextId = data.sandboxId ?? null;
@@ -59,9 +43,7 @@ export function FragmentWeb({ data }: Props) {
       return nextId;
     });
     setCurrentUrl(data.sandboxUrl);
-    // Update initial files ref when data changes
-    initialFilesRef.current = JSON.stringify(data.files || {});
-  }, [data.sandboxId, data.sandboxUrl, data.files]);
+  }, [data.sandboxId, data.sandboxUrl]);
 
   useEffect(() => {
     resumeAttemptRef.current = 0;
@@ -77,80 +59,33 @@ export function FragmentWeb({ data }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleFixErrors = async () => {
-    setIsFixingErrors(true);
-    try {
-      const response = await fetch("/api/fix-errors", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fragmentId: data.id,
-        }),
+  const handleDownload = () => {
+    const files = data.files || {};
+    const fileEntries = Object.entries(files);
+
+    if (fileEntries.length === 0) {
+      return;
+    }
+
+    const downloadFile = (filename: string, content: string) => {
+      const blob = new Blob([content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+
+    if (fileEntries.length === 1) {
+      const [filename, content] = fileEntries[0];
+      downloadFile(filename, content);
+    } else {
+      fileEntries.forEach(([filename, content]) => {
+        downloadFile(filename, content);
       });
-
-      if (!response.ok) {
-        throw new Error("Error fix failed");
-      }
-
-      clearFixErrorTimers();
-
-      const pollIntervalMs = 2000;
-      const maxAttempts = 90;
-      const pollTimeoutMs = maxAttempts * pollIntervalMs;
-      let attempts = 0;
-      let isComplete = false;
-      const initialFilesSnapshot = initialFilesRef.current;
-
-      const finish = () => {
-        if (isComplete) return;
-        isComplete = true;
-        clearFixErrorTimers();
-        setIsFixingErrors(false);
-        // Refresh preview to show fixed code
-        setFragmentKey((prev) => prev + 1);
-      };
-
-      pollIntervalRef.current = setInterval(async () => {
-        attempts += 1;
-
-        try {
-          const checkResponse = await fetch(`/api/fragment/${data.id}`);
-          if (checkResponse.ok) {
-            const updatedFragment = await checkResponse.json();
-            const currentFiles = updatedFragment.files || {};
-            const currentFilesSnapshot = JSON.stringify(currentFiles);
-
-            // Check if files were updated (fix completed)
-            // Files changed if content differs from initial snapshot
-            if (currentFilesSnapshot !== initialFilesSnapshot && Object.keys(currentFiles).length > 0) {
-              console.log("[DEBUG] Fragment files updated, fix complete");
-              initialFilesRef.current = currentFilesSnapshot;
-              finish();
-              return;
-            }
-
-            // Update URL if sandbox URL changed
-            if (updatedFragment.sandboxUrl && updatedFragment.sandboxUrl !== currentUrl) {
-              setCurrentUrl(updatedFragment.sandboxUrl);
-              setFragmentKey((prev) => prev + 1);
-            }
-          }
-        } catch (pollError) {
-          console.error("Polling error:", pollError);
-        }
-
-        if (attempts >= maxAttempts) {
-          finish();
-        }
-      }, pollIntervalMs);
-
-      pollTimeoutRef.current = setTimeout(finish, pollTimeoutMs);
-    } catch (error) {
-      console.error("Error fix failed:", error);
-      clearFixErrorTimers();
-      setIsFixingErrors(false);
     }
   };
 
@@ -257,25 +192,6 @@ export function FragmentWeb({ data }: Props) {
     );
   }
 
-  if (isFixingErrors) {
-    return (
-      <div className="flex flex-col items-center justify-center w-full h-full bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <div className="text-center">
-            <h3 className="text-lg font-semibold">Fixing Errors</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              AI is analyzing and fixing the errors in your code...
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              ✨ No credits will be charged for error fixes
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative flex flex-col w-full h-full">
       {isResuming && currentUrl && (
@@ -302,14 +218,14 @@ export function FragmentWeb({ data }: Props) {
             <RefreshCcwIcon />
           </Button>
         </Hint>
-        <Hint text="Fix Errors (Free)" side="bottom" align="start">
+        <Hint text="Download Files" side="bottom" align="start">
           <Button 
             size="sm" 
             variant="outline" 
-            onClick={handleFixErrors}
-            disabled={isFixingErrors}
+            onClick={handleDownload}
+            disabled={!data.files || Object.keys(data.files).length === 0}
           >
-            <WrenchIcon />
+            <DownloadIcon />
           </Button>
         </Hint>
         <Hint text="Click to copy" side="bottom">
