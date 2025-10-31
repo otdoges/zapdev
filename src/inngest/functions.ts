@@ -247,6 +247,203 @@ const toPrismaFramework = (framework: Framework): PrismaFramework => {
   return framework.toUpperCase() as PrismaFramework;
 };
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_COUNT = 500;
+const MAX_SCREENSHOTS = 20;
+const FILE_READ_BATCH_SIZE = 10;
+const FILE_READ_TIMEOUT_MS = 5000;
+
+const ALLOWED_WORKSPACE_PATHS = ['/home/user', '.'];
+
+const escapeShellPattern = (pattern: string): string => {
+  return pattern.replace(/'/g, "'\"'\"'");
+};
+
+const isValidFilePath = (filePath: string): boolean => {
+  if (!filePath || typeof filePath !== 'string') {
+    return false;
+  }
+
+  const normalizedPath = filePath.trim();
+  
+  if (normalizedPath.length === 0 || normalizedPath.length > 4096) {
+    return false;
+  }
+
+  if (normalizedPath.includes('..')) {
+    return false;
+  }
+
+  if (normalizedPath.includes('\0') || normalizedPath.includes('\n') || normalizedPath.includes('\r')) {
+    return false;
+  }
+
+  const isInWorkspace = ALLOWED_WORKSPACE_PATHS.some(basePath => 
+    normalizedPath === basePath || 
+    normalizedPath.startsWith(`${basePath}/`) ||
+    normalizedPath.startsWith(`./`)
+  );
+
+  return isInWorkspace || normalizedPath.startsWith('/home/user/');
+};
+
+const getFindCommand = (framework: Framework): string => {
+  const baseIgnorePatterns = [
+    '*/node_modules/*',
+    '*/.git/*',
+    '*/dist/*',
+    '*/build/*',
+  ];
+
+  const frameworkSpecificIgnores: Record<Framework, string[]> = {
+    nextjs: ['*/.next/*'],
+    angular: ['*/.angular/*'],
+    react: [],
+    vue: [],
+    svelte: ['*/.svelte-kit/*'],
+  };
+
+  const ignorePatterns = [...baseIgnorePatterns, ...(frameworkSpecificIgnores[framework] || [])];
+  const escapedPatterns = ignorePatterns.map(pattern => `-not -path '${escapeShellPattern(pattern)}'`);
+  const ignoreFlags = escapedPatterns.join(' ');
+  
+  return `find /home/user -type f ${ignoreFlags} 2>/dev/null || find . -type f ${ignoreFlags} 2>/dev/null`;
+};
+
+const isValidScreenshotUrl = (url: string): boolean => {
+  if (!url || typeof url !== 'string' || url.length === 0) {
+    return false;
+  }
+  
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return url.startsWith('data:image/');
+  }
+};
+
+const readFileWithTimeout = async (
+  sandbox: Sandbox,
+  filePath: string,
+  timeoutMs: number
+): Promise<string | null> => {
+  if (!isValidFilePath(filePath)) {
+    console.warn(`[WARN] Invalid file path detected, skipping: ${filePath}`);
+    return null;
+  }
+
+  try {
+    const readPromise = sandbox.files.read(filePath);
+    const timeoutPromise = new Promise<null>((resolve) => 
+      setTimeout(() => resolve(null), timeoutMs)
+    );
+    
+    const content = await Promise.race([readPromise, timeoutPromise]);
+    
+    if (content === null) {
+      console.warn(`[WARN] File read timeout for ${filePath}`);
+      return null;
+    }
+    
+    if (typeof content === 'string' && content.length > MAX_FILE_SIZE) {
+      console.warn(`[WARN] File ${filePath} exceeds size limit (${content.length} bytes), skipping`);
+      return null;
+    }
+    
+    return typeof content === 'string' ? content : null;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[ERROR] Failed to read file ${filePath}:`, errorMessage);
+    return null;
+  }
+};
+
+const readFilesInBatches = async (
+  sandbox: Sandbox,
+  filePaths: string[],
+  batchSize: number
+): Promise<Record<string, string>> => {
+  const allFilesMap: Record<string, string> = {};
+  
+  const validFilePaths = filePaths.filter(isValidFilePath);
+  const invalidCount = filePaths.length - validFilePaths.length;
+  
+  if (invalidCount > 0) {
+    console.warn(`[WARN] Filtered out ${invalidCount} invalid file paths (path traversal attempts or invalid paths)`);
+  }
+  
+  const totalFiles = Math.min(validFilePaths.length, MAX_FILE_COUNT);
+  
+  if (validFilePaths.length > MAX_FILE_COUNT) {
+    console.warn(`[WARN] File count (${validFilePaths.length}) exceeds limit (${MAX_FILE_COUNT}), reading first ${MAX_FILE_COUNT} files`);
+  }
+  
+  const filesToRead = validFilePaths.slice(0, totalFiles);
+  
+  for (let i = 0; i < filesToRead.length; i += batchSize) {
+    const batch = filesToRead.slice(i, i + batchSize);
+    
+    const batchResults = await Promise.all(
+      batch.map(async (filePath) => {
+        const content = await readFileWithTimeout(sandbox, filePath, FILE_READ_TIMEOUT_MS);
+        return { filePath, content };
+      })
+    );
+    
+    for (const { filePath, content } of batchResults) {
+      if (content !== null) {
+        allFilesMap[filePath] = content;
+      }
+    }
+    
+    console.log(`[DEBUG] Processed ${Math.min(i + batchSize, filesToRead.length)}/${filesToRead.length} files`);
+  }
+  
+  return allFilesMap;
+};
+
+const CRITICAL_FILES = ['package.json', 'tsconfig.json', 'next.config.ts', 'next.config.js', 'tailwind.config.ts', 'tailwind.config.js'];
+
+const validateMergeStrategy = (
+  agentFiles: Record<string, string>,
+  sandboxFiles: Record<string, string>
+): { warnings: string[]; isValid: boolean } => {
+  const warnings: string[] = [];
+  
+  const agentFilePaths = new Set(Object.keys(agentFiles));
+  const sandboxFilePaths = new Set(Object.keys(sandboxFiles));
+  
+  const overwrittenCriticalFiles = CRITICAL_FILES.filter(
+    file => sandboxFilePaths.has(file) && agentFilePaths.has(file) && 
+    agentFiles[file] !== sandboxFiles[file]
+  );
+  
+  if (overwrittenCriticalFiles.length > 0) {
+    warnings.push(`Critical files were overwritten by agent: ${overwrittenCriticalFiles.join(', ')}`);
+  }
+  
+  const missingCriticalFiles = CRITICAL_FILES.filter(
+    file => sandboxFilePaths.has(file) && !agentFilePaths.has(file)
+  );
+  
+  if (missingCriticalFiles.length > 0) {
+    warnings.push(`Critical files from sandbox not in agent files (will be preserved): ${missingCriticalFiles.join(', ')}`);
+  }
+  
+  const agentFileCount = agentFilePaths.size;
+  const sandboxFileCount = sandboxFilePaths.size;
+  
+  if (agentFileCount > 0 && sandboxFileCount > agentFileCount * 10) {
+    warnings.push(`Large discrepancy: sandbox has ${sandboxFileCount} files but agent only tracked ${agentFileCount} files`);
+  }
+  
+  return {
+    warnings,
+    isValid: warnings.length === 0 || warnings.every(w => !w.includes('discrepancy')),
+  };
+};
+
 const createCodeAgentTools = (sandboxId: string) => [
   createTool({
     name: "terminal",
@@ -857,6 +1054,103 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       }
     }
 
+    const allScreenshots = await step.run("collect-screenshots", async () => {
+      const screenshots: string[] = [];
+      for (const context of crawledContexts) {
+        if (context.screenshots && Array.isArray(context.screenshots)) {
+          screenshots.push(...context.screenshots);
+        }
+      }
+      
+      const validScreenshots = screenshots.filter(isValidScreenshotUrl);
+      const uniqueScreenshots = Array.from(new Set(validScreenshots));
+      
+      if (screenshots.length > uniqueScreenshots.length) {
+        console.log(`[DEBUG] Deduplicated ${screenshots.length - uniqueScreenshots.length} duplicate screenshots`);
+      }
+      
+      if (uniqueScreenshots.length > MAX_SCREENSHOTS) {
+        console.warn(`[WARN] Screenshot count (${uniqueScreenshots.length}) exceeds limit (${MAX_SCREENSHOTS}), keeping first ${MAX_SCREENSHOTS}`);
+        return uniqueScreenshots.slice(0, MAX_SCREENSHOTS);
+      }
+      
+      return uniqueScreenshots;
+    });
+
+    const allSandboxFiles = await step.run("read-all-sandbox-files", async () => {
+      if (isError) {
+        return {};
+      }
+
+      try {
+        const sandbox = await getSandbox(sandboxId);
+        const findCommand = getFindCommand(selectedFramework);
+        const findResult = await sandbox.commands.run(findCommand);
+        
+        const filePaths = findResult.stdout
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0 && !line.includes('Permission denied'));
+
+        console.log(`[DEBUG] Found ${filePaths.length} files in sandbox`);
+
+        if (filePaths.length === 0) {
+          console.warn("[WARN] No files found in sandbox");
+          return {};
+        }
+
+        const startTime = Date.now();
+        const allFilesMap = await readFilesInBatches(sandbox, filePaths, FILE_READ_BATCH_SIZE);
+        const duration = Date.now() - startTime;
+
+        console.log(`[DEBUG] Successfully read ${Object.keys(allFilesMap).length} files from sandbox in ${duration}ms`);
+        return allFilesMap;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("[ERROR] Failed to read all sandbox files:", errorMessage);
+        return {};
+      }
+    });
+
+    const agentFiles = result.state.data.files || {};
+    
+    const mergeValidation = validateMergeStrategy(agentFiles, allSandboxFiles);
+    
+    if (mergeValidation.warnings.length > 0) {
+      console.warn(`[WARN] Merge strategy warnings: ${mergeValidation.warnings.join('; ')}`);
+    }
+    
+    // Merge strategy: Agent files take priority over sandbox files
+    // This ensures that any files explicitly created/modified by the agent
+    // overwrite the corresponding files from the sandbox filesystem.
+    // This is intentional as agent files represent the final state of the project.
+    // Critical files from sandbox are preserved if not in agent files.
+    const mergedFiles = { ...allSandboxFiles, ...agentFiles };
+    
+    const overwrittenFiles = Object.keys(agentFiles).filter(path => allSandboxFiles[path] !== undefined);
+    if (overwrittenFiles.length > 0) {
+      console.log(`[DEBUG] Agent files overwriting ${overwrittenFiles.length} sandbox files: ${overwrittenFiles.slice(0, 5).join(', ')}${overwrittenFiles.length > 5 ? '...' : ''}`);
+    }
+    
+    // Validate all file paths in merged files to prevent path traversal
+    const validatedMergedFiles: Record<string, string> = {};
+    let invalidPathCount = 0;
+    
+    for (const [path, content] of Object.entries(mergedFiles)) {
+      if (isValidFilePath(path)) {
+        validatedMergedFiles[path] = content;
+      } else {
+        invalidPathCount++;
+        console.warn(`[WARN] Filtered out invalid file path from merged files: ${path}`);
+      }
+    }
+    
+    if (invalidPathCount > 0) {
+      console.warn(`[WARN] Filtered out ${invalidPathCount} invalid file paths from merged files`);
+    }
+    
+    const finalFiles = validatedMergedFiles;
+
     await step.run("save-result", async () => {
       if (isError) {
         return await prisma.message.create({
@@ -873,6 +1167,11 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const parsedResponse = parseAgentOutput(responseOutput);
       const parsedTitle = parseAgentOutput(fragmentTitleOutput);
 
+      const metadata: Prisma.JsonObject | undefined = 
+        allScreenshots.length > 0 
+          ? { screenshots: allScreenshots } 
+          : undefined;
+
       return await prisma.message.create({
         data: {
           projectId: event.data.projectId,
@@ -885,8 +1184,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
               sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
               title: parsedTitle ?? "Generated Fragment",
-              files: result.state.data.files,
+              files: finalFiles,
               framework: toPrismaFramework(selectedFramework),
+              metadata: metadata,
             },
           },
         },
@@ -896,7 +1196,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     return {
       url: sandboxUrl,
       title: "Fragment",
-      files: result.state.data.files,
+      files: finalFiles,
       summary: result.state.data.summary,
     };
   },
