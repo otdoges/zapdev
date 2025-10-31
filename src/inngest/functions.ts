@@ -247,6 +247,114 @@ const toPrismaFramework = (framework: Framework): PrismaFramework => {
   return framework.toUpperCase() as PrismaFramework;
 };
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_COUNT = 500;
+const MAX_SCREENSHOTS = 20;
+const FILE_READ_BATCH_SIZE = 10;
+const FILE_READ_TIMEOUT_MS = 5000;
+
+const getFindCommand = (framework: Framework): string => {
+  const baseIgnorePatterns = [
+    '*/node_modules/*',
+    '*/.git/*',
+    '*/dist/*',
+    '*/build/*',
+  ];
+
+  const frameworkSpecificIgnores: Record<Framework, string[]> = {
+    nextjs: ['*/.next/*'],
+    angular: ['*/.angular/*'],
+    react: [],
+    vue: [],
+    svelte: ['*/.svelte-kit/*'],
+  };
+
+  const ignorePatterns = [...baseIgnorePatterns, ...(frameworkSpecificIgnores[framework] || [])];
+  const ignoreFlags = ignorePatterns.map(pattern => `-not -path '${pattern}'`).join(' ');
+  
+  return `find /home/user -type f ${ignoreFlags} 2>/dev/null || find . -type f ${ignoreFlags} 2>/dev/null`;
+};
+
+const isValidScreenshotUrl = (url: string): boolean => {
+  if (!url || typeof url !== 'string' || url.length === 0) {
+    return false;
+  }
+  
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return url.startsWith('data:image/');
+  }
+};
+
+const readFileWithTimeout = async (
+  sandbox: Sandbox,
+  filePath: string,
+  timeoutMs: number
+): Promise<string | null> => {
+  try {
+    const readPromise = sandbox.files.read(filePath);
+    const timeoutPromise = new Promise<null>((resolve) => 
+      setTimeout(() => resolve(null), timeoutMs)
+    );
+    
+    const content = await Promise.race([readPromise, timeoutPromise]);
+    
+    if (content === null) {
+      console.warn(`[WARN] File read timeout for ${filePath}`);
+      return null;
+    }
+    
+    if (typeof content === 'string' && content.length > MAX_FILE_SIZE) {
+      console.warn(`[WARN] File ${filePath} exceeds size limit (${content.length} bytes), skipping`);
+      return null;
+    }
+    
+    return typeof content === 'string' ? content : null;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[ERROR] Failed to read file ${filePath}:`, errorMessage);
+    return null;
+  }
+};
+
+const readFilesInBatches = async (
+  sandbox: Sandbox,
+  filePaths: string[],
+  batchSize: number
+): Promise<Record<string, string>> => {
+  const allFilesMap: Record<string, string> = {};
+  const totalFiles = Math.min(filePaths.length, MAX_FILE_COUNT);
+  
+  if (filePaths.length > MAX_FILE_COUNT) {
+    console.warn(`[WARN] File count (${filePaths.length}) exceeds limit (${MAX_FILE_COUNT}), reading first ${MAX_FILE_COUNT} files`);
+  }
+  
+  const filesToRead = filePaths.slice(0, totalFiles);
+  
+  for (let i = 0; i < filesToRead.length; i += batchSize) {
+    const batch = filesToRead.slice(i, i + batchSize);
+    
+    const batchResults = await Promise.all(
+      batch.map(async (filePath) => {
+        const content = await readFileWithTimeout(sandbox, filePath, FILE_READ_TIMEOUT_MS);
+        return { filePath, content };
+      })
+    );
+    
+    for (const { filePath, content } of batchResults) {
+      if (content !== null) {
+        allFilesMap[filePath] = content;
+      }
+    }
+    
+    console.log(`[DEBUG] Processed ${Math.min(i + batchSize, filesToRead.length)}/${filesToRead.length} files`);
+  }
+  
+  return allFilesMap;
+};
+
 const createCodeAgentTools = (sandboxId: string) => [
   createTool({
     name: "terminal",
@@ -864,7 +972,20 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
           screenshots.push(...context.screenshots);
         }
       }
-      return screenshots.filter((s): s is string => typeof s === "string" && s.length > 0);
+      
+      const validScreenshots = screenshots.filter(isValidScreenshotUrl);
+      const uniqueScreenshots = Array.from(new Set(validScreenshots));
+      
+      if (screenshots.length > uniqueScreenshots.length) {
+        console.log(`[DEBUG] Deduplicated ${screenshots.length - uniqueScreenshots.length} duplicate screenshots`);
+      }
+      
+      if (uniqueScreenshots.length > MAX_SCREENSHOTS) {
+        console.warn(`[WARN] Screenshot count (${uniqueScreenshots.length}) exceeds limit (${MAX_SCREENSHOTS}), keeping first ${MAX_SCREENSHOTS}`);
+        return uniqueScreenshots.slice(0, MAX_SCREENSHOTS);
+      }
+      
+      return uniqueScreenshots;
     });
 
     const allSandboxFiles = await step.run("read-all-sandbox-files", async () => {
@@ -874,13 +995,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
       try {
         const sandbox = await getSandbox(sandboxId);
-        const allFilesMap: Record<string, string> = {};
-
-        const findCommand = selectedFramework === 'nextjs' 
-          ? "find /home/user -type f -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' 2>/dev/null || find . -type f -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' 2>/dev/null"
-          : "find /home/user -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' 2>/dev/null || find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' 2>/dev/null";
-
+        const findCommand = getFindCommand(selectedFramework);
         const findResult = await sandbox.commands.run(findCommand);
+        
         const filePaths = findResult.stdout
           .split('\n')
           .map(line => line.trim())
@@ -888,27 +1005,36 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
         console.log(`[DEBUG] Found ${filePaths.length} files in sandbox`);
 
-        for (const filePath of filePaths) {
-          try {
-            const content = await sandbox.files.read(filePath);
-            if (content !== null && content !== undefined) {
-              allFilesMap[filePath] = content;
-            }
-          } catch {
-            console.log(`[DEBUG] File ${filePath} not readable, skipping`);
-          }
+        if (filePaths.length === 0) {
+          console.warn("[WARN] No files found in sandbox");
+          return {};
         }
 
-        console.log(`[DEBUG] Successfully read ${Object.keys(allFilesMap).length} files from sandbox`);
+        const startTime = Date.now();
+        const allFilesMap = await readFilesInBatches(sandbox, filePaths, FILE_READ_BATCH_SIZE);
+        const duration = Date.now() - startTime;
+
+        console.log(`[DEBUG] Successfully read ${Object.keys(allFilesMap).length} files from sandbox in ${duration}ms`);
         return allFilesMap;
       } catch (error) {
-        console.error("[ERROR] Failed to read all sandbox files:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("[ERROR] Failed to read all sandbox files:", errorMessage);
         return {};
       }
     });
 
     const agentFiles = result.state.data.files || {};
+    
+    // Merge strategy: Agent files take priority over sandbox files
+    // This ensures that any files explicitly created/modified by the agent
+    // overwrite the corresponding files from the sandbox filesystem.
+    // This is intentional as agent files represent the final state of the project.
     const mergedFiles = { ...allSandboxFiles, ...agentFiles };
+    
+    const overwrittenFiles = Object.keys(agentFiles).filter(path => allSandboxFiles[path] !== undefined);
+    if (overwrittenFiles.length > 0) {
+      console.log(`[DEBUG] Agent files overwriting ${overwrittenFiles.length} sandbox files: ${overwrittenFiles.slice(0, 5).join(', ')}${overwrittenFiles.length > 5 ? '...' : ''}`);
+    }
 
     await step.run("save-result", async () => {
       if (isError) {
@@ -926,10 +1052,10 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const parsedResponse = parseAgentOutput(responseOutput);
       const parsedTitle = parseAgentOutput(fragmentTitleOutput);
 
-      const metadata: Prisma.JsonObject = {};
-      if (allScreenshots.length > 0) {
-        metadata.screenshots = allScreenshots;
-      }
+      const metadata: Prisma.JsonObject | undefined = 
+        allScreenshots.length > 0 
+          ? { screenshots: allScreenshots } 
+          : undefined;
 
       return await prisma.message.create({
         data: {
@@ -945,7 +1071,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
               title: parsedTitle ?? "Generated Fragment",
               files: mergedFiles,
               framework: toPrismaFramework(selectedFramework),
-              metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+              metadata: metadata,
             },
           },
         },
