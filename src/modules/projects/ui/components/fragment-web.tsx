@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ExternalLinkIcon, RefreshCcwIcon, DownloadIcon } from "lucide-react";
+import JSZip from "jszip";
 
 import { Hint } from "@/components/hint";
 import { Fragment } from "@/generated/prisma";
@@ -59,7 +60,7 @@ export function FragmentWeb({ data }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const files = data.files || {};
     const fileEntries = Object.entries(files);
 
@@ -67,26 +68,21 @@ export function FragmentWeb({ data }: Props) {
       return;
     }
 
-    const downloadFile = (filename: string, content: string) => {
-      const blob = new Blob([content], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    };
+    const zip = new JSZip();
 
-    if (fileEntries.length === 1) {
-      const [filename, content] = fileEntries[0];
-      downloadFile(filename, content);
-    } else {
-      fileEntries.forEach(([filename, content]) => {
-        downloadFile(filename, content);
-      });
-    }
+    fileEntries.forEach(([filename, content]) => {
+      zip.file(filename, content);
+    });
+
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(zipBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `fragment-${data.id}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const resumeSandbox = useCallback(
