@@ -1060,7 +1060,7 @@ export const errorFixFunction = inngest.createFunction(
       description: `An expert ${fragmentFramework} coding agent for fixing errors`,
       system: frameworkPrompt,
       model: openai({
-        model: "moonshotai/kimi-k2-0905",
+        model: "minimax/minimax-m2",
         apiKey: process.env.AI_GATEWAY_API_KEY!,
         baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
