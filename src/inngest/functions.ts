@@ -469,6 +469,29 @@ export const codeAgentFunction = inngest.createFunction(
       }
     });
 
+    await step.run("notify-screenshots", async () => {
+      const urls = extractUrls(event.data.value ?? "").slice(0, 2);
+      if (urls.length === 0) {
+        return;
+      }
+
+      try {
+        for (const url of urls) {
+          await prisma.message.create({
+            data: {
+              projectId: event.data.projectId,
+              content: `📸 Taking screenshot of ${url}...`,
+              role: "ASSISTANT",
+              type: "RESULT",
+              status: "COMPLETE",
+            },
+          });
+        }
+      } catch (error) {
+        console.error("[ERROR] Failed to create screenshot notifications:", error);
+      }
+    });
+
     const crawledContexts = await step.run("crawl-url-context", async () => {
       try {
         const urls = extractUrls(event.data.value ?? "").slice(0, 2);
@@ -479,17 +502,28 @@ export const codeAgentFunction = inngest.createFunction(
 
         console.log("[DEBUG] Found URLs in input:", urls);
 
-        const results: CrawledContent[] = [];
-
-        for (const url of urls) {
-          const crawled = await crawlUrl(url);
-
-          if (crawled) {
-            results.push(crawled);
+        const crawlWithTimeout = async (url: string): Promise<CrawledContent | null> => {
+          try {
+            return await Promise.race([
+              crawlUrl(url),
+              new Promise<null>((resolve) => 
+                setTimeout(() => {
+                  console.warn("[DEBUG] Crawl timeout for URL:", url);
+                  resolve(null);
+                }, 10000)
+              ),
+            ]);
+          } catch (error) {
+            console.error("[ERROR] Crawl error for URL:", url, error);
+            return null;
           }
-        }
+        };
 
-        return results;
+        const results = await Promise.all(
+          urls.map(url => crawlWithTimeout(url))
+        );
+
+        return results.filter((crawled): crawled is CrawledContent => crawled !== null);
       } catch (error) {
         console.error("[ERROR] Failed to crawl URLs", error);
         return [] as CrawledContent[];
@@ -524,7 +558,7 @@ export const codeAgentFunction = inngest.createFunction(
       description: `An expert ${selectedFramework} coding agent`,
       system: frameworkPrompt,
       model: openai({
-        model: "moonshotai/kimi-k2-0905",
+        model: "minimax/minimax-m2",
         apiKey: process.env.AI_GATEWAY_API_KEY!,
         baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
@@ -620,22 +654,29 @@ export const codeAgentFunction = inngest.createFunction(
       }
     }
 
-    // If lint or build checks found errors, inject them into the auto-fix loop
-    const validationErrors = [lintErrors, buildErrors].filter(Boolean).join("\n\n");
-    if (validationErrors && !shouldTriggerAutoFix(lastAssistantMessage)) {
-      console.log("[DEBUG] Validation errors detected, triggering auto-fix...");
-      lastAssistantMessage = `Validation Errors Detected:\n${validationErrors}`;
+    // Collect all validation errors
+    let validationErrors = [lintErrors, buildErrors].filter(Boolean).join("\n\n");
+    
+    // Always include validation errors in the error message if they exist
+    if (validationErrors) {
+      console.log("[DEBUG] Validation errors detected:", validationErrors);
+      if (!lastAssistantMessage || !shouldTriggerAutoFix(lastAssistantMessage)) {
+        lastAssistantMessage = `Validation Errors Detected:\n${validationErrors}`;
+      } else {
+        lastAssistantMessage = `${lastAssistantMessage}\n\nValidation Errors:\n${validationErrors}`;
+      }
     }
 
+    // Auto-fix loop: continue until errors are resolved or max attempts reached
     while (
       autoFixAttempts < AUTO_FIX_MAX_ATTEMPTS &&
-      shouldTriggerAutoFix(lastAssistantMessage)
+      (shouldTriggerAutoFix(lastAssistantMessage) || validationErrors)
     ) {
       autoFixAttempts += 1;
-      const errorDetails = lastAssistantMessage ?? "No error details provided.";
+      const errorDetails = validationErrors || lastAssistantMessage || "No error details provided.";
 
       console.log(
-        `\n[DEBUG] Auto-fix triggered (attempt ${autoFixAttempts}). Last assistant message indicated an error.\n${errorDetails}\n`
+        `\n[DEBUG] Auto-fix triggered (attempt ${autoFixAttempts}). Errors detected.\n${errorDetails}\n`
       );
 
       result = await network.run(
@@ -666,6 +707,34 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       );
 
       lastAssistantMessage = getLastAssistantMessage(result);
+
+      // Re-run validation checks to verify if errors are actually fixed
+      console.log("[DEBUG] Re-running validation checks after auto-fix attempt...");
+      const [newLintErrors, newBuildErrors] = await Promise.all([
+        step.run(`post-fix-lint-check-${autoFixAttempts}`, async () => {
+          return await runLintCheck(sandboxId);
+        }),
+        step.run(`post-fix-build-check-${autoFixAttempts}`, async () => {
+          return await runBuildCheck(sandboxId);
+        })
+      ]);
+
+      validationErrors = [newLintErrors, newBuildErrors].filter(Boolean).join("\n\n");
+      
+      if (validationErrors) {
+        console.log("[DEBUG] Validation errors still present after fix attempt:", validationErrors);
+      } else {
+        console.log("[DEBUG] All validation errors resolved!");
+      }
+
+      // Update lastAssistantMessage with validation results if still present
+      if (validationErrors) {
+        if (!shouldTriggerAutoFix(lastAssistantMessage)) {
+          lastAssistantMessage = `Validation Errors Still Present:\n${validationErrors}`;
+        } else {
+          lastAssistantMessage = `${lastAssistantMessage}\n\nValidation Errors:\n${validationErrors}`;
+        }
+      }
     }
 
     lastAssistantMessage = getLastAssistantMessage(result);
@@ -1077,6 +1146,43 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
     try {
       const result = await network.run(fixPrompt, { state });
 
+      // Re-run validation checks to verify if errors are actually fixed
+      console.log("[DEBUG] Re-running validation checks after error fix...");
+      const [newLintErrors, newBuildErrors] = await Promise.all([
+        step.run("error-fix-verification-lint-check", async () => {
+          return await runLintCheck(sandboxId);
+        }),
+        step.run("error-fix-verification-build-check", async () => {
+          return await runBuildCheck(sandboxId);
+        })
+      ]);
+
+      const remainingErrors = [newLintErrors, newBuildErrors].filter(Boolean).join("\n\n");
+      
+      if (remainingErrors) {
+        console.warn("[WARN] Some errors remain after fix attempt:", remainingErrors);
+      } else {
+        console.log("[DEBUG] All errors resolved!");
+      }
+
+      // Ensure all fixed files are written back to the sandbox
+      await step.run("sync-fixed-files-to-sandbox", async () => {
+        const fixedFiles = result.state.data.files || {};
+        const sandbox = await getSandbox(sandboxId);
+        
+        console.log("[DEBUG] Writing fixed files back to sandbox:", Object.keys(fixedFiles).length);
+        
+        for (const [path, content] of Object.entries(fixedFiles)) {
+          try {
+            await sandbox.files.write(path, content);
+          } catch (error) {
+            console.error(`[ERROR] Failed to write file ${path} to sandbox:`, error);
+          }
+        }
+        
+        console.log("[DEBUG] All fixed files synced to sandbox");
+      });
+
       const backupMetadata = await step.run("backup-original-files", async () => {
         if (!supportsMetadata) {
           console.warn("[WARN] Fragment metadata field not available; skipping backup snapshot");
@@ -1130,8 +1236,9 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
 
       return {
         success: true,
-        message: "Errors fixed successfully",
+        message: remainingErrors ? "Some errors may remain. Please check the sandbox." : "Errors fixed successfully",
         summary: result.state.data.summary,
+        remainingErrors: remainingErrors || undefined,
       };
     } catch (error) {
       console.error("[ERROR] Error fix failed:", error);

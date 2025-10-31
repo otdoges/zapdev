@@ -56,47 +56,48 @@ export const crawlUrl = async (targetUrl: string): Promise<CrawledContent | null
   }
 
   try {
-    const crawlResult = await client.crawl(targetUrl, {
-      limit: 1,
-      scrapeOptions: {
-        formats: ["markdown"],
-        onlyMainContent: true,
-      },
+    const document = await client.scrape(targetUrl, {
+      formats: ["markdown", "screenshot"],
+      onlyMainContent: true,
     });
 
-    if (crawlResult.status !== "completed") {
-      console.warn("[firecrawl] Crawl did not complete", {
-        targetUrl,
-        status: crawlResult.status,
-      });
-      return null;
-    }
-
-    const [document] = crawlResult.data ?? [];
-
     if (!document) {
-      console.warn("[firecrawl] Crawl returned no documents", { targetUrl });
+      console.warn("[firecrawl] Scrape returned no document", { targetUrl });
       return null;
     }
 
     const content = document.markdown ?? document.html ?? "";
 
     if (!content) {
-      console.warn("[firecrawl] Empty crawl content", { targetUrl });
+      console.warn("[firecrawl] Empty scrape content", { targetUrl });
       return null;
     }
 
-    const screenshots = [
-      document.metadata?.ogImage,
-    ].filter((value): value is string => typeof value === "string" && value.length > 0);
+    const screenshots: string[] = [];
+
+    if (document.screenshot) {
+      screenshots.push(document.screenshot);
+    }
+
+    if (document.actions?.screenshots && Array.isArray(document.actions.screenshots)) {
+      screenshots.push(...document.actions.screenshots);
+    }
+
+    if (document.metadata?.ogImage && !screenshots.includes(document.metadata.ogImage)) {
+      screenshots.push(document.metadata.ogImage);
+    }
+
+    const validScreenshots = screenshots.filter(
+      (value): value is string => typeof value === "string" && value.length > 0
+    );
 
     return {
       url: document.metadata?.url ?? targetUrl,
       content: truncateContent(content.trim()),
-      ...(screenshots.length > 0 ? { screenshots } : {}),
+      ...(validScreenshots.length > 0 ? { screenshots: validScreenshots } : {}),
     };
   } catch (error) {
-    console.error("[firecrawl] Unexpected crawl error", { targetUrl, error });
+    console.error("[firecrawl] Unexpected scrape error", { targetUrl, error });
     return null;
   }
 };
