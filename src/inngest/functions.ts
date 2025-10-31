@@ -857,6 +857,59 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       }
     }
 
+    const allScreenshots = await step.run("collect-screenshots", async () => {
+      const screenshots: string[] = [];
+      for (const context of crawledContexts) {
+        if (context.screenshots && Array.isArray(context.screenshots)) {
+          screenshots.push(...context.screenshots);
+        }
+      }
+      return screenshots.filter((s): s is string => typeof s === "string" && s.length > 0);
+    });
+
+    const allSandboxFiles = await step.run("read-all-sandbox-files", async () => {
+      if (isError) {
+        return {};
+      }
+
+      try {
+        const sandbox = await getSandbox(sandboxId);
+        const allFilesMap: Record<string, string> = {};
+
+        const findCommand = selectedFramework === 'nextjs' 
+          ? "find /home/user -type f -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' 2>/dev/null || find . -type f -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' 2>/dev/null"
+          : "find /home/user -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' 2>/dev/null || find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' 2>/dev/null";
+
+        const findResult = await sandbox.commands.run(findCommand);
+        const filePaths = findResult.stdout
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0 && !line.includes('Permission denied'));
+
+        console.log(`[DEBUG] Found ${filePaths.length} files in sandbox`);
+
+        for (const filePath of filePaths) {
+          try {
+            const content = await sandbox.files.read(filePath);
+            if (content !== null && content !== undefined) {
+              allFilesMap[filePath] = content;
+            }
+          } catch {
+            console.log(`[DEBUG] File ${filePath} not readable, skipping`);
+          }
+        }
+
+        console.log(`[DEBUG] Successfully read ${Object.keys(allFilesMap).length} files from sandbox`);
+        return allFilesMap;
+      } catch (error) {
+        console.error("[ERROR] Failed to read all sandbox files:", error);
+        return {};
+      }
+    });
+
+    const agentFiles = result.state.data.files || {};
+    const mergedFiles = { ...allSandboxFiles, ...agentFiles };
+
     await step.run("save-result", async () => {
       if (isError) {
         return await prisma.message.create({
@@ -873,6 +926,11 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const parsedResponse = parseAgentOutput(responseOutput);
       const parsedTitle = parseAgentOutput(fragmentTitleOutput);
 
+      const metadata: Prisma.JsonObject = {};
+      if (allScreenshots.length > 0) {
+        metadata.screenshots = allScreenshots;
+      }
+
       return await prisma.message.create({
         data: {
           projectId: event.data.projectId,
@@ -885,8 +943,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
               sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
               title: parsedTitle ?? "Generated Fragment",
-              files: result.state.data.files,
+              files: mergedFiles,
               framework: toPrismaFramework(selectedFramework),
+              metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
             },
           },
         },
@@ -896,7 +955,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     return {
       url: sandboxUrl,
       title: "Fragment",
-      files: result.state.data.files,
+      files: mergedFiles,
       summary: result.state.data.summary,
     };
   },
