@@ -558,7 +558,7 @@ export const codeAgentFunction = inngest.createFunction(
       description: `An expert ${selectedFramework} coding agent`,
       system: frameworkPrompt,
       model: openai({
-        model: "alibaba/qwen-3-235b",
+        model: "anthropic/claude-haiku-4.5",
         apiKey: process.env.AI_GATEWAY_API_KEY!,
         baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
