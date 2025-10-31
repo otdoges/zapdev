@@ -21,6 +21,7 @@ export function FragmentWeb({ data }: Props) {
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resumePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeAttemptRef = useRef(0);
+  const initialFilesRef = useRef<string>(JSON.stringify(data.files || {}));
 
   const clearFixErrorTimers = useCallback(() => {
     if (pollIntervalRef.current) {
@@ -58,7 +59,9 @@ export function FragmentWeb({ data }: Props) {
       return nextId;
     });
     setCurrentUrl(data.sandboxUrl);
-  }, [data.sandboxId, data.sandboxUrl]);
+    // Update initial files ref when data changes
+    initialFilesRef.current = JSON.stringify(data.files || {});
+  }, [data.sandboxId, data.sandboxUrl, data.files]);
 
   useEffect(() => {
     resumeAttemptRef.current = 0;
@@ -94,21 +97,49 @@ export function FragmentWeb({ data }: Props) {
       clearFixErrorTimers();
 
       const pollIntervalMs = 2000;
-      const maxAttempts = 60;
+      const maxAttempts = 90;
       const pollTimeoutMs = maxAttempts * pollIntervalMs;
       let attempts = 0;
       let isComplete = false;
+      const initialFilesSnapshot = initialFilesRef.current;
 
       const finish = () => {
         if (isComplete) return;
         isComplete = true;
         clearFixErrorTimers();
         setIsFixingErrors(false);
+        // Refresh preview to show fixed code
+        setFragmentKey((prev) => prev + 1);
       };
 
-      pollIntervalRef.current = setInterval(() => {
+      pollIntervalRef.current = setInterval(async () => {
         attempts += 1;
-        setFragmentKey((prev) => prev + 1);
+
+        try {
+          const checkResponse = await fetch(`/api/fragment/${data.id}`);
+          if (checkResponse.ok) {
+            const updatedFragment = await checkResponse.json();
+            const currentFiles = updatedFragment.files || {};
+            const currentFilesSnapshot = JSON.stringify(currentFiles);
+
+            // Check if files were updated (fix completed)
+            // Files changed if content differs from initial snapshot
+            if (currentFilesSnapshot !== initialFilesSnapshot && Object.keys(currentFiles).length > 0) {
+              console.log("[DEBUG] Fragment files updated, fix complete");
+              initialFilesRef.current = currentFilesSnapshot;
+              finish();
+              return;
+            }
+
+            // Update URL if sandbox URL changed
+            if (updatedFragment.sandboxUrl && updatedFragment.sandboxUrl !== currentUrl) {
+              setCurrentUrl(updatedFragment.sandboxUrl);
+              setFragmentKey((prev) => prev + 1);
+            }
+          }
+        } catch (pollError) {
+          console.error("Polling error:", pollError);
+        }
 
         if (attempts >= maxAttempts) {
           finish();
