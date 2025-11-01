@@ -47,12 +47,12 @@ export const Navbar = () => {
         </div>
         <SignedOut>
           <div className="flex gap-2">
-            <SignUpButton>
+            <SignUpButton mode="modal">
               <Button variant="outline" size="sm">
                 Sign up
               </Button>
             </SignUpButton>
-            <SignInButton>
+            <SignInButton mode="modal">
               <Button size="sm">
                 Sign in
               </Button>
