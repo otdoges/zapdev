@@ -79,3 +79,21 @@ export function convertFilesToTreeItems(
   const result = convertNode(tree);
   return Array.isArray(result) ? result : [result];
 };
+
+/**
+ * Sanitizes text by removing NULL bytes (\u0000) which are not supported by PostgreSQL TEXT fields.
+ * PostgreSQL will throw error code "22P05" (unsupported Unicode escape sequence) when trying to store NULL bytes.
+ *
+ * @param text - The text to sanitize
+ * @returns The sanitized text with NULL bytes removed
+ *
+ * @example
+ * sanitizeTextForDatabase("Hello\u0000World") // returns "HelloWorld"
+ */
+export function sanitizeTextForDatabase(text: string): string {
+  if (typeof text !== 'string') {
+    return text;
+  }
+  // Remove all NULL bytes from the string
+  return text.replace(/\u0000/g, '');
+}

@@ -6,6 +6,7 @@ import { inspect } from "util";
 
 import { prisma } from "@/lib/db";
 import { crawlUrl, type CrawledContent } from "@/lib/firecrawl";
+import { sanitizeTextForDatabase } from "@/lib/utils";
 import {
   FRAGMENT_TITLE_PROMPT,
   RESPONSE_PROMPT,
@@ -677,7 +678,7 @@ export const codeAgentFunction = inngest.createFunction(
           await prisma.message.create({
             data: {
               projectId: event.data.projectId,
-              content: `📸 Taking screenshot of ${url}...`,
+              content: sanitizeTextForDatabase(`📸 Taking screenshot of ${url}...`),
               role: "ASSISTANT",
               type: "RESULT",
               status: "COMPLETE",
@@ -1156,7 +1157,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         return await prisma.message.create({
           data: {
             projectId: event.data.projectId,
-            content: "Something went wrong. Please try again.",
+            content: sanitizeTextForDatabase("Something went wrong. Please try again."),
             role: "ASSISTANT",
             type: "ERROR",
             status: "COMPLETE",
@@ -1167,15 +1168,15 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const parsedResponse = parseAgentOutput(responseOutput);
       const parsedTitle = parseAgentOutput(fragmentTitleOutput);
 
-      const metadata: Prisma.JsonObject | undefined = 
-        allScreenshots.length > 0 
-          ? { screenshots: allScreenshots } 
+      const metadata: Prisma.JsonObject | undefined =
+        allScreenshots.length > 0
+          ? { screenshots: allScreenshots }
           : undefined;
 
       return await prisma.message.create({
         data: {
           projectId: event.data.projectId,
-          content: parsedResponse ?? "Generated code is ready.",
+          content: sanitizeTextForDatabase(parsedResponse ?? "Generated code is ready."),
           role: "ASSISTANT",
           type: "RESULT",
           status: "COMPLETE",
@@ -1183,7 +1184,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
             create: {
               sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
-              title: parsedTitle ?? "Generated Fragment",
+              title: sanitizeTextForDatabase(parsedTitle ?? "Generated Fragment"),
               files: finalFiles,
               framework: toPrismaFramework(selectedFramework),
               metadata: metadata,
