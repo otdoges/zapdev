@@ -7,6 +7,7 @@ import { inngest } from "@/inngest/client";
 import { consumeCredits } from "@/lib/usage";
 import { protectedProcedure, createTRPCRouter } from "@/trpc/init";
 import { getAgentEventName } from "@/lib/agent-mode";
+import { sanitizeTextForDatabase } from "@/lib/utils";
 
 export const projectsRouter = createTRPCRouter({
   getOne: protectedProcedure
@@ -86,6 +87,12 @@ export const projectsRouter = createTRPCRouter({
         }
       }
 
+      const sanitizedContent = sanitizeTextForDatabase(input.value);
+
+      if (sanitizedContent.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Message cannot be empty." });
+      }
+
       const createdProject = await prisma.project.create({
         data: {
           userId: ctx.auth.userId,
@@ -94,7 +101,7 @@ export const projectsRouter = createTRPCRouter({
           }),
           Message: {
             create: {
-              content: input.value,
+              content: sanitizedContent,
               role: "USER",
               type: "RESULT",
             }
@@ -105,7 +112,7 @@ export const projectsRouter = createTRPCRouter({
       await inngest.send({
         name: getAgentEventName(),
         data: {
-          value: input.value,
+          value: sanitizedContent,
           projectId: createdProject.id,
         },
       });

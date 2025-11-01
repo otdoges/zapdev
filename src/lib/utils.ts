@@ -92,7 +92,7 @@ export function convertFilesToTreeItems(
  */
 export function sanitizeTextForDatabase(text: string): string {
   if (typeof text !== 'string') {
-    return text;
+    return '';
   }
   // Remove all NULL bytes from the string
   return text.replace(/\u0000/g, '');
