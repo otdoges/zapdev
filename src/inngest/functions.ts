@@ -6,7 +6,6 @@ import { inspect } from "util";
 
 import { prisma } from "@/lib/db";
 import { crawlUrl, type CrawledContent } from "@/lib/firecrawl";
-import { sanitizeTextForDatabase } from "@/lib/utils";
 import {
   FRAGMENT_TITLE_PROMPT,
   RESPONSE_PROMPT,
@@ -678,7 +677,7 @@ export const codeAgentFunction = inngest.createFunction(
           await prisma.message.create({
             data: {
               projectId: event.data.projectId,
-              content: sanitizeTextForDatabase(`📸 Taking screenshot of ${url}...`),
+              content: `📸 Taking screenshot of ${url}...`,
               role: "ASSISTANT",
               type: "RESULT",
               status: "COMPLETE",
@@ -1157,7 +1156,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         return await prisma.message.create({
           data: {
             projectId: event.data.projectId,
-            content: sanitizeTextForDatabase("Something went wrong. Please try again."),
+            content: "Something went wrong. Please try again.",
             role: "ASSISTANT",
             type: "ERROR",
             status: "COMPLETE",
@@ -1176,7 +1175,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       return await prisma.message.create({
         data: {
           projectId: event.data.projectId,
-          content: sanitizeTextForDatabase(parsedResponse ?? "Generated code is ready."),
+          content: parsedResponse ?? "Generated code is ready.",
           role: "ASSISTANT",
           type: "RESULT",
           status: "COMPLETE",
@@ -1184,7 +1183,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
             create: {
               sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
-              title: sanitizeTextForDatabase(parsedTitle ?? "Generated Fragment"),
+              title: parsedTitle ?? "Generated Fragment",
               files: finalFiles,
               framework: toPrismaFramework(selectedFramework),
               metadata: metadata,

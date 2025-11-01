@@ -6,7 +6,6 @@ import { inngest } from "@/inngest/client";
 import { protectedProcedure, createTRPCRouter } from "@/trpc/init";
 import { consumeCredits } from "@/lib/usage";
 import { getAgentEventName } from "@/lib/agent-mode";
-import { sanitizeTextForDatabase } from "@/lib/utils";
 
 export const messagesRouter = createTRPCRouter({
   getMany: protectedProcedure
@@ -76,13 +75,10 @@ export const messagesRouter = createTRPCRouter({
         }
       }
 
-      // Sanitize user input to remove NULL bytes which are not supported by PostgreSQL
-      const sanitizedValue = sanitizeTextForDatabase(input.value);
-
       const createdMessage = await prisma.message.create({
         data: {
           projectId: existingProject.id,
-          content: sanitizedValue,
+          content: input.value,
           role: "USER",
           type: "RESULT",
           status: "COMPLETE",
@@ -103,7 +99,7 @@ export const messagesRouter = createTRPCRouter({
       await inngest.send({
         name: getAgentEventName(),
         data: {
-          value: sanitizedValue,
+          value: input.value,
           projectId: input.projectId,
         },
       });
