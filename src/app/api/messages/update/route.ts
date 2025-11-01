@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { sanitizeTextForDatabase } from "@/lib/utils";
 
 type UpdateMessageRequestBody = {
   messageId: string;
@@ -51,6 +52,15 @@ export async function PATCH(request: Request) {
 
     const { messageId, content, status } = body;
 
+    const sanitizedContent = sanitizeTextForDatabase(content);
+
+    if (sanitizedContent.length === 0) {
+      return NextResponse.json(
+        { error: "Message cannot be empty." },
+        { status: 400 },
+      );
+    }
+
     const message = await prisma.message.findUnique({
       where: { id: messageId },
       include: {
@@ -68,7 +78,7 @@ export async function PATCH(request: Request) {
     const updatedMessage = await prisma.message.update({
       where: { id: messageId },
       data: {
-        content,
+        content: sanitizedContent,
         status: status || "STREAMING",
       },
     });
