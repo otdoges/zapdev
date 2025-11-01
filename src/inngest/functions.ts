@@ -20,6 +20,7 @@ import {
 import { inngest } from "./client";
 import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
 import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
+import { sanitizeTextForDatabase } from "@/lib/utils";
 // Multi-agent workflow removed; only single code agent is used.
 
 type SandboxWithHost = Sandbox & {
@@ -674,10 +675,13 @@ export const codeAgentFunction = inngest.createFunction(
 
       try {
         for (const url of urls) {
+          const content = sanitizeTextForDatabase(`📸 Taking screenshot of ${url}...`);
+          const messageContent = content.length > 0 ? content : "Taking screenshot...";
+
           await prisma.message.create({
             data: {
               projectId: event.data.projectId,
-              content: `📸 Taking screenshot of ${url}...`,
+              content: messageContent,
               role: "ASSISTANT",
               type: "RESULT",
               status: "COMPLETE",
@@ -1153,10 +1157,13 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     await step.run("save-result", async () => {
       if (isError) {
+        const errorContent = sanitizeTextForDatabase("Something went wrong. Please try again.");
+        const messageContent = errorContent.length > 0 ? errorContent : "An unexpected error occurred.";
+
         return await prisma.message.create({
           data: {
             projectId: event.data.projectId,
-            content: "Something went wrong. Please try again.",
+            content: messageContent,
             role: "ASSISTANT",
             type: "ERROR",
             status: "COMPLETE",
@@ -1167,6 +1174,16 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const parsedResponse = parseAgentOutput(responseOutput);
       const parsedTitle = parseAgentOutput(fragmentTitleOutput);
 
+      const sanitizedResponse = sanitizeTextForDatabase(parsedResponse ?? "");
+      const responseContent = sanitizedResponse.length > 0
+        ? sanitizedResponse
+        : "Generated code is ready.";
+
+      const sanitizedTitle = sanitizeTextForDatabase(parsedTitle ?? "");
+      const fragmentTitle = sanitizedTitle.length > 0
+        ? sanitizedTitle
+        : "Generated Fragment";
+
       const metadata: Prisma.JsonObject | undefined =
         allScreenshots.length > 0
           ? { screenshots: allScreenshots }
@@ -1175,7 +1192,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       return await prisma.message.create({
         data: {
           projectId: event.data.projectId,
-          content: parsedResponse ?? "Generated code is ready.",
+          content: responseContent,
           role: "ASSISTANT",
           type: "RESULT",
           status: "COMPLETE",
@@ -1183,7 +1200,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
             create: {
               sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
-              title: parsedTitle ?? "Generated Fragment",
+              title: fragmentTitle,
               files: finalFiles,
               framework: toPrismaFramework(selectedFramework),
               metadata: metadata,
