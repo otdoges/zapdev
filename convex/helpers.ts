@@ -27,19 +27,6 @@ export async function requireAuth(
 }
 
 /**
- * Get the current user from the database
- */
-export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
-  const clerkId = await getCurrentUserClerkId(ctx);
-  if (!clerkId) return null;
-
-  return await ctx.db
-    .query("users")
-    .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
-    .first();
-}
-
-/**
  * Check if user has pro access based on Clerk custom claims
  */
 export function hasProAccess(identity: any): boolean {

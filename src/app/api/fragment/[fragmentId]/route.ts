@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-
-import { prisma } from "@/lib/db";
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 export async function GET(
   request: Request,
@@ -8,10 +9,9 @@ export async function GET(
 ) {
   try {
     const { fragmentId } = await params;
-    const fragment = await prisma.fragment.findUnique({
-      where: {
-        id: fragmentId,
-      },
+
+    const fragment = await fetchQuery(api.messages.getFragmentById, {
+      fragmentId: fragmentId as Id<"fragments">
     });
 
     if (!fragment) {

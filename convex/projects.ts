@@ -1,7 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, action } from "./_generated/server";
 import { requireAuth } from "./helpers";
 import { frameworkEnum } from "./schema";
+import { api } from "./_generated/api";
 
 /**
  * Create a new project
@@ -28,7 +29,57 @@ export const create = mutation({
 });
 
 /**
- * Get all projects for the current user
+ * Create a project with initial message (for new project flow)
+ * This replaces the tRPC create procedure
+ */
+export const createWithMessage = action({
+  args: {
+    value: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check and consume credit first
+    const creditResult = await ctx.runQuery(api.usage.getUsage);
+    if (creditResult.creditsRemaining <= 0) {
+      throw new Error("You have run out of credits");
+    }
+
+    // Consume the credit
+    await ctx.runMutation(api.usage.checkAndConsumeCredit);
+
+    // Generate a random project name (mimicking generateSlug from random-word-slugs)
+    const adjectives = ["happy", "sunny", "clever", "bright", "swift", "bold", "calm", "eager"];
+    const nouns = ["project", "app", "site", "tool", "platform", "system", "portal", "hub"];
+    const randomName = `${adjectives[Math.floor(Math.random() * adjectives.length)]}-${nouns[Math.floor(Math.random() * nouns.length)]}`;
+
+    // Create the project (we'll default to nextjs, framework detection can be added later)
+    const projectId = await ctx.runMutation(api.projects.create, {
+      name: randomName,
+      framework: "nextjs",
+    });
+
+    // Create the initial message
+    const messageId = await ctx.runMutation(api.messages.create, {
+      projectId,
+      content: args.value,
+      role: "USER",
+      type: "RESULT",
+      status: "COMPLETE",
+    });
+
+    // Get the project to return
+    const project = await ctx.runQuery(api.projects.get, { projectId });
+
+    return {
+      id: projectId,
+      ...project,
+      messageId,
+      value: args.value
+    };
+  },
+});
+
+/**
+ * Get all projects for the current user with preview attachment
  */
 export const list = query({
   args: {},
@@ -41,7 +92,40 @@ export const list = query({
       .order("desc")
       .collect();
 
-    return projects;
+    // For each project, get the latest message and its preview attachment
+    const projectsWithPreview = await Promise.all(
+      projects.map(async (project) => {
+        // Get latest message for this project
+        const latestMessage = await ctx.db
+          .query("messages")
+          .withIndex("by_projectId_createdAt", (q) => q.eq("projectId", project._id))
+          .order("desc")
+          .first();
+
+        let previewAttachment = null;
+        if (latestMessage) {
+          // Get image attachments for the latest message
+          const attachments = await ctx.db
+            .query("attachments")
+            .withIndex("by_messageId", (q) => q.eq("messageId", latestMessage._id))
+            .collect();
+
+          // Find the most recent IMAGE attachment
+          const imageAttachments = attachments
+            .filter(att => att.type === "IMAGE")
+            .sort((a, b) => b.createdAt - a.createdAt);
+
+          previewAttachment = imageAttachments[0] ?? null;
+        }
+
+        return {
+          ...project,
+          previewAttachment,
+        };
+      })
+    );
+
+    return projectsWithPreview;
   },
 });
 

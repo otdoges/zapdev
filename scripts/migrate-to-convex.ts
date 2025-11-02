@@ -89,7 +89,7 @@ async function migrate() {
     console.log(`   Found ${projects.length} projects`);
 
     for (const project of projects) {
-      const result = await convex.mutation(api.importData.importProject, {
+      const result = await convex.action(api.importData.importProjectAction, {
         oldId: project.id,
         name: project.name,
         userId: project.userId,
@@ -114,7 +114,7 @@ async function migrate() {
         continue;
       }
 
-      const result = await convex.mutation(api.importData.importMessage, {
+      const result = await convex.action(api.importData.importMessageAction, {
         oldId: message.id,
         content: message.content,
         role: message.role,
@@ -145,7 +145,7 @@ async function migrate() {
       const files = safeJsonParse(fragment.files, {});
       const metadata = safeJsonParse(fragment.metadata);
 
-      await convex.mutation(api.importData.importFragment, {
+      await convex.action(api.importData.importFragmentAction, {
         oldId: fragment.id,
         oldMessageId: fragment.messageId,
         newMessageId,
@@ -176,7 +176,7 @@ async function migrate() {
 
       const files = safeJsonParse(draft.files, {});
 
-      await convex.mutation(api.importData.importFragmentDraft, {
+      await convex.action(api.importData.importFragmentDraftAction, {
         oldId: draft.id,
         oldProjectId: draft.projectId,
         newProjectId,
@@ -203,7 +203,7 @@ async function migrate() {
         continue;
       }
 
-      await convex.mutation(api.importData.importAttachment, {
+      await convex.action(api.importData.importAttachmentAction, {
         oldId: attachment.id,
         type: attachment.type,
         url: attachment.url,
@@ -226,7 +226,7 @@ async function migrate() {
 
     for (const record of usage) {
       const userId = extractUserIdFromKey(record.key);
-      await convex.mutation(api.importData.importUsage, {
+      await convex.action(api.importData.importUsageAction, {
         key: record.key,
         userId,
         points: parseInt(record.points, 10),

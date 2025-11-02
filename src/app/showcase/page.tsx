@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Star, GitBranch, Clock, Users } from 'lucide-react';
-import { prisma } from '@/lib/db';
 import { formatDistanceToNow } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +33,11 @@ export const metadata: Metadata = generateSEOMetadata({
 });
 
 async function getShowcaseProjects() {
-  const projects = await prisma.project.findMany({
+  // TODO: Re-implement with Convex queries
+  // This would require querying all projects, then filtering for those with fragments
+  return [];
+
+  /* const projects = await prisma.project.findMany({
     where: {
       Message: {
         some: {
@@ -78,7 +81,7 @@ async function getShowcaseProjects() {
     createdAt: project.createdAt,
     messageCount: project._count.Message,
     hasFragment: project.Message.length > 0
-  }));
+  })); */
 }
 
 const frameworkDetails = {

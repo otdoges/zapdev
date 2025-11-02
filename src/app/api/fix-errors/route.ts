@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/db";
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { inngest } from "@/inngest/client";
 
 type FixErrorsRequestBody = {
@@ -47,30 +48,27 @@ export async function POST(request: Request) {
 
     const { fragmentId } = body;
 
-    const fragment = await prisma.fragment.findUnique({
-      where: { id: fragmentId },
-      include: {
-        Message: {
-          include: {
-            Project: true,
-          },
+    try {
+      const result = await fetchQuery(api.messages.getFragmentByIdAuth, {
+        fragmentId: fragmentId as Id<"fragments">
+      });
+
+      // If query succeeds, user is authorized
+      await inngest.send({
+        name: "error-fix/run",
+        data: {
+          fragmentId,
         },
-      },
-    });
-
-    if (!fragment || fragment.Message?.Project?.userId !== userId) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Unauthorized")) {
+        return NextResponse.json(
+          { error: "Forbidden" },
+          { status: 403 }
+        );
+      }
+      throw error;
     }
-
-    await inngest.send({
-      name: "error-fix/run",
-      data: {
-        fragmentId,
-      },
-    });
 
     return NextResponse.json({
       success: true,

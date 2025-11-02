@@ -92,19 +92,29 @@ export const getUsage = query({
 
     // If no usage or expired, return max points
     if (!usage || (usage.expire && usage.expire < now)) {
+      const expire = now + DURATION_MS;
       return {
         points: maxPoints,
         maxPoints,
-        expire: now + DURATION_MS,
+        expire,
         planType: isPro ? "pro" : "free",
+        // Aliases for compatibility
+        remainingPoints: maxPoints,
+        creditsRemaining: maxPoints,
+        msBeforeNext: DURATION_MS,
       };
     }
 
+    const expire = usage.expire || now + DURATION_MS;
     return {
       points: usage.points,
       maxPoints,
-      expire: usage.expire || now + DURATION_MS,
+      expire,
       planType: usage.planType || (isPro ? "pro" : "free"),
+      // Aliases for compatibility
+      remainingPoints: usage.points,
+      creditsRemaining: usage.points,
+      msBeforeNext: expire - now,
     };
   },
 });

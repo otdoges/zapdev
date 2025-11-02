@@ -6,7 +6,6 @@ import { useAuth } from "@clerk/nextjs";
 import { Suspense, useState } from "react";
 import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
 
-import { Fragment } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

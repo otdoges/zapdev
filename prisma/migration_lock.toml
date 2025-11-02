@@ -1,2 +1,0 @@
-# This file is used to lock the provider when running migrations.
-provider = "postgresql"
