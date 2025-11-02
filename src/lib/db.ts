@@ -6,26 +6,48 @@ const globalForPrisma = global as unknown as {
 }
 
 const createPrismaClient = () => {
-  const client = new PrismaClient();
-
-  client.$use(async (params, next) => {
-    if (params.action === 'create' || params.action === 'update' || params.action === 'upsert') {
-      if (params.args.data) {
-        params.args.data = sanitizeJsonForDatabase(params.args.data);
-      }
-    }
-
-    if (params.action === 'createMany' || params.action === 'updateMany') {
-      if (params.args.data) {
-        if (Array.isArray(params.args.data)) {
-          params.args.data = params.args.data.map(item => sanitizeJsonForDatabase(item));
-        } else {
-          params.args.data = sanitizeJsonForDatabase(params.args.data);
-        }
-      }
-    }
-
-    return next(params);
+  const client = new PrismaClient().$extends({
+    query: {
+      $allModels: {
+        async create({ args, query }) {
+          if (args.data) {
+            args.data = sanitizeJsonForDatabase(args.data);
+          }
+          return query(args);
+        },
+        async update({ args, query }) {
+          if (args.data) {
+            args.data = sanitizeJsonForDatabase(args.data);
+          }
+          return query(args);
+        },
+        async upsert({ args, query }) {
+          if (args.create) {
+            args.create = sanitizeJsonForDatabase(args.create);
+          }
+          if (args.update) {
+            args.update = sanitizeJsonForDatabase(args.update);
+          }
+          return query(args);
+        },
+        async createMany({ args, query }) {
+          if (args.data) {
+            if (Array.isArray(args.data)) {
+              args.data = args.data.map(item => sanitizeJsonForDatabase(item));
+            } else {
+              args.data = sanitizeJsonForDatabase(args.data);
+            }
+          }
+          return query(args);
+        },
+        async updateMany({ args, query }) {
+          if (args.data) {
+            args.data = sanitizeJsonForDatabase(args.data);
+          }
+          return query(args);
+        },
+      },
+    },
   });
 
   return client;
