@@ -20,7 +20,7 @@ import {
 import { inngest } from "./client";
 import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
 import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
-import { sanitizeTextForDatabase } from "@/lib/utils";
+import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
 // Multi-agent workflow removed; only single code agent is used.
 
 type SandboxWithHost = Sandbox & {
@@ -1184,10 +1184,14 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         ? sanitizedTitle
         : "Generated Fragment";
 
+      const sanitizedFiles = sanitizeJsonForDatabase(finalFiles);
+
       const metadata: Prisma.JsonObject | undefined =
         allScreenshots.length > 0
           ? { screenshots: allScreenshots }
           : undefined;
+
+      const sanitizedMetadata = metadata ? sanitizeJsonForDatabase(metadata) : undefined;
 
       return await prisma.message.create({
         data: {
@@ -1201,9 +1205,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
               sandboxId: sandboxId,
               sandboxUrl: sandboxUrl,
               title: fragmentTitle,
-              files: finalFiles,
+              files: sanitizedFiles,
               framework: toPrismaFramework(selectedFramework),
-              metadata: metadata,
+              metadata: sanitizedMetadata,
             },
           },
         },
@@ -1509,25 +1513,27 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         console.log("[DEBUG] Backing up original files before applying fixes");
         const metadata: Prisma.JsonObject = {
           ...initialMetadata,
-          previousFiles: originalFiles,
+          previousFiles: sanitizeJsonForDatabase(originalFiles),
           fixedAt: new Date().toISOString(),
         };
+
+        const sanitizedMetadata = sanitizeJsonForDatabase(metadata);
 
         await prisma.fragment.update({
           where: { id: event.data.fragmentId },
           data: {
-            metadata,
+            metadata: sanitizedMetadata,
           } as Prisma.FragmentUpdateInput,
         });
 
-        return metadata;
+        return sanitizedMetadata;
       });
 
       await step.run("update-fragment-files", async () => {
         const metadataUpdate = supportsMetadata
           ? ({
               ...((backupMetadata ?? initialMetadata) as Prisma.JsonObject),
-              previousFiles: originalFiles,
+              previousFiles: sanitizeJsonForDatabase(originalFiles),
               fixedAt: new Date().toISOString(),
               lastFixSuccess: {
                 summary: result.state.data.summary,
@@ -1536,13 +1542,16 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
             } satisfies Prisma.JsonObject)
           : null;
 
+        const sanitizedFiles = sanitizeJsonForDatabase(result.state.data.files);
+        const sanitizedMetadataUpdate = metadataUpdate ? sanitizeJsonForDatabase(metadataUpdate) : null;
+
         return await prisma.fragment.update({
           where: { id: event.data.fragmentId },
           data: {
-            files: result.state.data.files,
-            ...(metadataUpdate
+            files: sanitizedFiles,
+            ...(sanitizedMetadataUpdate
               ? {
-                  metadata: metadataUpdate,
+                  metadata: sanitizedMetadataUpdate,
                 }
               : {}),
           } as Prisma.FragmentUpdateInput,
@@ -1595,18 +1604,20 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           },
         };
 
+        const sanitizedFailureMetadata = sanitizeJsonForDatabase(failureMetadata);
+
         try {
           await prisma.fragment.update({
             where: { id: event.data.fragmentId },
             data: {
-              metadata: failureMetadata,
+              metadata: sanitizedFailureMetadata,
             } as Prisma.FragmentUpdateInput,
           });
         } catch (metadataError) {
           console.error("[ERROR] Failed to persist failure metadata:", metadataError);
         }
 
-        return failureMetadata;
+        return sanitizedFailureMetadata;
       });
 
       return {
