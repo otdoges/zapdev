@@ -6,14 +6,21 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
-import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, GitBranchIcon, FigmaIcon } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
+import { useQuery, useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 import { cn } from "@/lib/utils";
-import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { inngest } from "@/inngest/client";
+import { getAgentEventName } from "@/lib/agent-mode";
 
 import { Usage } from "./usage";
 import type { OurFileRouter } from "@/lib/uploadthing";
@@ -36,14 +43,15 @@ interface AttachmentData {
 }
 
 export const MessageForm = ({ projectId }: Props) => {
-  const trpc = useTRPC();
   const router = useRouter();
-  const queryClient = useQueryClient();
 
-  const { data: usage } = useQuery(trpc.usage.status.queryOptions());
+  const usage = useQuery(api.usage.getUsage);
+  const createMessageWithAttachments = useAction(api.messages.createWithAttachments);
 
   const [attachments, setAttachments] = useState<AttachmentData[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,46 +60,73 @@ export const MessageForm = ({ projectId }: Props) => {
     },
   });
 
-  const createMessage = useMutation(trpc.messages.create.mutationOptions({
-    onSuccess: () => {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      setIsCreating(true);
+      const result = await createMessageWithAttachments({
+        value: values.value,
+        projectId,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      });
+
+      // Trigger Inngest event for AI processing
+      await inngest.send({
+        name: getAgentEventName(),
+        data: {
+          value: result.value,
+          projectId: result.projectId,
+        },
+      });
+
       form.reset();
       setAttachments([]);
-      queryClient.invalidateQueries(
-        trpc.messages.getMany.queryOptions({ projectId }),
-      );
-      queryClient.invalidateQueries(
-        trpc.usage.status.queryOptions()
-      );
-    },
-    onError: (error) => {
-      toast.error(error.message);
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
 
-      if (error.data?.code === "TOO_MANY_REQUESTS") {
-        router.push("/pricing");
+        if (error.message.includes("credits") || error.message.includes("out of credits")) {
+          router.push("/pricing");
+        }
+      } else {
+        toast.error("Something went wrong");
       }
-    },
-  }));
-
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    await createMessage.mutateAsync({
-      value: values.value,
-      projectId,
-      attachments: attachments.length > 0 ? attachments : undefined,
-    });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const removeAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleFigmaImport = async () => {
+    setIsImportMenuOpen(false);
+    try {
+      // Navigate to Figma OAuth flow
+      window.location.href = "/api/import/figma/auth";
+    } catch (error) {
+      toast.error("Failed to start Figma import");
+    }
+  };
+
+  const handleGitHubImport = async () => {
+    setIsImportMenuOpen(false);
+    try {
+      // Navigate to GitHub OAuth flow
+      window.location.href = "/api/import/github/auth";
+    } catch (error) {
+      toast.error("Failed to start GitHub import");
+    }
+  };
+
   const [isFocused, setIsFocused] = useState(false);
-  const isPending = createMessage.isPending;
+  const isPending = isCreating;
   const isButtonDisabled = isPending || !form.formState.isValid || isUploading;
   const showUsage = !!usage;
 
   return (
     <Form {...form}>
-      {showUsage && (
+      {showUsage && usage && (
         <Usage
           points={usage.remainingPoints}
           msBeforeNext={usage.msBeforeNext}
@@ -183,6 +218,39 @@ export const MessageForm = ({ projectId }: Props) => {
                 ),
               }}
             />
+            <Popover open={isImportMenuOpen} onOpenChange={setIsImportMenuOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  type="button"
+                  disabled={isPending || isUploading}
+                >
+                  <DownloadIcon className="size-4 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" align="start">
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleFigmaImport}
+                    className="flex items-center gap-2 w-full px-3 py-2 rounded-md hover:bg-accent text-left text-sm"
+                  >
+                    <FigmaIcon className="size-4" />
+                    <span>Import from Figma</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGitHubImport}
+                    className="flex items-center gap-2 w-full px-3 py-2 rounded-md hover:bg-accent text-left text-sm"
+                  >
+                    <GitBranchIcon className="size-4" />
+                    <span>Import from GitHub</span>
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <div className="text-[10px] text-muted-foreground font-mono">
               <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                 <span>&#8984;</span>Enter
