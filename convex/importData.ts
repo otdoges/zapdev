@@ -1,5 +1,6 @@
-import { internalMutation } from "./_generated/server";
+import { internalMutation, action } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 /**
  * Import a project from PostgreSQL CSV export
@@ -263,5 +264,121 @@ export const clearAllData = internalMutation({
     }
 
     return { success: true, message: "All data cleared" };
+  },
+});
+
+// Public action wrappers for HTTP client access
+export const importProjectAction = action({
+  args: {
+    oldId: v.string(),
+    name: v.string(),
+    userId: v.string(),
+    framework: v.union(
+      v.literal("NEXTJS"),
+      v.literal("ANGULAR"),
+      v.literal("REACT"),
+      v.literal("VUE"),
+      v.literal("SVELTE")
+    ),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ oldId: string; newId: any }> => {
+    return await ctx.runMutation(internal.importData.importProject, args);
+  },
+});
+
+export const importMessageAction = action({
+  args: {
+    oldId: v.string(),
+    content: v.string(),
+    role: v.union(v.literal("USER"), v.literal("ASSISTANT")),
+    type: v.union(v.literal("RESULT"), v.literal("ERROR"), v.literal("STREAMING")),
+    status: v.union(v.literal("PENDING"), v.literal("STREAMING"), v.literal("COMPLETE")),
+    oldProjectId: v.string(),
+    newProjectId: v.id("projects"),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ oldId: string; newId: any }> => {
+    return await ctx.runMutation(internal.importData.importMessage, args);
+  },
+});
+
+export const importFragmentAction = action({
+  args: {
+    oldId: v.string(),
+    oldMessageId: v.string(),
+    newMessageId: v.id("messages"),
+    sandboxId: v.optional(v.string()),
+    sandboxUrl: v.string(),
+    title: v.string(),
+    files: v.any(),
+    metadata: v.optional(v.any()),
+    framework: v.union(
+      v.literal("NEXTJS"),
+      v.literal("ANGULAR"),
+      v.literal("REACT"),
+      v.literal("VUE"),
+      v.literal("SVELTE")
+    ),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ oldId: string; newId: any }> => {
+    return await ctx.runMutation(internal.importData.importFragment, args);
+  },
+});
+
+export const importFragmentDraftAction = action({
+  args: {
+    oldId: v.string(),
+    oldProjectId: v.string(),
+    newProjectId: v.id("projects"),
+    sandboxId: v.optional(v.string()),
+    sandboxUrl: v.optional(v.string()),
+    files: v.any(),
+    framework: v.union(
+      v.literal("NEXTJS"),
+      v.literal("ANGULAR"),
+      v.literal("REACT"),
+      v.literal("VUE"),
+      v.literal("SVELTE")
+    ),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ oldId: string; newId: any }> => {
+    return await ctx.runMutation(internal.importData.importFragmentDraft, args);
+  },
+});
+
+export const importAttachmentAction = action({
+  args: {
+    oldId: v.string(),
+    type: v.union(v.literal("IMAGE")),
+    url: v.string(),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    size: v.number(),
+    oldMessageId: v.string(),
+    newMessageId: v.id("messages"),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ oldId: string; newId: any }> => {
+    return await ctx.runMutation(internal.importData.importAttachment, args);
+  },
+});
+
+export const importUsageAction = action({
+  args: {
+    key: v.string(),
+    userId: v.string(),
+    points: v.number(),
+    expire: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ userId: string; newId: any }> => {
+    return await ctx.runMutation(internal.importData.importUsage, args);
   },
 });

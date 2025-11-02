@@ -3,11 +3,10 @@ import { ExternalLinkIcon, RefreshCcwIcon, DownloadIcon } from "lucide-react";
 import JSZip from "jszip";
 
 import { Hint } from "@/components/hint";
-import { Fragment } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 
 interface Props {
-  data: Fragment;
+  data: any; // Fragment from Convex
 };
 
 export function FragmentWeb({ data }: Props) {
