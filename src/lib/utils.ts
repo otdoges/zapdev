@@ -97,3 +97,66 @@ export function sanitizeTextForDatabase(text: string): string {
   // Remove all NULL bytes from the string
   return text.replace(/\u0000/g, '');
 }
+
+/**
+ * Recursively sanitizes a JSON object by removing NULL bytes from all string values.
+ * This handles nested objects and arrays to ensure PostgreSQL compatibility.
+ *
+ * @param obj - The object to sanitize
+ * @returns A new object with all string values sanitized
+ *
+ * @example
+ * sanitizeJsonForDatabase({ name: "Hello\u0000World", nested: { value: "Test\u0000" } })
+ * // returns { name: "HelloWorld", nested: { value: "Test" } }
+ */
+export function sanitizeJsonForDatabase<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (typeof obj === 'string') {
+    return sanitizeTextForDatabase(obj) as T;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeJsonForDatabase(item)) as T;
+  }
+
+  if (typeof obj === 'object') {
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      sanitized[key] = sanitizeJsonForDatabase(value);
+    }
+    return sanitized as T;
+  }
+
+  return obj;
+}
+
+/**
+ * Universal sanitizer that handles any data type - strings, objects, arrays, or primitives.
+ * Automatically detects the type and applies appropriate sanitization.
+ *
+ * @param value - Any value to sanitize
+ * @returns The sanitized value
+ *
+ * @example
+ * sanitizeAnyForDatabase("text\u0000") // returns "text"
+ * sanitizeAnyForDatabase({ files: { "app.ts": "code\u0000" } }) // sanitizes nested object
+ * sanitizeAnyForDatabase(123) // returns 123 unchanged
+ */
+export function sanitizeAnyForDatabase<T>(value: T): T {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    return sanitizeTextForDatabase(value) as T;
+  }
+
+  if (typeof value === 'object') {
+    return sanitizeJsonForDatabase(value);
+  }
+
+  return value;
+}

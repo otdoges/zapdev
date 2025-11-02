@@ -24,7 +24,7 @@ import {
 import { inngest } from "./client";
 import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
 import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
-import { sanitizeTextForDatabase } from "@/lib/utils";
+import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
 // Multi-agent workflow removed; only single code agent is used.
 
 type SandboxWithHost = Sandbox & {
@@ -1507,7 +1507,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         console.log("[DEBUG] Backing up original files before applying fixes");
         const metadata: any = {
           ...initialMetadata,
-          previousFiles: originalFiles,
+          previousFiles: sanitizeJsonForDatabase(originalFiles),
           fixedAt: new Date().toISOString(),
         };
 
