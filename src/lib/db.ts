@@ -33,7 +33,7 @@ const createPrismaClient = () => {
         async createMany({ args, query }) {
           if (args.data) {
             if (Array.isArray(args.data)) {
-              args.data = args.data.map(item => sanitizeJsonForDatabase(item));
+              args.data = args.data.map(item => sanitizeJsonForDatabase(item)) as typeof args.data;
             } else {
               args.data = sanitizeJsonForDatabase(args.data);
             }
