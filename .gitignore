@@ -49,3 +49,6 @@ next-env.d.ts
 # Npm and Claude
 .claude
 .npm
+
+# Database exports and migrations
+/neon-thing/

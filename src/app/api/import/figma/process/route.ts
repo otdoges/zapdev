@@ -1,0 +1,87 @@
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { fetchMutation, fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+
+export async function POST(request: Request) {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { fileKey, projectId, fileName, fileUrl } = body;
+
+    if (!fileKey || !projectId || !fileName) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Get OAuth connection
+    const connection = await fetchQuery(api.oauth.getConnection, {
+      provider: "figma",
+    });
+
+    if (!connection) {
+      return NextResponse.json(
+        { error: "Figma not connected" },
+        { status: 401 }
+      );
+    }
+
+    // Fetch file details from Figma
+    const fileResponse = await fetch(
+      `https://api.figma.com/v1/files/${fileKey}`,
+      {
+        headers: {
+          Authorization: `Bearer ${connection.accessToken}`,
+        },
+      }
+    );
+
+    if (!fileResponse.ok) {
+      throw new Error("Failed to fetch Figma file details");
+    }
+
+    const fileData = await fileResponse.json();
+
+    // Create import record in Convex
+    const importRecord = await fetchMutation(api.imports.createImport, {
+      projectId,
+      source: "FIGMA",
+      sourceId: fileKey,
+      sourceName: fileName,
+      sourceUrl: fileUrl || `https://figma.com/file/${fileKey}`,
+      metadata: {
+        figmaFileData: {
+          name: fileData.name,
+          lastModified: fileData.lastModified,
+          version: fileData.version,
+          pages: fileData.pages?.length || 0,
+        },
+      },
+    });
+
+    // TODO: Trigger Inngest job to process Figma file
+    // await inngest.send({
+    //   name: "code-agent/process-figma-import",
+    //   data: { importId, projectId, fileKey }
+    // });
+
+    return NextResponse.json({
+      success: true,
+      importId: importRecord,
+      message: "Figma file import started",
+    });
+  } catch (error) {
+    console.error("Error processing Figma import:", error);
+    return NextResponse.json(
+      { error: "Failed to process Figma import" },
+      { status: 500 }
+    );
+  }
+}

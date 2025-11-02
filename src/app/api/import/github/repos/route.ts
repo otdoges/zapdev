@@ -1,0 +1,70 @@
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+
+export async function GET(request: Request) {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    // Get OAuth connection
+    const connection = await fetchQuery(api.oauth.getConnection, {
+      provider: "github",
+    });
+
+    if (!connection) {
+      return NextResponse.json(
+        { error: "GitHub not connected" },
+        { status: 401 }
+      );
+    }
+
+    // Fetch repositories from GitHub API
+    const response = await fetch(
+      "https://api.github.com/user/repos?per_page=100&sort=updated",
+      {
+        headers: {
+          Authorization: `Bearer ${connection.accessToken}`,
+          "User-Agent": "ZapDev",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Token might be expired or revoked
+        return NextResponse.json(
+          { error: "GitHub token invalid, please reconnect" },
+          { status: 401 }
+        );
+      }
+      throw new Error("Failed to fetch GitHub repositories");
+    }
+
+    const repos = await response.json();
+
+    return NextResponse.json({
+      repositories: repos.map((repo: any) => ({
+        id: repo.id,
+        name: repo.name,
+        fullName: repo.full_name,
+        description: repo.description,
+        url: repo.html_url,
+        private: repo.private,
+        language: repo.language,
+        updatedAt: repo.updated_at,
+        starsCount: repo.stargazers_count,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching GitHub repositories:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch GitHub repositories" },
+      { status: 500 }
+    );
+  }
+}
