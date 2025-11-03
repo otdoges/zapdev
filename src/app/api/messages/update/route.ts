@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/db";
+import { fetchMutation } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { sanitizeTextForDatabase } from "@/lib/utils";
 
 type UpdateMessageRequestBody = {
@@ -61,32 +63,26 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const message = await prisma.message.findUnique({
-      where: { id: messageId },
-      include: {
-        Project: true,
-      },
-    });
-
-    if (!message || message.Project.userId !== userId) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
-    }
-
-    const updatedMessage = await prisma.message.update({
-      where: { id: messageId },
-      data: {
+    try {
+      const updatedMessage = await fetchMutation(api.messages.updateMessage, {
+        messageId: messageId as Id<"messages">,
         content: sanitizedContent,
         status: status || "STREAMING",
-      },
-    });
+      });
 
-    return NextResponse.json({
-      success: true,
-      message: updatedMessage,
-    });
+      return NextResponse.json({
+        success: true,
+        message: updatedMessage,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Unauthorized")) {
+        return NextResponse.json(
+          { error: "Forbidden" },
+          { status: 403 }
+        );
+      }
+      throw error;
+    }
   } catch (error) {
     console.error("[ERROR] Failed to update message:", error);
     return NextResponse.json(

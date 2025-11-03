@@ -40,7 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/src/generated/prisma
 .inngest/
 
 # Sentry Config File
@@ -49,3 +48,6 @@ next-env.d.ts
 # Npm and Claude
 .claude
 .npm
+
+# Database exports and migrations
+/neon-thing/

@@ -1,0 +1,90 @@
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { fetchMutation, fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+
+export async function POST(request: Request) {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { repoId, repoName, repoFullName, repoUrl, projectId } = body;
+
+    if (!repoId || !projectId || !repoName || !repoFullName) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Get OAuth connection
+    const connection = await fetchQuery(api.oauth.getConnection, {
+      provider: "github",
+    });
+
+    if (!connection) {
+      return NextResponse.json(
+        { error: "GitHub not connected" },
+        { status: 401 }
+      );
+    }
+
+    // Fetch repository details
+    const repoResponse = await fetch(
+      `https://api.github.com/repos/${repoFullName}`,
+      {
+        headers: {
+          Authorization: `Bearer ${connection.accessToken}`,
+          "User-Agent": "ZapDev",
+        },
+      }
+    );
+
+    if (!repoResponse.ok) {
+      throw new Error("Failed to fetch GitHub repository details");
+    }
+
+    const repoData = await repoResponse.json();
+
+    // Create import record in Convex
+    const importRecord = await fetchMutation(api.imports.createImport, {
+      projectId,
+      source: "GITHUB",
+      sourceId: repoId.toString(),
+      sourceName: repoName,
+      sourceUrl: repoUrl || repoData.html_url,
+      metadata: {
+        githubRepoData: {
+          fullName: repoData.full_name,
+          description: repoData.description,
+          language: repoData.language,
+          defaultBranch: repoData.default_branch,
+          topics: repoData.topics || [],
+          isPrivate: repoData.private,
+        },
+      },
+    });
+
+    // TODO: Trigger Inngest job to process GitHub import
+    // await inngest.send({
+    //   name: "code-agent/process-github-import",
+    //   data: { importId, projectId, repoFullName, repoUrl }
+    // });
+
+    return NextResponse.json({
+      success: true,
+      importId: importRecord,
+      message: "GitHub repository import started",
+    });
+  } catch (error) {
+    console.error("Error processing GitHub import:", error);
+    return NextResponse.json(
+      { error: "Failed to process GitHub import" },
+      { status: 500 }
+    );
+  }
+}
