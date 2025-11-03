@@ -1,14 +1,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "next-themes";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
   SunMoonIcon,
 } from "lucide-react";
 
-import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,12 +30,15 @@ interface Props {
 }
 
 export const ProjectHeader = ({ projectId }: Props) => {
-  const trpc = useTRPC();
-  const { data: project } = useSuspenseQuery(
-    trpc.projects.getOne.queryOptions({ id: projectId })
-  );
+  const project = useQuery(api.projects.get, {
+    projectId: projectId as Id<"projects">
+  });
 
   const { setTheme, theme } = useTheme();
+
+  if (!project) {
+    return <header className="p-2 flex justify-between items-center border-b">Loading...</header>;
+  }
 
   return (
     <header className="p-2 flex justify-between items-center border-b">

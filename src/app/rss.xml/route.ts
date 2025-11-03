@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
 import { getAllFrameworks } from '@/lib/frameworks';
 
 function escapeXml(unsafe: string): string {
@@ -15,23 +14,9 @@ export async function GET() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zapdev.link';
   
   try {
-    const [projects, frameworks] = await Promise.all([
-      prisma.project.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: {
-          Message: {
-            where: {
-              Fragment: {
-                isNot: null
-              }
-            },
-            take: 1
-          }
-        }
-      }),
-      Promise.resolve(getAllFrameworks())
-    ]);
+    // TODO: Re-implement project fetching with Convex
+    const projects: any[] = [];
+    const frameworks = getAllFrameworks();
 
     const rssItems = [
       // Framework pages

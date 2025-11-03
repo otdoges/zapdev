@@ -1,0 +1,289 @@
+import { v } from "convex/values";
+import { mutation, query, action } from "./_generated/server";
+import { requireAuth } from "./helpers";
+import { frameworkEnum } from "./schema";
+import { api } from "./_generated/api";
+
+/**
+ * Create a new project
+ */
+export const create = mutation({
+  args: {
+    name: v.string(),
+    framework: frameworkEnum,
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const now = Date.now();
+
+    const projectId = await ctx.db.insert("projects", {
+      name: args.name,
+      userId,
+      framework: args.framework,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return projectId;
+  },
+});
+
+/**
+ * Create a project with initial message (for new project flow)
+ * This replaces the tRPC create procedure
+ */
+export const createWithMessage = action({
+  args: {
+    value: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check and consume credit first
+    const creditResult = await ctx.runQuery(api.usage.getUsage);
+    if (creditResult.creditsRemaining <= 0) {
+      throw new Error("You have run out of credits");
+    }
+
+    // Consume the credit
+    await ctx.runMutation(api.usage.checkAndConsumeCredit);
+
+    // Generate a random project name (mimicking generateSlug from random-word-slugs)
+    const adjectives = ["happy", "sunny", "clever", "bright", "swift", "bold", "calm", "eager"];
+    const nouns = ["project", "app", "site", "tool", "platform", "system", "portal", "hub"];
+    const randomName = `${adjectives[Math.floor(Math.random() * adjectives.length)]}-${nouns[Math.floor(Math.random() * nouns.length)]}`;
+
+    // Create the project (we'll default to nextjs, framework detection can be added later)
+    const projectId = await ctx.runMutation(api.projects.create, {
+      name: randomName,
+      framework: "nextjs",
+    });
+
+    // Create the initial message
+    const messageId = await ctx.runMutation(api.messages.create, {
+      projectId,
+      content: args.value,
+      role: "USER",
+      type: "RESULT",
+      status: "COMPLETE",
+    });
+
+    // Get the project to return
+    const project = await ctx.runQuery(api.projects.get, { projectId });
+
+    return {
+      id: projectId,
+      ...project,
+      messageId,
+      value: args.value
+    };
+  },
+});
+
+/**
+ * Get all projects for the current user with preview attachment
+ */
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_userId_createdAt", (q) => q.eq("userId", userId))
+      .order("desc")
+      .collect();
+
+    // For each project, get the latest message and its preview attachment
+    const projectsWithPreview = await Promise.all(
+      projects.map(async (project) => {
+        // Get latest message for this project
+        const latestMessage = await ctx.db
+          .query("messages")
+          .withIndex("by_projectId_createdAt", (q) => q.eq("projectId", project._id))
+          .order("desc")
+          .first();
+
+        let previewAttachment = null;
+        if (latestMessage) {
+          // Get image attachments for the latest message
+          const attachments = await ctx.db
+            .query("attachments")
+            .withIndex("by_messageId", (q) => q.eq("messageId", latestMessage._id))
+            .collect();
+
+          // Find the most recent IMAGE attachment
+          const imageAttachments = attachments
+            .filter(att => att.type === "IMAGE")
+            .sort((a, b) => b.createdAt - a.createdAt);
+
+          previewAttachment = imageAttachments[0] ?? null;
+        }
+
+        return {
+          ...project,
+          previewAttachment,
+        };
+      })
+    );
+
+    return projectsWithPreview;
+  },
+});
+
+/**
+ * Get a single project by ID
+ */
+export const get = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    // Ensure user owns the project
+    if (project.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
+    return project;
+  },
+});
+
+/**
+ * Update a project
+ */
+export const update = mutation({
+  args: {
+    projectId: v.id("projects"),
+    name: v.optional(v.string()),
+    framework: v.optional(frameworkEnum),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    // Ensure user owns the project
+    if (project.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
+    await ctx.db.patch(args.projectId, {
+      ...(args.name && { name: args.name }),
+      ...(args.framework && { framework: args.framework }),
+      updatedAt: Date.now(),
+    });
+
+    return args.projectId;
+  },
+});
+
+/**
+ * Delete a project and all associated data (messages, fragments, etc.)
+ */
+export const deleteProject = mutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    // Ensure user owns the project
+    if (project.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Delete all messages for this project (and cascade to fragments/attachments)
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    for (const message of messages) {
+      // Delete fragments for this message
+      const fragment = await ctx.db
+        .query("fragments")
+        .withIndex("by_messageId", (q) => q.eq("messageId", message._id))
+        .first();
+      if (fragment) {
+        await ctx.db.delete(fragment._id);
+      }
+
+      // Delete attachments for this message
+      const attachments = await ctx.db
+        .query("attachments")
+        .withIndex("by_messageId", (q) => q.eq("messageId", message._id))
+        .collect();
+      for (const attachment of attachments) {
+        await ctx.db.delete(attachment._id);
+      }
+
+      // Delete the message
+      await ctx.db.delete(message._id);
+    }
+
+    // Delete fragment draft for this project
+    const fragmentDraft = await ctx.db
+      .query("fragmentDrafts")
+      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+      .first();
+    if (fragmentDraft) {
+      await ctx.db.delete(fragmentDraft._id);
+    }
+
+    // Finally, delete the project
+    await ctx.db.delete(args.projectId);
+
+    return { success: true };
+  },
+});
+
+/**
+ * Get or create fragment draft for a project
+ */
+export const getOrCreateFragmentDraft = mutation({
+  args: {
+    projectId: v.id("projects"),
+    framework: frameworkEnum,
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const existingDraft = await ctx.db
+      .query("fragmentDrafts")
+      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+      .first();
+
+    if (existingDraft) {
+      return existingDraft;
+    }
+
+    const now = Date.now();
+    const draftId = await ctx.db.insert("fragmentDrafts", {
+      projectId: args.projectId,
+      files: {},
+      framework: args.framework,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return await ctx.db.get(draftId);
+  },
+});

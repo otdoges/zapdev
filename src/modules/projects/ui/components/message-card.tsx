@@ -4,11 +4,13 @@ import { ChevronRightIcon, Code2Icon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { Fragment, MessageRole, MessageType, Attachment } from "@/generated/prisma";
+
+type MessageRole = "USER" | "ASSISTANT";
+type MessageType = "RESULT" | "STREAM";
 
 interface UserMessageProps {
   content: string;
-  attachments?: Attachment[];
+  attachments?: any[];
 }
 
 const UserMessage = ({ content, attachments }: UserMessageProps) => {
@@ -38,25 +40,25 @@ const UserMessage = ({ content, attachments }: UserMessageProps) => {
   );
 }
 
-interface FragmentCardProps {
-  fragment: Fragment;
-  isActiveFragment: boolean;
-  onFragmentClick: (fragment: Fragment) => void;
+interface anyCardProps {
+  fragment: any;
+  isActiveany: boolean;
+  onanyClick: (fragment: any) => void;
 };
 
-const FragmentCard = ({
+const anyCard = ({
   fragment,
-  isActiveFragment,
-  onFragmentClick,
-}: FragmentCardProps) => {
+  isActiveany,
+  onanyClick,
+}: anyCardProps) => {
   return (
     <button
       className={cn(
         "flex items-start text-start gap-2 border rounded-lg bg-muted w-fit p-3 hover:bg-secondary transition-colors",
-        isActiveFragment && 
+        isActiveany && 
           "bg-primary text-primary-foreground border-primary hover:bg-primary",
       )}
-      onClick={() => onFragmentClick(fragment)}
+      onClick={() => onanyClick(fragment)}
     >
       <Code2Icon className="size-4 mt-0.5" />
       <div className="flex flex-col flex-1">
@@ -74,10 +76,10 @@ const FragmentCard = ({
 
 interface AssistantMessageProps {
   content: string;
-  fragment: Fragment | null;
+  fragment: any | null;
   createdAt: Date;
-  isActiveFragment: boolean;
-  onFragmentClick: (fragment: Fragment) => void;
+  isActiveany: boolean;
+  onanyClick: (fragment: any) => void;
   type: MessageType;
 };
 
@@ -85,8 +87,8 @@ const AssistantMessage = ({
   content,
   fragment,
   createdAt,
-  isActiveFragment,
-  onFragmentClick,
+  isActiveany,
+  onanyClick,
   type,
 }: AssistantMessageProps) => {
   return (
@@ -110,10 +112,10 @@ const AssistantMessage = ({
       <div className="pl-8.5 flex flex-col gap-y-4">
         <span>{content}</span>
         {fragment && type === "RESULT" && (
-          <FragmentCard
+          <anyCard
             fragment={fragment}
-            isActiveFragment={isActiveFragment}
-            onFragmentClick={onFragmentClick}
+            isActiveany={isActiveany}
+            onanyClick={onanyClick}
           />
         )}
       </div>
@@ -124,10 +126,10 @@ const AssistantMessage = ({
 interface MessageCardProps {
   content: string;
   role: MessageRole;
-  fragment: Fragment | null;
+  fragment: any | null;
   createdAt: Date;
-  isActiveFragment: boolean;
-  onFragmentClick: (fragment: Fragment) => void;
+  isActiveany: boolean;
+  onanyClick: (fragment: any) => void;
   type: MessageType;
   attachments?: Attachment[];
 };
@@ -137,8 +139,8 @@ export const MessageCard = ({
   role,
   fragment,
   createdAt,
-  isActiveFragment,
-  onFragmentClick,
+  isActiveany,
+  onanyClick,
   type,
   attachments,
 }: MessageCardProps) => {
@@ -148,8 +150,8 @@ export const MessageCard = ({
         content={content}
         fragment={fragment}
         createdAt={createdAt}
-        isActiveFragment={isActiveFragment}
-        onFragmentClick={onFragmentClick}
+        isActiveany={isActiveany}
+        onanyClick={onanyClick}
         type={type}
       />
     )

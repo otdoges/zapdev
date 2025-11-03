@@ -1,11 +1,15 @@
 import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
 import { openai, createAgent, createTool, createNetwork, type Tool, type Message, createState, type NetworkRun } from "@inngest/agent-kit";
-import { Prisma, Framework as PrismaFramework } from "@/generated/prisma";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { inspect } from "util";
 
-import { prisma } from "@/lib/db";
 import { crawlUrl, type CrawledContent } from "@/lib/firecrawl";
+
+// Initialize Convex client for server-side operations
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 import {
   FRAGMENT_TITLE_PROMPT,
   RESPONSE_PROMPT,
@@ -242,10 +246,6 @@ const getFrameworkPrompt = (framework: Framework): string => {
     default:
       return NEXTJS_PROMPT;
   }
-};
-
-const toPrismaFramework = (framework: Framework): PrismaFramework => {
-  return framework.toUpperCase() as PrismaFramework;
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -549,8 +549,8 @@ export const codeAgentFunction = inngest.createFunction(
     
     // Get project to check if framework is already set
     const project = await step.run("get-project", async () => {
-      return await prisma.project.findUnique({
-        where: { id: event.data.projectId },
+      return await convex.query(api.projects.get, {
+        projectId: event.data.projectId as Id<"projects">,
       });
     });
 
@@ -593,9 +593,9 @@ export const codeAgentFunction = inngest.createFunction(
       
       // Update project with selected framework
       await step.run("update-project-framework", async () => {
-        return await prisma.project.update({
-          where: { id: event.data.projectId },
-          data: { framework: toPrismaFramework(selectedFramework) },
+        return await convex.mutation(api.projects.update, {
+          projectId: event.data.projectId as Id<"projects">,
+          framework: selectedFramework,
         });
       });
     } else {
@@ -640,16 +640,13 @@ export const codeAgentFunction = inngest.createFunction(
       const formattedMessages: Message[] = [];
 
       try {
-        const messages = await prisma.message.findMany({
-          where: {
-            projectId: event.data.projectId,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-          take: 3,
+        const allMessages = await convex.query(api.messages.list, {
+          projectId: event.data.projectId as Id<"projects">,
         });
-        
+
+        // Take last 3 messages for context
+        const messages = allMessages.slice(-3);
+
         console.log("[DEBUG] Found", messages.length, "previous messages");
 
         for (const message of messages) {
@@ -660,7 +657,7 @@ export const codeAgentFunction = inngest.createFunction(
           })
         }
 
-        return formattedMessages.reverse();
+        return formattedMessages;
       } catch (error) {
         console.error("[ERROR] Failed to fetch previous messages:", error);
         return [];
@@ -678,14 +675,12 @@ export const codeAgentFunction = inngest.createFunction(
           const content = sanitizeTextForDatabase(`📸 Taking screenshot of ${url}...`);
           const messageContent = content.length > 0 ? content : "Taking screenshot...";
 
-          await prisma.message.create({
-            data: {
-              projectId: event.data.projectId,
-              content: messageContent,
-              role: "ASSISTANT",
-              type: "RESULT",
-              status: "COMPLETE",
-            },
+          await convex.mutation(api.messages.create, {
+            projectId: event.data.projectId as Id<"projects">,
+            content: messageContent,
+            role: "ASSISTANT",
+            type: "RESULT",
+            status: "COMPLETE",
           });
         }
       } catch (error) {
@@ -1160,14 +1155,12 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         const errorContent = sanitizeTextForDatabase("Something went wrong. Please try again.");
         const messageContent = errorContent.length > 0 ? errorContent : "An unexpected error occurred.";
 
-        return await prisma.message.create({
-          data: {
-            projectId: event.data.projectId,
-            content: messageContent,
-            role: "ASSISTANT",
-            type: "ERROR",
-            status: "COMPLETE",
-          },
+        return await convex.mutation(api.messages.create, {
+          projectId: event.data.projectId as Id<"projects">,
+          content: messageContent,
+          role: "ASSISTANT",
+          type: "ERROR",
+          status: "COMPLETE",
         });
       }
 
@@ -1184,34 +1177,31 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         ? sanitizedTitle
         : "Generated Fragment";
 
-      const sanitizedFiles = sanitizeJsonForDatabase(finalFiles);
+      const metadata: any = allScreenshots.length > 0
+        ? { screenshots: allScreenshots }
+        : undefined;
 
-      const metadata: Prisma.JsonObject | undefined =
-        allScreenshots.length > 0
-          ? { screenshots: allScreenshots }
-          : undefined;
+      // Create message first
+      const messageId = await convex.mutation(api.messages.create, {
+        projectId: event.data.projectId as Id<"projects">,
+        content: responseContent,
+        role: "ASSISTANT",
+        type: "RESULT",
+        status: "COMPLETE",
+      });
 
-      const sanitizedMetadata = metadata ? sanitizeJsonForDatabase(metadata) : undefined;
+      // Then create fragment linked to the message
+      await convex.mutation(api.messages.createFragment, {
+        messageId: messageId,
+        sandboxId: sandboxId || undefined,
+        sandboxUrl: sandboxUrl,
+        title: fragmentTitle,
+        files: finalFiles,
+        framework: selectedFramework,
+        metadata: metadata,
+      });
 
-      return await prisma.message.create({
-        data: {
-          projectId: event.data.projectId,
-          content: responseContent,
-          role: "ASSISTANT",
-          type: "RESULT",
-          status: "COMPLETE",
-          Fragment: {
-            create: {
-              sandboxId: sandboxId,
-              sandboxUrl: sandboxUrl,
-              title: fragmentTitle,
-              files: sanitizedFiles,
-              framework: toPrismaFramework(selectedFramework),
-              metadata: sanitizedMetadata,
-            },
-          },
-        },
-      })
+      return messageId;
     });
 
     return {
@@ -1231,8 +1221,8 @@ export const sandboxTransferFunction = inngest.createFunction(
     console.log("[DEBUG] Event data:", JSON.stringify(event.data));
 
     const fragment = await step.run("get-fragment", async () => {
-      return await prisma.fragment.findUnique({
-        where: { id: event.data.fragmentId },
+      return await convex.query(api.messages.getFragmentById, {
+        fragmentId: event.data.fragmentId as Id<"fragments">,
       });
     });
 
@@ -1273,11 +1263,15 @@ export const sandboxTransferFunction = inngest.createFunction(
     });
 
     await step.run("update-fragment", async () => {
-      return await prisma.fragment.update({
-        where: { id: event.data.fragmentId },
-        data: {
-          sandboxUrl,
-        },
+      // Use createFragment which will update if it already exists
+      return await convex.mutation(api.messages.createFragment, {
+        messageId: fragment.messageId,
+        sandboxId: fragment.sandboxId || undefined,
+        sandboxUrl: sandboxUrl,
+        title: fragment.title,
+        files: fragment.files,
+        framework: framework,
+        metadata: fragment.metadata,
       });
     });
 
@@ -1298,8 +1292,8 @@ export const errorFixFunction = inngest.createFunction(
     console.log("[DEBUG] Event data:", JSON.stringify(event.data));
 
     const fragment = await step.run("get-fragment", async () => {
-      return await prisma.fragment.findUnique({
-        where: { id: event.data.fragmentId },
+      return await convex.query(api.messages.getFragmentById, {
+        fragmentId: event.data.fragmentId as Id<"fragments">,
       });
     });
 
@@ -1323,17 +1317,17 @@ export const errorFixFunction = inngest.createFunction(
       }
     });
 
-    const toJsonObject = (value: unknown): Prisma.JsonObject => {
+    const toJsonObject = (value: unknown): Record<string, unknown> => {
       if (typeof value !== "object" || value === null || Array.isArray(value)) {
-        return {} as Prisma.JsonObject;
+        return {};
       }
 
-      return { ...(value as Prisma.JsonObject) };
+      return { ...(value as Record<string, unknown>) };
     };
 
     const fragmentRecord = fragment as Record<string, unknown>;
     const supportsMetadata = Object.prototype.hasOwnProperty.call(fragmentRecord, "metadata");
-    const initialMetadata = supportsMetadata ? toJsonObject(fragmentRecord.metadata) : ({} as Prisma.JsonObject);
+    const initialMetadata = supportsMetadata ? toJsonObject(fragmentRecord.metadata) : {};
 
     const fragmentFiles = (fragment.files || {}) as Record<string, string>;
     const originalFiles = { ...fragmentFiles };
@@ -1511,50 +1505,46 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         }
 
         console.log("[DEBUG] Backing up original files before applying fixes");
-        const metadata: Prisma.JsonObject = {
+        const metadata: any = {
           ...initialMetadata,
           previousFiles: sanitizeJsonForDatabase(originalFiles),
           fixedAt: new Date().toISOString(),
         };
 
-        const sanitizedMetadata = sanitizeJsonForDatabase(metadata);
-
-        await prisma.fragment.update({
-          where: { id: event.data.fragmentId },
-          data: {
-            metadata: sanitizedMetadata,
-          } as Prisma.FragmentUpdateInput,
+        await convex.mutation(api.messages.createFragment, {
+          messageId: fragment.messageId,
+          sandboxId: fragment.sandboxId || undefined,
+          sandboxUrl: fragment.sandboxUrl,
+          title: fragment.title,
+          files: fragment.files,
+          framework: fragmentFramework,
+          metadata,
         });
 
-        return sanitizedMetadata;
+        return metadata;
       });
 
       await step.run("update-fragment-files", async () => {
         const metadataUpdate = supportsMetadata
           ? ({
-              ...((backupMetadata ?? initialMetadata) as Prisma.JsonObject),
-              previousFiles: sanitizeJsonForDatabase(originalFiles),
+              ...((backupMetadata ?? initialMetadata) as any),
+              previousFiles: originalFiles,
               fixedAt: new Date().toISOString(),
               lastFixSuccess: {
                 summary: result.state.data.summary,
                 occurredAt: new Date().toISOString(),
               },
-            } satisfies Prisma.JsonObject)
-          : null;
+            })
+          : undefined;
 
-        const sanitizedFiles = sanitizeJsonForDatabase(result.state.data.files);
-        const sanitizedMetadataUpdate = metadataUpdate ? sanitizeJsonForDatabase(metadataUpdate) : null;
-
-        return await prisma.fragment.update({
-          where: { id: event.data.fragmentId },
-          data: {
-            files: sanitizedFiles,
-            ...(sanitizedMetadataUpdate
-              ? {
-                  metadata: sanitizedMetadataUpdate,
-                }
-              : {}),
-          } as Prisma.FragmentUpdateInput,
+        return await convex.mutation(api.messages.createFragment, {
+          messageId: fragment.messageId,
+          sandboxId: fragment.sandboxId || undefined,
+          sandboxUrl: fragment.sandboxUrl,
+          title: fragment.title,
+          files: result.state.data.files,
+          framework: fragmentFramework,
+          metadata: metadataUpdate || fragment.metadata,
         });
       });
 
@@ -1583,19 +1573,18 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
 
         let latestMetadata = initialMetadata;
         try {
-          const latestFragment = await prisma.fragment.findUnique({
-            where: { id: event.data.fragmentId },
+          const latestFragment = await convex.query(api.messages.getFragmentById, {
+            fragmentId: event.data.fragmentId as Id<"fragments">,
           });
 
           if (latestFragment) {
-            const fragmentData = latestFragment as Record<string, unknown>;
-            latestMetadata = toJsonObject(fragmentData.metadata);
+            latestMetadata = toJsonObject(latestFragment.metadata);
           }
         } catch (metadataReadError) {
           console.error("[ERROR] Failed to load latest metadata:", metadataReadError);
         }
 
-        const failureMetadata: Prisma.JsonObject = {
+        const failureMetadata: any = {
           ...latestMetadata,
           lastFixFailure: {
             message: errorMessage,
@@ -1604,20 +1593,21 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           },
         };
 
-        const sanitizedFailureMetadata = sanitizeJsonForDatabase(failureMetadata);
-
         try {
-          await prisma.fragment.update({
-            where: { id: event.data.fragmentId },
-            data: {
-              metadata: sanitizedFailureMetadata,
-            } as Prisma.FragmentUpdateInput,
+          await convex.mutation(api.messages.createFragment, {
+            messageId: fragment.messageId,
+            sandboxId: fragment.sandboxId || undefined,
+            sandboxUrl: fragment.sandboxUrl,
+            title: fragment.title,
+            files: fragment.files,
+            framework: fragmentFramework,
+            metadata: failureMetadata,
           });
         } catch (metadataError) {
           console.error("[ERROR] Failed to persist failure metadata:", metadataError);
         }
 
-        return sanitizedFailureMetadata;
+        return failureMetadata;
       });
 
       return {

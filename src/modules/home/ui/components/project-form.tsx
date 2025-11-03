@@ -9,12 +9,14 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { ArrowUpIcon, Loader2Icon } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 import { cn } from "@/lib/utils";
-import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form";
+import { inngest } from "@/inngest/client";
+import { getAgentEventName } from "@/lib/agent-mode";
 
 import { PROJECT_TEMPLATES } from "../../constants";
 
@@ -26,43 +28,49 @@ const formSchema = z.object({
 
 export const ProjectForm = () => {
   const router = useRouter();
-  const trpc = useTRPC();
   const clerk = useClerk();
-  const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       value: "",
     },
   });
-  
-  const createProject = useMutation(trpc.projects.create.mutationOptions({
-    onSuccess: (data) => {
-      queryClient.invalidateQueries(
-        trpc.projects.getMany.queryOptions(),
-      );
-      queryClient.invalidateQueries(
-        trpc.usage.status.queryOptions(),
-      );
-      router.push(`/projects/${data.id}`);
-    },
-    onError: (error) => {
-      toast.error(error.message);
-      
-      if (error.data?.code === "UNAUTHORIZED") {
-        clerk.openSignIn();
-      }
 
-      if (error.data?.code === "TOO_MANY_REQUESTS") {
-        router.push("/pricing");
-      }
-    },
-  }));
-  
+  const createProjectWithMessage = useAction(api.projects.createWithMessage);
+  const [isCreating, setIsCreating] = useState(false);
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    await createProject.mutateAsync({
-      value: values.value,
-    });
+    try {
+      setIsCreating(true);
+      const result = await createProjectWithMessage({ value: values.value });
+
+      // Trigger Inngest event for AI processing
+      await inngest.send({
+        name: getAgentEventName(),
+        data: {
+          value: result.value,
+          projectId: result.id,
+        },
+      });
+
+      router.push(`/projects/${result.id}`);
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+
+        if (error.message.includes("Unauthenticated") || error.message.includes("Not authenticated")) {
+          clerk.openSignIn();
+        }
+
+        if (error.message.includes("credits") || error.message.includes("out of credits")) {
+          router.push("/pricing");
+        }
+      } else {
+        toast.error("Something went wrong");
+      }
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const onSelect = (value: string) => {
@@ -74,7 +82,7 @@ export const ProjectForm = () => {
   };
   
   const [isFocused, setIsFocused] = useState(false);
-  const isPending = createProject.isPending;
+  const isPending = isCreating;
   const isButtonDisabled = isPending || !form.formState.isValid;
 
   return (
