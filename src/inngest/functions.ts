@@ -1227,7 +1227,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       // Then create fragment linked to the message
       await convex.mutation(api.messages.createFragmentForUser, {
         userId: project.userId,
-        messageId: messageId,
+        messageId: messageId as Id<"messages">,
         sandboxId: sandboxId || undefined,
         sandboxUrl: sandboxUrl,
         title: fragmentTitle,
