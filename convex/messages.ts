@@ -579,3 +579,77 @@ export const createFragmentInternal = async (
   });
   return fragmentId;
 };
+
+/**
+ * List messages for a specific user (for use from background jobs/Inngest)
+ */
+export const listForUser = query({
+  args: {
+    userId: v.string(),
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    // Verify project ownership
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.userId !== args.userId) {
+      throw new Error("Unauthorized");
+    }
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_projectId_createdAt", (q) => q.eq("projectId", args.projectId))
+      .order("asc")
+      .collect();
+
+    // For each message, get fragment and attachments
+    const messagesWithRelations = await Promise.all(
+      messages.map(async (message) => {
+        const fragment = await ctx.db
+          .query("fragments")
+          .withIndex("by_messageId", (q: any) => q.eq("messageId", message._id))
+          .first();
+
+        const attachments = await ctx.db
+          .query("attachments")
+          .withIndex("by_messageId", (q: any) => q.eq("messageId", message._id))
+          .collect();
+
+        return {
+          ...message,
+          fragment,
+          attachments,
+        };
+      })
+    );
+
+    return messagesWithRelations;
+  },
+});
+
+/**
+ * Create a fragment for a specific user (for use from background jobs/Inngest)
+ */
+export const createFragmentForUser = mutation({
+  args: {
+    userId: v.string(),
+    messageId: v.id("messages"),
+    sandboxId: v.optional(v.string()),
+    sandboxUrl: v.string(),
+    title: v.string(),
+    files: v.any(),
+    metadata: v.optional(v.any()),
+    framework: frameworkEnum,
+  },
+  handler: async (ctx, args) => {
+    return createFragmentInternal(
+      ctx,
+      args.userId,
+      args.messageId,
+      args.sandboxId || "",
+      args.sandboxUrl,
+      args.title,
+      args.files,
+      args.framework,
+      args.metadata
+    );
+  },
+});

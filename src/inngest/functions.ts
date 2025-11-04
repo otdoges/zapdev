@@ -578,7 +578,7 @@ export const codeAgentFunction = inngest.createFunction(
     
     // Get project to check if framework is already set
     const project = await step.run("get-project", async () => {
-      return await convex.query(api.projects.get, {
+      return await convex.query(api.projects.getForSystem, {
         projectId: event.data.projectId as Id<"projects">,
       });
     });
@@ -622,7 +622,8 @@ export const codeAgentFunction = inngest.createFunction(
       
       // Update project with selected framework
       await step.run("update-project-framework", async () => {
-        return await convex.mutation(api.projects.update, {
+        return await convex.mutation(api.projects.updateForUser, {
+          userId: project.userId,
           projectId: event.data.projectId as Id<"projects">,
           framework: frameworkToConvexEnum(selectedFramework),
         });
@@ -669,7 +670,8 @@ export const codeAgentFunction = inngest.createFunction(
       const formattedMessages: Message[] = [];
 
       try {
-        const allMessages = await convex.query(api.messages.list, {
+        const allMessages = await convex.query(api.messages.listForUser, {
+          userId: project.userId,
           projectId: event.data.projectId as Id<"projects">,
         });
 
@@ -704,7 +706,8 @@ export const codeAgentFunction = inngest.createFunction(
           const content = sanitizeTextForDatabase(`📸 Taking screenshot of ${url}...`);
           const messageContent = content.length > 0 ? content : "Taking screenshot...";
 
-          await convex.mutation(api.messages.create, {
+          await convex.mutation(api.messages.createForUser, {
+            userId: project.userId,
             projectId: event.data.projectId as Id<"projects">,
             content: messageContent,
             role: "ASSISTANT",
@@ -1184,7 +1187,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         const errorContent = sanitizeTextForDatabase("Something went wrong. Please try again.");
         const messageContent = errorContent.length > 0 ? errorContent : "An unexpected error occurred.";
 
-        return await convex.mutation(api.messages.create, {
+        return await convex.mutation(api.messages.createForUser, {
+          userId: project.userId,
           projectId: event.data.projectId as Id<"projects">,
           content: messageContent,
           role: "ASSISTANT",
@@ -1211,7 +1215,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         : undefined;
 
       // Create message first
-      const messageId = await convex.mutation(api.messages.create, {
+      const messageId = await convex.mutation(api.messages.createForUser, {
+        userId: project.userId,
         projectId: event.data.projectId as Id<"projects">,
         content: responseContent,
         role: "ASSISTANT",
@@ -1220,7 +1225,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       });
 
       // Then create fragment linked to the message
-      await convex.mutation(api.messages.createFragment, {
+      await convex.mutation(api.messages.createFragmentForUser, {
+        userId: project.userId,
         messageId: messageId,
         sandboxId: sandboxId || undefined,
         sandboxUrl: sandboxUrl,
@@ -1263,6 +1269,28 @@ export const sandboxTransferFunction = inngest.createFunction(
       throw new Error("Fragment has no sandbox");
     }
 
+    // Get the message to extract userId
+    const message = await step.run("get-message", async () => {
+      const msg = await convex.query(api.messages.get, {
+        messageId: fragment.messageId as Id<"messages">,
+      });
+      if (!msg) {
+        throw new Error("Message not found");
+      }
+      return msg;
+    });
+
+    // Get the project to verify userId
+    const project = await step.run("get-project", async () => {
+      const proj = await convex.query(api.projects.getForSystem, {
+        projectId: message.projectId as Id<"projects">,
+      });
+      if (!proj) {
+        throw new Error("Project not found");
+      }
+      return proj;
+    });
+
     const sandboxId = fragment.sandboxId;
     const framework = (fragment.framework?.toLowerCase() || "nextjs") as Framework;
 
@@ -1292,8 +1320,9 @@ export const sandboxTransferFunction = inngest.createFunction(
     });
 
     await step.run("update-fragment", async () => {
-      // Use createFragment which will update if it already exists
-      return await convex.mutation(api.messages.createFragment, {
+      // Use createFragmentForUser which will update if it already exists
+      return await convex.mutation(api.messages.createFragmentForUser, {
+        userId: project.userId,
         messageId: fragment.messageId,
         sandboxId: fragment.sandboxId || undefined,
         sandboxUrl: sandboxUrl,
@@ -1333,6 +1362,28 @@ export const errorFixFunction = inngest.createFunction(
     if (!fragment.sandboxId) {
       throw new Error("Fragment has no active sandbox");
     }
+
+    // Get the message to extract userId
+    const message = await step.run("get-message", async () => {
+      const msg = await convex.query(api.messages.get, {
+        messageId: fragment.messageId as Id<"messages">,
+      });
+      if (!msg) {
+        throw new Error("Message not found");
+      }
+      return msg;
+    });
+
+    // Get the project to verify userId
+    const project = await step.run("get-project", async () => {
+      const proj = await convex.query(api.projects.getForSystem, {
+        projectId: message.projectId as Id<"projects">,
+      });
+      if (!proj) {
+        throw new Error("Project not found");
+      }
+      return proj;
+    });
 
     const fragmentFramework = (fragment.framework?.toLowerCase() || 'nextjs') as Framework;
     const sandboxId = fragment.sandboxId;
@@ -1540,7 +1591,8 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           fixedAt: new Date().toISOString(),
         };
 
-        await convex.mutation(api.messages.createFragment, {
+        await convex.mutation(api.messages.createFragmentForUser, {
+          userId: project.userId,
           messageId: fragment.messageId,
           sandboxId: fragment.sandboxId || undefined,
           sandboxUrl: fragment.sandboxUrl,
@@ -1567,7 +1619,8 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
             }
           : undefined;
 
-        return await convex.mutation(api.messages.createFragment, {
+        return await convex.mutation(api.messages.createFragmentForUser, {
+          userId: project.userId,
           messageId: fragment.messageId,
           sandboxId: fragment.sandboxId || undefined,
           sandboxUrl: fragment.sandboxUrl,
@@ -1624,7 +1677,8 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         };
 
         try {
-          await convex.mutation(api.messages.createFragment, {
+          await convex.mutation(api.messages.createFragmentForUser, {
+            userId: project.userId,
             messageId: fragment.messageId,
             sandboxId: fragment.sandboxId || undefined,
             sandboxUrl: fragment.sandboxUrl,
