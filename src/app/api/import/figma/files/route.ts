@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
-export async function GET(request: Request) {
+export async function GET() {
   const { userId } = await auth();
 
   if (!userId) {
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   try {
     // Get OAuth connection
-    const connection = await fetchQuery(api.oauth.getConnection, {
+    const connection = await fetchQuery((api as any).oauth.getConnection, {
       provider: "figma",
     });
 

@@ -45,7 +45,7 @@ function readCSV<T>(filename: string): T[] {
       cast: true,
       cast_date: false, // Keep dates as strings for now
     });
-    return records;
+    return records as T[];
   } catch (error) {
     if ((error as any).code === "ENOENT") {
       console.log(`⚠️  ${filename} not found or empty, skipping...`);
@@ -121,7 +121,7 @@ async function migrate() {
         type: message.type,
         status: message.status || "COMPLETE",
         oldProjectId: message.projectId,
-        newProjectId,
+        newProjectId: newProjectId as any,
         createdAt: message.createdAt,
         updatedAt: message.updatedAt,
       });
@@ -148,7 +148,7 @@ async function migrate() {
       await convex.action(api.importData.importFragmentAction, {
         oldId: fragment.id,
         oldMessageId: fragment.messageId,
-        newMessageId,
+        newMessageId: newMessageId as any,
         sandboxId: fragment.sandboxId || undefined,
         sandboxUrl: fragment.sandboxUrl,
         title: fragment.title,
@@ -179,7 +179,7 @@ async function migrate() {
       await convex.action(api.importData.importFragmentDraftAction, {
         oldId: draft.id,
         oldProjectId: draft.projectId,
-        newProjectId,
+        newProjectId: newProjectId as any,
         sandboxId: draft.sandboxId || undefined,
         sandboxUrl: draft.sandboxUrl || undefined,
         files,
@@ -211,7 +211,7 @@ async function migrate() {
         height: attachment.height || undefined,
         size: attachment.size,
         oldMessageId: attachment.messageId,
-        newMessageId,
+        newMessageId: newMessageId as any,
         createdAt: attachment.createdAt,
         updatedAt: attachment.updatedAt,
       });

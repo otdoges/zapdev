@@ -10,13 +10,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { ArrowUpIcon, Loader2Icon } from "lucide-react";
 import { useAction } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@/lib/convex-api";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form";
-import { inngest } from "@/inngest/client";
-import { getAgentEventName } from "@/lib/agent-mode";
 
 import { PROJECT_TEMPLATES } from "../../constants";
 
@@ -45,12 +43,13 @@ export const ProjectForm = () => {
       const result = await createProjectWithMessage({ value: values.value });
 
       // Trigger Inngest event for AI processing
-      await inngest.send({
-        name: getAgentEventName(),
-        data: {
-          value: result.value,
+      await fetch("/api/inngest/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           projectId: result.id,
-        },
+          value: result.value,
+        }),
       });
 
       router.push(`/projects/${result.id}`);

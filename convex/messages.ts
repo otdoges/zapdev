@@ -1,7 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
 import { requireAuth } from "./helpers";
-import { messageRoleEnum, messageTypeEnum, messageStatusEnum, frameworkEnum } from "./schema";
+import {
+  messageRoleEnum,
+  messageTypeEnum,
+  messageStatusEnum,
+  frameworkEnum,
+  attachmentTypeEnum,
+} from "./schema";
+import type { Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
 
 /**
@@ -55,13 +62,16 @@ export const createWithAttachments = action({
           size: v.number(),
           width: v.optional(v.number()),
           height: v.optional(v.number()),
+          type: v.optional(attachmentTypeEnum),
+          importId: v.optional(v.id("imports")),
+          sourceMetadata: v.optional(v.any()),
         })
       )
     ),
   },
   handler: async (ctx, args) => {
     // Validate project ID format (Convex ID)
-    const projectId = args.projectId as any;
+    const projectId = args.projectId as Id<"projects">;
 
     // Check and consume credit first
     const creditResult = await ctx.runQuery(api.usage.getUsage);
@@ -86,11 +96,13 @@ export const createWithAttachments = action({
       for (const attachment of args.attachments) {
         await ctx.runMutation(api.messages.addAttachment, {
           messageId,
-          type: "IMAGE",
+          type: attachment.type ?? "IMAGE",
           url: attachment.url,
           size: attachment.size,
           width: attachment.width,
           height: attachment.height,
+          importId: attachment.importId,
+          sourceMetadata: attachment.sourceMetadata,
         });
       }
     }
@@ -101,7 +113,7 @@ export const createWithAttachments = action({
       value: args.value,
     };
   },
-});
+}) as ReturnType<typeof action>;
 
 /**
  * Get all messages for a project with fragments and attachments
@@ -340,11 +352,13 @@ export const getFragment = query({
 export const addAttachment = mutation({
   args: {
     messageId: v.id("messages"),
-    type: v.union(v.literal("IMAGE")),
+    type: attachmentTypeEnum,
     url: v.string(),
     width: v.optional(v.number()),
     height: v.optional(v.number()),
     size: v.number(),
+    importId: v.optional(v.id("imports")),
+    sourceMetadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -369,6 +383,8 @@ export const addAttachment = mutation({
       width: args.width,
       height: args.height,
       size: args.size,
+      importId: args.importId,
+      sourceMetadata: args.sourceMetadata,
       createdAt: now,
       updatedAt: now,
     });

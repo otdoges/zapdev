@@ -114,6 +114,12 @@ const nextConfig: NextConfig = {
       },
     });
 
+    // Add resolve alias for Convex
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@/convex": path.resolve(__dirname, "./convex"),
+    };
+
     // Optimize bundle size with tree-shaking and intelligent splitting
     config.optimization = {
       ...config.optimization,

@@ -1,23 +1,42 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ExternalLinkIcon, RefreshCcwIcon, DownloadIcon } from "lucide-react";
 import JSZip from "jszip";
 
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
+import type { Doc } from "@/convex/_generated/dataModel";
 
-interface Props {
-  data: any; // Fragment from Convex
+interface FragmentWebProps {
+  data: Doc<"fragments">;
+}
+
+const normalizeFiles = (value: Doc<"fragments">["files"]): Record<string, string> => {
+  if (typeof value !== "object" || value === null) {
+    return {};
+  }
+
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, string>>(
+    (acc, [path, content]) => {
+      if (typeof content === "string") {
+        acc[path] = content;
+      }
+      return acc;
+    },
+    {}
+  );
 };
 
-export function FragmentWeb({ data }: Props) {
+export function FragmentWeb({ data }: FragmentWebProps) {
   const [copied, setCopied] = useState(false);
   const [fragmentKey, setFragmentKey] = useState(0);
   const [isResuming, setIsResuming] = useState(false);
-  const [currentUrl, setCurrentUrl] = useState(data.sandboxUrl);
+  const [currentUrl, setCurrentUrl] = useState<string>(data.sandboxUrl);
   const [sandboxId, setSandboxId] = useState<string | null>(data.sandboxId ?? null);
   const [hasAttemptedResume, setHasAttemptedResume] = useState(false);
   const resumePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeAttemptRef = useRef(0);
+
+  const files = useMemo(() => normalizeFiles(data.files), [data.files]);
 
   const clearResumePoll = useCallback(() => {
     if (resumePollRef.current) {
@@ -60,7 +79,6 @@ export function FragmentWeb({ data }: Props) {
   };
 
   const handleDownload = async () => {
-    const files = data.files || {};
     const fileEntries = Object.entries(files);
 
     if (fileEntries.length === 0) {
@@ -77,7 +95,7 @@ export function FragmentWeb({ data }: Props) {
     const url = URL.createObjectURL(zipBlob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `fragment-${data.id}.zip`;
+    link.download = `fragment-${data._id}.zip`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -111,7 +129,7 @@ export function FragmentWeb({ data }: Props) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            fragmentId: data.id,
+            fragmentId: data._id,
           }),
         });
 
@@ -127,7 +145,7 @@ export function FragmentWeb({ data }: Props) {
           attempts += 1;
 
           try {
-            const checkResponse = await fetch(`/api/fragment/${data.id}`);
+            const checkResponse = await fetch(`/api/fragment/${data._id}`);
             if (checkResponse.ok) {
               const updatedFragment = await checkResponse.json();
 
@@ -155,7 +173,7 @@ export function FragmentWeb({ data }: Props) {
         setIsResuming(false);
       }
     },
-    [sandboxId, isResuming, hasAttemptedResume, clearResumePoll, data.id],
+    [sandboxId, isResuming, hasAttemptedResume, clearResumePoll, data._id],
   );
 
   useEffect(() => {
@@ -218,7 +236,7 @@ export function FragmentWeb({ data }: Props) {
             size="sm" 
             variant="outline" 
             onClick={handleDownload}
-            disabled={!data.files || Object.keys(data.files).length === 0}
+            disabled={Object.keys(files).length === 0}
           >
             <DownloadIcon />
           </Button>

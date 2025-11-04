@@ -3,7 +3,19 @@ import { auth } from "@clerk/nextjs/server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
-export async function GET(request: Request) {
+interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string | null;
+  html_url: string;
+  private: boolean;
+  language: string | null;
+  updated_at: string;
+  stargazers_count: number;
+}
+
+export async function GET() {
   const { userId } = await auth();
 
   if (!userId) {
@@ -12,7 +24,7 @@ export async function GET(request: Request) {
 
   try {
     // Get OAuth connection
-    const connection = await fetchQuery(api.oauth.getConnection, {
+    const connection = await fetchQuery((api as any).oauth.getConnection, {
       provider: "github",
     });
 
@@ -45,10 +57,10 @@ export async function GET(request: Request) {
       throw new Error("Failed to fetch GitHub repositories");
     }
 
-    const repos = await response.json();
+    const repos = await response.json() as GitHubRepo[];
 
     return NextResponse.json({
-      repositories: repos.map((repo: any) => ({
+      repositories: repos.map((repo) => ({
         id: repo.id,
         name: repo.name,
         fullName: repo.full_name,

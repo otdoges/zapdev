@@ -1,12 +1,30 @@
 import { inngest } from "@/inngest/client";
 import { ConvexClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
+import { Buffer } from "buffer";
+import { api } from "@/lib/convex-api";
+import type { Id } from "@/convex/_generated/dataModel";
 
-const convex = new ConvexClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+let convexClient: ConvexClient | null = null;
+function getConvexClient() {
+  if (!convexClient) {
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+    if (!url) {
+      throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
+    }
+    convexClient = new ConvexClient(url);
+  }
+  return convexClient;
+}
+
+const convex = new Proxy({} as ConvexClient, {
+  get(_target, prop) {
+    return getConvexClient()[prop as keyof ConvexClient];
+  }
+});
 
 interface RepositoryInfo {
   name: string;
-  description: string;
+  description: string | null;
   language: string;
   topics: string[];
   defaultBranch: string;
@@ -16,17 +34,38 @@ interface RepositoryInfo {
     path: string;
     size: number;
   }>;
-  packageJson?: any;
+  packageJson?: Record<string, unknown>;
   readme?: string;
 }
+
+interface GitHubImportEventData {
+  importId: Id<"imports">;
+  projectId: string;
+  repoFullName: string;
+  accessToken: string;
+  importMode: "project" | "dashboard";
+}
+
+const getDependencyList = (
+  pkg: Record<string, unknown> | undefined,
+  field: "dependencies" | "devDependencies"
+): string[] => {
+  if (!pkg) {
+    return [];
+  }
+
+  const value = pkg[field];
+  if (typeof value !== "object" || value === null) {
+    return [];
+  }
+
+  return Object.keys(value as Record<string, unknown>);
+};
 
 async function analyzeRepository(
   repoFullName: string,
   accessToken: string
 ): Promise<RepositoryInfo> {
-  const [owner, repo] = repoFullName.split("/");
-
-  // Fetch repository metadata
   const repoResponse = await fetch(
     `https://api.github.com/repos/${repoFullName}`,
     {
@@ -41,11 +80,34 @@ async function analyzeRepository(
     throw new Error(`Failed to fetch repository: ${repoResponse.statusText}`);
   }
 
-  const repoData = await repoResponse.json();
+  const repoData = (await repoResponse.json()) as Record<string, unknown>;
 
-  // Fetch directory structure
+  const topicsRaw = repoData.topics;
+  const topics = Array.isArray(topicsRaw)
+    ? topicsRaw.filter((topic): topic is string => typeof topic === "string")
+    : [];
+
+  const defaultBranch =
+    typeof repoData.default_branch === "string" && repoData.default_branch.length > 0
+      ? repoData.default_branch
+      : "main";
+
+  const language =
+    typeof repoData.language === "string" && repoData.language.length > 0
+      ? repoData.language
+      : "Unknown";
+
+  const description = typeof repoData.description === "string" ? repoData.description : null;
+
+  const isPrivate = Boolean(repoData.private);
+
+  const repoName =
+    typeof repoData.name === "string"
+      ? repoData.name
+      : repoFullName.split("/").pop() ?? repoFullName;
+
   const treeResponse = await fetch(
-    `https://api.github.com/repos/${repoFullName}/git/trees/${repoData.default_branch}?recursive=1`,
+    `https://api.github.com/repos/${repoFullName}/git/trees/${defaultBranch}?recursive=1`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -54,16 +116,35 @@ async function analyzeRepository(
     }
   );
 
-  const files = treeResponse.ok
-    ? (await treeResponse.json()).tree.slice(0, 100).map((f: any) => ({
-        name: f.path.split("/").pop(),
-        path: f.path,
-        size: f.size || 0,
-      }))
-    : [];
+  let files: RepositoryInfo["files"] = [];
+  if (treeResponse.ok) {
+    const treeData = (await treeResponse.json()) as Record<string, unknown>;
+    const nodes = Array.isArray(treeData.tree) ? treeData.tree : [];
 
-  // Fetch package.json if exists
-  let packageJson = null;
+    files = nodes
+      .slice(0, 100)
+      .map((node) => {
+        if (typeof node !== "object" || node === null) {
+          return null;
+        }
+
+        const path = "path" in node && typeof node.path === "string" ? node.path : "";
+        if (!path) {
+          return null;
+        }
+
+        const size = "size" in node && typeof node.size === "number" ? node.size : 0;
+
+        return {
+          name: path.split("/").pop() ?? path,
+          path,
+          size,
+        } satisfies RepositoryInfo["files"][number];
+      })
+      .filter((entry): entry is RepositoryInfo["files"][number] => entry !== null);
+  }
+
+  let packageJson: Record<string, unknown> | undefined;
   try {
     const pkgResponse = await fetch(
       `https://api.github.com/repos/${repoFullName}/contents/package.json`,
@@ -76,16 +157,23 @@ async function analyzeRepository(
     );
 
     if (pkgResponse.ok) {
-      const pkgData = await pkgResponse.json();
-      const content = Buffer.from(pkgData.content, "base64").toString();
-      packageJson = JSON.parse(content);
+      const pkgData = (await pkgResponse.json()) as Record<string, unknown>;
+      const encodedContent =
+        typeof pkgData.content === "string" ? pkgData.content.replace(/\n/g, "") : undefined;
+
+      if (encodedContent) {
+        const content = Buffer.from(encodedContent, "base64").toString();
+        const parsed = JSON.parse(content) as unknown;
+        if (parsed && typeof parsed === "object") {
+          packageJson = parsed as Record<string, unknown>;
+        }
+      }
     }
-  } catch (e) {
+  } catch {
     // package.json not found or parse error
   }
 
-  // Fetch README if exists
-  let readme = null;
+  let readme: string | undefined;
   try {
     const readmeResponse = await fetch(
       `https://api.github.com/repos/${repoFullName}/readme`,
@@ -101,24 +189,33 @@ async function analyzeRepository(
     if (readmeResponse.ok) {
       readme = await readmeResponse.text();
     }
-  } catch (e) {
+  } catch {
     // README not found
   }
 
   return {
-    name: repoData.name,
-    description: repoData.description,
-    language: repoData.language || "Unknown",
-    topics: repoData.topics || [],
-    defaultBranch: repoData.default_branch,
-    isPrivate: repoData.private,
-    files: files,
+    name: repoName,
+    description,
+    language,
+    topics,
+    defaultBranch,
+    isPrivate,
+    files,
     packageJson,
     readme,
   };
 }
 
 function generateAnalysisPrompt(repoInfo: RepositoryInfo): string {
+  const runtimeDependencies = getDependencyList(repoInfo.packageJson, "dependencies");
+  const devDependencies = getDependencyList(repoInfo.packageJson, "devDependencies");
+  const dependenciesSection = repoInfo.packageJson
+    ? `
+- **Runtime**: ${runtimeDependencies.slice(0, 10).join(", ") || "None"}
+- **Dev**: ${devDependencies.slice(0, 5).join(", ") || "None"}
+`
+    : "No package.json found";
+
   return `
 Analyze this GitHub repository for code quality, architecture, and improvement opportunities:
 
@@ -139,18 +236,7 @@ ${repoInfo.files
   .join("\n")}
 
 ## Dependencies
-${
-  repoInfo.packageJson
-    ? `
-- **Runtime**: ${Object.keys(repoInfo.packageJson.dependencies || {})
-        .slice(0, 10)
-        .join(", ")}
-- **Dev**: ${Object.keys(repoInfo.packageJson.devDependencies || {})
-        .slice(0, 5)
-        .join(", ")}
-`
-    : "No package.json found"
-}
+${dependenciesSection}
 
 Please provide:
 1. **Architecture Overview**: Describe the overall structure and design patterns
@@ -168,7 +254,7 @@ export const processGitHubImport = inngest.createFunction(
   { event: "code-agent/process-github-import" },
   async ({ event, step }) => {
     const { importId, projectId, repoFullName, accessToken, importMode } =
-      event.data as any;
+      event.data as GitHubImportEventData;
 
     try {
       // Mark import as processing
@@ -189,14 +275,13 @@ export const processGitHubImport = inngest.createFunction(
       if (importMode === "project") {
         // Create message with repository context for code generation
         const message = await step.run("create-message", async () => {
-          return await convex.mutation(api.messages.createWithAttachments, {
+          return await convex.action(api.messages.createWithAttachments, {
             value: `Import and analyze GitHub repository ${repoFullName}:\n\n${analysisPrompt}`,
             projectId,
             attachments: [
               {
                 url: `https://github.com/${repoFullName}`,
                 size: 0,
-                type: "GITHUB_REPO",
                 importId,
                 sourceMetadata: {
                   repoName: repoInfo.name,
@@ -204,6 +289,7 @@ export const processGitHubImport = inngest.createFunction(
                   fileCount: repoInfo.files.length,
                   hasDependencies: !!repoInfo.packageJson,
                 },
+                type: "GITHUB_REPO",
               },
             ],
           });
@@ -214,7 +300,7 @@ export const processGitHubImport = inngest.createFunction(
           return await convex.mutation(api.imports.markComplete, {
             importId,
             metadata: {
-              messageId: message._id,
+              messageId: message.messageId,
               repoInfo: {
                 name: repoInfo.name,
                 language: repoInfo.language,

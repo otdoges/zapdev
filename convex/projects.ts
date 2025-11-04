@@ -54,7 +54,7 @@ export const createWithMessage = action({
     // Create the project (we'll default to nextjs, framework detection can be added later)
     const projectId = await ctx.runMutation(api.projects.create, {
       name: randomName,
-      framework: "nextjs",
+      framework: "NEXTJS",
     });
 
     // Create the initial message
@@ -76,7 +76,7 @@ export const createWithMessage = action({
       value: args.value
     };
   },
-});
+}) as ReturnType<typeof action>;
 
 /**
  * Get all projects for the current user with preview attachment
@@ -113,7 +113,7 @@ export const list = query({
           // Find the most recent IMAGE attachment
           const imageAttachments = attachments
             .filter(att => att.type === "IMAGE")
-            .sort((a, b) => b.createdAt - a.createdAt);
+            .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 
           previewAttachment = imageAttachments[0] ?? null;
         }

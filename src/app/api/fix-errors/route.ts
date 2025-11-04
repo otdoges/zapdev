@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     const { fragmentId } = body;
 
     try {
-      const result = await fetchQuery(api.messages.getFragmentByIdAuth, {
+      await fetchQuery(api.messages.getFragmentByIdAuth, {
         fragmentId: fragmentId as Id<"fragments">
       });
 

@@ -14,6 +14,15 @@ const eslintConfig = [
   {
     ignores: ["**/generated/*"]
   },
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": ["error", { 
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_"
+      }],
+    }
+  },
 ];
 
 export default eslintConfig;

@@ -125,7 +125,7 @@ export function generateFigmaCodePrompt(
 ): string {
   const { colors, typography, components } = designSystem;
 
-  let prompt = `You are an expert UI developer. You have been given a Figma design file and need to convert it into React/Next.js code.
+  const prompt = `You are an expert UI developer. You have been given a Figma design file and need to convert it into React/Next.js code.
 
 ## Design System Information
 

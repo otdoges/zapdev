@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import { ClerkProvider } from "@clerk/nextjs";
-import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { ConvexReactClient } from "convex/react";
 import Script from "next/script";
 
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
+import { ConvexClientProvider } from "@/components/convex-provider";
 
 import "./globals.css";
-
-const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export const metadata: Metadata = {
   title: {
@@ -69,7 +66,7 @@ export default function RootLayout({
   const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   const content = (
-    <ConvexProviderWithClerk client={convex} useAuth={undefined}>
+    <ConvexClientProvider>
       <ThemeProvider
         attribute="class"
         defaultTheme="system"
@@ -80,7 +77,7 @@ export default function RootLayout({
         <WebVitalsReporter />
         {children}
       </ThemeProvider>
-    </ConvexProviderWithClerk>
+    </ConvexClientProvider>
   );
 
   return (

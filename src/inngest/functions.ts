@@ -8,8 +8,24 @@ import { inspect } from "util";
 
 import { crawlUrl, type CrawledContent } from "@/lib/firecrawl";
 
-// Initialize Convex client for server-side operations
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Get Convex client lazily to avoid build-time errors
+let convexClient: ConvexHttpClient | null = null;
+function getConvexClient() {
+  if (!convexClient) {
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+    if (!url) {
+      throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
+    }
+    convexClient = new ConvexHttpClient(url);
+  }
+  return convexClient;
+}
+
+const convex = new Proxy({} as ConvexHttpClient, {
+  get(_target, prop) {
+    return getConvexClient()[prop as keyof ConvexHttpClient];
+  }
+});
 import {
   FRAGMENT_TITLE_PROMPT,
   RESPONSE_PROMPT,
@@ -30,6 +46,19 @@ import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
 type SandboxWithHost = Sandbox & {
   getHost?: (port: number) => string | undefined;
 };
+
+type FragmentMetadata = Record<string, unknown>;
+
+function frameworkToConvexEnum(framework: Framework): "NEXTJS" | "ANGULAR" | "REACT" | "VUE" | "SVELTE" {
+  const mapping: Record<Framework, "NEXTJS" | "ANGULAR" | "REACT" | "VUE" | "SVELTE"> = {
+    nextjs: "NEXTJS",
+    angular: "ANGULAR",
+    react: "REACT",
+    vue: "VUE",
+    svelte: "SVELTE",
+  };
+  return mapping[framework];
+}
 
 const AUTO_FIX_MAX_ATTEMPTS = 2;
 
@@ -595,7 +624,7 @@ export const codeAgentFunction = inngest.createFunction(
       await step.run("update-project-framework", async () => {
         return await convex.mutation(api.projects.update, {
           projectId: event.data.projectId as Id<"projects">,
-          framework: selectedFramework,
+          framework: frameworkToConvexEnum(selectedFramework),
         });
       });
     } else {
@@ -1177,7 +1206,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         ? sanitizedTitle
         : "Generated Fragment";
 
-      const metadata: any = allScreenshots.length > 0
+      const metadata: FragmentMetadata | undefined = allScreenshots.length > 0
         ? { screenshots: allScreenshots }
         : undefined;
 
@@ -1197,7 +1226,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         sandboxUrl: sandboxUrl,
         title: fragmentTitle,
         files: finalFiles,
-        framework: selectedFramework,
+        framework: frameworkToConvexEnum(selectedFramework),
         metadata: metadata,
       });
 
@@ -1270,7 +1299,7 @@ export const sandboxTransferFunction = inngest.createFunction(
         sandboxUrl: sandboxUrl,
         title: fragment.title,
         files: fragment.files,
-        framework: framework,
+        framework: frameworkToConvexEnum(framework),
         metadata: fragment.metadata,
       });
     });
@@ -1327,7 +1356,7 @@ export const errorFixFunction = inngest.createFunction(
 
     const fragmentRecord = fragment as Record<string, unknown>;
     const supportsMetadata = Object.prototype.hasOwnProperty.call(fragmentRecord, "metadata");
-    const initialMetadata = supportsMetadata ? toJsonObject(fragmentRecord.metadata) : {};
+    const initialMetadata: FragmentMetadata = supportsMetadata ? toJsonObject(fragmentRecord.metadata) : {};
 
     const fragmentFiles = (fragment.files || {}) as Record<string, string>;
     const originalFiles = { ...fragmentFiles };
@@ -1498,14 +1527,14 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         console.log("[DEBUG] All fixed files synced to sandbox");
       });
 
-      const backupMetadata = await step.run("backup-original-files", async () => {
+      const backupMetadata = await step.run("backup-original-files", async (): Promise<FragmentMetadata | null> => {
         if (!supportsMetadata) {
           console.warn("[WARN] Fragment metadata field not available; skipping backup snapshot");
           return null;
         }
 
         console.log("[DEBUG] Backing up original files before applying fixes");
-        const metadata: any = {
+        const metadata: FragmentMetadata = {
           ...initialMetadata,
           previousFiles: sanitizeJsonForDatabase(originalFiles),
           fixedAt: new Date().toISOString(),
@@ -1517,7 +1546,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           sandboxUrl: fragment.sandboxUrl,
           title: fragment.title,
           files: fragment.files,
-          framework: fragmentFramework,
+          framework: frameworkToConvexEnum(fragmentFramework),
           metadata,
         });
 
@@ -1525,16 +1554,17 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
       });
 
       await step.run("update-fragment-files", async () => {
+        const baseMetadata: FragmentMetadata = backupMetadata ?? initialMetadata;
         const metadataUpdate = supportsMetadata
-          ? ({
-              ...((backupMetadata ?? initialMetadata) as any),
+          ? {
+              ...baseMetadata,
               previousFiles: originalFiles,
               fixedAt: new Date().toISOString(),
               lastFixSuccess: {
                 summary: result.state.data.summary,
                 occurredAt: new Date().toISOString(),
               },
-            })
+            }
           : undefined;
 
         return await convex.mutation(api.messages.createFragment, {
@@ -1543,7 +1573,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           sandboxUrl: fragment.sandboxUrl,
           title: fragment.title,
           files: result.state.data.files,
-          framework: fragmentFramework,
+          framework: frameworkToConvexEnum(fragmentFramework),
           metadata: metadataUpdate || fragment.metadata,
         });
       });
@@ -1563,7 +1593,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         ? "Automatic fix timed out. Please refresh the fragment."
         : "Automatic fix failed. Please review the sandbox and try again.";
 
-      await step.run("record-error-fix-failure", async () => {
+      await step.run("record-error-fix-failure", async (): Promise<FragmentMetadata | null> => {
         if (!supportsMetadata) {
           console.warn("[WARN] Fragment metadata field not available; skipping failure metadata update");
           return null;
@@ -1584,7 +1614,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           console.error("[ERROR] Failed to load latest metadata:", metadataReadError);
         }
 
-        const failureMetadata: any = {
+        const failureMetadata: FragmentMetadata = {
           ...latestMetadata,
           lastFixFailure: {
             message: errorMessage,
@@ -1600,7 +1630,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
             sandboxUrl: fragment.sandboxUrl,
             title: fragment.title,
             files: fragment.files,
-            framework: fragmentFramework,
+            framework: frameworkToConvexEnum(fragmentFramework),
             metadata: failureMetadata,
           });
         } catch (metadataError) {
