@@ -5,6 +5,7 @@ import JSZip from "jszip";
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
 import type { Doc } from "@/convex/_generated/dataModel";
+import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
 
 interface FragmentWebProps {
   data: Doc<"fragments">;
@@ -79,7 +80,9 @@ export function FragmentWeb({ data }: FragmentWebProps) {
   };
 
   const handleDownload = async () => {
-    const fileEntries = Object.entries(files);
+    // Filter out E2B sandbox system files - only export AI-generated code
+    const aiGeneratedFiles = filterAIGeneratedFiles(files);
+    const fileEntries = Object.entries(aiGeneratedFiles);
 
     if (fileEntries.length === 0) {
       return;
@@ -95,7 +98,7 @@ export function FragmentWeb({ data }: FragmentWebProps) {
     const url = URL.createObjectURL(zipBlob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `fragment-${data._id}.zip`;
+    link.download = `ai-generated-code-${data._id}.zip`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

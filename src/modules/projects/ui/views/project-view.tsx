@@ -19,6 +19,7 @@ import { ProjectHeader } from "../components/project-header";
 import { MessagesContainer } from "../components/messages-container";
 import { ErrorBoundary } from "react-error-boundary";
 import type { Doc } from "@/convex/_generated/dataModel";
+import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
 
 // Dynamically import heavy components
 const FileExplorer = dynamic(() => import("@/components/file-explorer").then(m => m.FileExplorer), {
@@ -47,7 +48,7 @@ export const ProjectView = ({ projectId }: Props) => {
       return {} as Record<string, string>;
     }
 
-    return Object.entries(activeFragment.files as Record<string, unknown>).reduce<Record<string, string>>(
+    const normalizedFiles = Object.entries(activeFragment.files as Record<string, unknown>).reduce<Record<string, string>>(
       (acc, [path, content]) => {
         if (typeof content === "string") {
           acc[path] = content;
@@ -56,6 +57,9 @@ export const ProjectView = ({ projectId }: Props) => {
       },
       {}
     );
+
+    // Filter out E2B sandbox system files - only show AI-generated code
+    return filterAIGeneratedFiles(normalizedFiles);
   }, [activeFragment]);
 
   return (
