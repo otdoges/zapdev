@@ -3,6 +3,7 @@ import { mutation, query, action } from "./_generated/server";
 import { requireAuth } from "./helpers";
 import { frameworkEnum } from "./schema";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 
 /**
  * Create a new project
@@ -37,14 +38,21 @@ export const createWithMessage = action({
     value: v.string(),
   },
   handler: async (ctx, args) => {
+    // Get the authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || !identity.subject) {
+      throw new Error("Unauthorized");
+    }
+    const userId = identity.subject;
+
     // Check and consume credit first
-    const creditResult = await ctx.runQuery(api.usage.getUsage);
+    const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
     if (creditResult.creditsRemaining <= 0) {
       throw new Error("You have run out of credits");
     }
 
     // Consume the credit
-    await ctx.runMutation(api.usage.checkAndConsumeCredit);
+    await ctx.runMutation(api.usage.checkAndConsumeCreditForUser, { userId });
 
     // Generate a random project name (mimicking generateSlug from random-word-slugs)
     const adjectives = ["happy", "sunny", "clever", "bright", "swift", "bold", "calm", "eager"];
@@ -52,13 +60,15 @@ export const createWithMessage = action({
     const randomName = `${adjectives[Math.floor(Math.random() * adjectives.length)]}-${nouns[Math.floor(Math.random() * nouns.length)]}`;
 
     // Create the project (we'll default to nextjs, framework detection can be added later)
-    const projectId = await ctx.runMutation(api.projects.create, {
+    const projectId = await ctx.runMutation(api.projects.createForUser, {
+      userId,
       name: randomName,
       framework: "NEXTJS",
-    });
+    }) as Id<"projects">;
 
     // Create the initial message
-    const messageId = await ctx.runMutation(api.messages.create, {
+    const messageId = await ctx.runMutation(api.messages.createForUser, {
+      userId,
       projectId,
       content: args.value,
       role: "USER",
@@ -287,3 +297,60 @@ export const getOrCreateFragmentDraft = mutation({
     return await ctx.db.get(draftId);
   },
 });
+
+/**
+ * Internal: Get a project for a specific user (for use from actions/background jobs)
+ */
+export const getInternal = async (
+  ctx: any,
+  userId: string,
+  projectId: string
+): Promise<any> => {
+  const project = await ctx.db.get(projectId as any);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  // Ensure user owns the project
+  if (project.userId !== userId) {
+    throw new Error("Unauthorized");
+  }
+
+  return project;
+};
+
+/**
+ * Wrapper mutation for creating a project with explicit user ID (for use from actions)
+ */
+export const createForUser = mutation({
+  args: {
+    userId: v.string(),
+    name: v.string(),
+    framework: frameworkEnum,
+  },
+  handler: async (ctx, args) => {
+    return createInternal(ctx, args.userId, args.name, args.framework);
+  },
+});
+
+/**
+ * Internal: Create a project for a specific user (for use from actions/background jobs)
+ */
+export const createInternal = async (
+  ctx: any,
+  userId: string,
+  name: string,
+  framework: string
+): Promise<string> => {
+  const now = Date.now();
+
+  const projectId = await ctx.db.insert("projects", {
+    name,
+    userId,
+    framework,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return projectId;
+};

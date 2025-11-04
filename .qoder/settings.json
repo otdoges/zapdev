@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "ask": [
+      "Read(!/home/dih/zapdev/**)",
+      "Edit(!/home/dih/zapdev/**)"
+    ],
+    "allow": [
+      "Read(/home/dih/zapdev/**)",
+      "Edit(/home/dih/zapdev/**)"
+    ]
+  },
+  "memoryImport": {},
+  "monitoring": {}
+}

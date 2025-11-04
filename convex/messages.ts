@@ -468,3 +468,114 @@ export const getFragmentByIdAuth = query({
     return { fragment, message, project };
   },
 });
+
+/**
+ * Wrapper mutation for creating a message with explicit user ID (for use from actions)
+ */
+export const createForUser = mutation({
+  args: {
+    userId: v.string(),
+    projectId: v.id("projects"),
+    content: v.string(),
+    role: messageRoleEnum,
+    type: messageTypeEnum,
+    status: v.optional(messageStatusEnum),
+  },
+  handler: async (ctx, args) => {
+    return createInternal(ctx, args.userId, args.projectId, args.content, args.role, args.type, args.status);
+  },
+});
+
+/**
+ * Internal: Create a message for a specific user (for use from actions/background jobs)
+ */
+export const createInternal = async (
+  ctx: any,
+  userId: string,
+  projectId: string,
+  content: string,
+  role: string,
+  type: string,
+  status?: string
+): Promise<string> => {
+  // Verify project ownership
+  const project = await ctx.db.get(projectId as any);
+  if (!project || project.userId !== userId) {
+    throw new Error("Unauthorized");
+  }
+
+  const now = Date.now();
+
+  const messageId = await ctx.db.insert("messages", {
+    projectId: projectId as any,
+    content,
+    role,
+    type,
+    status: status || "COMPLETE",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return messageId;
+};
+
+/**
+ * Internal: Create a fragment for a specific user (for use from actions/background jobs)
+ */
+export const createFragmentInternal = async (
+  ctx: any,
+  userId: string,
+  messageId: string,
+  sandboxId: string,
+  sandboxUrl: string,
+  title: string,
+  files: Record<string, any>,
+  framework: string,
+  metadata?: Record<string, unknown>
+): Promise<string> => {
+  // Verify message ownership through project
+  const message = await ctx.db.get(messageId as any);
+  if (!message) {
+    throw new Error("Message not found");
+  }
+
+  const project = await ctx.db.get(message.projectId);
+  if (!project || project.userId !== userId) {
+    throw new Error("Unauthorized");
+  }
+
+  const now = Date.now();
+
+  // Check if fragment already exists
+  const existingFragment = await ctx.db
+    .query("fragments")
+    .withIndex("by_messageId", (q: any) => q.eq("messageId", messageId as any))
+    .first();
+
+  if (existingFragment) {
+    // Update existing fragment
+    await ctx.db.patch(existingFragment._id, {
+      sandboxId,
+      sandboxUrl,
+      title,
+      files,
+      metadata,
+      updatedAt: now,
+    });
+    return existingFragment._id;
+  }
+
+  // Create new fragment
+  const fragmentId = await ctx.db.insert("fragments", {
+    messageId: messageId as any,
+    sandboxId,
+    sandboxUrl,
+    title,
+    files,
+    metadata,
+    framework,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return fragmentId;
+};
