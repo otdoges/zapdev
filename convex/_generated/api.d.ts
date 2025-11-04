@@ -10,8 +10,9 @@
 
 import type * as helpers from "../helpers.js";
 import type * as importData from "../importData.js";
-import type * as messages from "../messages.js";
 import type * as imports from "../imports.js";
+import type * as messages from "../messages.js";
+import type * as oauth from "../oauth.js";
 import type * as projects from "../projects.js";
 import type * as usage from "../usage.js";
 
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   importData: typeof importData;
   imports: typeof imports;
   messages: typeof messages;
+  oauth: typeof oauth;
   projects: typeof projects;
   usage: typeof usage;
 }>;
