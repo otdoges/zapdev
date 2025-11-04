@@ -58,6 +58,7 @@
     "@trpc/tanstack-react-query": "^11.7.1",
     "@typescript/native-preview": "^7.0.0-dev.20251103.1",
     "@uploadthing/react": "^7.3.3",
+    "@vercel/speed-insights": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "claude": "^0.1.2",
     "client-only": "^0.0.1",

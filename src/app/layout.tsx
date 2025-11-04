@@ -6,7 +6,7 @@ import Script from "next/script";
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { ConvexClientProvider } from "@/components/convex-provider";
-
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -125,6 +125,7 @@ export default function RootLayout({
           content
         )}
       </body>
+       <SpeedInsights />
     </html>
   );
 };
