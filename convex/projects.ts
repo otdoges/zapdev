@@ -354,3 +354,74 @@ export const createInternal = async (
 
   return projectId;
 };
+
+/**
+ * System-level query to get any project by ID (for Inngest background jobs only)
+ * This bypasses authentication since Inngest is a trusted system
+ */
+export const getForSystem = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+    return project;
+  },
+});
+
+/**
+ * Get a project for a specific user (for use from background jobs/Inngest)
+ */
+export const getForUser = query({
+  args: {
+    userId: v.string(),
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    // Ensure user owns the project
+    if (project.userId !== args.userId) {
+      throw new Error("Unauthorized");
+    }
+
+    return project;
+  },
+});
+
+/**
+ * Update a project for a specific user (for use from background jobs/Inngest)
+ */
+export const updateForUser = mutation({
+  args: {
+    userId: v.string(),
+    projectId: v.id("projects"),
+    name: v.optional(v.string()),
+    framework: v.optional(frameworkEnum),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    // Ensure user owns the project
+    if (project.userId !== args.userId) {
+      throw new Error("Unauthorized");
+    }
+
+    await ctx.db.patch(args.projectId, {
+      ...(args.name && { name: args.name }),
+      ...(args.framework && { framework: args.framework }),
+      updatedAt: Date.now(),
+    });
+
+    return args.projectId;
+  },
+});
