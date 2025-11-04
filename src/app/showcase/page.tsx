@@ -32,7 +32,7 @@ export const metadata: Metadata = generateSEOMetadata({
   }
 });
 
-async function getShowcaseProjects() {
+async function getShowcaseProjects(): Promise<Array<{ id?: string; name: string; createdAt: Date | number; framework?: string; messageCount?: number; hasFragment?: boolean }>> {
   // TODO: Re-implement with Convex queries
   // This would require querying all projects, then filtering for those with fragments
   return [];
@@ -110,7 +110,7 @@ export default async function ShowcasePage() {
       hasPart: projects.map(project => ({
         '@type': 'CreativeWork',
         name: project.name,
-        dateCreated: project.createdAt.toISOString(),
+        dateCreated: typeof project.createdAt === 'number' ? new Date(project.createdAt).toISOString() : project.createdAt.toISOString(),
         creator: {
           '@type': 'Organization',
           name: 'Zapdev Community'
@@ -121,8 +121,8 @@ export default async function ShowcasePage() {
 
   const stats = {
     totalProjects: projects.length,
-    frameworks: [...new Set(projects.map(p => p.framework))].length,
-    totalInteractions: projects.reduce((acc, p) => acc + p.messageCount, 0)
+    frameworks: [...new Set(projects.map(p => p.framework).filter(Boolean))].length,
+    totalInteractions: projects.reduce((acc, p) => acc + (p.messageCount || 0), 0)
   };
 
   return (
@@ -177,12 +177,12 @@ export default async function ShowcasePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
           {projects.map((project) => {
-            const framework = frameworkDetails[project.framework] || frameworkDetails.REACT;
+            const framework = frameworkDetails[project.framework as keyof typeof frameworkDetails] || frameworkDetails.REACT;
             
             return (
               <Link
-                key={project.id}
-                href={`/projects/${project.id}`}
+                key={project.id || project.name}
+                href={project.id ? `/projects/${project.id}` : '#'}
                 className="block transition-transform hover:scale-105"
               >
                 <Card className="h-full hover:shadow-lg transition-shadow">
@@ -190,7 +190,7 @@ export default async function ShowcasePage() {
                     <div className="flex items-start justify-between mb-2">
                       <Badge className={framework.color}>
                         <span className="mr-1">{framework.icon}</span>
-                        {project.framework}
+                        {project.framework || 'UNKNOWN'}
                       </Badge>
                       {project.hasFragment && (
                         <Badge variant="secondary">

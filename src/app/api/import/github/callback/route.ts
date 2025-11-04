@@ -79,7 +79,7 @@ export async function GET(request: Request) {
     const userData = userResponse.ok ? await userResponse.json() : {};
 
     // Store OAuth connection in Convex
-    await fetchMutation(api.oauth.storeConnection, {
+    await fetchMutation((api as any).oauth.storeConnection, {
       provider: "github",
       accessToken: tokenData.access_token,
       scope: tokenData.scope || "repo,read:user,user:email",

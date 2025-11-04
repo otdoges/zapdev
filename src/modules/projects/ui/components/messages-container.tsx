@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 
 import { MessageCard } from "./message-card";
 import { MessageForm } from "./message-form";
@@ -9,8 +9,13 @@ import { MessageLoading } from "./message-loading";
 
 interface Props {
   projectId: string;
-  activeFragment: any | null;
-  setActiveFragment: (fragment: any | null) => void;
+  activeFragment: Doc<"fragments"> | null;
+  setActiveFragment: (fragment: Doc<"fragments"> | null) => void;
+}
+
+type MessageWithRelations = Doc<"messages"> & {
+  Fragment: Doc<"fragments"> | null;
+  Attachment: Doc<"attachments">[];
 };
 
 export const MessagesContainer = ({
@@ -24,12 +29,12 @@ export const MessagesContainer = ({
   // Convex queries are reactive by default - no polling needed!
   const messages = useQuery(api.messages.list, {
     projectId: projectId as Id<"projects">
-  });
+  }) as MessageWithRelations[] | undefined;
 
   useEffect(() => {
     if (!messages) return;
 
-    const lastAssistantMessage = messages.findLast(
+    const lastAssistantMessage = [...messages].reverse().find(
       (message) => message.role === "ASSISTANT"
     );
 
@@ -65,9 +70,9 @@ export const MessagesContainer = ({
               content={message.content}
               role={message.role}
               fragment={message.Fragment}
-              createdAt={message.createdAt}
+              createdAt={message.createdAt ?? message._creationTime}
               isActiveFragment={activeFragment?._id === message.Fragment?._id}
-              onFragmentClick={() => setActiveFragment(message.Fragment)}
+              onFragmentClick={setActiveFragment}
               type={message.type}
               attachments={message.Attachment}
             />

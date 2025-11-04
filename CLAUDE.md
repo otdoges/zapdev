@@ -107,4 +107,4 @@ await inngest.send({
 
 Always use bun for install stuff
 Use bun for package management 
-Always put your .md files in the explanations`
+Always put your .md files in the @/explanations`

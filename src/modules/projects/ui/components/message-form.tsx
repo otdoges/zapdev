@@ -9,7 +9,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, GitBranchIcon, FigmaIcon } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
 import { useQuery, useAction } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@/lib/convex-api";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,6 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
-import { inngest } from "@/inngest/client";
-import { getAgentEventName } from "@/lib/agent-mode";
 
 import { Usage } from "./usage";
 import type { OurFileRouter } from "@/lib/uploadthing";
@@ -70,12 +68,13 @@ export const MessageForm = ({ projectId }: Props) => {
       });
 
       // Trigger Inngest event for AI processing
-      await inngest.send({
-        name: getAgentEventName(),
-        data: {
-          value: result.value,
+      await fetch("/api/inngest/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           projectId: result.projectId,
-        },
+          value: result.value,
+        }),
       });
 
       form.reset();
@@ -104,7 +103,7 @@ export const MessageForm = ({ projectId }: Props) => {
     try {
       // Navigate to Figma OAuth flow
       window.location.href = "/api/import/figma/auth";
-    } catch (error) {
+    } catch {
       toast.error("Failed to start Figma import");
     }
   };
@@ -114,7 +113,7 @@ export const MessageForm = ({ projectId }: Props) => {
     try {
       // Navigate to GitHub OAuth flow
       window.location.href = "/api/import/github/auth";
-    } catch (error) {
+    } catch {
       toast.error("Failed to start GitHub import");
     }
   };

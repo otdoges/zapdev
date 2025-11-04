@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useAuth } from "@clerk/nextjs";
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
 import { ProjectHeader } from "../components/project-header";
 import { MessagesContainer } from "../components/messages-container";
 import { ErrorBoundary } from "react-error-boundary";
+import type { Doc } from "@/convex/_generated/dataModel";
 
 // Dynamically import heavy components
 const FileExplorer = dynamic(() => import("@/components/file-explorer").then(m => m.FileExplorer), {
@@ -38,8 +39,24 @@ export const ProjectView = ({ projectId }: Props) => {
   const { has } = useAuth();
   const hasProAccess = has?.({ plan: "pro" });
 
-  const [activeFragment, setActiveFragment] = useState<Fragment | null>(null);
+  const [activeFragment, setActiveFragment] = useState<Doc<"fragments"> | null>(null);
   const [tabState, setTabState] = useState<"preview" | "code">("preview");
+
+  const explorerFiles = useMemo(() => {
+    if (!activeFragment || typeof activeFragment.files !== "object" || activeFragment.files === null) {
+      return {} as Record<string, string>;
+    }
+
+    return Object.entries(activeFragment.files as Record<string, unknown>).reduce<Record<string, string>>(
+      (acc, [path, content]) => {
+        if (typeof content === "string") {
+          acc[path] = content;
+        }
+        return acc;
+      },
+      {}
+    );
+  }, [activeFragment]);
 
   return (
     <div className="h-screen">
@@ -99,10 +116,8 @@ export const ProjectView = ({ projectId }: Props) => {
               {!!activeFragment && <FragmentWeb data={activeFragment} />}
             </TabsContent>
             <TabsContent value="code" className="min-h-0">
-              {!!activeFragment?.files && (
-                <FileExplorer
-                  files={activeFragment.files as { [path: string]: string }}
-                />
+              {activeFragment && (
+                <FileExplorer files={explorerFiles} />
               )}
             </TabsContent>
           </Tabs>

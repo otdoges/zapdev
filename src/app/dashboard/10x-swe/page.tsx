@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { toast } from "sonner";
 import {
   Tabs,
   TabsContent,
@@ -16,25 +15,19 @@ import {
   BarChartIcon,
   GitPullRequestIcon,
   SparklesIcon,
-  Loader2Icon,
 } from "lucide-react";
 
-export default function TenXSweDashboard() {
+function TenXSweDashboardContent() {
   const searchParams = useSearchParams();
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
-  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [activeTab, setActiveTab] = useState("analysis");
 
   useEffect(() => {
-    const repo = searchParams.get("repo");
+    const repo = searchParams?.get("repo");
     if (repo) {
       setSelectedRepo(repo);
     }
   }, [searchParams]);
-
-  const handleRepositoryChange = (repo: string) => {
-    setSelectedRepo(repo);
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
@@ -246,5 +239,17 @@ export default function TenXSweDashboard() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function TenXSweDashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-muted-foreground">Loading dashboard...</p>
+      </div>
+    </div>}>
+      <TenXSweDashboardContent />
+    </Suspense>
   );
 }

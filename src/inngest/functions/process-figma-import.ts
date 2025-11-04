@@ -1,19 +1,43 @@
 import { inngest } from "@/inngest/client";
 import { ConvexClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
+import { api } from "@/lib/convex-api";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
   extractDesignSystem,
   generateFigmaCodePrompt,
   extractPageStructure,
 } from "@/lib/figma-processor";
 
-const convex = new ConvexClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+let convexClient: ConvexClient | null = null;
+function getConvexClient() {
+  if (!convexClient) {
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+    if (!url) {
+      throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
+    }
+    convexClient = new ConvexClient(url);
+  }
+  return convexClient;
+}
+
+const convex = new Proxy({} as ConvexClient, {
+  get(_target, prop) {
+    return getConvexClient()[prop as keyof ConvexClient];
+  }
+});
+
+interface FigmaImportEventData {
+  importId: Id<"imports">;
+  projectId: string;
+  fileKey: string;
+  accessToken: string;
+}
 
 export const processFigmaImport = inngest.createFunction(
   { id: "process-figma-import" },
   { event: "code-agent/process-figma-import" },
   async ({ event, step }) => {
-    const { importId, projectId, fileKey, accessToken } = event.data as any;
+    const { importId, projectId, fileKey, accessToken } = event.data as FigmaImportEventData;
 
     try {
       // Mark import as processing
@@ -56,19 +80,19 @@ export const processFigmaImport = inngest.createFunction(
 
       // Create a message with the Figma context
       const message = await step.run("create-message", async () => {
-        return await convex.mutation(api.messages.createWithAttachments, {
+        return await convex.action(api.messages.createWithAttachments, {
           value: `Convert this Figma design to code:\n\n${structureInfo}\n\n${aiPrompt}`,
           projectId,
           attachments: [
             {
               url: figmaData.thumbnail_url || "",
               size: 0,
-              type: "FIGMA_FILE",
               importId,
               sourceMetadata: {
                 figmaFile: figmaData.name,
                 designSystem,
               },
+              type: "FIGMA_FILE",
             },
           ],
         });
@@ -80,7 +104,7 @@ export const processFigmaImport = inngest.createFunction(
           importId,
           metadata: {
             designSystem,
-            messageId: message._id,
+            messageId: message.messageId,
             fileData: {
               name: figmaData.name,
               pageCount: figmaData.document?.children?.length || 0,
@@ -92,7 +116,7 @@ export const processFigmaImport = inngest.createFunction(
       return {
         success: true,
         importId,
-        messageId: message._id,
+        messageId: message.messageId,
         designSystemSize: Object.keys(designSystem.colors || {}).length,
       };
     } catch (error) {

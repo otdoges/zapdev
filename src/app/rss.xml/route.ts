@@ -15,7 +15,7 @@ export async function GET() {
   
   try {
     // TODO: Re-implement project fetching with Convex
-    const projects: any[] = [];
+    const projects: Array<{ name: string; id: string; framework: string; createdAt: Date }> = [];
     const frameworks = getAllFrameworks();
 
     const rssItems = [
