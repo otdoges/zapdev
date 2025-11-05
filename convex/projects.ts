@@ -89,6 +89,88 @@ export const createWithMessage = action({
 }) as ReturnType<typeof action>;
 
 /**
+ * Create a project with initial message and attachments (for new project flow from home page)
+ */
+export const createWithMessageAndAttachments = action({
+  args: {
+    value: v.string(),
+    attachments: v.optional(
+      v.array(
+        v.object({
+          url: v.string(),
+          size: v.number(),
+          width: v.optional(v.number()),
+          height: v.optional(v.number()),
+        })
+      )
+    ),
+  },
+  handler: async (ctx, args) => {
+    // Get the authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || !identity.subject) {
+      throw new Error("Unauthorized");
+    }
+    const userId = identity.subject;
+
+    // Check and consume credit first
+    const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
+    if (creditResult.creditsRemaining <= 0) {
+      throw new Error("You have run out of credits");
+    }
+
+    // Consume the credit
+    await ctx.runMutation(api.usage.checkAndConsumeCreditForUser, { userId });
+
+    // Generate a random project name (mimicking generateSlug from random-word-slugs)
+    const adjectives = ["happy", "sunny", "clever", "bright", "swift", "bold", "calm", "eager"];
+    const nouns = ["project", "app", "site", "tool", "platform", "system", "portal", "hub"];
+    const randomName = `${adjectives[Math.floor(Math.random() * adjectives.length)]}-${nouns[Math.floor(Math.random() * nouns.length)]}`;
+
+    // Create the project (we'll default to nextjs, framework detection can be added later)
+    const projectId = await ctx.runMutation(api.projects.createForUser, {
+      userId,
+      name: randomName,
+      framework: "NEXTJS",
+    }) as Id<"projects">;
+
+    // Create the initial message
+    const messageId = await ctx.runMutation(api.messages.createForUser, {
+      userId,
+      projectId,
+      content: args.value,
+      role: "USER",
+      type: "RESULT",
+      status: "COMPLETE",
+    }) as Id<"messages">;
+
+    // Add attachments if provided
+    if (args.attachments && args.attachments.length > 0) {
+      for (const attachment of args.attachments) {
+        await ctx.runMutation(api.messages.addAttachment, {
+          messageId,
+          type: "IMAGE",
+          url: attachment.url,
+          size: attachment.size,
+          width: attachment.width,
+          height: attachment.height,
+        });
+      }
+    }
+
+    // Get the project to return
+    const project = await ctx.runQuery(api.projects.get, { projectId });
+
+    return {
+      id: projectId,
+      ...project,
+      messageId,
+      value: args.value
+    };
+  },
+}) as ReturnType<typeof action>;
+
+/**
  * Get all projects for the current user with preview attachment
  */
 export const list = query({

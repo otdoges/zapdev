@@ -1,8 +1,7 @@
-import {withSentryConfig} from "@sentry/nextjs";
+// import {withSentryConfig} from "@sentry/nextjs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { NextConfig } from "next";
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -21,7 +20,7 @@ const hasCritters = (() => {
   }
 })();
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   /* config options here */
   headers: async () => {
     return [
@@ -142,10 +141,10 @@ const nextConfig: NextConfig = {
             enforce: true,
           },
           lib: {
-            test(module: { size: () => number; identifier: () => string }) {
+            test(module) {
               return module.size() > 160000 && /node_modules[/\\]/.test(module.identifier());
             },
-            name(module: { identifier: () => string }) {
+            name(module) {
               const crypto = require('crypto');
               const hash = crypto.createHash('sha1');
               hash.update(module.identifier());
@@ -162,7 +161,7 @@ const nextConfig: NextConfig = {
             priority: 20,
           },
           shared: {
-            name(module: { identifier: () => string }, chunks: { name: string }[]) {
+            name(module, chunks) {
               const crypto = require('crypto');
               const hash = crypto.createHash('sha1');
               hash.update(chunks.map(c => c.name).join('~'));
@@ -182,38 +181,9 @@ const nextConfig: NextConfig = {
   compress: true,
   // Optimize production builds
   productionBrowserSourceMaps: false,
+  // Empty turbopack config to silence warning (Next.js 16)
+  turbopack: {},
 };
 
-export default withSentryConfig(nextConfig, {
-  // For all available options, see:
-  // https://www.npmjs.com/package/@sentry/webpack-plugin#options
-
-  org: "zapdev",
-
-  project: "zapdev",
-
-  // Only print logs for uploading source maps in CI
-  silent: !process.env.CI,
-
-  // For all available options, see:
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
-
-  // Upload a larger set of source maps for prettier stack traces (increases build time)
-  // Only enable in production/CI to speed up local development builds
-  widenClientFileUpload: process.env.NODE_ENV === "production" || !!process.env.CI,
-
-  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-  // This can increase your server load as well as your hosting bill.
-  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
-  // side errors will fail.
-  tunnelRoute: "/monitoring",
-
-  // Automatically tree-shake Sentry logger statements to reduce bundle size
-  disableLogger: true,
-
-  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-  // See the following for more information:
-  // https://docs.sentry.io/product/crons/
-  // https://vercel.com/docs/cron-jobs
-  automaticVercelMonitors: true
-});
+// Sentry disabled temporarily - uncomment to re-enable
+export default nextConfig;
