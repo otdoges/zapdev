@@ -8,13 +8,11 @@ const isPublicRoute = createRouteMatcher([
   "/pricing(.*)"
 ]);
 
-export async function proxy(auth: any, req: any) {
+export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
     await auth.protect();
   }
-}
-
-export default clerkMiddleware(proxy);
+});
 
 export const config = {
   matcher: [
