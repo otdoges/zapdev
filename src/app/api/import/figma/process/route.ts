@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { inngest } from "@/inngest/client";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -66,11 +67,15 @@ export async function POST(request: Request) {
       },
     });
 
-    // TODO: Trigger Inngest job to process Figma file
-    // await inngest.send({
-    //   name: "code-agent/process-figma-import",
-    //   data: { importId, projectId, fileKey }
-    // });
+    await inngest.send({
+      name: "code-agent/process-figma-import",
+      data: {
+        importId: importRecord,
+        projectId,
+        fileKey,
+        accessToken: connection.accessToken,
+      },
+    });
 
     return NextResponse.json({
       success: true,

@@ -227,6 +227,56 @@ export const list = query({
 });
 
 /**
+ * Get showcase projects - public query for projects with fragments
+ * Returns up to 12 projects that have at least one message with a fragment
+ */
+export const listShowcase = query({
+  args: {},
+  handler: async (ctx) => {
+    const allProjects = await ctx.db
+      .query("projects")
+      .order("desc")
+      .collect();
+
+    const projectsWithFragments = await Promise.all(
+      allProjects.map(async (project) => {
+        const messages = await ctx.db
+          .query("messages")
+          .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+          .collect();
+
+        const messageCount = messages.length;
+
+        let hasFragment = false;
+        for (const message of messages) {
+          const fragment = await ctx.db
+            .query("fragments")
+            .withIndex("by_messageId", (q) => q.eq("messageId", message._id))
+            .first();
+          if (fragment) {
+            hasFragment = true;
+            break;
+          }
+        }
+
+        return {
+          ...project,
+          messageCount,
+          hasFragment,
+        };
+      })
+    );
+
+    const filteredProjects = projectsWithFragments
+      .filter((project) => project.hasFragment)
+      .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+      .slice(0, 12);
+
+    return filteredProjects;
+  },
+});
+
+/**
  * Get a single project by ID
  */
 export const get = query({
