@@ -283,6 +283,8 @@ const MAX_FILE_COUNT = 500;
 const MAX_SCREENSHOTS = 20;
 const FILE_READ_BATCH_SIZE = 10;
 const FILE_READ_TIMEOUT_MS = 5000;
+const INNGEST_STEP_OUTPUT_SIZE_LIMIT = 1024 * 1024;
+const FILES_PER_STEP_BATCH = 50;
 
 const ALLOWED_WORKSPACE_PATHS = ['/home/user', '.'];
 
@@ -388,6 +390,14 @@ const readFileWithTimeout = async (
     console.error(`[ERROR] Failed to read file ${filePath}:`, errorMessage);
     return null;
   }
+};
+
+const calculateFilesMapSize = (filesMap: Record<string, string>): number => {
+  let totalSize = 0;
+  for (const [path, content] of Object.entries(filesMap)) {
+    totalSize += path.length + content.length;
+  }
+  return totalSize;
 };
 
 const readFilesInBatches = async (
@@ -1109,9 +1119,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       return uniqueScreenshots;
     });
 
-    const allSandboxFiles = await step.run("read-all-sandbox-files", async () => {
+    const filePathsList = await step.run("find-sandbox-files", async () => {
       if (isError) {
-        return {};
+        return [];
       }
 
       try {
@@ -1122,27 +1132,78 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         const filePaths = findResult.stdout
           .split('\n')
           .map(line => line.trim())
-          .filter(line => line.length > 0 && !line.includes('Permission denied'));
+          .filter(line => line.length > 0 && !line.includes('Permission denied'))
+          .filter(isValidFilePath);
 
         console.log(`[DEBUG] Found ${filePaths.length} files in sandbox`);
 
         if (filePaths.length === 0) {
           console.warn("[WARN] No files found in sandbox");
-          return {};
+          return [];
         }
 
-        const startTime = Date.now();
-        const allFilesMap = await readFilesInBatches(sandbox, filePaths, FILE_READ_BATCH_SIZE);
-        const duration = Date.now() - startTime;
+        const totalFiles = Math.min(filePaths.length, MAX_FILE_COUNT);
+        if (filePaths.length > MAX_FILE_COUNT) {
+          console.warn(`[WARN] File count (${filePaths.length}) exceeds limit (${MAX_FILE_COUNT}), reading first ${MAX_FILE_COUNT} files`);
+        }
 
-        console.log(`[DEBUG] Successfully read ${Object.keys(allFilesMap).length} files from sandbox in ${duration}ms`);
-        return allFilesMap;
+        return filePaths.slice(0, totalFiles);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("[ERROR] Failed to read all sandbox files:", errorMessage);
-        return {};
+        console.error("[ERROR] Failed to find sandbox files:", errorMessage);
+        return [];
       }
     });
+
+    const allSandboxFiles: Record<string, string> = {};
+    
+    if (filePathsList.length > 0) {
+      const numBatches = Math.ceil(filePathsList.length / FILES_PER_STEP_BATCH);
+      
+      for (let batchIndex = 0; batchIndex < numBatches; batchIndex++) {
+        const batchStart = batchIndex * FILES_PER_STEP_BATCH;
+        const batchEnd = Math.min(batchStart + FILES_PER_STEP_BATCH, filePathsList.length);
+        const batchFilePaths = filePathsList.slice(batchStart, batchEnd);
+        
+        const batchFiles = await step.run(`read-sandbox-files-batch-${batchIndex}`, async () => {
+          const sandbox = await getSandbox(sandboxId);
+          const batchFilesMap: Record<string, string> = {};
+          
+          for (const filePath of batchFilePaths) {
+            const content = await readFileWithTimeout(sandbox, filePath, FILE_READ_TIMEOUT_MS);
+            if (content !== null) {
+              batchFilesMap[filePath] = content;
+            }
+          }
+          
+          const batchSize = calculateFilesMapSize(batchFilesMap);
+          if (batchSize > INNGEST_STEP_OUTPUT_SIZE_LIMIT) {
+            console.warn(`[WARN] Batch ${batchIndex} size (${batchSize} bytes) exceeds Inngest limit, filtering large files`);
+            const filteredBatch: Record<string, string> = {};
+            let currentSize = 0;
+            
+            for (const [path, content] of Object.entries(batchFilesMap)) {
+              const fileSize = path.length + content.length;
+              if (currentSize + fileSize <= INNGEST_STEP_OUTPUT_SIZE_LIMIT * 0.9) {
+                filteredBatch[path] = content;
+                currentSize += fileSize;
+              } else {
+                console.warn(`[WARN] Skipping large file in batch: ${path} (${fileSize} bytes)`);
+              }
+            }
+            
+            return filteredBatch;
+          }
+          
+          return batchFilesMap;
+        });
+        
+        Object.assign(allSandboxFiles, batchFiles);
+        console.log(`[DEBUG] Processed batch ${batchIndex + 1}/${numBatches} (${Object.keys(batchFiles).length} files)`);
+      }
+      
+      console.log(`[DEBUG] Successfully read ${Object.keys(allSandboxFiles).length} files from sandbox in ${numBatches} batches`);
+    }
 
     const agentFiles = result.state.data.files || {};
     

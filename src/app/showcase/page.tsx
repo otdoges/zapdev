@@ -1,5 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { fetchQuery } from 'convex/nextjs';
+import { api } from '@/convex/_generated/api';
 import { generateMetadata as generateSEOMetadata, generateStructuredData } from '@/lib/seo';
 import { StructuredData } from '@/components/seo/structured-data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,55 +35,21 @@ export const metadata: Metadata = generateSEOMetadata({
 });
 
 async function getShowcaseProjects(): Promise<Array<{ id?: string; name: string; createdAt: Date | number; framework?: string; messageCount?: number; hasFragment?: boolean }>> {
-  // TODO: Re-implement with Convex queries
-  // This would require querying all projects, then filtering for those with fragments
-  return [];
+  try {
+    const projects = await fetchQuery(api.projects.listShowcase, {});
 
-  /* const projects = await prisma.project.findMany({
-    where: {
-      Message: {
-        some: {
-          Fragment: {
-            isNot: null
-          }
-        }
-      }
-    },
-    include: {
-      Message: {
-        where: {
-          Fragment: {
-            isNot: null
-          }
-        },
-        include: {
-          Fragment: true
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        take: 1
-      },
-      _count: {
-        select: {
-          Message: true
-        }
-      }
-    },
-    orderBy: {
-      createdAt: 'desc'
-    },
-    take: 12
-  });
-
-  return projects.map(project => ({
-    id: project.id,
-    name: project.name,
-    framework: project.framework,
-    createdAt: project.createdAt,
-    messageCount: project._count.Message,
-    hasFragment: project.Message.length > 0
-  })); */
+    return projects.map((project) => ({
+      id: project._id,
+      name: project.name,
+      framework: project.framework,
+      createdAt: project.createdAt ?? Date.now(),
+      messageCount: project.messageCount ?? 0,
+      hasFragment: project.hasFragment ?? false,
+    }));
+  } catch (error) {
+    console.error('Error fetching showcase projects:', error);
+    return [];
+  }
 }
 
 const frameworkDetails = {

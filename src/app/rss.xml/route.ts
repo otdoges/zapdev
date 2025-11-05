@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { fetchQuery } from 'convex/nextjs';
+import { api } from '@/convex/_generated/api';
 import { getAllFrameworks } from '@/lib/frameworks';
 
 function escapeXml(unsafe: string): string {
@@ -14,8 +16,17 @@ export async function GET() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zapdev.link';
   
   try {
-    // TODO: Re-implement project fetching with Convex
-    const projects: Array<{ name: string; id: string; framework: string; createdAt: Date }> = [];
+    const showcaseProjects = await fetchQuery(api.projects.listShowcase, {});
+    
+    const projects = showcaseProjects
+      .slice(0, 50)
+      .map((project) => ({
+        name: project.name,
+        id: project._id,
+        framework: project.framework ?? 'NEXTJS',
+        createdAt: new Date(project.createdAt ?? Date.now())
+      }));
+    
     const frameworks = getAllFrameworks();
 
     const rssItems = [
