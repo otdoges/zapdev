@@ -21,20 +21,33 @@ export const ProjectsList = () => {
 
   if (!user) return null;
 
+  if (projects === undefined) {
+    return (
+      <div className="w-full bg-white dark:bg-sidebar rounded-xl p-8 border flex flex-col gap-y-6 sm:gap-y-4">
+        <h2 className="text-2xl font-semibold">
+          {user.firstName ? `${user.firstName}'s Apps` : "Your Apps"}
+        </h2>
+        <div className="flex items-center justify-center py-8">
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full bg-white dark:bg-sidebar rounded-xl p-8 border flex flex-col gap-y-6 sm:gap-y-4">
       <h2 className="text-2xl font-semibold">
         {user.firstName ? `${user.firstName}'s Apps` : "Your Apps"}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        {projects?.length === 0 && (
+        {projects.length === 0 && (
           <div className="col-span-full text-center">
             <p className="text-sm text-muted-foreground">
               No projects found
             </p>
           </div>
         )}
-        {projects?.map((project) => {
+        {projects.map((project) => {
           const imageSrc = project.previewAttachment?.url ?? "/logo.svg";
           const hasPreviewImage = Boolean(project.previewAttachment?.url);
           const updatedAtSource = project.updatedAt ?? project._creationTime ?? Date.now();

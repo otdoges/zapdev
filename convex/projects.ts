@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
-import { requireAuth } from "./helpers";
+import { requireAuth, getCurrentUserClerkId } from "./helpers";
 import { frameworkEnum } from "./schema";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -172,11 +172,16 @@ export const createWithMessageAndAttachments = action({
 
 /**
  * Get all projects for the current user with preview attachment
+ * Returns empty array if user is not authenticated
  */
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+    const userId = await getCurrentUserClerkId(ctx);
+    
+    if (!userId) {
+      return [];
+    }
 
     const projects = await ctx.db
       .query("projects")
