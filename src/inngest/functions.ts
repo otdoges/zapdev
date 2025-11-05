@@ -41,6 +41,7 @@ import { inngest } from "./client";
 import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
 import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
 import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
+import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
 // Multi-agent workflow removed; only single code agent is used.
 
 type SandboxWithHost = Sandbox & {
@@ -1151,14 +1152,19 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       console.warn(`[WARN] Merge strategy warnings: ${mergeValidation.warnings.join('; ')}`);
     }
     
+    // Filter out E2B sandbox system files and configuration boilerplate
+    const filteredSandboxFiles = filterAIGeneratedFiles(allSandboxFiles);
+    const removedFileCount = Object.keys(allSandboxFiles).length - Object.keys(filteredSandboxFiles).length;
+    console.log(`[DEBUG] Filtered sandbox files: ${Object.keys(allSandboxFiles).length} → ${Object.keys(filteredSandboxFiles).length} files (removed ${removedFileCount} system/config files)`);
+
     // Merge strategy: Agent files take priority over sandbox files
     // This ensures that any files explicitly created/modified by the agent
     // overwrite the corresponding files from the sandbox filesystem.
     // This is intentional as agent files represent the final state of the project.
     // Critical files from sandbox are preserved if not in agent files.
-    const mergedFiles = { ...allSandboxFiles, ...agentFiles };
-    
-    const overwrittenFiles = Object.keys(agentFiles).filter(path => allSandboxFiles[path] !== undefined);
+    const mergedFiles = { ...filteredSandboxFiles, ...agentFiles };
+
+    const overwrittenFiles = Object.keys(agentFiles).filter(path => filteredSandboxFiles[path] !== undefined);
     if (overwrittenFiles.length > 0) {
       console.log(`[DEBUG] Agent files overwriting ${overwrittenFiles.length} sandbox files: ${overwrittenFiles.slice(0, 5).join(', ')}${overwrittenFiles.length > 5 ? '...' : ''}`);
     }
@@ -1179,7 +1185,33 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     if (invalidPathCount > 0) {
       console.warn(`[WARN] Filtered out ${invalidPathCount} invalid file paths from merged files`);
     }
-    
+
+    // Validate aggregate size to prevent exceeding Convex document limits
+    const totalSizeBytes = Object.values(validatedMergedFiles).reduce((sum, content) => sum + content.length, 0);
+    const totalSizeMB = totalSizeBytes / (1024 * 1024);
+    const fileCount = Object.keys(validatedMergedFiles).length;
+
+    console.log(`[DEBUG] Merged files size: ${totalSizeMB.toFixed(2)} MB (${fileCount} files, ${totalSizeBytes.toLocaleString()} bytes)`);
+
+    // Convex document size limits: warn at 4MB, fail at 5MB
+    const WARN_SIZE_MB = 4;
+    const MAX_SIZE_MB = 5;
+
+    if (totalSizeMB > MAX_SIZE_MB) {
+      throw new Error(
+        `Merged files size (${totalSizeMB.toFixed(2)} MB) exceeds maximum limit (${MAX_SIZE_MB} MB). ` +
+        `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
+        `File count: ${fileCount}. Please review the file filtering logic.`
+      );
+    }
+
+    if (totalSizeMB > WARN_SIZE_MB) {
+      console.warn(
+        `[WARN] Merged files size (${totalSizeMB.toFixed(2)} MB) is approaching limit (${MAX_SIZE_MB} MB). ` +
+        `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`
+      );
+    }
+
     const finalFiles = validatedMergedFiles;
 
     await step.run("save-result", async () => {
