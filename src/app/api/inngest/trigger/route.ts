@@ -5,7 +5,7 @@ import { getAgentEventName } from "@/lib/agent-mode";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { projectId, value } = body;
+    const { projectId, value, model } = body;
 
     if (!projectId || !value) {
       return NextResponse.json(
@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
       data: {
         value,
         projectId,
+        model, // Pass model selection to backend
       },
     });
 
