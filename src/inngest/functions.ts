@@ -63,6 +63,102 @@ function frameworkToConvexEnum(framework: Framework): "NEXTJS" | "ANGULAR" | "RE
 
 const AUTO_FIX_MAX_ATTEMPTS = 2;
 
+// Model configurations for multi-model support
+export const MODEL_CONFIGS = {
+  "anthropic/claude-haiku-4.5": {
+    name: "Claude Haiku 4.5",
+    provider: "anthropic",
+    description: "Fast and efficient for most coding tasks",
+    temperature: 0.7,
+    frequency_penalty: 0.5,
+  },
+  "openai/gpt-5-mini": {
+    name: "GPT-5",
+    provider: "openai",
+    description: "OpenAI's flagship model for complex tasks",
+    temperature: 0.7,
+    frequency_penalty: 0.5,
+  },
+  "google/gemini-2.5-pro": {
+    name: "Gemini 2.5 Pro",
+    provider: "google",
+    description: "Fast and efficient for speed-critical tasks",
+    temperature: 0.7,
+    frequency_penalty: 0.5,
+  },
+  "alibaba/qwen3-max": {
+    name: "Qwen 3 Max",
+    provider: "qwen",
+    description: "Specialized for coding tasks",
+    temperature: 0.7,
+    frequency_penalty: 0.5,
+  },
+  "xai/grok-4-fast-reasoning": {
+    name: "Grok 4 Fast",
+    provider: "xai",
+    description: "Experimental model from xAI",
+    temperature: 0.7,
+    frequency_penalty: 0.5,
+  },
+} as const;
+
+export type ModelId = keyof typeof MODEL_CONFIGS | "auto";
+
+// Auto-selection logic to choose the best model based on task complexity
+function selectModelForTask(prompt: string, framework?: Framework): keyof typeof MODEL_CONFIGS {
+  const promptLength = prompt.length;
+  const lowercasePrompt = prompt.toLowerCase();
+
+  // Analyze task complexity
+  const complexityIndicators = [
+    'advanced', 'complex', 'sophisticated', 'enterprise',
+    'architecture', 'performance', 'optimization', 'scalability',
+    'authentication', 'authorization', 'database', 'api',
+    'integration', 'deployment', 'security', 'testing',
+  ];
+
+  const hasComplexityIndicators = complexityIndicators.some(indicator =>
+    lowercasePrompt.includes(indicator)
+  );
+
+  const isLongPrompt = promptLength > 500;
+  const isVeryLongPrompt = promptLength > 1000;
+
+  // Framework-specific model selection
+  if (framework === 'angular') {
+    // Angular projects tend to be more enterprise-focused
+    return "anthropic/claude-haiku-4.5";
+  }
+
+  // Coding-specific keywords favor Qwen
+  const codingIndicators = ['refactor', 'optimize', 'debug', 'fix bug', 'improve code'];
+  const hasCodingFocus = codingIndicators.some(indicator =>
+    lowercasePrompt.includes(indicator)
+  );
+
+  if (hasCodingFocus && !isVeryLongPrompt) {
+    return "alibaba/qwen3-max";
+  }
+
+  // Speed-critical tasks favor Gemini
+  const speedIndicators = ['quick', 'fast', 'simple', 'basic', 'prototype'];
+  const needsSpeed = speedIndicators.some(indicator =>
+    lowercasePrompt.includes(indicator)
+  );
+
+  if (needsSpeed && !hasComplexityIndicators) {
+    return "google/gemini-2.5-pro";
+  }
+
+  // Complex tasks use Haiku
+  if (hasComplexityIndicators || isVeryLongPrompt) {
+    return "anthropic/claude-haiku-4.5";
+  }
+
+  // Default to Haiku for most tasks
+  return "anthropic/claude-haiku-4.5";
+}
+
 const AUTO_FIX_ERROR_PATTERNS = [
   /Error:/i, /\[ERROR\]/i, /ERROR/, /Failed\b/i, /failure\b/i, /Exception\b/i,
   /SyntaxError/i, /TypeError/i, /ReferenceError/i, /Module not found/i,
@@ -642,7 +738,26 @@ export const codeAgentFunction = inngest.createFunction(
     } else {
       console.log("[DEBUG] Using existing framework:", selectedFramework);
     }
-    
+
+    // Model selection logic
+    const requestedModel = (event.data.model as ModelId) || project?.modelPreference || "auto";
+    console.log("[DEBUG] Requested model:", requestedModel);
+
+    // Validate that the requested model exists in MODEL_CONFIGS
+    let validatedModel: ModelId = requestedModel;
+    if (requestedModel !== "auto" && !(requestedModel in MODEL_CONFIGS)) {
+      console.warn(`[WARN] Invalid model requested: "${requestedModel}". Falling back to "auto".`);
+      validatedModel = "auto";
+    }
+
+    const selectedModel: keyof typeof MODEL_CONFIGS =
+      validatedModel === "auto"
+        ? selectModelForTask(event.data.value, selectedFramework)
+        : validatedModel as keyof typeof MODEL_CONFIGS;
+
+    console.log("[DEBUG] Selected model:", selectedModel);
+    console.log("[DEBUG] Model config:", MODEL_CONFIGS[selectedModel]);
+
     const sandboxId = await step.run("get-sandbox-id", async () => {
       console.log("[DEBUG] Creating E2B sandbox for framework:", selectedFramework);
       const template = getE2BTemplate(selectedFramework);
@@ -792,17 +907,20 @@ export const codeAgentFunction = inngest.createFunction(
     const frameworkPrompt = getFrameworkPrompt(selectedFramework);
     console.log("[DEBUG] Using prompt for framework:", selectedFramework);
 
+    const modelConfig = MODEL_CONFIGS[selectedModel];
+    console.log("[DEBUG] Creating agent with model:", selectedModel, "config:", modelConfig);
+
     const codeAgent = createAgent<AgentState>({
       name: `${selectedFramework}-code-agent`,
-      description: `An expert ${selectedFramework} coding agent`,
+      description: `An expert ${selectedFramework} coding agent powered by ${modelConfig.name}`,
       system: frameworkPrompt,
       model: openai({
-        model: "anthropic/claude-haiku-4.5",
+        model: selectedModel,
         apiKey: process.env.AI_GATEWAY_API_KEY!,
         baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
-          temperature: 0.7,
-          frequency_penalty: 0.5,
+          temperature: modelConfig.temperature,
+          frequency_penalty: modelConfig.frequency_penalty,
         },
       }),
       tools: createCodeAgentTools(sandboxId),
@@ -1303,9 +1421,12 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         ? sanitizedTitle
         : "Generated Fragment";
 
-      const metadata: FragmentMetadata | undefined = allScreenshots.length > 0
-        ? { screenshots: allScreenshots }
-        : undefined;
+      const metadata: FragmentMetadata = {
+        model: selectedModel,
+        modelName: MODEL_CONFIGS[selectedModel].name,
+        provider: MODEL_CONFIGS[selectedModel].provider,
+        ...(allScreenshots.length > 0 && { screenshots: allScreenshots }),
+      };
 
       // Create message first
       const messageId = await convex.mutation(api.messages.createForUser, {
@@ -1502,6 +1623,10 @@ export const errorFixFunction = inngest.createFunction(
     const supportsMetadata = Object.prototype.hasOwnProperty.call(fragmentRecord, "metadata");
     const initialMetadata: FragmentMetadata = supportsMetadata ? toJsonObject(fragmentRecord.metadata) : {};
 
+    // Extract model from fragment metadata, fall back to default
+    const fragmentModel = (initialMetadata.model as keyof typeof MODEL_CONFIGS) || "anthropic/claude-haiku-4.5";
+    console.log("[DEBUG] Using model from original fragment:", fragmentModel);
+
     const fragmentFiles = (fragment.files || {}) as Record<string, string>;
     const originalFiles = { ...fragmentFiles };
 
@@ -1543,17 +1668,20 @@ export const errorFixFunction = inngest.createFunction(
     );
 
     const frameworkPrompt = getFrameworkPrompt(fragmentFramework);
+    const errorFixModelConfig = MODEL_CONFIGS[fragmentModel];
+    console.log("[DEBUG] Creating error-fix agent with model:", fragmentModel, "config:", errorFixModelConfig);
+
     const codeAgent = createAgent<AgentState>({
       name: `${fragmentFramework}-error-fix-agent`,
-      description: `An expert ${fragmentFramework} coding agent for fixing errors`,
+      description: `An expert ${fragmentFramework} coding agent for fixing errors powered by ${errorFixModelConfig.name}`,
       system: frameworkPrompt,
       model: openai({
-        model: "minimax/minimax-m2",
+        model: fragmentModel,
         apiKey: process.env.AI_GATEWAY_API_KEY!,
         baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
-          temperature: 0.5,
-          frequency_penalty: 0.5,
+          temperature: errorFixModelConfig.temperature,
+          frequency_penalty: errorFixModelConfig.frequency_penalty,
         },
       }),
       tools: createCodeAgentTools(sandboxId),
