@@ -886,7 +886,7 @@ export const codeAgentFunction = inngest.createFunction(
 
     const contextMessages: Message[] = (crawledContexts ?? []).map((context) => ({
       type: "text",
-      role: "system",
+      role: "user",
       content: `Crawled context from ${context.url}:\n${context.content}`,
     }));
 
