@@ -79,9 +79,9 @@ export const MODEL_CONFIGS = {
     temperature: 0.7,
     frequency_penalty: 0.5,
   },
-  "google/gemini-2.5-pro": {
-    name: "Gemini 2.5 Pro",
-    provider: "google",
+  "moonshotai/kimi-k2-thinking": {
+    name: "Kimi K2 Thinking",
+    provider: "moonshot",
     description: "Fast and efficient for speed-critical tasks",
     temperature: 0.7,
     frequency_penalty: 0.5,
@@ -140,14 +140,14 @@ function selectModelForTask(prompt: string, framework?: Framework): keyof typeof
     return "alibaba/qwen3-max";
   }
 
-  // Speed-critical tasks favor Gemini
+  // Speed-critical tasks favor Kimi
   const speedIndicators = ['quick', 'fast', 'simple', 'basic', 'prototype'];
   const needsSpeed = speedIndicators.some(indicator =>
     lowercasePrompt.includes(indicator)
   );
 
   if (needsSpeed && !hasComplexityIndicators) {
-    return "google/gemini-2.5-pro";
+    return "moonshotai/kimi-k2-thinking";
   }
 
   // Complex tasks use Haiku
