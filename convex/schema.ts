@@ -56,6 +56,7 @@ export default defineSchema({
     name: v.string(),
     userId: v.string(), // Clerk user ID (not v.id - we'll store the Clerk ID directly)
     framework: frameworkEnum,
+    modelPreference: v.optional(v.string()), // User's preferred AI model (e.g., "auto", "anthropic/claude-haiku-4.5", "openai/gpt-4o")
     createdAt: v.optional(v.number()), // timestamp
     updatedAt: v.optional(v.number()), // timestamp
   })

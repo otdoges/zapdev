@@ -308,6 +308,7 @@ export const update = mutation({
     projectId: v.id("projects"),
     name: v.optional(v.string()),
     framework: v.optional(frameworkEnum),
+    modelPreference: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -325,6 +326,7 @@ export const update = mutation({
     await ctx.db.patch(args.projectId, {
       ...(args.name && { name: args.name }),
       ...(args.framework && { framework: args.framework }),
+      ...(args.modelPreference !== undefined && { modelPreference: args.modelPreference }),
       updatedAt: Date.now(),
     });
 
@@ -541,6 +543,7 @@ export const updateForUser = mutation({
     projectId: v.id("projects"),
     name: v.optional(v.string()),
     framework: v.optional(frameworkEnum),
+    modelPreference: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -556,6 +559,7 @@ export const updateForUser = mutation({
     await ctx.db.patch(args.projectId, {
       ...(args.name && { name: args.name }),
       ...(args.framework && { framework: args.framework }),
+      ...(args.modelPreference !== undefined && { modelPreference: args.modelPreference }),
       updatedAt: Date.now(),
     });
 

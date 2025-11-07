@@ -13,6 +13,7 @@ import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, FigmaIcon, Gi
 import { UploadButton } from "@uploadthing/react";
 import { useAction } from "convex/react";
 import { api } from "@/lib/convex-api";
+import type { ModelId } from "@/inngest/functions";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,18 @@ export const ProjectForm = () => {
   const [attachments, setAttachments] = useState<AttachmentData[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<ModelId>("auto");
+
+  // Model configurations matching backend
+  const modelOptions = [
+    { id: "auto" as ModelId, name: "Auto", image: "/auto.svg", description: "Auto-selects the best model" },
+    { id: "anthropic/claude-haiku-4.5" as ModelId, name: "Claude Haiku 4.5", image: "/haiku.svg", description: "Fast and efficient" },
+    { id: "openai/gpt-5-mini" as ModelId, name: "GPT-5", image: "/openai.svg", description: "OpenAI's flagship model" },
+    { id: "moonshotai/kimi-k2-thinking" as ModelId, name: "Kimi K2 Thinking", image: "/kimi.svg", description: "Fast and efficient for speed-critical tasks" },
+    { id: "alibaba/qwen3-max" as ModelId, name: "Qwen 3 Max", image: "/qwen.svg", description: "Specialized for coding tasks" },
+    { id: "xai/grok-4-fast-reasoning" as ModelId, name: "Grok 4 Fast", image: "/grok.svg", description: "Experimental model from xAI" },
+  ];
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -70,6 +83,7 @@ export const ProjectForm = () => {
         body: JSON.stringify({
           projectId: result.id,
           value: result.value,
+          model: selectedModel,
         }),
       });
 
@@ -249,6 +263,56 @@ export const ProjectForm = () => {
                       <GitBranchIcon className="size-4" />
                       <span>Import from GitHub</span>
                     </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Popover open={isModelMenuOpen} onOpenChange={setIsModelMenuOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    type="button"
+                    disabled={isPending || isUploading}
+                    title="Select AI Model"
+                  >
+                    {(() => {
+                      const selectedOption = modelOptions.find((opt) => opt.id === selectedModel);
+                      const imageSrc = selectedOption?.image || "/auto.svg";
+                      return <Image src={imageSrc} alt="Model" width={16} height={16} className="size-4" />;
+                    })()}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-2" align="start">
+                  <div className="flex flex-col gap-1">
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                      Select Model
+                    </div>
+                    {modelOptions.map((option) => {
+                      const isSelected = selectedModel === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedModel(option.id);
+                            setIsModelMenuOpen(false);
+                          }}
+                          className={cn(
+                            "flex items-start gap-3 w-full px-3 py-2.5 rounded-md hover:bg-accent text-left transition-colors",
+                            isSelected && "bg-accent"
+                          )}
+                        >
+                          <Image src={option.image} alt={option.name} width={16} height={16} className="size-4 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm">{option.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {option.description}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </PopoverContent>
               </Popover>
