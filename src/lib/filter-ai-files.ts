@@ -1,4 +1,27 @@
 /**
+ * Normalizes a file path to be relative by removing common workspace prefixes.
+ * E2B sandbox paths like /home/user/app/page.tsx become app/page.tsx
+ */
+function normalizeFilePath(path: string): string {
+  // Remove common workspace prefixes
+  const prefixes = [
+    '/home/user/',
+    './home/user/',
+    './',
+  ];
+
+  let normalized = path;
+  for (const prefix of prefixes) {
+    if (normalized.startsWith(prefix)) {
+      normalized = normalized.slice(prefix.length);
+      break;
+    }
+  }
+
+  return normalized;
+}
+
+/**
  * Filters out E2B sandbox system files and configuration boilerplate,
  * returning only AI-generated source code files.
  */
@@ -69,7 +92,10 @@ export function filterAIGeneratedFiles(
     /^middleware\//,    // Middleware
   ];
 
-  for (const [path, content] of Object.entries(files)) {
+  for (const [originalPath, content] of Object.entries(files)) {
+    // Normalize the path to relative format
+    const path = normalizeFilePath(originalPath);
+
     // Skip if matches any exclude pattern
     const shouldExclude = excludePatterns.some(pattern => pattern.test(path));
     if (shouldExclude) {
@@ -79,7 +105,7 @@ export function filterAIGeneratedFiles(
     // Include if matches any include pattern
     const shouldInclude = includePatterns.some(pattern => pattern.test(path));
     if (shouldInclude) {
-      filtered[path] = content;
+      filtered[originalPath] = content;
       continue;
     }
 
@@ -89,8 +115,15 @@ export function filterAIGeneratedFiles(
       /\.(tsx?|jsx?|vue|svelte|css|scss|sass|less)$/.test(path) &&
       !path.includes('/') // Root level source files only
     ) {
-      filtered[path] = content;
+      filtered[originalPath] = content;
     }
+  }
+
+  // Safety check: If filtering removed ALL files, return the original files
+  // This prevents the "No Files Generated" error when the filter is too aggressive
+  if (Object.keys(filtered).length === 0 && Object.keys(files).length > 0) {
+    console.warn('[WARN] File filter removed all files. Returning original files to prevent data loss.');
+    return files;
   }
 
   return filtered;
