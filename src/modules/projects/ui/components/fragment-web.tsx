@@ -38,6 +38,7 @@ export function FragmentWeb({ data }: FragmentWebProps) {
   const resumeAttemptRef = useRef(0);
 
   const files = useMemo(() => normalizeFiles(data.files), [data.files]);
+  const hasFiles = Object.keys(files).length > 0;
 
   const clearResumePoll = useCallback(() => {
     if (resumePollRef.current) {
@@ -208,6 +209,27 @@ export function FragmentWeb({ data }: FragmentWebProps) {
     );
   }
 
+  if (!hasFiles) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full h-full bg-background p-8">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center">
+          <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+            <span className="text-2xl">⚠️</span>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">No Files Generated</h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              The code generation didn't produce any files. This might happen if the AI agent encountered an error or if the generation was interrupted.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Please try sending another message to regenerate the code.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex flex-col w-full h-full">
       {isResuming && currentUrl && (
@@ -235,11 +257,11 @@ export function FragmentWeb({ data }: FragmentWebProps) {
           </Button>
         </Hint>
         <Hint text="Download Files" side="bottom" align="start">
-          <Button 
-            size="sm" 
-            variant="outline" 
+          <Button
+            size="sm"
+            variant="outline"
             onClick={handleDownload}
-            disabled={Object.keys(files).length === 0}
+            disabled={!hasFiles}
           >
             <DownloadIcon />
           </Button>

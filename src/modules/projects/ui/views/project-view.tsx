@@ -120,8 +120,26 @@ export const ProjectView = ({ projectId }: Props) => {
               {!!activeFragment && <FragmentWeb data={activeFragment} />}
             </TabsContent>
             <TabsContent value="code" className="min-h-0">
-              {activeFragment && (
+              {activeFragment && Object.keys(explorerFiles).length > 0 && (
                 <FileExplorer files={explorerFiles} />
+              )}
+              {activeFragment && Object.keys(explorerFiles).length === 0 && (
+                <div className="flex flex-col items-center justify-center h-full p-8">
+                  <div className="flex flex-col items-center gap-4 max-w-md text-center">
+                    <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                      <span className="text-2xl">📂</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">No Code Files Available</h3>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        This generation doesn't contain any code files. The AI agent may have encountered an error during generation.
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Try sending another message to regenerate the code.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
             </TabsContent>
           </Tabs>
