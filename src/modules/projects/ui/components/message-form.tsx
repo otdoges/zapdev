@@ -59,7 +59,7 @@ export const MessageForm = ({ projectId }: Props) => {
     { id: "auto" as ModelId, name: "Auto", image: "/auto.svg", description: "Auto-selects the best model" },
     { id: "anthropic/claude-haiku-4.5" as ModelId, name: "Claude Haiku 4.5", image: "/haiku.svg", description: "Fast and efficient" },
     { id: "openai/gpt-5-mini" as ModelId, name: "GPT-5", image: "/openai.svg", description: "OpenAI's flagship model" },
-    { id: "google/gemini-2.5-pro" as ModelId, name: "Gemini 2.5 Pro", image: "/gemini.svg", description: "Fast and efficient for speed-critical tasks" },
+    { id: "moonshotai/kimi-k2-thinking" as ModelId, name: "Kimi K2 Thinking", image: "/kimi.svg", description: "Fast and efficient for speed-critical tasks" },
     { id: "alibaba/qwen3-max" as ModelId, name: "Qwen 3 Max", image: "/qwen.svg", description: "Specialized for coding tasks" },
     { id: "xai/grok-4-fast-reasoning" as ModelId, name: "Grok 4 Fast", image: "/grok.svg", description: "Experimental model from xAI" },
   ];
