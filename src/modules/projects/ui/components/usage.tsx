@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useMemo } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useCustomer } from "autumn-js/react";
 import { CrownIcon } from "lucide-react";
 import { formatDuration, intervalToDuration } from "date-fns";
 
@@ -12,8 +12,8 @@ interface Props {
 };
 
 export const Usage = ({ points, msBeforeNext }: Props) => {
-  const { has } = useAuth();
-  const hasProAccess = has?.({ plan: "pro" });
+  const { customer } = useCustomer();
+  const hasProAccess = customer?.product?.id === "pro" || customer?.product?.id === "pro_annual";
 
   const resetTime = useMemo(() => {
     try {

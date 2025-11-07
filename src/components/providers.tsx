@@ -4,9 +4,11 @@ import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
 import { ThemeProvider } from "next-themes";
+import { AutumnProvider } from "autumn-js/react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
+import { api } from "../../convex/_generated/api";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -15,16 +17,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   const content = (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
-        <Toaster />
-        <WebVitalsReporter />
-        {children}
-      </ThemeProvider>
+      <AutumnProvider convex={convex} convexApi={(api as any).autumn}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Toaster />
+          <WebVitalsReporter />
+          {children}
+        </ThemeProvider>
+      </AutumnProvider>
     </ConvexProviderWithClerk>
   );
 

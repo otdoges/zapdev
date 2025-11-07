@@ -1,4 +1,5 @@
-import { QueryCtx, MutationCtx } from "./_generated/server";
+import { QueryCtx, MutationCtx, ActionCtx } from "./_generated/server";
+import { autumn } from "./autumn";
 
 /**
  * Get the current authenticated user's Clerk ID from the auth token
@@ -27,11 +28,15 @@ export async function requireAuth(
 }
 
 /**
- * Check if user has pro access based on Clerk custom claims
+ * Check if user has pro access based on Autumn subscription
  */
-export function hasProAccess(identity: any): boolean {
-  // Clerk stores custom claims in tokenIdentifier or custom claims
-  // You'll need to check the specific structure from your Clerk JWT
-  const plan = identity?.plan || identity?.publicMetadata?.plan;
-  return plan === "pro";
+export async function hasProAccess(
+  ctx: QueryCtx | MutationCtx | ActionCtx
+): Promise<boolean> {
+  const subscription = await autumn.query(ctx, {});
+
+  // Check if user has an active pro subscription
+  // This covers both "pro" and "pro_annual" product IDs
+  const productId = subscription?.data?.product?.id;
+  return productId === "pro" || productId === "pro_annual";
 }
