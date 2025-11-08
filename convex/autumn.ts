@@ -1,3 +1,4 @@
+import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { components } from "./_generated/api";
 import { Autumn } from "@useautumn/convex";
 
@@ -11,15 +12,15 @@ if (!secretKey) {
 
 export const autumn = new Autumn(components.autumn, {
   secretKey,
-  identify: async (ctx: any) => {
+  identify: async (ctx: QueryCtx | MutationCtx) => {
     const user = await ctx.auth.getUserIdentity();
     if (!user) return null;
 
     return {
-      customerId: user.subject as string,
+      customerId: user.subject ?? user.tokenIdentifier,
       customerData: {
-        name: user.name as string,
-        email: user.email as string,
+        name: user.name ?? "Unknown",
+        email: user.email ?? "",
       },
     };
   },

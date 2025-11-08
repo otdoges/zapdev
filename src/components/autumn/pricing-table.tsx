@@ -34,11 +34,11 @@ export default function PricingTable({
     return <div> Something went wrong...</div>;
   }
 
-  const intervals = Array.from(
-    new Set(
-      products?.map((p) => p.properties?.interval_group).filter((i) => !!i)
-    )
-  );
+  const intervalGroups = (products ?? [])
+    .map((p) => p.properties?.interval_group)
+    .filter((intervalGroup): intervalGroup is string => Boolean(intervalGroup));
+
+  const intervals = Array.from(new Set(intervalGroups));
 
   const multiInterval = intervals.length > 1;
 
@@ -101,12 +101,7 @@ const PricingTableContext = createContext<{
   setIsAnnualToggle: (isAnnual: boolean) => void;
   products: Product[];
   showFeatures: boolean;
-}>({
-  isAnnualToggle: false,
-  setIsAnnualToggle: () => {},
-  products: [],
-  showFeatures: true,
-});
+} | undefined>(undefined);
 
 export const usePricingTableContext = (componentName: string) => {
   const context = useContext(PricingTableContext);
@@ -205,15 +200,20 @@ export const PricingCard = ({
   const { buttonText } = getPricingTableContent(product);
 
   const isRecommended = productDisplay?.recommend_text ? true : false;
+
   const mainPriceDisplay = product.properties?.is_free
     ? {
         primary_text: "Free",
       }
-    : product.items[0].display;
+    : product.items?.[0]?.display ?? {
+        primary_text: "Price unavailable",
+      };
 
   const featureItems = product.properties?.is_free
-    ? product.items
-    : product.items.slice(1);
+    ? product.items ?? []
+    : (product.items?.length ?? 0) > 1
+      ? product.items.slice(1)
+      : [];
 
   return (
     <div

@@ -19,13 +19,13 @@ export interface PaywallDialogProps {
   entityId?: string;
 }
 
-export default function PaywallDialog(params?: PaywallDialogProps) {
+export default function PaywallDialog(params: PaywallDialogProps) {
   const { data: preview } = usePaywall({
-    featureId: params?.featureId,
-    entityId: params?.entityId,
+    featureId: params.featureId,
+    entityId: params.entityId,
   });
 
-  if (!params || !preview) {
+  if (!preview) {
     return <></>;
   }
 

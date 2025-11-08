@@ -32,8 +32,7 @@ export async function requireAuth(
  * This checks if the user has access to pro-tier features
  */
 export async function hasProAccess(
-  ctx: QueryCtx | MutationCtx | ActionCtx,
-  customerId?: string
+  ctx: QueryCtx | MutationCtx | ActionCtx
 ): Promise<boolean> {
   try {
     // Check if user has access to a pro feature

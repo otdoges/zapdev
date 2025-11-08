@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/popover";
 import { useCustomer } from "autumn-js/react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { getCheckoutContent } from "@/lib/autumn/checkout-content";
 
 export interface CheckoutDialogProps {
@@ -32,6 +33,11 @@ export interface CheckoutDialogProps {
 	checkoutResult: CheckoutResult;
 	checkoutParams?: CheckoutParams;
 }
+
+// Autumn API can include available_stock even though SDK types omit it.
+type ProductItemWithStock = ProductItem & {
+	available_stock?: number;
+};
 
 const formatCurrency = ({
 	amount,
@@ -106,6 +112,21 @@ export default function CheckoutDialog(params: CheckoutDialogProps) {
 								setOpen(false);
 							} catch (error) {
 								console.error("Failed to attach product:", error);
+								const rawMessage =
+									error instanceof Error
+										? error.message
+										: typeof error === "string"
+											? error
+											: "";
+								const safeMessage = rawMessage
+									.replace(/[\r\n]/g, " ")
+									.trim()
+									.slice(0, 180);
+								toast.error(
+									safeMessage
+										? `Failed to attach product: ${safeMessage}`
+										: "Failed to attach product. Please try again.",
+								);
 							} finally {
 								setLoading(false);
 							}
@@ -266,21 +287,21 @@ function CheckoutLines({ checkoutResult }: { checkoutResult: CheckoutResult }) {
 					</div>
 				</CustomAccordionTrigger>
 				<AccordionContent className="mt-2 mb-0 pb-2 flex flex-col gap-2">
-					{checkoutResult?.lines
-						.filter((line) => line.amount !== 0)
-						.map((line, index) => {
-							return (
-								<div key={index} className="flex justify-between">
-									<p className="text-muted-foreground">{line.description}</p>
-									<p className="text-muted-foreground">
-										{new Intl.NumberFormat("en-US", {
-											style: "currency",
-											currency: checkoutResult?.currency,
-										}).format(line.amount)}
-									</p>
-								</div>
-							);
-						})}
+				{checkoutResult?.lines
+					.filter((line) => line.amount !== 0)
+					.map((line, index) => {
+						return (
+							<div key={index} className="flex justify-between">
+								<p className="text-muted-foreground">{line.description}</p>
+								<p className="text-muted-foreground">
+									{formatCurrency({
+										amount: line.amount,
+										currency: checkoutResult.currency,
+									})}
+								</p>
+							</div>
+						);
+					})}
 				</AccordionContent>
 			</AccordionItem>
 		</Accordion>
@@ -321,12 +342,85 @@ const PrepaidItem = ({
 	const [quantityInput, setQuantityInput] = useState<string>(
 		(quantity / billingUnits).toString(),
 	);
+	const [validationError, setValidationError] = useState<string>("");
 	const { checkout } = useCustomer();
 	const [loading, setLoading] = useState(false);
 	const [open, setOpen] = useState(false);
 	const scenario = checkoutResult.product.scenario;
 
+	// Define min and max constraints
+	const minQuantity = 1;
+	const maxQuantity =
+		(item as ProductItemWithStock).available_stock ?? 999999;
+
+	// Parse and validate quantity
+	const parseAndValidateQuantity = (value: string): number | null => {
+		const parsed = parseInt(value, 10);
+		if (isNaN(parsed)) {
+			return null;
+		}
+		// Clamp to valid range
+		return Math.max(minQuantity, Math.min(parsed, maxQuantity));
+	};
+
+	// Handle input change with validation feedback
+	const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const value = e.target.value;
+		setQuantityInput(value);
+
+		// Validate and provide feedback
+		if (value === "") {
+			setValidationError("Quantity is required");
+			return;
+		}
+
+		const parsed = parseInt(value, 10);
+		if (isNaN(parsed)) {
+			setValidationError("Please enter a valid number");
+			return;
+		}
+
+		if (parsed < minQuantity) {
+			setValidationError(`Minimum quantity is ${minQuantity}`);
+			return;
+		}
+
+		if (parsed > maxQuantity) {
+			setValidationError(`Maximum quantity is ${maxQuantity}`);
+			return;
+		}
+
+		setValidationError("");
+	};
+
+	// Handle blur - clamp value to valid range
+	const handleQuantityBlur = () => {
+		if (quantityInput === "") {
+			setQuantityInput(minQuantity.toString());
+			setValidationError("");
+			return;
+		}
+
+		const clamped = parseAndValidateQuantity(quantityInput);
+		if (clamped !== null) {
+			setQuantityInput(clamped.toString());
+			setValidationError("");
+		}
+	};
+
+	// Check if quantity is valid
+	const isQuantityValid =
+		quantityInput !== "" &&
+		!isNaN(parseInt(quantityInput, 10)) &&
+		parseInt(quantityInput, 10) >= minQuantity &&
+		parseInt(quantityInput, 10) <= maxQuantity;
+
 	const handleSave = async () => {
+		if (!isQuantityValid) {
+			setValidationError("Please enter a valid quantity");
+			return;
+		}
+
 		setLoading(true);
 		try {
 			const newOptions = checkoutResult.options
@@ -338,9 +432,21 @@ const PrepaidItem = ({
 					};
 				});
 
+			const featureId = item.feature_id;
+			if (!featureId) {
+				console.error("Feature ID is required");
+				return;
+			}
+
+			const parsedQuantity = parseInt(quantityInput, 10);
+			if (isNaN(parsedQuantity) || parsedQuantity < minQuantity || parsedQuantity > maxQuantity) {
+				console.error("Invalid quantity");
+				return;
+			}
+
 			newOptions.push({
-				featureId: item.feature_id!,
-				quantity: Number(quantityInput) * billingUnits,
+				featureId,
+				quantity: parsedQuantity * billingUnits,
 			});
 
 			const { data, error } = await checkout({
@@ -351,9 +457,12 @@ const PrepaidItem = ({
 
 			if (error) {
 				console.error(error);
+				// Display error to user via toast or error state
 				return;
 			}
-			setCheckoutResult(data!);
+			if (data) {
+				setCheckoutResult(data);
+			}
 		} catch (error) {
 			console.error(error);
 		} finally {
@@ -395,30 +504,45 @@ const PrepaidItem = ({
 							</p>
 						</div>
 
-						<div className="flex justify-between items-end">
-							<div className="flex gap-2 items-center">
-								<Input
-									className="h-7 w-16 focus:!ring-2"
-									value={quantityInput}
-									onChange={(e) => setQuantityInput(e.target.value)}
-								/>
-								<p className="text-muted-foreground">
-									{billingUnits > 1 && `x ${billingUnits} `}
-									{item.feature?.name}
-								</p>
+						<div className="flex flex-col gap-3">
+							<div className="flex justify-between items-end gap-2">
+								<div className="flex gap-2 items-center flex-1">
+									<Input
+										type="number"
+										min={minQuantity}
+										max={maxQuantity}
+										className={cn(
+											"h-7 w-16 focus:!ring-2",
+											validationError && "border-red-500"
+										)}
+										value={quantityInput}
+										onChange={handleQuantityChange}
+										onBlur={handleQuantityBlur}
+									/>
+									<p className="text-muted-foreground">
+										{billingUnits > 1 && `x ${billingUnits} `}
+										{item.feature?.name}
+									</p>
+								</div>
+
+								<Button
+									onClick={handleSave}
+									className="w-14 !h-7 text-sm items-center bg-white text-foreground shadow-sm border border-zinc-200 hover:bg-zinc-100"
+									disabled={loading || !isQuantityValid}
+								>
+									{loading ? (
+										<Loader2 className="text-muted-foreground animate-spin !w-4 !h-4" />
+									) : (
+										"Save"
+									)}
+								</Button>
 							</div>
 
-							<Button
-								onClick={handleSave}
-								className="w-14 !h-7 text-sm items-center bg-white text-foreground shadow-sm border border-zinc-200 hover:bg-zinc-100"
-								disabled={loading}
-							>
-								{loading ? (
-									<Loader2 className="text-muted-foreground animate-spin !w-4 !h-4" />
-								) : (
-									"Save"
-								)}
-							</Button>
+							{validationError && (
+								<p className="text-xs text-red-500 font-medium">
+									{validationError}
+								</p>
+							)}
 						</div>
 					</PopoverContent>
 				</Popover>

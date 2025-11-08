@@ -18,7 +18,7 @@ export const checkAndConsumeCredit = mutation({
     const userId = await requireAuth(ctx);
 
     // Check user's plan
-    const isPro = await hasProAccess(ctx, userId);
+    const isPro = await hasProAccess(ctx);
     const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
     // Get current usage
@@ -78,7 +78,7 @@ export const getUsage = query({
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
 
-    const isPro = await hasProAccess(ctx, userId);
+    const isPro = await hasProAccess(ctx);
     const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
     const usage = await ctx.db
@@ -152,7 +152,7 @@ export const getUsageInternal = async (
   creditsRemaining: number;
   msBeforeNext: number;
 }> => {
-  const isPro = await hasProAccess(ctx, userId);
+  const isPro = await hasProAccess(ctx);
   const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
   const usage = await ctx.db
@@ -218,7 +218,7 @@ export const checkAndConsumeCreditInternal = async (
   ctx: any,
   userId: string
 ): Promise<{ success: boolean; remaining: number; message?: string }> => {
-  const isPro = await hasProAccess(ctx, userId);
+  const isPro = await hasProAccess(ctx);
   const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
   const usage = await ctx.db
