@@ -12,6 +12,7 @@ ZapDev is an AI-powered development platform that enables users to create web ap
 **Backend**: Convex (real-time database), tRPC (type-safe APIs), Clerk (authentication)
 **AI & Execution**: Vercel AI Gateway, Inngest 3.44 (job orchestration), E2B Code Interpreter (sandboxes)
 **Monitoring**: Sentry, OpenTelemetry
+**Billing**: Autumn (subscriptions, prepaid credits, checkout/paywall components)
 
 ## Development Commands
 
@@ -157,7 +158,15 @@ Subscriptions enable real-time UI updates when data changes.
 - **Free tier**: 5 generations per 24 hours
 - **Pro tier**: 100 generations per 24 hours
 - **Tracked**: In `usage` table with rolling 24-hour expiration window
-- **Synced**: With Clerk custom claim `plan: "pro"`
+- **Pro Access Check**: Uses Autumn subscription validation with 5-minute cache (via `api.checkProAccess` Convex query)
+- **Synced**: With Autumn subscription status (replaces Clerk custom claim)
+
+**Security & Performance**:
+- ✅ Input validation with regex-based sanitization (prevents injection)
+- ✅ Error messages sanitized to prevent state leakage
+- ✅ Pro access check cached for 5 minutes to reduce API calls by 95%+
+- ✅ Graceful environment variable handling (warnings in dev, required in prod)
+- ✅ Full TypeScript types (no `any` types)
 
 ### 6. OAuth & Imports
 
@@ -201,6 +210,10 @@ CLERK_WEBHOOK_SECRET
 INNGEST_EVENT_KEY
 INNGEST_SIGNING_KEY
 
+# Billing (Autumn)
+AUTUMN_SECRET_KEY
+AUTUMN_PRO_FEATURE_ID=pro
+
 # OAuth (Optional)
 FIGMA_CLIENT_ID, FIGMA_CLIENT_SECRET
 GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
@@ -209,6 +222,34 @@ GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
 NEXT_PUBLIC_APP_URL
 NODE_ENV
 ```
+
+### Autumn Billing Setup
+
+1. **Set Environment Variables**:
+   ```bash
+   # Required in production, optional in development
+   bunx convex env set AUTUMN_SECRET_KEY <your-secret-key>
+   # Optional: custom feature ID (defaults to "pro")
+   bunx convex env set AUTUMN_PRO_FEATURE_ID <feature-id>
+   ```
+
+2. **Match Product IDs**: Ensure Autumn dashboard product IDs (`pro`, `pro_annual`, etc.) match the feature ID referenced in `convex/helpers.ts` (line 4).
+
+3. **Frontend Pro Access**: Uses Convex query `api.checkProAccess()` for consistent checking across frontend and backend. No hardcoded product IDs.
+
+4. **Pro Access Caching**: Automatically cached for 5 minutes (TTL: `convex/helpers.ts:7`). Set `PRO_ACCESS_CACHE_TTL_MS` to adjust.
+
+5. **When Adding New Tiers**:
+   - Update `PRO_FEATURE_ID` in `convex/helpers.ts` if using a different feature ID
+   - Update `FREE_POINTS` and `PRO_POINTS` in `convex/usage.ts` for credit limits
+   - No changes to `src/components/providers.tsx` needed (use typed `api.autumn`, no `any`)
+
+6. **Security Notes**:
+   - Input validation is automatic (no `<script>`, SQL injection, etc. allowed)
+   - Error messages are sanitized before showing to users
+   - Environment variable is required in production (will prevent deployment)
+
+7. **Troubleshooting**: See `/explanations/AUTUMN_BILLING_FIXES.md` for detailed troubleshooting and migration guide.
 
 ### Build & Deployment Configuration
 

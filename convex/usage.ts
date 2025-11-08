@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, QueryCtx, MutationCtx, ActionCtx } from "./_generated/server";
 import { requireAuth, hasProAccess } from "./helpers";
 
 // Constants matching the existing system
@@ -9,6 +9,17 @@ const DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 const GENERATION_COST = 1;
 
 /**
+ * Check if user has pro access (public query for frontend)
+ * Provides consistent pro access checking between frontend and backend
+ */
+export const checkProAccess = query({
+  args: {},
+  handler: async (ctx): Promise<boolean> => {
+    return hasProAccess(ctx);
+  },
+});
+
+/**
  * Check and consume credits for a generation
  * Returns true if credits were successfully consumed, false if insufficient credits
  */
@@ -16,10 +27,9 @@ export const checkAndConsumeCredit = mutation({
   args: {},
   handler: async (ctx): Promise<{ success: boolean; remaining: number; message?: string }> => {
     const userId = await requireAuth(ctx);
-    const identity = await ctx.auth.getUserIdentity();
 
     // Check user's plan
-    const isPro = hasProAccess(identity);
+    const isPro = await hasProAccess(ctx);
     const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
     // Get current usage
@@ -78,9 +88,8 @@ export const getUsage = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
-    const identity = await ctx.auth.getUserIdentity();
 
-    const isPro = hasProAccess(identity);
+    const isPro = await hasProAccess(ctx);
     const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
     const usage = await ctx.db
@@ -143,7 +152,7 @@ export const resetUsage = mutation({
  * Internal: Get usage for a specific user (for use from actions/background jobs)
  */
 export const getUsageInternal = async (
-  ctx: any,
+  ctx: any, // QueryCtx | MutationCtx - using any to handle both query and mutation contexts
   userId: string
 ): Promise<{
   points: number;
@@ -154,8 +163,7 @@ export const getUsageInternal = async (
   creditsRemaining: number;
   msBeforeNext: number;
 }> => {
-  const identity = await ctx.auth.getUserIdentity();
-  const isPro = hasProAccess(identity) || false;
+  const isPro = await hasProAccess(ctx);
   const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
   const usage = await ctx.db
@@ -218,11 +226,10 @@ export const checkAndConsumeCreditForUser = mutation({
  * Internal: Check and consume credit for a specific user (for use from actions/background jobs)
  */
 export const checkAndConsumeCreditInternal = async (
-  ctx: any,
+  ctx: any, // QueryCtx | MutationCtx - using any to handle both contexts
   userId: string
 ): Promise<{ success: boolean; remaining: number; message?: string }> => {
-  const identity = await ctx.auth.getUserIdentity();
-  const isPro = hasProAccess(identity) || false;
+  const isPro = await hasProAccess(ctx);
   const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
   const usage = await ctx.db
