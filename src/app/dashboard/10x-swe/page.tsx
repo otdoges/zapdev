@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
   Tabs,
   TabsContent,
@@ -16,11 +17,16 @@ import {
   GitPullRequestIcon,
   SparklesIcon,
 } from "lucide-react";
+import { IssueList } from "@/components/10x-swe/issue-list";
+import { TaskQueueView } from "@/components/10x-swe/task-queue";
+import { IssueDetail } from "@/components/10x-swe/issue-detail";
+import { PullRequestList } from "@/components/10x-swe/pr-list";
 
 function TenXSweDashboardContent() {
   const searchParams = useSearchParams();
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("analysis");
+  const [selectedIssueId, setSelectedIssueId] = useState<Id<"githubIssues"> | null>(null);
 
   useEffect(() => {
     const repo = searchParams?.get("repo");
@@ -184,55 +190,29 @@ function TenXSweDashboardContent() {
 
             {/* Code Review & PRs Tab */}
             <TabsContent value="review" className="space-y-6">
-              <div className="p-6 rounded-lg border border-border bg-card">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  <GitPullRequestIcon className="size-5 text-primary" />
-                  Code Review & Pull Request Assistance
-                </h2>
-                <div className="space-y-4">
-                  <div className="p-4 rounded-lg bg-accent/50">
-                    <h3 className="font-semibold text-sm mb-2">AI-Assisted Code Review</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Automatic code review for pull requests highlighting:
-                    </p>
-                    <ul className="text-sm text-muted-foreground mt-2 ml-4 list-disc space-y-1">
-                      <li>Potential bugs and security issues</li>
-                      <li>Performance improvements</li>
-                      <li>Code style and best practices</li>
-                      <li>Test coverage gaps</li>
-                    </ul>
-                  </div>
-
-                  <div className="p-4 rounded-lg bg-accent/50">
-                    <h3 className="font-semibold text-sm mb-2">PR Summary Generation</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically generate comprehensive PR descriptions and changelogs
-                      from your code changes.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-lg bg-accent/50">
-                    <h3 className="font-semibold text-sm mb-2">Test Suggestions</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Generate test cases and suggestions for improved test coverage based
-                      on changes.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-lg bg-accent/50">
-                    <h3 className="font-semibold text-sm mb-2">Merge Readiness Check</h3>
-                    <p className="text-sm text-muted-foreground">
-                      AI assessment of whether a PR is ready to merge with checklist of
-                      concerns.
-                    </p>
-                  </div>
+              <div className="flex items-center gap-2">
+                <GitPullRequestIcon className="size-5 text-primary" />
+                <div>
+                  <h2 className="text-xl font-semibold">Autonomous Code Execution</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Triage GitHub issues, run tasks in parallel, and generate PRs automatically.
+                  </p>
                 </div>
               </div>
 
-              <div className="p-4 rounded-lg border border-border bg-muted/30">
-                <p className="text-sm text-muted-foreground">
-                  💡 <strong>Coming soon:</strong> Real-time PR analysis integration with GitHub
-                </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-6">
+                  <IssueList
+                    repoFullName={selectedRepo}
+                    selectedIssueId={selectedIssueId}
+                    onSelect={setSelectedIssueId}
+                  />
+                  <TaskQueueView />
+                </div>
+                <div className="space-y-6">
+                  <IssueDetail issueId={selectedIssueId} repoFullName={selectedRepo} />
+                  <PullRequestList repoFullName={selectedRepo} />
+                </div>
               </div>
             </TabsContent>
           </Tabs>

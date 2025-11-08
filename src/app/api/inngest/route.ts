@@ -5,7 +5,11 @@ import {
   codeAgentFunction, 
   sandboxTransferFunction, 
   errorFixFunction, 
-  sandboxCleanupFunction 
+  sandboxCleanupFunction,
+  triageIssueFunction,
+  autonomousAgentFunction,
+  createPullRequestFunction,
+  taskQueueFunction,
 } from "@/inngest/functions";
 
 export const { GET, POST, PUT } = serve({
@@ -15,6 +19,10 @@ export const { GET, POST, PUT } = serve({
     sandboxTransferFunction,
     errorFixFunction,
     sandboxCleanupFunction,
+    triageIssueFunction,
+    autonomousAgentFunction,
+    createPullRequestFunction,
+    taskQueueFunction,
   ],
   signingKey: process.env.INNGEST_SIGNING_KEY,
 });

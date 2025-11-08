@@ -5,4 +5,5 @@ export { REACT_PROMPT } from "./prompts/react";
 export { VUE_PROMPT } from "./prompts/vue";
 export { SVELTE_PROMPT } from "./prompts/svelte";
 export { FRAMEWORK_SELECTOR_PROMPT } from "./prompts/framework-selector";
+export { ISSUE_TRIAGE_PROMPT } from "./prompts/issue-triage";
 export { NEXTJS_PROMPT as PROMPT } from "./prompts/nextjs";

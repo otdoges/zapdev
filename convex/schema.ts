@@ -43,6 +43,59 @@ export const oauthProviderEnum = v.union(
   v.literal("github")
 );
 
+export const issuePriorityEnum = v.union(
+  v.literal("CRITICAL"),
+  v.literal("HIGH"),
+  v.literal("MEDIUM"),
+  v.literal("LOW")
+);
+
+export const issueCategoryEnum = v.union(
+  v.literal("BUG"),
+  v.literal("FEATURE"),
+  v.literal("ENHANCEMENT"),
+  v.literal("CHORE"),
+  v.literal("DOCUMENTATION")
+);
+
+export const issueComplexityEnum = v.union(
+  v.literal("XS"),
+  v.literal("S"),
+  v.literal("M"),
+  v.literal("L"),
+  v.literal("XL")
+);
+
+export const issueWorkflowStatusEnum = v.union(
+  v.literal("UNTRIAGED"),
+  v.literal("TRIAGED"),
+  v.literal("ASSIGNED"),
+  v.literal("IN_PROGRESS"),
+  v.literal("BLOCKED"),
+  v.literal("COMPLETED")
+);
+
+export const taskTypeEnum = v.union(
+  v.literal("TRIAGE"),
+  v.literal("CODEGEN"),
+  v.literal("PR_CREATION")
+);
+
+export const taskStatusEnum = v.union(
+  v.literal("PENDING"),
+  v.literal("PROCESSING"),
+  v.literal("COMPLETED"),
+  v.literal("FAILED"),
+  v.literal("CANCELLED")
+);
+
+export const pullRequestStatusEnum = v.union(
+  v.literal("DRAFT"),
+  v.literal("OPEN"),
+  v.literal("MERGED"),
+  v.literal("CLOSED")
+);
+
 export const importStatusEnum = v.union(
   v.literal("PENDING"),
   v.literal("PROCESSING"),
@@ -160,4 +213,67 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_expire", ["expire"]),
+
+  githubIssues: defineTable({
+    repoFullName: v.string(),
+    issueNumber: v.number(),
+    githubIssueId: v.optional(v.string()),
+    issueUrl: v.optional(v.string()),
+    title: v.string(),
+    body: v.optional(v.string()),
+    labels: v.optional(v.array(v.string())),
+    priority: v.optional(issuePriorityEnum),
+    category: v.optional(issueCategoryEnum),
+    complexity: v.optional(issueComplexityEnum),
+    status: v.optional(issueWorkflowStatusEnum),
+    estimateHours: v.optional(v.number()),
+    assignedAgent: v.optional(v.string()),
+    triageSummary: v.optional(v.string()),
+    triageMetadata: v.optional(v.any()),
+    projectId: v.optional(v.id("projects")),
+    syncedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_repo_issue", ["repoFullName", "issueNumber"])
+    .index("by_status", ["status"])
+    .index("by_priority", ["priority"])
+    .index("by_project", ["projectId"]),
+
+  tasks: defineTable({
+    type: taskTypeEnum,
+    status: taskStatusEnum,
+    issueId: v.optional(v.id("githubIssues")),
+    payload: v.optional(v.any()),
+    result: v.optional(v.any()),
+    error: v.optional(v.string()),
+    priority: v.optional(v.number()),
+    attempts: v.number(),
+    maxAttempts: v.optional(v.number()),
+    scheduledAt: v.optional(v.number()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_issue", ["issueId"])
+    .index("by_type_status", ["type", "status"]),
+
+  pullRequests: defineTable({
+    issueId: v.optional(v.id("githubIssues")),
+    repoFullName: v.string(),
+    branchName: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    prNumber: v.optional(v.number()),
+    prUrl: v.optional(v.string()),
+    status: pullRequestStatusEnum,
+    metadata: v.optional(v.any()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_issue", ["issueId"])
+    .index("by_repo", ["repoFullName"])
+    .index("by_status", ["status"]),
 });
