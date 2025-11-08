@@ -69,7 +69,7 @@ export default function PricingTable({
         >
           {products.filter(intervalFilter).map((product, index) => (
             <PricingCard
-              key={index}
+              key={product.id ?? index}
               productId={product.id}
               buttonProps={{
                 disabled:
@@ -84,7 +84,7 @@ export default function PricingTable({
                       dialog: CheckoutDialog,
                     });
                   } else if (product.display?.button_url) {
-                    window.open(product.display?.button_url, "_blank");
+                    window.open(product.display?.button_url, "_blank", "noopener,noreferrer");
                   }
                 },
               }}
@@ -336,45 +336,58 @@ export const PricingCardButton = React.forwardRef<
   PricingCardButtonProps
 >(({ recommended, children, className, onClick, ...props }, ref) => {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    setError(null);
     setLoading(true);
     try {
       await onClick?.(e);
     } catch (error) {
       console.error(error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to process checkout. Please try again.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Button
-      className={cn(
-        "w-full py-3 px-4 group overflow-hidden relative transition-all duration-300 hover:brightness-90 border rounded-lg",
-        className
+    <div className="w-full">
+      <Button
+        className={cn(
+          "w-full py-3 px-4 group overflow-hidden relative transition-all duration-300 hover:brightness-90 border rounded-lg",
+          className
+        )}
+        {...props}
+        variant={recommended ? "default" : "secondary"}
+        ref={ref}
+        disabled={loading || props.disabled}
+        aria-busy={loading}
+        onClick={handleClick}
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <>
+            <div className="flex items-center justify-between w-full transition-transform duration-300 group-hover:translate-y-[-130%]">
+              <span>{children}</span>
+              <span className="text-sm">→</span>
+            </div>
+            <div className="flex items-center justify-between w-full absolute px-4 translate-y-[130%] transition-transform duration-300 group-hover:translate-y-0 mt-2 group-hover:mt-0">
+              <span>{children}</span>
+              <span className="text-sm">→</span>
+            </div>
+          </>
+        )}
+      </Button>
+      {error && (
+        <div className="mt-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
+          {error}
+        </div>
       )}
-      {...props}
-      variant={recommended ? "default" : "secondary"}
-      ref={ref}
-      disabled={loading || props.disabled}
-      onClick={handleClick}
-    >
-      {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <>
-          <div className="flex items-center justify-between w-full transition-transform duration-300 group-hover:translate-y-[-130%]">
-            <span>{children}</span>
-            <span className="text-sm">→</span>
-          </div>
-          <div className="flex items-center justify-between w-full absolute px-4 translate-y-[130%] transition-transform duration-300 group-hover:translate-y-0 mt-2 group-hover:mt-0">
-            <span>{children}</span>
-            <span className="text-sm">→</span>
-          </div>
-        </>
-      )}
-    </Button>
+    </div>
   );
 });
 PricingCardButton.displayName = "PricingCardButton";
