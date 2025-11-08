@@ -20,7 +20,7 @@ export const autumn = new Autumn(components.autumn, {
       customerId: user.subject ?? user.tokenIdentifier,
       customerData: {
         name: user.name ?? "Unknown",
-        email: user.email ?? "",
+        email: user.email ?? user.emailAddress ?? "noreply@example.com",
       },
     };
   },

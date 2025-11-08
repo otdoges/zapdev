@@ -1,5 +1,22 @@
+import * as Sentry from "@sentry/nextjs";
 import { QueryCtx, MutationCtx, ActionCtx } from "./_generated/server";
 import { autumn } from "./autumn";
+
+const PRO_FEATURE_ID = process.env.AUTUMN_PRO_FEATURE_ID ?? "pro";
+
+const reportBillingError = (error: unknown, context: string) => {
+  try {
+    if (typeof Sentry.captureException === "function") {
+      Sentry.captureException(error, {
+        tags: { area: "billing" },
+        extra: { context },
+      });
+    }
+  } catch (sentryError) {
+    console.error("[Autumn:SentryFailure]", sentryError);
+  }
+  console.error(`[Autumn:${context}]`, error);
+};
 
 /**
  * Get the current authenticated user's Clerk ID from the auth token
@@ -38,17 +55,17 @@ export async function hasProAccess(
     // Check if user has access to a pro feature
     // Using "pro" as the feature ID to check for pro-tier access
     const { data, error } = await autumn.check(ctx, {
-      featureId: "pro",
+      featureId: PRO_FEATURE_ID,
     });
 
     if (error) {
-      console.error("Error checking pro access:", error);
+      reportBillingError(error, "pro_access_check");
       return false;
     }
 
     return data?.allowed ?? false;
   } catch (error) {
-    console.error("Exception checking pro access:", error);
+    reportBillingError(error, "pro_access_check_exception");
     return false;
   }
 }

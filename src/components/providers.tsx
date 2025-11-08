@@ -11,13 +11,14 @@ import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { api } from "../../convex/_generated/api";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+const convexAutumnApi = api.autumn;
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   const content = (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-      <AutumnProvider convex={convex} convexApi={(api as any).autumn}>
+      <AutumnProvider convex={convex} convexApi={convexAutumnApi}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

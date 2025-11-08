@@ -12,6 +12,7 @@ ZapDev is an AI-powered development platform that enables users to create web ap
 **Backend**: Convex (real-time database), tRPC (type-safe APIs), Clerk (authentication)
 **AI & Execution**: Vercel AI Gateway, Inngest 3.44 (job orchestration), E2B Code Interpreter (sandboxes)
 **Monitoring**: Sentry, OpenTelemetry
+**Billing**: Autumn (subscriptions, prepaid credits, checkout/paywall components)
 
 ## Development Commands
 
@@ -201,6 +202,10 @@ CLERK_WEBHOOK_SECRET
 INNGEST_EVENT_KEY
 INNGEST_SIGNING_KEY
 
+# Billing (Autumn)
+AUTUMN_SECRET_KEY
+AUTUMN_PRO_FEATURE_ID=pro
+
 # OAuth (Optional)
 FIGMA_CLIENT_ID, FIGMA_CLIENT_SECRET
 GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
@@ -209,6 +214,14 @@ GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
 NEXT_PUBLIC_APP_URL
 NODE_ENV
 ```
+
+### Autumn Billing Setup
+
+1. Set `AUTUMN_SECRET_KEY` (Convex env) and `AUTUMN_PRO_FEATURE_ID` (defaults to `pro` if unset).
+2. Match product + feature IDs in the Autumn dashboard (`pro`, `pro_annual`, etc.) with the constants referenced in Convex helpers.
+3. Run `bunx convex env set AUTUMN_SECRET_KEY <value>` to keep secrets out of the repo.
+4. Update `src/components/providers.tsx` only if additional Convex functions are exported for Autumn (use typed `api.autumn`, no `any`).
+5. When adding new features or tiers, update `PRO_FEATURE_ID` usage in `convex/helpers.ts` and the referenced environment variable.
 
 ### Build & Deployment Configuration
 
