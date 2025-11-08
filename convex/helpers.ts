@@ -1,20 +1,9 @@
-import * as Sentry from "@sentry/nextjs";
 import { QueryCtx, MutationCtx, ActionCtx } from "./_generated/server";
 import { autumn } from "./autumn";
 
 const PRO_FEATURE_ID = process.env.AUTUMN_PRO_FEATURE_ID ?? "pro";
 
 const reportBillingError = (error: unknown, context: string) => {
-  try {
-    if (typeof Sentry.captureException === "function") {
-      Sentry.captureException(error, {
-        tags: { area: "billing" },
-        extra: { context },
-      });
-    }
-  } catch (sentryError) {
-    console.error("[Autumn:SentryFailure]", sentryError);
-  }
   console.error(`[Autumn:${context}]`, error);
 };
 
