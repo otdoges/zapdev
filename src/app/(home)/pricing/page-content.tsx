@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { PricingTable } from "@/components/autumn/pricing-table";
+import PricingTable from "@/components/autumn/pricing-table";
 
 export function PricingPageContent() {
   return (

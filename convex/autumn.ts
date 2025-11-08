@@ -1,8 +1,16 @@
 import { components } from "./_generated/api";
 import { Autumn } from "@useautumn/convex";
 
+const secretKey = process.env.AUTUMN_SECRET_KEY;
+if (!secretKey) {
+  throw new Error(
+    "AUTUMN_SECRET_KEY environment variable is required but not set. " +
+    "Please configure this variable in your deployment settings."
+  );
+}
+
 export const autumn = new Autumn(components.autumn, {
-  secretKey: process.env.AUTUMN_SECRET_KEY ?? "",
+  secretKey,
   identify: async (ctx: any) => {
     const user = await ctx.auth.getUserIdentity();
     if (!user) return null;

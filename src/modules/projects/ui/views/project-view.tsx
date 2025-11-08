@@ -38,7 +38,7 @@ interface Props {
 
 export const ProjectView = ({ projectId }: Props) => {
   const { customer } = useCustomer();
-  const hasProAccess = customer?.product?.id === "pro" || customer?.product?.id === "pro_annual";
+  const hasProAccess = customer?.products?.some(p => p.id === "pro" || p.id === "pro_annual") ?? false;
 
   const [activeFragment, setActiveFragment] = useState<Doc<"fragments"> | null>(null);
   const [tabState, setTabState] = useState<"preview" | "code">("preview");

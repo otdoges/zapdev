@@ -1,3 +1,5 @@
+'use client';
+
 import React from "react";
 
 import { useCustomer, usePricingTable, ProductDetails } from "autumn-js/react";
@@ -216,7 +218,7 @@ export const PricingCard = ({
   return (
     <div
       className={cn(
-        " w-full h-full py-6 text-foreground border rounded-lg shadow-sm max-w-xl",
+        "relative w-full h-full py-6 text-foreground border rounded-lg shadow-sm max-w-xl",
         isRecommended &&
           "lg:-translate-y-6 lg:shadow-lg dark:shadow-zinc-800/80 lg:h-[calc(100%+48px)] bg-secondary/40",
         className

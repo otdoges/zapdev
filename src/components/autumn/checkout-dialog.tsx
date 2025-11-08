@@ -90,21 +90,25 @@ export default function CheckoutDialog(params: CheckoutDialogProps) {
 						size="sm"
 						onClick={async () => {
 							setLoading(true);
+							try {
+								const options = checkoutResult.options.map((option) => {
+									return {
+										featureId: option.feature_id,
+										quantity: option.quantity,
+									};
+								});
 
-							const options = checkoutResult.options.map((option) => {
-								return {
-									featureId: option.feature_id,
-									quantity: option.quantity,
-								};
-							});
-
-							await attach({
-								productId: checkoutResult.product.id,
-								...(params.checkoutParams || {}),
-								options,
-							});
-							setOpen(false);
-							setLoading(false);
+								await attach({
+									productId: checkoutResult.product.id,
+									...(params.checkoutParams || {}),
+									options,
+								});
+								setOpen(false);
+							} catch (error) {
+								console.error("Failed to attach product:", error);
+							} finally {
+								setLoading(false);
+							}
 						}}
 						disabled={loading}
 						className="min-w-16 flex items-center gap-2"

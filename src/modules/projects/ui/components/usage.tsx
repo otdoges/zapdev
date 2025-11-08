@@ -13,7 +13,7 @@ interface Props {
 
 export const Usage = ({ points, msBeforeNext }: Props) => {
   const { customer } = useCustomer();
-  const hasProAccess = customer?.product?.id === "pro" || customer?.product?.id === "pro_annual";
+  const hasProAccess = customer?.products?.some(p => p.id === "pro" || p.id === "pro_annual") ?? false;
 
   const resetTime = useMemo(() => {
     try {

@@ -29,14 +29,27 @@ export async function requireAuth(
 
 /**
  * Check if user has pro access based on Autumn subscription
+ * This checks if the user has access to pro-tier features
  */
 export async function hasProAccess(
-  ctx: QueryCtx | MutationCtx | ActionCtx
+  ctx: QueryCtx | MutationCtx | ActionCtx,
+  customerId?: string
 ): Promise<boolean> {
-  const subscription = await autumn.query(ctx, {});
+  try {
+    // Check if user has access to a pro feature
+    // Using "pro" as the feature ID to check for pro-tier access
+    const { data, error } = await autumn.check(ctx, {
+      featureId: "pro",
+    });
 
-  // Check if user has an active pro subscription
-  // This covers both "pro" and "pro_annual" product IDs
-  const productId = subscription?.data?.product?.id;
-  return productId === "pro" || productId === "pro_annual";
+    if (error) {
+      console.error("Error checking pro access:", error);
+      return false;
+    }
+
+    return data?.allowed ?? false;
+  } catch (error) {
+    console.error("Exception checking pro access:", error);
+    return false;
+  }
 }
