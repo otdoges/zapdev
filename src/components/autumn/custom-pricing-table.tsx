@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import CheckoutDialog from "@/components/autumn/checkout-dialog";
 import { getPricingTableContent } from "@/lib/autumn/pricing-table-content";
 import { Check, Loader2, Sparkles, Zap } from "lucide-react";
 
@@ -112,11 +111,12 @@ export default function CustomPricingTable({ productDetails, className }: Custom
       {/* Pricing Cards Grid */}
       <div className={cn(
         "grid gap-8 max-w-7xl mx-auto",
-        filteredProducts.length === 1 && "grid-cols-1 max-w-md",
-        filteredProducts.length === 2 && "grid-cols-1 md:grid-cols-2",
-        filteredProducts.length === 3 && "grid-cols-1 md:grid-cols-3",
-        filteredProducts.length > 3 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+        filteredProducts.length === 0 && "grid-cols-1 max-w-md",
+        filteredProducts.length === 1 && "grid-cols-1 md:grid-cols-2",
+        filteredProducts.length === 2 && "grid-cols-1 md:grid-cols-3",
+        filteredProducts.length >= 3 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
       )}>
+        <FreePlanCard />
         {filteredProducts.map((product, index) => (
           <PricingCard
             key={product.id ?? index}
@@ -126,6 +126,86 @@ export default function CustomPricingTable({ productDetails, className }: Custom
             isRecommended={hasRecommended && Boolean(product.display?.recommend_text)}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function FreePlanCard() {
+  return (
+    <div className="relative flex flex-col rounded-2xl border bg-card transition-all duration-300 shadow-sm hover:shadow-md">
+      <div className="flex-1 p-8 space-y-6">
+        {/* Plan Name & Description */}
+        <div className="space-y-2">
+          <h3 className="text-2xl font-bold">Free</h3>
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            Perfect for trying out ZapDev
+          </p>
+        </div>
+
+        {/* Price */}
+        <div className="space-y-1">
+          <div className="flex items-baseline gap-1">
+            <span className="text-4xl font-bold tracking-tight">$0</span>
+            <span className="text-muted-foreground">/month</span>
+          </div>
+        </div>
+
+        {/* Features List */}
+        <div className="space-y-3 pt-6 border-t">
+          <ul className="space-y-3">
+            <li className="flex items-start gap-3">
+              <div className="mt-0.5 shrink-0">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
+                  <Check className="w-3 h-3" />
+                </div>
+              </div>
+              <div className="flex-1 space-y-0.5">
+                <p className="text-sm font-medium leading-tight">5 generations daily</p>
+                <p className="text-xs text-muted-foreground">Resets every 24 hours</p>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="mt-0.5 shrink-0">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
+                  <Check className="w-3 h-3" />
+                </div>
+              </div>
+              <div className="flex-1 space-y-0.5">
+                <p className="text-sm font-medium leading-tight">All frameworks</p>
+                <p className="text-xs text-muted-foreground">Next.js, React, Vue, Angular, Svelte</p>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="mt-0.5 shrink-0">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
+                  <Check className="w-3 h-3" />
+                </div>
+              </div>
+              <div className="flex-1 space-y-0.5">
+                <p className="text-sm font-medium leading-tight">Real-time preview</p>
+                <p className="text-xs text-muted-foreground">Live sandbox environment</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      {/* CTA Button */}
+      <div className="p-8 pt-0">
+        <Button
+          variant="outline"
+          className="w-full h-11 text-base font-semibold transition-all"
+          disabled
+        >
+          <span className="flex items-center gap-2">
+            <Check className="w-4 h-4" />
+            Current Plan
+          </span>
+        </Button>
+        <p className="text-xs text-center text-muted-foreground mt-3">
+          Your current plan
+        </p>
       </div>
     </div>
   );
@@ -148,10 +228,20 @@ function PricingCard({ product, customer, checkout, isRecommended }: PricingCard
     setLoading(true);
     try {
       if (product.id && customer) {
-        await checkout({
+        // Get checkout data and redirect to Stripe
+        const { data, error } = await checkout({
           productId: product.id,
-          dialog: CheckoutDialog,
         });
+
+        if (error) {
+          console.error("Checkout error:", error);
+          return;
+        }
+
+        // Redirect to Stripe checkout URL if available
+        if (data?.url) {
+          window.location.href = data.url;
+        }
       } else if (product.display?.button_url) {
         window.open(product.display?.button_url, "_blank", "noopener,noreferrer");
       }
