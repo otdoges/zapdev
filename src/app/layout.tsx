@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
-import { ThemeProvider } from "next-themes";
-import { ClerkProvider } from "@clerk/nextjs";
 import Script from "next/script";
 
-import { Toaster } from "@/components/ui/sonner";
-import { WebVitalsReporter } from "@/components/web-vitals-reporter";
-import { ConvexClientProvider } from "@/components/convex-provider";
+import { Providers } from "@/components/providers";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css";
 
@@ -63,23 +59,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-  const content = (
-    <ConvexClientProvider>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
-        <Toaster />
-        <WebVitalsReporter />
-        {children}
-      </ThemeProvider>
-    </ConvexClientProvider>
-  );
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -108,24 +87,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body
-        className="antialiased"
-      >
-        {clerkPublishableKey ? (
-          <ClerkProvider
-            appearance={{
-              variables: {
-                colorPrimary: "#C96342",
-              },
-            }}
-          >
-            {content}
-          </ClerkProvider>
-        ) : (
-          content
-        )}
+      <body className="antialiased">
+        <Providers>{children}</Providers>
       </body>
-       <SpeedInsights />
+      <SpeedInsights />
     </html>
   );
 };

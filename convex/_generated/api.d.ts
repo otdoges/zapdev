@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as autumn from "../autumn.js";
 import type * as helpers from "../helpers.js";
 import type * as importData from "../importData.js";
 import type * as imports from "../imports.js";
@@ -31,6 +32,7 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  autumn: typeof autumn;
   helpers: typeof helpers;
   importData: typeof importData;
   imports: typeof imports;
@@ -50,4 +52,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  autumn: {};
+};
