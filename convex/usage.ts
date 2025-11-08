@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, QueryCtx, MutationCtx, ActionCtx } from "./_generated/server";
 import { requireAuth, hasProAccess } from "./helpers";
 
 // Constants matching the existing system
@@ -7,6 +7,17 @@ const FREE_POINTS = 5;
 const PRO_POINTS = 100;
 const DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 const GENERATION_COST = 1;
+
+/**
+ * Check if user has pro access (public query for frontend)
+ * Provides consistent pro access checking between frontend and backend
+ */
+export const checkProAccess = query({
+  args: {},
+  handler: async (ctx): Promise<boolean> => {
+    return hasProAccess(ctx);
+  },
+});
 
 /**
  * Check and consume credits for a generation
@@ -141,7 +152,7 @@ export const resetUsage = mutation({
  * Internal: Get usage for a specific user (for use from actions/background jobs)
  */
 export const getUsageInternal = async (
-  ctx: any,
+  ctx: any, // QueryCtx | MutationCtx - using any to handle both query and mutation contexts
   userId: string
 ): Promise<{
   points: number;
@@ -215,7 +226,7 @@ export const checkAndConsumeCreditForUser = mutation({
  * Internal: Check and consume credit for a specific user (for use from actions/background jobs)
  */
 export const checkAndConsumeCreditInternal = async (
-  ctx: any,
+  ctx: any, // QueryCtx | MutationCtx - using any to handle both contexts
   userId: string
 ): Promise<{ success: boolean; remaining: number; message?: string }> => {
   const isPro = await hasProAccess(ctx);

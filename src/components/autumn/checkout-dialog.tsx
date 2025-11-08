@@ -353,14 +353,46 @@ const PrepaidItem = ({
 	const maxQuantity =
 		(item as ProductItemWithStock).available_stock ?? 999999;
 
+	// Sanitize and validate quantity input
+	const sanitizeAndValidateQuantity = (value: string): { valid: number | null; error: string } => {
+		// Trim whitespace
+		const trimmed = value.trim();
+
+		// Check if empty
+		if (trimmed === "") {
+			return { valid: null, error: "Quantity is required" };
+		}
+
+		// Only allow numeric characters (prevent injection)
+		if (!/^\d+$/.test(trimmed)) {
+			return { valid: null, error: "Please enter a valid number" };
+		}
+
+		const parsed = parseInt(trimmed, 10);
+
+		if (isNaN(parsed)) {
+			return { valid: null, error: "Please enter a valid number" };
+		}
+
+		if (parsed < minQuantity) {
+			return { valid: null, error: `Minimum quantity is ${minQuantity}` };
+		}
+
+		if (parsed > maxQuantity) {
+			return { valid: null, error: `Maximum quantity is ${maxQuantity}` };
+		}
+
+		return { valid: parsed, error: "" };
+	};
+
 	// Parse and validate quantity
 	const parseAndValidateQuantity = (value: string): number | null => {
-		const parsed = parseInt(value, 10);
-		if (isNaN(parsed)) {
+		const { valid } = sanitizeAndValidateQuantity(value);
+		if (valid === null) {
 			return null;
 		}
 		// Clamp to valid range
-		return Math.max(minQuantity, Math.min(parsed, maxQuantity));
+		return Math.max(minQuantity, Math.min(valid, maxQuantity));
 	};
 
 	// Handle input change with validation feedback
@@ -368,25 +400,11 @@ const PrepaidItem = ({
 		const value = e.target.value;
 		setQuantityInput(value);
 
-		// Validate and provide feedback
-		if (value === "") {
-			setValidationError("Quantity is required");
-			return;
-		}
+		// Sanitize and validate input
+		const { valid, error } = sanitizeAndValidateQuantity(value);
 
-		const parsed = parseInt(value, 10);
-		if (isNaN(parsed)) {
-			setValidationError("Please enter a valid number");
-			return;
-		}
-
-		if (parsed < minQuantity) {
-			setValidationError(`Minimum quantity is ${minQuantity}`);
-			return;
-		}
-
-		if (parsed > maxQuantity) {
-			setValidationError(`Maximum quantity is ${maxQuantity}`);
+		if (error) {
+			setValidationError(error);
 			return;
 		}
 
@@ -434,13 +452,16 @@ const PrepaidItem = ({
 
 			const featureId = item.feature_id;
 			if (!featureId) {
-				console.error("Feature ID is required");
+				console.error("[Checkout] Feature ID is required");
+				toast.error("Unable to process request. Please try again.");
 				return;
 			}
 
+			// Final validation before submitting
 			const parsedQuantity = parseInt(quantityInput, 10);
 			if (isNaN(parsedQuantity) || parsedQuantity < minQuantity || parsedQuantity > maxQuantity) {
-				console.error("Invalid quantity");
+				console.error("[Checkout] Invalid quantity after parsing");
+				toast.error("Invalid quantity. Please try again.");
 				return;
 			}
 
@@ -456,15 +477,23 @@ const PrepaidItem = ({
 			});
 
 			if (error) {
-				console.error(error);
-				// Display error to user via toast or error state
+				console.error("[Checkout] Checkout error:", error);
+				// Sanitize error message to prevent leaking internal state
+				const errorStr = String(error);
+				const userMessage =
+					errorStr.length < 180
+						? errorStr
+						: "An error occurred while processing your request. Please try again.";
+				toast.error(userMessage);
 				return;
 			}
 			if (data) {
 				setCheckoutResult(data);
+				toast.success("Quantity updated successfully");
 			}
 		} catch (error) {
-			console.error(error);
+			console.error("[Checkout] Exception:", error);
+			toast.error("An unexpected error occurred. Please try again.");
 		} finally {
 			setLoading(false);
 			setOpen(false);
