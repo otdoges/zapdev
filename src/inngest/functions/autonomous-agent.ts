@@ -21,8 +21,8 @@ type AutonomousAgentEvent = {
 const runCommand = async (sandbox: Sandbox, command: string) => {
   const buffers = { stdout: "", stderr: "" };
   const result = await sandbox.commands.run(command, {
-    onStdout: (data: string) => (buffers.stdout += data),
-    onStderr: (data: string) => (buffers.stderr += data),
+    onStdout: (data: string) => { buffers.stdout += data; },
+    onStderr: (data: string) => { buffers.stderr += data; },
   });
 
   return {
@@ -59,14 +59,11 @@ export const autonomousAgentFunction = inngest.createFunction(
         throw new Error("Issue not found");
       }
 
-      const sandbox = await step.run("create-sandbox", async () => {
-        const instance = await Sandbox.create("zapdev", {
-          apiKey: process.env.E2B_API_KEY,
-          timeoutMs: SANDBOX_TIMEOUT,
-        });
-        await instance.setTimeout(SANDBOX_TIMEOUT);
-        return instance;
+      const sandbox = await Sandbox.create("zapdev", {
+        apiKey: process.env.E2B_API_KEY,
+        timeoutMs: SANDBOX_TIMEOUT,
       });
+      await sandbox.setTimeout(SANDBOX_TIMEOUT);
 
       let sandboxKilled = false;
       try {

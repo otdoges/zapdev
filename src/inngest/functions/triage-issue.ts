@@ -105,10 +105,7 @@ export const triageIssueFunction = inngest.createFunction(
         }),
       });
 
-      const agentResult = await step.run("run-triage", async () => {
-        return await agent.run(issueContent);
-      });
-
+      const agentResult = await agent.run(issueContent);
       const agentOutput = lastAssistantTextMessageContent(agentResult);
       if (!agentOutput) {
         throw new Error("Model returned empty response");

@@ -16,6 +16,22 @@ type PullRequestInput = {
   draft?: boolean;
 };
 
+type GitHubPullRequest = {
+  number: number;
+  html_url: string;
+  title: string;
+  draft: boolean;
+  state: string;
+  head: {
+    ref: string;
+    sha: string;
+  };
+  base: {
+    ref: string;
+    sha: string;
+  };
+};
+
 const DEFAULT_BASE_URL = "https://api.github.com";
 
 export class GitHubClient {
@@ -86,8 +102,8 @@ export class GitHubClient {
     });
   }
 
-  async createPullRequest(input: PullRequestInput) {
-    return this.request(`/repos/${input.repoFullName}/pulls`, {
+  async createPullRequest(input: PullRequestInput): Promise<GitHubPullRequest> {
+    return this.request<GitHubPullRequest>(`/repos/${input.repoFullName}/pulls`, {
       method: "POST",
       body: {
         title: input.title,

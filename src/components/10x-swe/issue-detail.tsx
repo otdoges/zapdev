@@ -33,7 +33,7 @@ const statusStyles: Record<string, string> = {
 };
 
 export function IssueDetail({ issueId, repoFullName }: IssueDetailProps) {
-  const issue = useQuery(issueId ? api.issues.get : null, issueId ? { issueId } : undefined);
+  const issue = useQuery(api.issues.get, issueId ? { issueId } : "skip");
   const enqueueTask = useMutation(api.tasks.enqueueTask);
   const [isAssigning, startTransition] = useTransition();
 
