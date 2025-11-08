@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { useMemo } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useQuery } from "convex/react";
 import { CrownIcon } from "lucide-react";
 import { formatDuration, intervalToDuration } from "date-fns";
 
 import { Button } from "@/components/ui/button";
+import { api } from "@/convex/_generated/api";
 
 interface Props {
   points: number;
@@ -12,8 +13,8 @@ interface Props {
 };
 
 export const Usage = ({ points, msBeforeNext }: Props) => {
-  const { has } = useAuth();
-  const hasProAccess = has?.({ plan: "pro" });
+  // Use the Convex query for consistent pro access checking across frontend and backend
+  const hasProAccess = useQuery(api.usage.checkProAccess) ?? false;
 
   const resetTime = useMemo(() => {
     try {
