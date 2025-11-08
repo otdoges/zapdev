@@ -13,19 +13,51 @@ interface FragmentWebProps {
 }
 
 const normalizeFiles = (value: Doc<"fragments">["files"]): Record<string, string> => {
-  if (typeof value !== "object" || value === null) {
+  if (value === null || value === undefined) {
     return {};
   }
 
-  return Object.entries(value as Record<string, unknown>).reduce<Record<string, string>>(
-    (acc, [path, content]) => {
-      if (typeof content === "string") {
-        acc[path] = content;
+  if (typeof value !== "object") {
+    console.warn("[FragmentWeb] Files value is not an object:", typeof value, value);
+    return {};
+  }
+
+  if (Array.isArray(value)) {
+    console.warn("[FragmentWeb] Files value is an array, expected object. Attempting to convert...");
+    const converted: Record<string, string> = {};
+    value.forEach((item, index) => {
+      if (typeof item === "object" && item !== null && "path" in item && "content" in item) {
+        const path = String(item.path);
+        const content = typeof item.content === "string" ? item.content : String(item.content);
+        converted[path] = content;
+      } else if (typeof item === "string") {
+        converted[`file_${index}`] = item;
       }
-      return acc;
-    },
-    {}
-  );
+    });
+    return converted;
+  }
+
+  const files: Record<string, string> = {};
+  const entries = Object.entries(value as Record<string, unknown>);
+  
+  for (const [path, content] of entries) {
+    if (typeof content === "string") {
+      files[path] = content;
+    } else if (typeof content === "object" && content !== null) {
+      if ("content" in content && typeof content.content === "string") {
+        files[path] = content.content;
+      } else {
+        const stringified = JSON.stringify(content);
+        if (stringified.length > 0) {
+          files[path] = stringified;
+        }
+      }
+    } else if (content !== null && content !== undefined) {
+      files[path] = String(content);
+    }
+  }
+
+  return files;
 };
 
 export function FragmentWeb({ data }: FragmentWebProps) {
@@ -38,8 +70,41 @@ export function FragmentWeb({ data }: FragmentWebProps) {
   const resumePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeAttemptRef = useRef(0);
 
-  const files = useMemo(() => normalizeFiles(data.files), [data.files]);
-  const hasFiles = Object.keys(files).length > 0;
+  const files = useMemo(() => {
+    const normalized = normalizeFiles(data.files);
+    
+    if (Object.keys(normalized).length === 0 && data.files) {
+      console.warn("[FragmentWeb] Normalized files is empty but raw files exists:", {
+        fragmentId: data._id,
+        rawFilesType: typeof data.files,
+        rawFilesIsArray: Array.isArray(data.files),
+        rawFilesKeys: typeof data.files === "object" && data.files !== null && !Array.isArray(data.files) 
+          ? Object.keys(data.files as Record<string, unknown>).length 
+          : "N/A",
+        rawFilesPreview: JSON.stringify(data.files).substring(0, 200),
+      });
+    } else if (Object.keys(normalized).length > 0) {
+      console.log("[FragmentWeb] Successfully normalized files:", {
+        fragmentId: data._id,
+        fileCount: Object.keys(normalized).length,
+        filePaths: Object.keys(normalized).slice(0, 5),
+      });
+    }
+    
+    return normalized;
+  }, [data.files, data._id]);
+  
+  const rawFilesCount = useMemo(() => {
+    if (!data.files || typeof data.files !== "object" || data.files === null) {
+      return 0;
+    }
+    if (Array.isArray(data.files)) {
+      return data.files.length;
+    }
+    return Object.keys(data.files as Record<string, unknown>).length;
+  }, [data.files]);
+  
+  const hasFiles = Object.keys(files).length > 0 || rawFilesCount > 0;
 
   const modelInfo = useMemo(() => {
     const metadata = data.metadata as Record<string, unknown> | undefined;
@@ -223,6 +288,14 @@ export function FragmentWeb({ data }: FragmentWebProps) {
   }
 
   if (!hasFiles) {
+    console.error("[FragmentWeb] No files detected:", {
+      fragmentId: data._id,
+      normalizedFileCount: Object.keys(files).length,
+      rawFilesCount,
+      rawFilesType: typeof data.files,
+      rawFilesValue: data.files,
+    });
+    
     return (
       <div className="flex flex-col items-center justify-center w-full h-full bg-background p-8">
         <div className="flex flex-col items-center gap-4 max-w-md text-center">
@@ -237,6 +310,11 @@ export function FragmentWeb({ data }: FragmentWebProps) {
             <p className="text-sm text-muted-foreground mt-2">
               Please try sending another message to regenerate the code.
             </p>
+            {rawFilesCount > 0 && Object.keys(files).length === 0 && (
+              <p className="text-xs text-muted-foreground mt-2 italic">
+                Note: Files may exist but couldn't be parsed. Check console for details.
+              </p>
+            )}
           </div>
         </div>
       </div>
