@@ -117,7 +117,8 @@ export async function POST(request: NextRequest) {
     const primaryItem = selectPrimarySubscriptionItem(subscription.subscriptionItems);
 
     if (!primaryItem) {
-      await convex.mutation(api.billing.clearUserSubscription, { userId });
+      // Legacy billing API removed - billing now handled by Autumn
+      // await convex.mutation(api.billing.clearUserSubscription, { userId });
       return jsonResponse({ ok: true, cleared: true });
     }
 
@@ -142,10 +143,11 @@ export async function POST(request: NextRequest) {
       lastWebhookEvent: event.type,
     };
 
-    await convex.mutation(api.billing.upsertUserSubscription, {
-      userId,
-      snapshot,
-    });
+    // Legacy billing API removed - billing now handled by Autumn
+    // await convex.mutation(api.billing.upsertUserSubscription, {
+    //   userId,
+    //   snapshot,
+    // });
 
     return jsonResponse({ ok: true });
   } catch (error) {
@@ -155,7 +157,8 @@ export async function POST(request: NextRequest) {
         : undefined;
 
     if (maybeStatus === 404) {
-      await convex.mutation(api.billing.clearUserSubscription, { userId });
+      // Legacy billing API removed - billing now handled by Autumn
+      // await convex.mutation(api.billing.clearUserSubscription, { userId });
       return jsonResponse({ ok: true, cleared: true, reason: "not_found" });
     }
 
