@@ -1,4 +1,4 @@
-export { RESPONSE_PROMPT, FRAGMENT_TITLE_PROMPT } from "./prompts/shared";
+export { RESPONSE_PROMPT, FRAGMENT_TITLE_PROMPT, DESIGNER_PROMPT } from "./prompts/shared";
 export { NEXTJS_PROMPT } from "./prompts/nextjs";
 export { ANGULAR_PROMPT } from "./prompts/angular";
 export { REACT_PROMPT } from "./prompts/react";
