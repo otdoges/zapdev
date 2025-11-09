@@ -19,7 +19,11 @@ const isRelevantEvent = (eventType: string): boolean => {
 };
 
 const resolveUserIdFromEvent = (event: WebhookEvent): string | null => {
-  const data: Record<string, unknown> = event.data as Record<string, unknown>;
+  const rawData = event.data as unknown;
+  if (typeof rawData !== "object" || rawData === null) {
+    return null;
+  }
+  const data = rawData as Record<string, unknown>;
 
   if (event.type.startsWith("subscriptionItem.")) {
     const payer = data?.payer as { user_id?: string } | undefined;
@@ -107,7 +111,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const subscription = await clerkClient.billing.getUserBillingSubscription(userId);
+    const client = await clerkClient();
+    const subscription = await client.billing.getUserBillingSubscription(userId);
 
     const primaryItem = selectPrimarySubscriptionItem(subscription.subscriptionItems);
 
