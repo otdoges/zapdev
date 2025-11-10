@@ -6,38 +6,39 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 // Mock E2B Sandbox for testing
 const mockSandbox = {
-  filesystem: {
+  files: {
     read: jest.fn(),
     write: jest.fn(),
     list: jest.fn(),
   },
-  process: {
-    start: jest.fn(),
+  commands: {
+    run: jest.fn(),
   },
 } as any;
+
+// Reset mocks before every test
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 
 // Import the functions we want to test
 import { readFileWithTimeout, readFilesInBatches } from '../src/inngest/functions';
 
 describe('File Reading Integration Tests', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   describe('readFileWithTimeout', () => {
     it('should read file content correctly', async () => {
       const testContent = 'console.log("Hello World");';
-      mockSandbox.filesystem.read.mockResolvedValue(testContent);
+      mockSandbox.files.read.mockResolvedValue(testContent);
 
       const result = await readFileWithTimeout(mockSandbox, '/home/user/test.js', 5000);
       
       expect(result).toBe(testContent);
-      expect(mockSandbox.filesystem.read).toHaveBeenCalledWith('/home/user/test.js');
+      expect(mockSandbox.files.read).toHaveBeenCalledWith('/home/user/test.js');
     });
 
     it('should handle UTF-8 content correctly', async () => {
       const testContent = 'console.log("🚀 Hello 世界");';
-      mockSandbox.filesystem.read.mockResolvedValue(testContent);
+      mockSandbox.files.read.mockResolvedValue(testContent);
 
       const result = await readFileWithTimeout(mockSandbox, '/home/user/test.js', 5000);
       
@@ -46,7 +47,7 @@ describe('File Reading Integration Tests', () => {
     });
 
     it('should timeout on slow file reads', async () => {
-      mockSandbox.filesystem.read.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 10000)));
+      mockSandbox.files.read.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 10000)));
 
       const result = await readFileWithTimeout(mockSandbox, '/home/user/test.js', 1000);
       
@@ -54,7 +55,7 @@ describe('File Reading Integration Tests', () => {
     });
 
     it('should handle read errors gracefully', async () => {
-      mockSandbox.filesystem.read.mockRejectedValue(new Error('Permission denied'));
+      mockSandbox.files.read.mockRejectedValue(new Error('Permission denied'));
 
       const result = await readFileWithTimeout(mockSandbox, '/home/user/test.js', 5000);
       
@@ -63,7 +64,7 @@ describe('File Reading Integration Tests', () => {
 
     it('should reject files exceeding size limit', async () => {
       const largeContent = 'x'.repeat(11 * 1024 * 1024); // 11MB
-      mockSandbox.filesystem.read.mockResolvedValue(largeContent);
+      mockSandbox.files.read.mockResolvedValue(largeContent);
 
       const result = await readFileWithTimeout(mockSandbox, '/home/user/large.js', 5000);
       
@@ -79,7 +80,7 @@ describe('File Reading Integration Tests', () => {
         '/home/user/file3.js',
       ];
       
-      mockSandbox.filesystem.read
+      mockSandbox.files.read
         .mockResolvedValueOnce('content1')
         .mockResolvedValueOnce('content2')
         .mockResolvedValueOnce('content3');
@@ -102,7 +103,7 @@ describe('File Reading Integration Tests', () => {
         '',  // Empty string
       ];
       
-      mockSandbox.filesystem.read
+      mockSandbox.files.read
         .mockResolvedValueOnce('valid content')
         .mockResolvedValueOnce('valid content 2');
 
@@ -113,7 +114,7 @@ describe('File Reading Integration Tests', () => {
         '/home/user/valid2.js': 'valid content 2',
       });
       
-      expect(mockSandbox.filesystem.read).toHaveBeenCalledTimes(2);
+      expect(mockSandbox.files.read).toHaveBeenCalledTimes(2);
     });
 
     it('should handle mixed success and failure cases', async () => {
@@ -123,16 +124,24 @@ describe('File Reading Integration Tests', () => {
         '/home/user/error.js',
       ];
       
-      mockSandbox.filesystem.read
-        .mockResolvedValueOnce('success content')
-        .mockImplementationOnce(() => new Promise(resolve => setTimeout(resolve, 10000)))  // timeout
-        .mockRejectedValueOnce(new Error('Read error'));
+      jest.useFakeTimers();
+      try {
+        mockSandbox.files.read
+          .mockResolvedValueOnce('success content')
+          .mockImplementationOnce(() => new Promise(resolve => setTimeout(resolve, 10_000)))  // timeout
+          .mockRejectedValueOnce(new Error('Read error'));
 
-      const result = await readFilesInBatches(mockSandbox, files, 2);
+        const readPromise = readFilesInBatches(mockSandbox, files, 2);
+        await jest.advanceTimersByTimeAsync(10_000);
+        const result = await readPromise;
+        
+        expect(result).toEqual({
+          '/home/user/success.js': 'success content',
+        });
+      } finally {
+        jest.useRealTimers();
+      }
       
-      expect(result).toEqual({
-        '/home/user/success.js': 'success content',
-      });
     });
   });
 });
@@ -148,7 +157,7 @@ describe('File Merging Integration Tests', () => {
     };
 
     // Mock the file reading to return our test files
-    mockSandbox.filesystem.read.mockImplementation((path: string) => {
+    mockSandbox.files.read.mockImplementation((path: string) => {
       return Promise.resolve(mockFiles[path as keyof typeof mockFiles] || null);
     });
 
@@ -165,7 +174,7 @@ describe('File Merging Integration Tests', () => {
       './src/components/Button.tsx',  // Same file, different path format
     ];
 
-    mockSandbox.filesystem.read.mockResolvedValue('button component code');
+    mockSandbox.files.read.mockResolvedValue('button component code');
 
     const result = await readFilesInBatches(mockSandbox, conflictingFiles, 2);
     
@@ -180,7 +189,7 @@ describe('Performance Tests', () => {
     const files = Array.from({ length: fileCount }, (_, i) => `/home/user/file${i}.js`);
     
     // Mock fast reads for small files
-    mockSandbox.filesystem.read.mockImplementation((path: string) => {
+    mockSandbox.files.read.mockImplementation((path: string) => {
       return Promise.resolve(`// Content of ${path}`);
     });
 
@@ -196,11 +205,11 @@ describe('Performance Tests', () => {
     const fileCount = 1500; // Exceeds typical limits
     const files = Array.from({ length: fileCount }, (_, i) => `/home/user/file${i}.js`);
     
-    mockSandbox.filesystem.read.mockResolvedValue('content');
+    mockSandbox.files.read.mockResolvedValue('content');
 
     const result = await readFilesInBatches(mockSandbox, files, 50);
     
-    // Should only read up to the limit (typically 1000 files)
-    expect(Object.keys(result)).toBeLessThanOrEqual(1000);
+    // Should only read up to the limit (500 files)
+    expect(Object.keys(result).length).toBeLessThanOrEqual(500);
   });
 });
