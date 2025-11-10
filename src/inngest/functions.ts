@@ -105,19 +105,20 @@ export const MODEL_CONFIGS = {
 export type ModelId = keyof typeof MODEL_CONFIGS | "auto";
 
 // Auto-selection logic to choose the best model based on task complexity
-function selectModelForTask(prompt: string, framework?: Framework): keyof typeof MODEL_CONFIGS {
+export function selectModelForTask(prompt: string, framework?: Framework): keyof typeof MODEL_CONFIGS {
   const promptLength = prompt.length;
   const lowercasePrompt = prompt.toLowerCase();
+  let chosenModel: keyof typeof MODEL_CONFIGS = "anthropic/claude-haiku-4.5";
 
   // Analyze task complexity
   const complexityIndicators = [
-    'advanced', 'complex', 'sophisticated', 'enterprise',
-    'architecture', 'performance', 'optimization', 'scalability',
-    'authentication', 'authorization', 'database', 'api',
-    'integration', 'deployment', 'security', 'testing',
+    "advanced", "complex", "sophisticated", "enterprise",
+    "architecture", "performance", "optimization", "scalability",
+    "authentication", "authorization", "database", "api",
+    "integration", "deployment", "security", "testing",
   ];
 
-  const hasComplexityIndicators = complexityIndicators.some(indicator =>
+  const hasComplexityIndicators = complexityIndicators.some((indicator) =>
     lowercasePrompt.includes(indicator)
   );
 
@@ -125,38 +126,37 @@ function selectModelForTask(prompt: string, framework?: Framework): keyof typeof
   const isVeryLongPrompt = promptLength > 1000;
 
   // Framework-specific model selection
-  if (framework === 'angular') {
-    // Angular projects tend to be more enterprise-focused
-    return "anthropic/claude-haiku-4.5";
+  if (framework === "angular" && (hasComplexityIndicators || isLongPrompt)) {
+    // Angular projects tend to be more enterprise-focused; keep Haiku for consistency
+    return chosenModel;
   }
 
   // Coding-specific keywords favor Qwen
-  const codingIndicators = ['refactor', 'optimize', 'debug', 'fix bug', 'improve code'];
-  const hasCodingFocus = codingIndicators.some(indicator =>
+  const codingIndicators = ["refactor", "optimize", "debug", "fix bug", "improve code"];
+  const hasCodingFocus = codingIndicators.some((indicator) =>
     lowercasePrompt.includes(indicator)
   );
 
   if (hasCodingFocus && !isVeryLongPrompt) {
-    return "alibaba/qwen3-max";
+    chosenModel = "alibaba/qwen3-max";
   }
 
-  // Speed-critical tasks favor Kimi
-  const speedIndicators = ['quick', 'fast', 'simple', 'basic', 'prototype'];
-  const needsSpeed = speedIndicators.some(indicator =>
+  // Speed-critical tasks favor Kimi, but only override if clearly requested
+  const speedIndicators = ["quick", "fast", "simple", "basic", "prototype"];
+  const needsSpeed = speedIndicators.some((indicator) =>
     lowercasePrompt.includes(indicator)
   );
 
   if (needsSpeed && !hasComplexityIndicators) {
-    return "moonshotai/kimi-k2-thinking";
+    chosenModel = "moonshotai/kimi-k2-thinking";
   }
 
-  // Complex tasks use Haiku
+  // Highly complex or long tasks stick with Haiku
   if (hasComplexityIndicators || isVeryLongPrompt) {
-    return "anthropic/claude-haiku-4.5";
+    chosenModel = "anthropic/claude-haiku-4.5";
   }
 
-  // Default to Haiku for most tasks
-  return "anthropic/claude-haiku-4.5";
+  return chosenModel;
 }
 
 const AUTO_FIX_ERROR_PATTERNS = [
@@ -375,7 +375,7 @@ const getFrameworkPrompt = (framework: Framework): string => {
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_FILE_COUNT = 500;
+export const MAX_FILE_COUNT = 500;
 const MAX_SCREENSHOTS = 20;
 const FILE_READ_BATCH_SIZE = 10;
 const FILE_READ_TIMEOUT_MS = 5000;
@@ -388,7 +388,7 @@ const escapeShellPattern = (pattern: string): string => {
   return pattern.replace(/'/g, "'\"'\"'");
 };
 
-const isValidFilePath = (filePath: string): boolean => {
+export const isValidFilePath = (filePath: string): boolean => {
   if (!filePath || typeof filePath !== 'string') {
     return false;
   }
@@ -452,7 +452,7 @@ const isValidScreenshotUrl = (url: string): boolean => {
   }
 };
 
-const readFileWithTimeout = async (
+export const readFileWithTimeout = async (
   sandbox: Sandbox,
   filePath: string,
   timeoutMs: number
@@ -496,7 +496,7 @@ const calculateFilesMapSize = (filesMap: Record<string, string>): number => {
   return totalSize;
 };
 
-const readFilesInBatches = async (
+export const readFilesInBatches = async (
   sandbox: Sandbox,
   filePaths: string[],
   batchSize: number
@@ -1288,7 +1288,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
           const batchFilesMap: Record<string, string> = {};
           
           for (const filePath of batchFilePaths) {
-            const content = await readFileWithTimeout(sandbox, filePath, FILE_READ_TIMEOUT_MS);
+            const content = await readFileWithTimeout(sandbox, filePath);
             if (content !== null) {
               batchFilesMap[filePath] = content;
             }
