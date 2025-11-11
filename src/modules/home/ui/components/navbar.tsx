@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "@/lib/auth-client";
+import { useAuthPopup } from "@/lib/auth-popup-context";
 import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import {
 export const Navbar = () => {
   const isScrolled = useScroll();
   const { data: session, isPending } = useSession();
+  const { openSignIn, openSignUp } = useAuthPopup();
 
   const authContent = isPending ? (
     <div
@@ -31,16 +33,12 @@ export const Navbar = () => {
     <UserControl showName />
   ) : (
     <div className="flex gap-2">
-      <Link href="/sign-up">
-        <Button variant="outline" size="sm">
-          Sign up
-        </Button>
-      </Link>
-      <Link href="/sign-in">
-        <Button size="sm">
-          Sign in
-        </Button>
-      </Link>
+      <Button variant="outline" size="sm" onClick={() => openSignUp()}>
+        Sign up
+      </Button>
+      <Button size="sm" onClick={() => openSignIn()}>
+        Sign in
+      </Button>
     </div>
   );
 
