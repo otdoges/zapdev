@@ -9,6 +9,7 @@
 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { RATE_LIMIT_CONFIG } from "./constants";
 
 // Initialize Redis client from environment variables
 // Requires: UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
@@ -18,7 +19,7 @@ const redis = Redis.fromEnv();
 // 10 requests per minute per IP address
 export const authRateLimit = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(10, "1 m"),
+  limiter: Ratelimit.slidingWindow(RATE_LIMIT_CONFIG.AUTH_LIMIT, RATE_LIMIT_CONFIG.AUTH_WINDOW),
   analytics: true,
   prefix: "@zapdev/auth",
 });
@@ -27,7 +28,7 @@ export const authRateLimit = new Ratelimit({
 // 3 requests per 5 minutes per IP address
 export const sensitiveAuthRateLimit = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(3, "5 m"),
+  limiter: Ratelimit.slidingWindow(RATE_LIMIT_CONFIG.SENSITIVE_LIMIT, RATE_LIMIT_CONFIG.SENSITIVE_WINDOW),
   analytics: true,
   prefix: "@zapdev/sensitive-auth",
 });

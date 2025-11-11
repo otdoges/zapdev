@@ -353,9 +353,16 @@ export function createConvexAdapter(
         });
         if (!account) return null;
 
+        // Normalize expiresAt to milliseconds for consistency
+        // Handle legacy values stored in seconds (if < 1e12, likely seconds)
+        let normalizedExpiresAt = account.expiresAt;
+        if (normalizedExpiresAt !== undefined && normalizedExpiresAt < 1e12) {
+          normalizedExpiresAt = normalizedExpiresAt * 1000;
+        }
+
         // Check if token is expired and needs refresh
         if (
-          isOAuthTokenExpired(account.expiresAt) &&
+          isOAuthTokenExpired(normalizedExpiresAt) &&
           account.refreshToken
         ) {
           try {
@@ -380,7 +387,7 @@ export function createConvexAdapter(
 
                 await this.updateAccount(provider, providerAccountId, {
                   accessToken: refreshResult.accessToken,
-                  expiresAt: Math.floor(newExpiresAt / 1000),
+                  expiresAt: newExpiresAt,
                 });
 
                 // Return updated account with new token
@@ -414,7 +421,7 @@ export function createConvexAdapter(
           providerAccountId: account.providerAccountId,
           accessToken: account.accessToken,
           refreshToken: account.refreshToken,
-          expiresAt: account.expiresAt,
+          expiresAt: normalizedExpiresAt,
           tokenType: account.tokenType,
           scope: account.scope,
           idToken: account.idToken,

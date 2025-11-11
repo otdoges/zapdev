@@ -4,6 +4,18 @@ import { createConvexAdapter } from "./auth-adapter-convex";
 import { SESSION_COOKIE_PREFIX } from "./session-cookie";
 import { SESSION_CONFIG } from "./constants";
 
+const makeSocialConfig = (
+  clientId?: string,
+  clientSecret?: string,
+) => {
+  const enabled = !!(clientId && clientSecret);
+  return {
+    ...(clientId ? { clientId } : {}),
+    ...(clientSecret ? { clientSecret } : {}),
+    enabled,
+  };
+};
+
 export const auth = betterAuth({
   database: createConvexAdapter(), // Custom Convex adapter for persistent storage
   emailAndPassword: {
@@ -11,16 +23,14 @@ export const auth = betterAuth({
     requireEmailVerification: process.env.REQUIRE_EMAIL_VERIFICATION !== "false", // Enabled by default, disable with env var
   },
   socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      enabled: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-    },
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID || "",
-      clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
-      enabled: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
-    },
+    google: makeSocialConfig(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+    ),
+    github: makeSocialConfig(
+      process.env.GITHUB_CLIENT_ID,
+      process.env.GITHUB_CLIENT_SECRET,
+    ),
   },
   session: {
     expiresIn: SESSION_CONFIG.EXPIRES_IN, // 7 days

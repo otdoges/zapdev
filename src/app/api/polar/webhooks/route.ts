@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { verifyWebhookSignature, POLAR_CONFIG } from "@/lib/polar";
 
 // Type definitions for Polar webhook payloads
@@ -28,7 +29,7 @@ interface PolarWebhookEvent {
 export async function POST(request: NextRequest) {
   let eventType: PolarWebhookEvent["type"] | undefined;
   let eventId: string | undefined;
-  let webhookEventId: string | undefined;
+  let webhookEventId: Id<"webhookEvents"> | undefined;
 
   try {
     const body = await request.text();
@@ -55,9 +56,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const event = JSON.parse(body);
+    const event = JSON.parse(body) as PolarWebhookEvent;
     eventType = event.type;
     eventId = event.id || `${event.type}-${Date.now()}`;
+
+    if (!eventType || !eventId) {
+      return NextResponse.json(
+        { error: "Invalid webhook payload" },
+        { status: 400 }
+      );
+    }
 
     console.log("Polar webhook received:", eventType, { eventId });
 
@@ -93,21 +101,29 @@ export async function POST(request: NextRequest) {
     switch (eventType) {
       case "subscription.created":
       case "subscription.updated":
-        await handleSubscriptionUpdate(event.data);
+        if ("status" in event.data) {
+          await handleSubscriptionUpdate(event.data as PolarSubscription);
+        }
         break;
 
       case "subscription.canceled":
       case "subscription.revoked":
-        await handleSubscriptionCanceled(event.data);
+        if ("status" in event.data) {
+          await handleSubscriptionCanceled(event.data as PolarSubscription);
+        }
         break;
 
       case "subscription.active":
-        await handleSubscriptionActivated(event.data);
+        if ("status" in event.data) {
+          await handleSubscriptionActivated(event.data as PolarSubscription);
+        }
         break;
 
       case "customer.created":
       case "customer.updated":
-        await handleCustomerUpdate(event.data);
+        if ("email" in event.data) {
+          await handleCustomerUpdate(event.data as PolarCustomer);
+        }
         break;
 
       default:
