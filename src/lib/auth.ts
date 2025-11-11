@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { createConvexAdapter } from "./auth-adapter-convex";
+import { SESSION_COOKIE_PREFIX } from "./session-cookie";
 
 export const auth = betterAuth({
   database: createConvexAdapter() as any, // Custom Convex adapter for persistent storage
@@ -29,7 +30,7 @@ export const auth = betterAuth({
     },
   },
   advanced: {
-    cookiePrefix: "zapdev",
+    cookiePrefix: SESSION_COOKIE_PREFIX,
   },
   plugins: [nextCookies()],
 });

@@ -214,7 +214,7 @@ INNGEST_SIGNING_KEY=your-inngest-signing-key
 
 **Problem**: "Unauthorized" error when accessing protected routes
 - **Solution**: Check that `BETTER_AUTH_SECRET` is set and matches across all environments
-- Verify session cookie `zapdev.session_token` exists in browser DevTools
+- Verify the session cookie defined by `SESSION_COOKIE_NAME` exists in browser DevTools (defaults to `zapdev.session_token`)
 
 **Problem**: OAuth redirect fails
 - **Solution**: 

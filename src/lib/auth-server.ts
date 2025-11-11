@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { auth } from "./auth";
+import { SESSION_COOKIE_NAME } from "./session-cookie";
 
 /**
  * Get the current session from Better Auth
@@ -7,7 +8,7 @@ import { auth } from "./auth";
  */
 export async function getSession() {
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("zapdev.session_token");
+  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME);
   
   if (!sessionToken) {
     return null;
@@ -17,7 +18,7 @@ export async function getSession() {
     // Verify and get session from Better Auth
     const session = await auth.api.getSession({
       headers: {
-        cookie: `zapdev.session_token=${sessionToken.value}`,
+        cookie: `${SESSION_COOKIE_NAME}=${sessionToken.value}`,
       },
     });
 

@@ -25,6 +25,8 @@ interface PolarWebhookEvent {
 }
 
 export async function POST(request: NextRequest) {
+  let eventType: PolarWebhookEvent["type"] | undefined;
+
   try {
     const body = await request.text();
     const signature = request.headers.get("polar-signature");
@@ -51,10 +53,11 @@ export async function POST(request: NextRequest) {
     }
 
     const event = JSON.parse(body);
-    console.log("Polar webhook received:", event.type);
+    eventType = event.type;
+    console.log("Polar webhook received:", eventType);
 
     // Handle different webhook events
-    switch (event.type) {
+    switch (eventType) {
       case "subscription.created":
       case "subscription.updated":
         await handleSubscriptionUpdate(event.data);
@@ -75,13 +78,13 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        console.log("Unhandled webhook event:", event.type);
+        console.log("Unhandled webhook event:", eventType);
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Webhook error:", {
-      type: event?.type,
+      type: eventType ?? "unknown",
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString(),

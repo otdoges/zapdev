@@ -200,6 +200,6 @@ If issues arise:
 ## Notes
 
 - Better Auth uses SQLite-style storage by default (needs custom Convex adapter for production)
-- Session cookies are named `zapdev.session_token`
+- Session cookies default to `zapdev.session_token` (configurable via `SESSION_COOKIE_PREFIX` / `SESSION_COOKIE_NAME`)
 - OAuth providers configured in `/src/lib/auth.ts`
 - Polar.sh SDK already installed (`@polar-sh/sdk@0.41.1`)

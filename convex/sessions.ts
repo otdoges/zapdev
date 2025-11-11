@@ -86,11 +86,23 @@ export const updateByToken = mutation({
       throw new Error("Session not found");
     }
 
-    await ctx.db.patch(session._id, {
-      expiresAt: args.expiresAt,
-    });
+    const updates: { expiresAt?: number } = {};
 
-    return session._id;
+    if (args.expiresAt !== undefined) {
+      updates.expiresAt = args.expiresAt;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(session._id, updates);
+    }
+
+    const updatedSession = await ctx.db.get(session._id);
+
+    if (!updatedSession) {
+      throw new Error("Session missing after update");
+    }
+
+    return updatedSession;
   },
 });
 

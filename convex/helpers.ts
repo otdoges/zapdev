@@ -1,5 +1,5 @@
 import { QueryCtx, MutationCtx } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 
 /**
  * Get the current authenticated user from Better Auth session
@@ -28,20 +28,27 @@ export async function requireAuth(
   return userId;
 }
 
+type UserDoc = Doc<"users">;
+
 /**
  * Check if user has pro access based on Polar.sh subscription
  */
 export async function hasProAccess(
   ctx: QueryCtx | MutationCtx,
-  userId: Id<"users">
+  userOrId: Id<"users"> | UserDoc | null
 ): Promise<boolean> {
-  const user = await ctx.db.get(userId);
+  if (!userOrId) return false;
+
+  const user =
+    typeof userOrId === "string" ? await ctx.db.get(userOrId) : userOrId;
   if (!user) return false;
 
   // Check if user has an active pro subscription
-  return user.plan === "pro" && 
-         (user.subscriptionStatus === "active" || 
-          user.subscriptionStatus === "trialing");
+  return (
+    user.plan === "pro" &&
+    (user.subscriptionStatus === "active" ||
+      user.subscriptionStatus === "trialing")
+  );
 }
 
 /**
@@ -53,7 +60,7 @@ export async function getUserPlan(
 ): Promise<"free" | "pro"> {
   const user = await ctx.db.get(userId);
   if (!user) return "free";
-  
-  const isPro = await hasProAccess(ctx, userId);
+
+  const isPro = await hasProAccess(ctx, user);
   return isPro ? "pro" : "free";
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
 
 // Public routes that don't require authentication
 const publicPaths = [
@@ -26,7 +27,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check for session cookie
-  const sessionCookie = request.cookies.get("zapdev.session_token");
+  const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
   
   if (!sessionCookie) {
     // Redirect to sign-in if no session

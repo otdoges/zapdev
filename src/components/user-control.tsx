@@ -29,6 +29,7 @@ export const UserControl = ({ showName }: Props) => {
   const initials = user.name
     ? user.name
         .split(" ")
+        .filter((n) => n.length > 0)
         .map((n) => n[0])
         .join("")
         .toUpperCase()
@@ -41,7 +42,7 @@ export const UserControl = ({ showName }: Props) => {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center gap-2 focus:outline-none">
+      <DropdownMenuTrigger className="flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring rounded-md">
         <Avatar className="size-8 rounded-md">
           <AvatarImage src={user.image || undefined} alt={user.name || ""} />
           <AvatarFallback className="rounded-md">{initials}</AvatarFallback>

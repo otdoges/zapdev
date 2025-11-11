@@ -35,15 +35,7 @@ export function createConvexAdapter(config?: ConvexAdapterConfig) {
           emailVerified: user.emailVerified ?? false,
         });
 
-        return {
-          id: userId,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          emailVerified: user.emailVerified ?? false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
+        return this.getUser(userId);
       } catch (error) {
         console.error("Failed to create user:", error);
         throw error;
@@ -126,7 +118,7 @@ export function createConvexAdapter(config?: ConvexAdapterConfig) {
      */
     async deleteUser(id: string) {
       try {
-        await fetchMutation(api.users.delete, { userId: id as Id<"users"> });
+        await fetchMutation(api.users.deleteUser, { userId: id as Id<"users"> });
         return true;
       } catch (error) {
         console.error("Failed to delete user:", error);
@@ -199,12 +191,28 @@ export function createConvexAdapter(config?: ConvexAdapterConfig) {
       }
     ) {
       try {
-        await fetchMutation(api.sessions.updateByToken, {
+        const updatedSession = await fetchMutation(api.sessions.updateByToken, {
           token,
           expiresAt: updates.expiresAt?.getTime(),
         });
 
-        return this.getSession(token);
+        const refreshedSession = await this.getSession(token);
+        if (refreshedSession) {
+          return refreshedSession;
+        }
+
+        if (updatedSession) {
+          return {
+            id: updatedSession._id,
+            userId: updatedSession.userId,
+            expiresAt: new Date(updatedSession.expiresAt),
+            token: updatedSession.token,
+            ipAddress: updatedSession.ipAddress,
+            userAgent: updatedSession.userAgent,
+          };
+        }
+
+        return null;
       } catch (error) {
         console.error("Failed to update session:", error);
         throw error;

@@ -173,7 +173,7 @@ Before running AI code generation:
 
 **Authentication Issues**
 - Check `BETTER_AUTH_SECRET` is set and valid
-- Verify session cookie `zapdev.session_token` exists
+- Verify the session cookie defined by `SESSION_COOKIE_NAME` (defaults to `zapdev.session_token`) exists
 - See `explanations/BETTER_AUTH_POLAR_SETUP.md` for troubleshooting
 
 **Billing/Subscription Issues**

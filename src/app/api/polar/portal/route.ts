@@ -14,7 +14,7 @@ export async function POST() {
 
     // Get user's subscription status from Convex
     const subscriptionStatus = await fetchQuery(
-      api.users.getSubscriptionStatus as any,
+      api.users.getSubscriptionStatus,
       {
         userId: session.user.id,
       }

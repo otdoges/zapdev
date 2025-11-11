@@ -39,13 +39,31 @@ interface Props {
   projectId: string;
 };
 
+type SubscriptionStatus = typeof api.users.getSubscriptionStatus["_returnType"];
+
 export const ProjectView = ({ projectId }: Props) => {
   const { data: session } = useSession();
-  const subscriptionStatus = useQuery(
-    api.users.getSubscriptionStatus,
-    session?.user?.id ? { userId: session.user.id as Id<"users"> } : "skip"
+  const shouldFetchSubscription = Boolean(session?.user?.id);
+
+  const subscriptionStatusResult = useQuery(
+    shouldFetchSubscription && session?.user?.id
+      ? api.users.getSubscriptionStatus
+      : (undefined as any),
+    shouldFetchSubscription && session?.user?.id
+      ? { userId: session.user.id }
+      : "skip"
   );
-  const hasProAccess = subscriptionStatus?.plan === "pro";
+
+  const isSubscriptionError = subscriptionStatusResult instanceof Error;
+  const subscriptionStatus = !isSubscriptionError
+    ? (subscriptionStatusResult as SubscriptionStatus | undefined)
+    : undefined;
+  const isSubscriptionLoading =
+    shouldFetchSubscription && !isSubscriptionError && typeof subscriptionStatusResult === "undefined";
+  const isSubscriptionSuccess =
+    shouldFetchSubscription && !isSubscriptionLoading && !isSubscriptionError;
+  const hasProAccess = isSubscriptionSuccess && subscriptionStatus?.plan === "pro";
+  const shouldShowUpgradeCta = !isSubscriptionLoading && !isSubscriptionError && !hasProAccess;
 
   const [activeFragment, setActiveFragment] = useState<Doc<"fragments"> | null>(null);
   const [tabState, setTabState] = useState<"preview" | "code">("preview");
@@ -113,7 +131,7 @@ export const ProjectView = ({ projectId }: Props) => {
                 </TabsTrigger>
               </TabsList>
               <div className="ml-auto flex items-center gap-x-2">
-                {!hasProAccess && (
+                {shouldShowUpgradeCta && (
                   <Button asChild size="sm" variant="tertiary">
                     <Link href="/pricing">
                       <CrownIcon /> Upgrade

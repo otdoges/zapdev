@@ -18,7 +18,31 @@ import {
 
 export const Navbar = () => {
   const isScrolled = useScroll();
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
+
+  const authContent = isPending ? (
+    <div
+      className="h-9 w-28 rounded-full bg-muted/60 animate-pulse"
+      aria-label="Loading account"
+      aria-live="polite"
+      aria-busy="true"
+    />
+  ) : session ? (
+    <UserControl showName />
+  ) : (
+    <div className="flex gap-2">
+      <Link href="/sign-up">
+        <Button variant="outline" size="sm">
+          Sign up
+        </Button>
+      </Link>
+      <Link href="/sign-in">
+        <Button size="sm">
+          Sign in
+        </Button>
+      </Link>
+    </div>
+  );
 
   return (
     <nav
@@ -46,22 +70,7 @@ export const Navbar = () => {
             </NavigationMenuList>
           </NavigationMenu>
         </div>
-        {session ? (
-          <UserControl showName />
-        ) : (
-          <div className="flex gap-2">
-            <Link href="/sign-up">
-              <Button variant="outline" size="sm">
-                Sign up
-              </Button>
-            </Link>
-            <Link href="/sign-in">
-              <Button size="sm">
-                Sign in
-              </Button>
-            </Link>
-          </div>
-        )}
+        {authContent}
       </div>
     </nav>
   );

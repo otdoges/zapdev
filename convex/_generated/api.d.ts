@@ -8,12 +8,14 @@
  * @module
  */
 
+import type * as accounts from "../accounts.js";
 import type * as helpers from "../helpers.js";
 import type * as importData from "../importData.js";
 import type * as imports from "../imports.js";
 import type * as messages from "../messages.js";
 import type * as oauth from "../oauth.js";
 import type * as projects from "../projects.js";
+import type * as sessions from "../sessions.js";
 import type * as usage from "../usage.js";
 import type * as users from "../users.js";
 
@@ -32,12 +34,14 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  accounts: typeof accounts;
   helpers: typeof helpers;
   importData: typeof importData;
   imports: typeof imports;
   messages: typeof messages;
   oauth: typeof oauth;
   projects: typeof projects;
+  sessions: typeof sessions;
   usage: typeof usage;
   users: typeof users;
 }>;

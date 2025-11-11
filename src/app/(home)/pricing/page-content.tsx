@@ -21,7 +21,6 @@ export function PricingPageContent() {
 
     setLoading(true);
     try {
-      // Call API to create Polar checkout session
       const response = await fetch("/api/polar/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -30,6 +29,10 @@ export function PricingPageContent() {
           successUrl: `${window.location.origin}/dashboard?subscription=success`,
         }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Checkout failed: ${response.statusText}`);
+      }
 
       const data = await response.json();
       
@@ -47,18 +50,33 @@ export function PricingPageContent() {
   };
 
   const handleManageSubscription = async () => {
+    if (!session) {
+      router.push("/sign-in?redirect=/pricing");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch("/api/polar/portal", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
+
+      if (!response.ok) {
+        const errorDetails = await response.text();
+        throw new Error(
+          `Portal request failed (${response.status} ${response.statusText}): ${
+            errorDetails || "No additional details"
+          }`,
+        );
+      }
 
       const data = await response.json();
       
       if (data.portalUrl) {
         window.location.href = data.portalUrl;
       } else {
-        throw new Error("Failed to get portal URL");
+        throw new Error("Portal URL missing from response");
       }
     } catch (error) {
       console.error("Portal error:", error);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signUp } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import Image from "next/image";
 
 const Page = () => {
   const router = useRouter();
+  const isMountedRef = useRef<boolean>(false);
   
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -19,10 +20,19 @@ const Page = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    if (isMountedRef.current) {
+      setError("");
+      setLoading(true);
+    }
 
     try {
       const result = await signUp.email({
@@ -32,14 +42,20 @@ const Page = () => {
       });
 
       if (result.error) {
-        setError(result.error.message || "Failed to sign up");
+        if (isMountedRef.current) {
+          setError(result.error.message || "Failed to sign up");
+        }
       } else {
         router.push("/dashboard");
       }
     } catch (err) {
-      setError("An unexpected error occurred");
+      if (isMountedRef.current) {
+        setError("An unexpected error occurred");
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

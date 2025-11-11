@@ -2,11 +2,12 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { cache } from 'react';
 import superjson from "superjson";
 import { cookies } from 'next/headers';
+import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
 
 export const createTRPCContext = cache(async () => {
   // Get session from Better Auth cookie
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("zapdev.session_token");
+  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME);
   
   return { 
     sessionToken: sessionToken?.value ?? null,

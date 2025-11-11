@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
+import { requireAuth } from "./helpers";
 
 /**
  * Get user by email
@@ -80,11 +81,11 @@ export const updateSubscription = mutation({
  */
 export const linkPolarCustomer = mutation({
   args: {
-    userId: v.id("users"),
+    userId: v.string(), // Accept string (from session.user.id)
     polarCustomerId: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
+    await ctx.db.patch(args.userId as Id<"users">, {
       polarCustomerId: args.polarCustomerId,
       updatedAt: Date.now(),
     });
@@ -94,14 +95,48 @@ export const linkPolarCustomer = mutation({
 });
 
 /**
+ * Remove or restore a Polar customer link (used for compensating transactions)
+ */
+export const unlinkPolarCustomer = mutation({
+  args: {
+    userId: v.string(), // Accept string (from session.user.id)
+    expectedPolarCustomerId: v.string(),
+    restorePolarCustomerId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userIdTyped = args.userId as Id<"users">;
+    const user = await ctx.db.get(userIdTyped);
+    if (!user) {
+      throw new Error(`User not found for ID: ${args.userId}`);
+    }
+
+    if (user.polarCustomerId !== args.expectedPolarCustomerId) {
+      throw new Error(
+        `Polar customer ID mismatch for user ${args.userId}: expected ${args.expectedPolarCustomerId}, found ${user.polarCustomerId ?? "none"}`
+      );
+    }
+
+    await ctx.db.patch(userIdTyped, {
+      polarCustomerId: args.restorePolarCustomerId,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      restored: typeof args.restorePolarCustomerId === "string",
+    };
+  },
+});
+
+/**
  * Get user's subscription status
  */
 export const getSubscriptionStatus = query({
   args: {
-    userId: v.id("users"),
+    userId: v.string(), // Accept string (from session.user.id)
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
+    const user = await ctx.db.get(args.userId as Id<"users">);
 
     if (!user) {
       return null;
@@ -177,17 +212,32 @@ export const update = mutation({
     email: v.optional(v.string()),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
-    emailVerified: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const { userId, ...updates } = args;
-    
-    await ctx.db.patch(userId, {
+    const authenticatedUserId = await requireAuth(ctx);
+    if (authenticatedUserId !== args.userId) {
+      throw new Error("Forbidden");
+    }
+
+    const allowedFields: Array<keyof Pick<Doc<"users">, "email" | "name" | "image">> = [
+      "email",
+      "name",
+      "image",
+    ];
+
+    const updates: Partial<Pick<Doc<"users">, "email" | "name" | "image">> = {};
+    for (const field of allowedFields) {
+      if (typeof args[field] !== "undefined") {
+        updates[field] = args[field] as Doc<"users">[typeof field];
+      }
+    }
+
+    await ctx.db.patch(args.userId, {
       ...updates,
       updatedAt: Date.now(),
     });
 
-    return userId;
+    return args.userId;
   },
 });
 
@@ -199,6 +249,16 @@ export const deleteUser = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || !identity.subject) {
+      throw new Error("Unauthorized");
+    }
+
+    const authenticatedUserId = identity.subject as Id<"users">;
+    if (authenticatedUserId !== args.userId) {
+      throw new Error("Forbidden");
+    }
+
     // Delete user's sessions
     const sessions = await ctx.db
       .query("sessions")

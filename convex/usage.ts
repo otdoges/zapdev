@@ -142,9 +142,12 @@ export const resetUsage = mutation({
 /**
  * Internal: Get usage for a specific user (for use from actions/background jobs)
  */
+import type { Id } from "./_generated/dataModel";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
+
 export const getUsageInternal = async (
-  ctx: any,
-  userId: any
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
 ): Promise<{
   points: number;
   maxPoints: number;
@@ -195,10 +198,10 @@ export const getUsageInternal = async (
  */
 export const getUsageForUser = query({
   args: {
-    userId: v.string(),
+    userId: v.string(), // Accept string from actions (identity.subject)
   },
   handler: async (ctx, args) => {
-    return getUsageInternal(ctx, args.userId);
+    return getUsageInternal(ctx, args.userId as Id<"users">);
   },
 });
 
@@ -207,10 +210,10 @@ export const getUsageForUser = query({
  */
 export const checkAndConsumeCreditForUser = mutation({
   args: {
-    userId: v.string(),
+    userId: v.string(), // Accept string from actions (identity.subject)
   },
   handler: async (ctx, args) => {
-    return checkAndConsumeCreditInternal(ctx, args.userId);
+    return checkAndConsumeCreditInternal(ctx, args.userId as Id<"users">);
   },
 });
 
@@ -218,8 +221,8 @@ export const checkAndConsumeCreditForUser = mutation({
  * Internal: Check and consume credit for a specific user (for use from actions/background jobs)
  */
 export const checkAndConsumeCreditInternal = async (
-  ctx: any,
-  userId: any
+  ctx: MutationCtx,
+  userId: Id<"users">
 ): Promise<{ success: boolean; remaining: number; message?: string }> => {
   const userPlan = await getUserPlan(ctx, userId);
   const isPro = userPlan === "pro";
