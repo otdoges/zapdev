@@ -191,28 +191,17 @@ export function createConvexAdapter(config?: ConvexAdapterConfig) {
       }
     ) {
       try {
-        const updatedSession = await fetchMutation(api.sessions.updateByToken, {
+        await fetchMutation(api.sessions.updateByToken, {
           token,
           expiresAt: updates.expiresAt?.getTime(),
         });
-
-        const refreshedSession = await this.getSession(token);
-        if (refreshedSession) {
-          return refreshedSession;
+        
+        const updatedSession = await this.getSession(token);
+        if (!updatedSession) {
+          throw new Error("Session not found after update");
         }
-
-        if (updatedSession) {
-          return {
-            id: updatedSession._id,
-            userId: updatedSession.userId,
-            expiresAt: new Date(updatedSession.expiresAt),
-            token: updatedSession.token,
-            ipAddress: updatedSession.ipAddress,
-            userAgent: updatedSession.userAgent,
-          };
-        }
-
-        return null;
+        
+        return updatedSession;
       } catch (error) {
         console.error("Failed to update session:", error);
         throw error;

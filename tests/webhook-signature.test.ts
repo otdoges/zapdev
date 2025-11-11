@@ -1,40 +1,57 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-// Copy of the verifyWebhookSignature function to avoid env var dependencies
+// Copy of the verifyWebhookSignature function to match production implementation
 function verifyWebhookSignature(
   payload: string,
   signature: string,
   secret: string
 ): boolean {
   try {
-    const hmac = createHmac("sha256", secret);
-    hmac.update(payload);
-    const expectedSignature = hmac.digest("hex");
+    // Polar platform webhooks sign payloads with a base64 HMAC SHA256 digest
+    const secretBytes = Buffer.from(secret, "base64");
+    if (secretBytes.length === 0) {
+      console.error("Webhook verification failed: base64 secret decoded to empty value");
+      return false;
+    }
 
-    if (signature.length !== expectedSignature.length) {
-      console.warn("Webhook signature length mismatch");
+    const hmac = createHmac("sha256", secretBytes);
+    hmac.update(payload);
+    const expectedSignature = hmac.digest("base64");
+
+    const providedSignature = signature.trim();
+    if (providedSignature.length === 0) {
+      console.warn("Webhook signature missing or empty");
+      return false;
+    }
+
+    // Ensure both strings are same length before comparison
+    // timingSafeEqual will throw if lengths differ
+    if (providedSignature.length !== expectedSignature.length) {
+      console.warn("Webhook base64 signature length mismatch");
       return false;
     }
 
     return timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
+      Buffer.from(providedSignature, "utf8"),
+      Buffer.from(expectedSignature, "utf8")
     );
   } catch (error) {
-    console.error("Webhook signature verification failed:", error);
+    console.error("Webhook base64 signature verification failed:", error);
     return false;
   }
 }
 
 describe("Webhook Signature Verification", () => {
-  // Test secret - not a real secret, safe for version control
-  const secret = "test_webhook_secret_12345";
+  // Test secret - base64 encoded to match production behavior
+  // Not a real secret, safe for version control
+  const secret = Buffer.from("test_webhook_secret_12345").toString("base64");
   const payload = JSON.stringify({ type: "subscription.created", data: { id: "sub_123" } });
 
   function generateSignature(payload: string, secret: string): string {
-    const hmac = createHmac("sha256", secret);
+    const secretBytes = Buffer.from(secret, "base64");
+    const hmac = createHmac("sha256", secretBytes);
     hmac.update(payload);
-    return hmac.digest("hex");
+    return hmac.digest("base64");
   }
 
   test("should verify valid signature", () => {

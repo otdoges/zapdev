@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { requireAuth } from "./helpers";
 
@@ -21,9 +21,14 @@ export const getByEmail = query({
 });
 
 /**
- * Get user by Polar customer ID
+ * Get user by Polar customer ID (internal only)
+ *
+ * SECURITY: This is an internalQuery to prevent unauthorized client access.
+ * Polar customer IDs are sensitive identifiers that should not be exposed
+ * to public queries, as they could allow user enumeration attacks.
+ * This function is only callable from server-side code (mutations, API routes, webhooks).
  */
-export const getByPolarCustomerId = query({
+export const getByPolarCustomerId = internalQuery({
   args: {
     polarCustomerId: v.string(),
   },
@@ -85,7 +90,20 @@ export const linkPolarCustomer = mutation({
     polarCustomerId: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId as Id<"users">, {
+    // Require authentication and verify ownership
+    const authenticatedUserId = await requireAuth(ctx);
+    if (authenticatedUserId !== args.userId) {
+      throw new Error("Forbidden");
+    }
+
+    // Verify user exists before linking
+    const user = await ctx.db.get(authenticatedUserId);
+    if (!user) {
+      throw new Error(`User not found for ID: ${authenticatedUserId}`);
+    }
+
+    // Perform Polar customer ID link only after ownership is confirmed
+    await ctx.db.patch(authenticatedUserId, {
       polarCustomerId: args.polarCustomerId,
       updatedAt: Date.now(),
     });
@@ -104,19 +122,26 @@ export const unlinkPolarCustomer = mutation({
     restorePolarCustomerId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userIdTyped = args.userId as Id<"users">;
-    const user = await ctx.db.get(userIdTyped);
+    // Require authentication and verify ownership
+    const authenticatedUserId = await requireAuth(ctx);
+    if (authenticatedUserId !== args.userId) {
+      throw new Error("Forbidden");
+    }
+
+    // Verify user exists and has expected Polar customer ID before unlinking
+    const user = await ctx.db.get(authenticatedUserId);
     if (!user) {
-      throw new Error(`User not found for ID: ${args.userId}`);
+      throw new Error(`User not found for ID: ${authenticatedUserId}`);
     }
 
     if (user.polarCustomerId !== args.expectedPolarCustomerId) {
       throw new Error(
-        `Polar customer ID mismatch for user ${args.userId}: expected ${args.expectedPolarCustomerId}, found ${user.polarCustomerId ?? "none"}`
+        `Polar customer ID mismatch for user ${authenticatedUserId}: expected ${args.expectedPolarCustomerId}, found ${user.polarCustomerId ?? "none"}`
       );
     }
 
-    await ctx.db.patch(userIdTyped, {
+    // Perform Polar customer ID unlink/restore only after ownership and validation is confirmed
+    await ctx.db.patch(authenticatedUserId, {
       polarCustomerId: args.restorePolarCustomerId,
       updatedAt: Date.now(),
     });

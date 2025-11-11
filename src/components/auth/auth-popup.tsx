@@ -19,6 +19,10 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
+// Constants for timing
+const AUTH_POPUP_RESET_DELAY = 200; // ms - Delay before resetting form after close
+const AUTH_SUCCESS_REDIRECT_DELAY = 800; // ms - Delay before redirecting after success
+
 export const AuthPopup = () => {
   const router = useRouter();
   const { isOpen, mode, redirectUrl, close, setMode } = useAuthPopup();
@@ -60,7 +64,7 @@ export const AuthPopup = () => {
         setSignUpEmail("");
         setSignUpPassword("");
         setShowSuccess(false);
-      }, 200);
+      }, AUTH_POPUP_RESET_DELAY);
     }
   }, [isOpen]);
 
@@ -87,7 +91,7 @@ export const AuthPopup = () => {
           close();
           router.push(redirectUrl);
           router.refresh();
-        }, 800);
+        }, AUTH_SUCCESS_REDIRECT_DELAY);
       }
     } catch (err) {
       toast.error("An unexpected error occurred");
@@ -122,7 +126,7 @@ export const AuthPopup = () => {
           close();
           router.push(redirectUrl);
           router.refresh();
-        }, 800);
+        }, AUTH_SUCCESS_REDIRECT_DELAY);
       }
     } catch (err) {
       toast.error("An unexpected error occurred");

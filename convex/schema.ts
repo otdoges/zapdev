@@ -79,6 +79,19 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_token", ["token"]),
 
+  // Email Verifications table - for email verification flow
+  emailVerifications: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    token: v.string(),
+    expiresAt: v.number(),
+    verified: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_userId", ["userId"])
+    .index("by_email", ["email"]),
+
   // Accounts table - OAuth providers
   accounts: defineTable({
     userId: v.id("users"),
