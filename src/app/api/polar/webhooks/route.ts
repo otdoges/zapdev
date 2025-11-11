@@ -3,6 +3,27 @@ import { fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { verifyWebhookSignature, POLAR_CONFIG } from "@/lib/polar";
 
+// Type definitions for Polar webhook payloads
+interface PolarSubscription {
+  id: string;
+  customerId?: string;
+  customer_id?: string;
+  status: string;
+  productId?: string;
+  product_id?: string;
+}
+
+interface PolarCustomer {
+  id: string;
+  email: string;
+  name?: string;
+}
+
+interface PolarWebhookEvent {
+  type: string;
+  data: PolarSubscription | PolarCustomer;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
@@ -59,7 +80,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.error("Webhook error:", {
+      type: event?.type,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
     return NextResponse.json(
       { error: "Webhook processing failed" },
       { status: 500 }
@@ -67,16 +93,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleSubscriptionUpdate(subscription: any) {
+async function handleSubscriptionUpdate(subscription: PolarSubscription) {
   const customerId = subscription.customerId || subscription.customer_id;
   const subscriptionId = subscription.id;
   const status = subscription.status;
+
+  if (!customerId) {
+    throw new Error("Missing customer ID in subscription webhook");
+  }
 
   console.log("Updating subscription:", { customerId, subscriptionId, status });
 
   try {
     // Update user's subscription in Convex
-    await fetchMutation(api.users.updateSubscription as any, {
+    await fetchMutation(api.users.updateSubscription, {
       polarCustomerId: customerId,
       subscriptionId,
       subscriptionStatus: status,
@@ -88,14 +118,18 @@ async function handleSubscriptionUpdate(subscription: any) {
   }
 }
 
-async function handleSubscriptionCanceled(subscription: any) {
+async function handleSubscriptionCanceled(subscription: PolarSubscription) {
   const customerId = subscription.customerId || subscription.customer_id;
   const subscriptionId = subscription.id;
+
+  if (!customerId) {
+    throw new Error("Missing customer ID in subscription webhook");
+  }
 
   console.log("Canceling subscription:", { customerId, subscriptionId });
 
   try {
-    await fetchMutation(api.users.updateSubscription as any, {
+    await fetchMutation(api.users.updateSubscription, {
       polarCustomerId: customerId,
       subscriptionId,
       subscriptionStatus: "canceled",
@@ -107,14 +141,18 @@ async function handleSubscriptionCanceled(subscription: any) {
   }
 }
 
-async function handleSubscriptionActivated(subscription: any) {
+async function handleSubscriptionActivated(subscription: PolarSubscription) {
   const customerId = subscription.customerId || subscription.customer_id;
   const subscriptionId = subscription.id;
+
+  if (!customerId) {
+    throw new Error("Missing customer ID in subscription webhook");
+  }
 
   console.log("Activating subscription:", { customerId, subscriptionId });
 
   try {
-    await fetchMutation(api.users.updateSubscription as any, {
+    await fetchMutation(api.users.updateSubscription, {
       polarCustomerId: customerId,
       subscriptionId,
       subscriptionStatus: "active",
@@ -126,7 +164,7 @@ async function handleSubscriptionActivated(subscription: any) {
   }
 }
 
-async function handleCustomerUpdate(customer: any) {
+async function handleCustomerUpdate(customer: PolarCustomer) {
   console.log("Customer updated:", customer.id);
   // Handle customer updates if needed
 }

@@ -1,12 +1,9 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
+import { createConvexAdapter } from "./auth-adapter-convex";
 
 export const auth = betterAuth({
-  database: {
-    // We'll use a custom adapter to integrate with Convex
-    // For now, we'll use the default in-memory storage for session management
-    type: "sqlite", // This will be replaced with Convex adapter
-  },
+  database: createConvexAdapter() as any, // Custom Convex adapter for persistent storage
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false, // Set to true in production with email setup

@@ -1,14 +1,26 @@
 import { Polar } from "@polar-sh/sdk";
+import { createHmac, timingSafeEqual } from "crypto";
+
+/**
+ * Require an environment variable to be set, throw if missing
+ */
+function requireEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return value;
+}
 
 // Initialize Polar SDK
 export const polar = new Polar({
-  accessToken: process.env.POLAR_ACCESS_TOKEN!,
+  accessToken: requireEnv("POLAR_ACCESS_TOKEN"),
 });
 
 export const POLAR_CONFIG = {
-  organizationId: process.env.POLAR_ORGANIZATION_ID!,
-  productIdPro: process.env.NEXT_PUBLIC_POLAR_PRODUCT_ID_PRO!,
-  webhookSecret: process.env.POLAR_WEBHOOK_SECRET!,
+  organizationId: requireEnv("POLAR_ORGANIZATION_ID"),
+  productIdPro: requireEnv("NEXT_PUBLIC_POLAR_PRODUCT_ID_PRO"),
+  webhookSecret: requireEnv("POLAR_WEBHOOK_SECRET"),
 };
 
 /**
@@ -140,14 +152,25 @@ export function verifyWebhookSignature(
   signature: string,
   secret: string
 ): boolean {
-  // Polar uses HMAC SHA256 for webhook signatures
-  const crypto = require("crypto");
-  const hmac = crypto.createHmac("sha256", secret);
-  hmac.update(payload);
-  const expectedSignature = hmac.digest("hex");
+  try {
+    // Polar uses HMAC SHA256 for webhook signatures
+    const hmac = createHmac("sha256", secret);
+    hmac.update(payload);
+    const expectedSignature = hmac.digest("hex");
 
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
+    // Ensure both strings are same length before comparison
+    // timingSafeEqual will throw if lengths differ
+    if (signature.length !== expectedSignature.length) {
+      console.warn("Webhook signature length mismatch");
+      return false;
+    }
+
+    return timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    );
+  } catch (error) {
+    console.error("Webhook signature verification failed:", error);
+    return false;
+  }
 }

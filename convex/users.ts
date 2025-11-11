@@ -155,3 +155,93 @@ export const createOrUpdate = mutation({
     return userId;
   },
 });
+
+/**
+ * Get user by ID
+ */
+export const getById = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.userId);
+  },
+});
+
+/**
+ * Update user information
+ */
+export const update = mutation({
+  args: {
+    userId: v.id("users"),
+    email: v.optional(v.string()),
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    emailVerified: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { userId, ...updates } = args;
+    
+    await ctx.db.patch(userId, {
+      ...updates,
+      updatedAt: Date.now(),
+    });
+
+    return userId;
+  },
+});
+
+/**
+ * Delete user and all associated data
+ */
+export const deleteUser = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Delete user's sessions
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    
+    for (const session of sessions) {
+      await ctx.db.delete(session._id);
+    }
+
+    // Delete user's accounts
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    
+    for (const account of accounts) {
+      await ctx.db.delete(account._id);
+    }
+
+    // Delete user's projects
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    
+    for (const project of projects) {
+      await ctx.db.delete(project._id);
+    }
+
+    // Delete user's usage records
+    const usage = await ctx.db
+      .query("usage")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+    
+    for (const record of usage) {
+      await ctx.db.delete(record._id);
+    }
+
+    // Finally, delete the user
+    await ctx.db.delete(args.userId);
+
+    return true;
+  },
+});
