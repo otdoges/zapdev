@@ -5,12 +5,16 @@ import { internal } from "./_generated/api";
 /**
  * Import a project from PostgreSQL CSV export
  * This is an internal mutation that bypasses auth checks
+ * 
+ * NOTE: userId should now be a Convex user ID (Id<"users">).
+ * If migrating from old Clerk data, you must first create users
+ * in the users table and pass the new Convex user IDs here.
  */
 export const importProject = internalMutation({
   args: {
     oldId: v.string(), // Original PostgreSQL UUID
     name: v.string(),
-    userId: v.string(),
+    userId: v.id("users"), // Changed from v.string() to v.id("users")
     framework: v.union(
       v.literal("NEXTJS"),
       v.literal("ANGULAR"),
@@ -190,11 +194,15 @@ export const importAttachment = internalMutation({
 
 /**
  * Import usage data from PostgreSQL CSV export
+ * 
+ * NOTE: userId should now be a Convex user ID (Id<"users">).
+ * If migrating from old Clerk data, you must first create users
+ * in the users table and pass the new Convex user IDs here.
  */
 export const importUsage = internalMutation({
   args: {
     key: v.string(), // Original key like "rlflx:user_XXX"
-    userId: v.string(), // Extracted user ID
+    userId: v.id("users"), // Changed from v.string() to v.id("users")
     points: v.number(),
     expire: v.optional(v.string()), // ISO date string
   },
@@ -272,7 +280,7 @@ export const importProjectAction = action({
   args: {
     oldId: v.string(),
     name: v.string(),
-    userId: v.string(),
+    userId: v.id("users"), // Changed from v.string() to v.id("users")
     framework: v.union(
       v.literal("NEXTJS"),
       v.literal("ANGULAR"),
@@ -374,7 +382,7 @@ export const importAttachmentAction = action({
 export const importUsageAction = action({
   args: {
     key: v.string(),
-    userId: v.string(),
+    userId: v.id("users"), // Changed from v.string() to v.id("users")
     points: v.number(),
     expire: v.optional(v.string()),
   },

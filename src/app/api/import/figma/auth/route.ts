@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireSession } from "@/lib/auth-server";
 
 const FIGMA_CLIENT_ID = process.env.FIGMA_CLIENT_ID;
 const FIGMA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/import/figma/callback`;
 
 export async function GET() {
-  const { userId } = await auth();
+  const session = await requireSession();
 
-  if (!userId) {
+  if (!session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  
+  const userId = session.user.id;
 
   if (!FIGMA_CLIENT_ID) {
     return NextResponse.json(

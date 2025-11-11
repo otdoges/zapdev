@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useAuth } from "@clerk/nextjs";
+import { useSession } from "@/lib/auth-client";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { Suspense, useMemo, useState } from "react";
 import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
+import { Id } from "@/convex/_generated/dataModel";
 
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
@@ -37,8 +40,12 @@ interface Props {
 };
 
 export const ProjectView = ({ projectId }: Props) => {
-  const { has } = useAuth();
-  const hasProAccess = has?.({ plan: "pro" });
+  const { data: session } = useSession();
+  const subscriptionStatus = useQuery(
+    api.users.getSubscriptionStatus,
+    session?.user?.id ? { userId: session.user.id as Id<"users"> } : "skip"
+  );
+  const hasProAccess = subscriptionStatus?.plan === "pro";
 
   const [activeFragment, setActiveFragment] = useState<Doc<"fragments"> | null>(null);
   const [tabState, setTabState] = useState<"preview" | "code">("preview");

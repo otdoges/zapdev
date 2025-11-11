@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
-import { requireAuth, getCurrentUserClerkId } from "./helpers";
+import { requireAuth, getCurrentUser } from "./helpers";
 import { frameworkEnum } from "./schema";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -177,7 +177,7 @@ export const createWithMessageAndAttachments = action({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getCurrentUserClerkId(ctx);
+    const userId = await getCurrentUser(ctx);
     
     if (!userId) {
       return [];

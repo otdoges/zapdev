@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireSession } from "@/lib/auth-server";
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { inngest } from "@/inngest/client";
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
+  const session = await requireSession();
 
-  if (!userId) {
+  if (!session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  
+  const userId = session.user.id;
 
   try {
     const body = await request.json();

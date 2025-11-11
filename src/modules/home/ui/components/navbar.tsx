@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/nextjs";
+import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
 
 export const Navbar = () => {
   const isScrolled = useScroll();
+  const { data: session } = useSession();
 
   return (
     <nav
@@ -45,23 +46,22 @@ export const Navbar = () => {
             </NavigationMenuList>
           </NavigationMenu>
         </div>
-        <SignedOut>
+        {session ? (
+          <UserControl showName />
+        ) : (
           <div className="flex gap-2">
-            <SignUpButton mode="modal">
+            <Link href="/sign-up">
               <Button variant="outline" size="sm">
                 Sign up
               </Button>
-            </SignUpButton>
-            <SignInButton mode="modal">
+            </Link>
+            <Link href="/sign-in">
               <Button size="sm">
                 Sign in
               </Button>
-            </SignInButton>
+            </Link>
           </div>
-        </SignedOut>
-        <SignedIn>
-          <UserControl showName />
-        </SignedIn>
+        )}
       </div>
     </nav>
   );

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireSession } from "@/lib/auth-server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -20,9 +20,9 @@ function isFixErrorsRequestBody(value: unknown): value is FixErrorsRequestBody {
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const session = await requireSession();
 
-    if (!userId) {
+    if (!session.user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }

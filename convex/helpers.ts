@@ -1,25 +1,27 @@
 import { QueryCtx, MutationCtx } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 
 /**
- * Get the current authenticated user's Clerk ID from the auth token
+ * Get the current authenticated user from Better Auth session
  */
-export async function getCurrentUserClerkId(
+export async function getCurrentUser(
   ctx: QueryCtx | MutationCtx
-): Promise<string | null> {
+): Promise<Id<"users"> | null> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) return null;
 
-  // Clerk stores the user ID in the subject field
-  return identity.subject;
+  // Better Auth stores the user ID in the subject field
+  // The subject is the user's ID from the users table
+  return identity.subject as Id<"users">;
 }
 
 /**
- * Get the current authenticated user's Clerk ID or throw an error
+ * Get the current authenticated user or throw an error
  */
 export async function requireAuth(
   ctx: QueryCtx | MutationCtx
-): Promise<string> {
-  const userId = await getCurrentUserClerkId(ctx);
+): Promise<Id<"users">> {
+  const userId = await getCurrentUser(ctx);
   if (!userId) {
     throw new Error("Unauthorized");
   }
@@ -27,11 +29,31 @@ export async function requireAuth(
 }
 
 /**
- * Check if user has pro access based on Clerk custom claims
+ * Check if user has pro access based on Polar.sh subscription
  */
-export function hasProAccess(identity: any): boolean {
-  // Clerk stores custom claims in tokenIdentifier or custom claims
-  // You'll need to check the specific structure from your Clerk JWT
-  const plan = identity?.plan || identity?.publicMetadata?.plan;
-  return plan === "pro";
+export async function hasProAccess(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<boolean> {
+  const user = await ctx.db.get(userId);
+  if (!user) return false;
+
+  // Check if user has an active pro subscription
+  return user.plan === "pro" && 
+         (user.subscriptionStatus === "active" || 
+          user.subscriptionStatus === "trialing");
+}
+
+/**
+ * Get user's plan type
+ */
+export async function getUserPlan(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<"free" | "pro"> {
+  const user = await ctx.db.get(userId);
+  if (!user) return "free";
+  
+  const isPro = await hasProAccess(ctx, userId);
+  return isPro ? "pro" : "free";
 }

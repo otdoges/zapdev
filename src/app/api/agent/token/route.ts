@@ -1,10 +1,10 @@
-import { auth } from "@clerk/nextjs/server";
+import { requireSession } from "@/lib/auth-server";
 
 export async function POST() {
   try {
-    const { userId } = await auth();
+    const session = await requireSession();
 
-    if (!userId) {
+    if (!session.user) {
       return Response.json(
         { error: "Unauthorized" },
         { status: 401 }

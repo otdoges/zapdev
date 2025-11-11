@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireSession } from "@/lib/auth-server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
@@ -16,9 +16,9 @@ interface GitHubRepo {
 }
 
 export async function GET() {
-  const { userId } = await auth();
+  const session = await requireSession();
 
-  if (!userId) {
+  if (!session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

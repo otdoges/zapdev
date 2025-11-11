@@ -4,7 +4,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useState } from "react";
-import { useClerk } from "@clerk/nextjs";
+import { useSession } from "@/lib/auth-client";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,7 +42,7 @@ interface AttachmentData {
 
 export const ProjectForm = () => {
   const router = useRouter();
-  const clerk = useClerk();
+  const { data: session } = useSession();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -95,7 +95,7 @@ export const ProjectForm = () => {
         toast.error(error.message);
 
         if (error.message.includes("Unauthenticated") || error.message.includes("Not authenticated")) {
-          clerk.openSignIn();
+          router.push("/sign-in?redirect=/projects");
         }
 
         if (error.message.includes("credits") || error.message.includes("out of credits")) {

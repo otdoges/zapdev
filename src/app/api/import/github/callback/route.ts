@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireSession } from "@/lib/auth-server";
 import { fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
@@ -8,11 +8,13 @@ const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const GITHUB_REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/import/github/callback`;
 
 export async function GET(request: Request) {
-  const { userId } = await auth();
+  const session = await requireSession();
 
-  if (!userId) {
+  if (!session.user) {
     return NextResponse.redirect(new URL("/", request.url));
   }
+  
+  const userId = session.user.id;
 
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");

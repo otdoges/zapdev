@@ -9,7 +9,7 @@ ZapDev is an AI-powered development platform that enables users to create web ap
 ## Technology Stack
 
 **Frontend**: Next.js 15 (Turbopack), React 19, TypeScript 5.9, Tailwind CSS v4, Shadcn/ui, React Query
-**Backend**: Convex (real-time database), tRPC (type-safe APIs), Clerk (authentication)
+**Backend**: Convex (real-time database), tRPC (type-safe APIs), Better Auth (authentication), Polar.sh (billing)
 **AI & Execution**: Vercel AI Gateway, Inngest 3.44 (job orchestration), E2B Code Interpreter (sandboxes)
 **Monitoring**: Sentry, OpenTelemetry
 
@@ -155,9 +155,9 @@ Subscriptions enable real-time UI updates when data changes.
 ### 5. Credit System
 
 - **Free tier**: 5 generations per 24 hours
-- **Pro tier**: 100 generations per 24 hours
+- **Pro tier**: 100 generations per 24 hours ($29/month via Polar.sh)
 - **Tracked**: In `usage` table with rolling 24-hour expiration window
-- **Synced**: With Clerk custom claim `plan: "pro"`
+- **Synced**: With Polar.sh subscription status in `users` table
 
 ### 6. OAuth & Imports
 
@@ -171,44 +171,61 @@ Subscriptions enable real-time UI updates when data changes.
 - Frontend uses tRPC client hooks (`useQuery`, `useMutation` from `src/trpc/client.tsx`)
 - Backend uses tRPC procedures defined in `src/trpc/routers/`
 - Convex queries/mutations auto-typed via `@convex-dev/react`
-- Clerk authentication middleware in `src/middleware.ts`
+- Better Auth authentication middleware in `src/middleware.ts`
 
 **Query Client**: React Query configured in `src/trpc/query-client.ts` for caching, refetching, and optimistic updates.
 
+**Authentication**: Better Auth provides email/password and OAuth (Google, GitHub) authentication with session management.
+
 ## Configuration
 
-### Environment Variables (16 required)
+### Environment Variables
 
 ```bash
-# AI Gateway
-AI_GATEWAY_API_KEY
-AI_GATEWAY_BASE_URL=https://ai-gateway.vercel.sh/v1/
+# Application
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Convex Database
 NEXT_PUBLIC_CONVEX_URL
 CONVEX_DEPLOYMENT
 
+# AI Gateway
+AI_GATEWAY_API_KEY
+AI_GATEWAY_BASE_URL=https://ai-gateway.vercel.sh/v1/
+
 # Code Execution
 E2B_API_KEY
 
-# Authentication (Clerk)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-CLERK_SECRET_KEY
-CLERK_JWT_ISSUER_DOMAIN
-CLERK_WEBHOOK_SECRET
+# Authentication (Better Auth)
+BETTER_AUTH_SECRET  # Generate with: openssl rand -base64 32
+BETTER_AUTH_URL
+
+# OAuth Providers (Optional)
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+GITHUB_CLIENT_ID
+GITHUB_CLIENT_SECRET
+
+# Billing (Polar.sh)
+POLAR_ACCESS_TOKEN
+POLAR_ORGANIZATION_ID
+NEXT_PUBLIC_POLAR_PRODUCT_ID_PRO
+POLAR_WEBHOOK_SECRET
+
+# Figma/GitHub Integration (Optional)
+FIGMA_CLIENT_ID
+FIGMA_CLIENT_SECRET
 
 # Background Jobs (Inngest)
 INNGEST_EVENT_KEY
 INNGEST_SIGNING_KEY
 
-# OAuth (Optional)
-FIGMA_CLIENT_ID, FIGMA_CLIENT_SECRET
-GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
-
-# Application
-NEXT_PUBLIC_APP_URL
-NODE_ENV
+# Monitoring (Optional)
+NEXT_PUBLIC_SENTRY_DSN
+SENTRY_DSN
 ```
+
+See `env.example` for complete list and `explanations/BETTER_AUTH_POLAR_SETUP.md` for setup instructions.
 
 ### Build & Deployment Configuration
 
@@ -250,6 +267,7 @@ NODE_ENV
 ## Documentation Location
 
 All guides live in `/explanations/`:
+- `BETTER_AUTH_POLAR_SETUP.md` — Authentication & billing setup guide
 - `CONVEX_QUICKSTART.md` — 5-minute setup
 - `CONVEX_SETUP.md` — Complete setup with screenshots
 - `DEBUGGING_GUIDE.md` — Troubleshooting
@@ -262,6 +280,8 @@ All guides live in `/explanations/`:
 Root-level:
 - `AGENTS.md` — Qoder AI architecture & commands
 - `MIGRATION_STATUS.md` — Convex migration progress
+- `MIGRATION_CLERK_TO_BETTER_AUTH.md` — Clerk to Better Auth migration tracking
+- `MIGRATION_SUMMARY.md` — Migration executive summary
 - `README.md` — Project overview
 
 ## Project Instructions
@@ -285,3 +305,5 @@ Root-level:
 - Sanitize file paths to prevent directory traversal
 - Keep OAuth tokens encrypted in Convex
 - Never expose API keys in client-side code (use NEXT_PUBLIC_ prefix only for public values)
+- Better Auth sessions stored in httpOnly cookies
+- Polar.sh webhook signatures verified for all subscription events

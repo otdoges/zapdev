@@ -18,6 +18,7 @@ import { api } from "../convex/_generated/api";
 import { readFileSync } from "fs";
 import { parse } from "csv-parse/sync";
 import path from "path";
+import type { Id } from "../convex/_generated/dataModel";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 
@@ -56,11 +57,12 @@ function readCSV<T>(filename: string): T[] {
 }
 
 /**
- * Extract userId from rate limiter key format: "rlflx:user_XXX"
+ * Extract and type the Convex user ID (format: "rlflx:user_XXX" or the raw ID)
  */
-function extractUserIdFromKey(key: string): string {
+function extractUserIdFromKey(key: string): Id<"users"> | null {
   const match = key.match(/rlflx:(.+)/);
-  return match ? match[1] : key;
+  const userId = match ? match[1] : key;
+  return userId ? (userId as Id<"users">) : null;
 }
 
 /**
@@ -226,6 +228,10 @@ async function migrate() {
 
     for (const record of usage) {
       const userId = extractUserIdFromKey(record.key);
+      if (!userId) {
+        console.error(`   ❌ Could not determine user ID for usage key ${record.key}, skipping...`);
+        continue;
+      }
       await convex.action(api.importData.importUsageAction, {
         key: record.key,
         userId,

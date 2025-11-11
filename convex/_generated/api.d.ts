@@ -15,6 +15,7 @@ import type * as messages from "../messages.js";
 import type * as oauth from "../oauth.js";
 import type * as projects from "../projects.js";
 import type * as usage from "../usage.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   oauth: typeof oauth;
   projects: typeof projects;
   usage: typeof usage;
+  users: typeof users;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

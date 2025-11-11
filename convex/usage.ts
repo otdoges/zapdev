@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireAuth, hasProAccess } from "./helpers";
+import { requireAuth, getUserPlan } from "./helpers";
 
 // Constants matching the existing system
 const FREE_POINTS = 5;
@@ -16,10 +16,10 @@ export const checkAndConsumeCredit = mutation({
   args: {},
   handler: async (ctx): Promise<{ success: boolean; remaining: number; message?: string }> => {
     const userId = await requireAuth(ctx);
-    const identity = await ctx.auth.getUserIdentity();
 
-    // Check user's plan
-    const isPro = hasProAccess(identity);
+    // Check user's plan from Polar subscription
+    const userPlan = await getUserPlan(ctx, userId);
+    const isPro = userPlan === "pro";
     const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
     // Get current usage
@@ -78,9 +78,9 @@ export const getUsage = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
-    const identity = await ctx.auth.getUserIdentity();
 
-    const isPro = hasProAccess(identity);
+    const userPlan = await getUserPlan(ctx, userId);
+    const isPro = userPlan === "pro";
     const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
     const usage = await ctx.db
@@ -124,7 +124,7 @@ export const getUsage = query({
  */
 export const resetUsage = mutation({
   args: {
-    userId: v.string(),
+    userId: v.id("users"), // Changed from v.string() to v.id("users")
   },
   handler: async (ctx, args) => {
     // In production, add admin authorization check here
@@ -144,7 +144,7 @@ export const resetUsage = mutation({
  */
 export const getUsageInternal = async (
   ctx: any,
-  userId: string
+  userId: any
 ): Promise<{
   points: number;
   maxPoints: number;
@@ -154,8 +154,8 @@ export const getUsageInternal = async (
   creditsRemaining: number;
   msBeforeNext: number;
 }> => {
-  const identity = await ctx.auth.getUserIdentity();
-  const isPro = hasProAccess(identity) || false;
+  const userPlan = await getUserPlan(ctx, userId);
+  const isPro = userPlan === "pro";
   const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
   const usage = await ctx.db
@@ -219,10 +219,10 @@ export const checkAndConsumeCreditForUser = mutation({
  */
 export const checkAndConsumeCreditInternal = async (
   ctx: any,
-  userId: string
+  userId: any
 ): Promise<{ success: boolean; remaining: number; message?: string }> => {
-  const identity = await ctx.auth.getUserIdentity();
-  const isPro = hasProAccess(identity) || false;
+  const userPlan = await getUserPlan(ctx, userId);
+  const isPro = userPlan === "pro";
   const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
   const usage = await ctx.db

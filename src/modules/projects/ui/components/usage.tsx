@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { useMemo } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useSession } from "@/lib/auth-client";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { CrownIcon } from "lucide-react";
 import { formatDuration, intervalToDuration } from "date-fns";
+import { Id } from "@/convex/_generated/dataModel";
 
 import { Button } from "@/components/ui/button";
 
@@ -12,8 +15,12 @@ interface Props {
 };
 
 export const Usage = ({ points, msBeforeNext }: Props) => {
-  const { has } = useAuth();
-  const hasProAccess = has?.({ plan: "pro" });
+  const { data: session } = useSession();
+  const subscriptionStatus = useQuery(
+    api.users.getSubscriptionStatus,
+    session?.user?.id ? { userId: session.user.id as Id<"users"> } : "skip"
+  );
+  const hasProAccess = subscriptionStatus?.plan === "pro";
 
   const resetTime = useMemo(() => {
     try {

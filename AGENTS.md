@@ -39,7 +39,8 @@ e2b template build --name your-template-name --cmd "/compile_page.sh"
 ### Tech Stack
 - **Frontend**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4, Shadcn/ui
 - **Backend**: Convex (real-time database), tRPC (type-safe APIs)
-- **Auth**: Clerk with JWT authentication
+- **Auth**: Better Auth with email/password and OAuth (Google, GitHub)
+- **Billing**: Polar.sh for subscription management ($29/month Pro plan)
 - **AI**: Vercel AI Gateway (Claude via Anthropic), Inngest Agent Kit
 - **Code Execution**: E2B Code Interpreter (isolated sandboxes)
 - **Background Jobs**: Inngest
@@ -86,10 +87,13 @@ sandbox-templates/  # E2B sandbox templates for each framework
 ### Key Components
 
 **Convex Schema** (`convex/schema.ts`)
+- `users`: User accounts with Polar.sh subscription data
+- `sessions`: Better Auth session management
+- `accounts`: OAuth provider accounts (Google, GitHub)
 - `projects`: User projects with framework selection
 - `messages`: Conversation history (USER/ASSISTANT roles, streaming status)
 - `fragments`: Generated code artifacts linked to messages
-- `usage`: Daily credit tracking for rate limiting
+- `usage`: Daily credit tracking for rate limiting (Free: 5/day, Pro: 100/day)
 - `attachments`: Figma/GitHub imports
 - `imports`: Import job status tracking
 
@@ -120,13 +124,24 @@ sandbox-templates/  # E2B sandbox templates for each framework
 ### Environment Variables
 Required for development:
 - `NEXT_PUBLIC_CONVEX_URL`: Convex backend URL
+- `NEXT_PUBLIC_APP_URL`: Application URL (http://localhost:3000)
 - `AI_GATEWAY_API_KEY`: Vercel AI Gateway key
 - `AI_GATEWAY_BASE_URL`: https://ai-gateway.vercel.sh/v1/
 - `E2B_API_KEY`: E2B sandbox API key
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk auth
-- `CLERK_SECRET_KEY`: Clerk secret
+- `BETTER_AUTH_SECRET`: Auth secret (generate with `openssl rand -base64 32`)
+- `BETTER_AUTH_URL`: Auth URL (http://localhost:3000)
+- `POLAR_ACCESS_TOKEN`: Polar.sh API token
+- `POLAR_ORGANIZATION_ID`: Polar.sh organization ID
+- `NEXT_PUBLIC_POLAR_PRODUCT_ID_PRO`: Polar Pro product ID
+- `POLAR_WEBHOOK_SECRET`: Polar webhook secret
 - `INNGEST_EVENT_KEY`: Inngest event key
 - `INNGEST_SIGNING_KEY`: Inngest signing key
+
+Optional OAuth providers:
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: Google OAuth
+- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: GitHub OAuth
+
+See `env.example` and `explanations/BETTER_AUTH_POLAR_SETUP.md` for complete setup instructions.
 
 ### E2B Templates
 Before running AI code generation:
@@ -155,3 +170,13 @@ Before running AI code generation:
 - Inspect Inngest logs for command output
 - Auto-fix will retry up to 2 times for detected errors
 - Test locally: `cd sandbox-templates/[framework] && bun run lint && bun run build`
+
+**Authentication Issues**
+- Check `BETTER_AUTH_SECRET` is set and valid
+- Verify session cookie `zapdev.session_token` exists
+- See `explanations/BETTER_AUTH_POLAR_SETUP.md` for troubleshooting
+
+**Billing/Subscription Issues**
+- Verify Polar.sh webhook URL is accessible
+- Check webhook secret matches configuration
+- Review Polar dashboard for webhook delivery logs

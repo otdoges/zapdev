@@ -51,10 +51,53 @@ export const importStatusEnum = v.union(
 );
 
 export default defineSchema({
+  // Users table - Better Auth
+  users: defineTable({
+    email: v.string(),
+    emailVerified: v.optional(v.boolean()),
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    // Polar.sh subscription fields
+    polarCustomerId: v.optional(v.string()),
+    subscriptionId: v.optional(v.string()),
+    subscriptionStatus: v.optional(v.string()), // active, canceled, past_due, etc.
+    plan: v.optional(v.union(v.literal("free"), v.literal("pro"))),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_email", ["email"])
+    .index("by_polarCustomerId", ["polarCustomerId"]),
+
+  // Sessions table - Better Auth
+  sessions: defineTable({
+    userId: v.id("users"),
+    expiresAt: v.number(),
+    token: v.string(),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_token", ["token"]),
+
+  // Accounts table - OAuth providers
+  accounts: defineTable({
+    userId: v.id("users"),
+    provider: v.string(), // google, github, etc.
+    providerAccountId: v.string(),
+    accessToken: v.optional(v.string()),
+    refreshToken: v.optional(v.string()),
+    expiresAt: v.optional(v.number()),
+    tokenType: v.optional(v.string()),
+    scope: v.optional(v.string()),
+    idToken: v.optional(v.string()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_provider_accountId", ["provider", "providerAccountId"]),
+
   // Projects table
   projects: defineTable({
     name: v.string(),
-    userId: v.string(), // Clerk user ID (not v.id - we'll store the Clerk ID directly)
+    userId: v.id("users"), // Changed to reference users table
     framework: frameworkEnum,
     modelPreference: v.optional(v.string()), // User's preferred AI model (e.g., "auto", "anthropic/claude-haiku-4.5", "openai/gpt-4o")
     createdAt: v.optional(v.number()), // timestamp
@@ -119,7 +162,7 @@ export default defineSchema({
 
   // OAuth Connections table - for storing encrypted OAuth tokens
   oauthConnections: defineTable({
-    userId: v.string(), // Clerk user ID
+    userId: v.id("users"), // Changed to reference users table
     provider: oauthProviderEnum,
     accessToken: v.string(), // Encrypted token
     refreshToken: v.optional(v.string()),
@@ -134,7 +177,7 @@ export default defineSchema({
 
   // Imports table - tracking import history and status
   imports: defineTable({
-    userId: v.string(), // Clerk user ID
+    userId: v.id("users"), // Changed to reference users table
     projectId: v.id("projects"),
     messageId: v.optional(v.id("messages")),
     source: importSourceEnum,
@@ -153,7 +196,7 @@ export default defineSchema({
 
   // Usage table - rate limiting and credit tracking
   usage: defineTable({
-    userId: v.string(), // Clerk user ID
+    userId: v.id("users"), // Changed to reference users table
     points: v.number(), // Remaining credits
     expire: v.optional(v.number()), // Expiration timestamp
     planType: v.optional(v.union(v.literal("free"), v.literal("pro"))), // Track plan type
