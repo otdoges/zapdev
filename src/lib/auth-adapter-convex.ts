@@ -1,6 +1,6 @@
 /**
  * Convex Database Adapter for Better Auth
- * 
+ *
  * This adapter connects Better Auth to Convex database tables
  * for persistent session and user management.
  */
@@ -8,6 +8,86 @@
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import {
+  isOAuthTokenExpired,
+  refreshOAuthTokenForProvider,
+} from "./oauth-token-refresh";
+
+/**
+ * Type definitions for Better Auth database adapter
+ * Ensures the adapter implements all required methods with proper signatures
+ */
+export interface BetterAuthAdapter {
+  createUser(user: {
+    email: string;
+    name?: string;
+    image?: string;
+    emailVerified?: boolean;
+  }): Promise<unknown>;
+
+  getUser(id: string): Promise<unknown>;
+  getUserByEmail(email: string): Promise<unknown>;
+
+  updateUser(
+    id: string,
+    updates: {
+      name?: string;
+      email?: string;
+      image?: string;
+      emailVerified?: boolean;
+    }
+  ): Promise<unknown>;
+
+  deleteUser(id: string): Promise<boolean>;
+
+  createSession(session: {
+    userId: string;
+    expiresAt: Date;
+    token: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<unknown>;
+
+  getSession(token: string): Promise<unknown>;
+
+  updateSession(
+    token: string,
+    updates: {
+      expiresAt?: Date;
+    }
+  ): Promise<unknown>;
+
+  deleteSession(token: string): Promise<boolean>;
+
+  createAccount(account: {
+    userId: string;
+    provider: string;
+    providerAccountId: string;
+    accessToken?: string;
+    refreshToken?: string;
+    expiresAt?: number;
+    tokenType?: string;
+    scope?: string;
+    idToken?: string;
+  }): Promise<unknown>;
+
+  getAccount(
+    provider: string,
+    providerAccountId: string
+  ): Promise<unknown>;
+
+  updateAccount(
+    provider: string,
+    providerAccountId: string,
+    updates: {
+      accessToken?: string;
+      refreshToken?: string;
+      expiresAt?: number;
+    }
+  ): Promise<unknown>;
+
+  deleteAccount(provider: string, providerAccountId: string): Promise<boolean>;
+}
 
 export interface ConvexAdapterConfig {
   // No specific config needed for Convex adapter
@@ -15,8 +95,11 @@ export interface ConvexAdapterConfig {
 
 /**
  * Create a Better Auth database adapter for Convex
+ * Implements the BetterAuthAdapter interface for full type safety
  */
-export function createConvexAdapter(config?: ConvexAdapterConfig) {
+export function createConvexAdapter(
+  config?: ConvexAdapterConfig
+): BetterAuthAdapter {
   return {
     /**
      * Create a new user
@@ -260,6 +343,7 @@ export function createConvexAdapter(config?: ConvexAdapterConfig) {
 
     /**
      * Get account by provider and provider account ID
+     * Checks and refreshes OAuth tokens if expired
      */
     async getAccount(provider: string, providerAccountId: string) {
       try {
@@ -268,6 +352,60 @@ export function createConvexAdapter(config?: ConvexAdapterConfig) {
           providerAccountId,
         });
         if (!account) return null;
+
+        // Check if token is expired and needs refresh
+        if (
+          isOAuthTokenExpired(account.expiresAt) &&
+          account.refreshToken
+        ) {
+          try {
+            // Attempt to refresh the token
+            const clientId = process.env[`${provider.toUpperCase()}_CLIENT_ID`];
+            const clientSecret = process.env[
+              `${provider.toUpperCase()}_CLIENT_SECRET`
+            ];
+
+            if (clientId && clientSecret) {
+              const refreshResult = await refreshOAuthTokenForProvider(
+                provider,
+                account.refreshToken,
+                clientId,
+                clientSecret
+              );
+
+              if (refreshResult) {
+                // Token refresh successful, update in database
+                const newExpiresAt =
+                  Date.now() + refreshResult.expiresIn * 1000;
+
+                await this.updateAccount(provider, providerAccountId, {
+                  accessToken: refreshResult.accessToken,
+                  expiresAt: Math.floor(newExpiresAt / 1000),
+                });
+
+                // Return updated account with new token
+                return {
+                  id: account._id,
+                  userId: account.userId,
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                  accessToken: refreshResult.accessToken,
+                  refreshToken: account.refreshToken,
+                  expiresAt: newExpiresAt,
+                  tokenType: account.tokenType,
+                  scope: account.scope,
+                  idToken: account.idToken,
+                };
+              }
+            }
+          } catch (refreshError) {
+            console.error(
+              `Failed to refresh ${provider} token:`,
+              refreshError
+            );
+            // Continue with expired token - let client handle it
+          }
+        }
 
         return {
           id: account._id,

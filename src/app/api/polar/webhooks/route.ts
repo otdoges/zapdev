@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchMutation } from "convex/nextjs";
+import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { verifyWebhookSignature, POLAR_CONFIG } from "@/lib/polar";
 
@@ -20,12 +20,15 @@ interface PolarCustomer {
 }
 
 interface PolarWebhookEvent {
+  id?: string; // Polar's event ID for idempotency
   type: string;
   data: PolarSubscription | PolarCustomer;
 }
 
 export async function POST(request: NextRequest) {
   let eventType: PolarWebhookEvent["type"] | undefined;
+  let eventId: string | undefined;
+  let webhookEventId: string | undefined;
 
   try {
     const body = await request.text();
@@ -54,7 +57,37 @@ export async function POST(request: NextRequest) {
 
     const event = JSON.parse(body);
     eventType = event.type;
-    console.log("Polar webhook received:", eventType);
+    eventId = event.id || `${event.type}-${Date.now()}`;
+
+    console.log("Polar webhook received:", eventType, { eventId });
+
+    // Check if event already processed (idempotency)
+    const existingEvent = await fetchQuery(
+      api.webhookEvents.checkEvent,
+      {
+        provider: "polar",
+        eventId: eventId,
+      }
+    );
+
+    if (existingEvent) {
+      console.log("Webhook event already processed:", eventId);
+      // Return 200 for idempotent behavior
+      return NextResponse.json({ received: true, idempotent: true });
+    }
+
+    // Create webhook event record
+    webhookEventId = await fetchMutation(api.webhookEvents.create, {
+      provider: "polar",
+      eventId: eventId,
+      eventType: eventType,
+      payload: event,
+    });
+
+    // Mark as processing
+    await fetchMutation(api.webhookEvents.markProcessing, {
+      webhookEventId,
+    });
 
     // Handle different webhook events
     switch (eventType) {
@@ -81,14 +114,36 @@ export async function POST(request: NextRequest) {
         console.log("Unhandled webhook event:", eventType);
     }
 
+    // Mark event as completed
+    if (webhookEventId) {
+      await fetchMutation(api.webhookEvents.markCompleted, {
+        webhookEventId,
+      });
+    }
+
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Webhook error:", {
       type: eventType ?? "unknown",
+      eventId,
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString(),
     });
+
+    // Mark event as failed if we have a webhook event ID
+    if (webhookEventId) {
+      try {
+        await fetchMutation(api.webhookEvents.markFailed, {
+          webhookEventId,
+          error: error instanceof Error ? error.message : String(error),
+          retryCount: 0,
+        });
+      } catch (markFailedError) {
+        console.error("Failed to mark webhook event as failed:", markFailedError);
+      }
+    }
+
     return NextResponse.json(
       { error: "Webhook processing failed" },
       { status: 500 }

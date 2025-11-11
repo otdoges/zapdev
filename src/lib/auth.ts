@@ -2,12 +2,13 @@ import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { createConvexAdapter } from "./auth-adapter-convex";
 import { SESSION_COOKIE_PREFIX } from "./session-cookie";
+import { SESSION_CONFIG } from "./constants";
 
 export const auth = betterAuth({
-  database: createConvexAdapter() as any, // Custom Convex adapter for persistent storage
+  database: createConvexAdapter(), // Custom Convex adapter for persistent storage
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false, // Set to true in production with email setup
+    requireEmailVerification: process.env.REQUIRE_EMAIL_VERIFICATION !== "false", // Enabled by default, disable with env var
   },
   socialProviders: {
     google: {
@@ -22,11 +23,11 @@ export const auth = betterAuth({
     },
   },
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 1 day
+    expiresIn: SESSION_CONFIG.EXPIRES_IN, // 7 days
+    updateAge: SESSION_CONFIG.UPDATE_AGE, // 1 day
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60, // 5 minutes
+      maxAge: SESSION_CONFIG.CACHE_MAX_AGE, // 5 minutes
     },
   },
   advanced: {

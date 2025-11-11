@@ -216,4 +216,27 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_expire", ["expire"]),
+
+  // Webhook Events table - for idempotency and tracking
+  webhookEvents: defineTable({
+    provider: v.string(), // e.g., "polar", "stripe"
+    eventId: v.string(), // Provider's unique event ID
+    eventType: v.string(), // e.g., "subscription.created", "payment.succeeded"
+    payload: v.any(), // Raw webhook payload
+    processed: v.boolean(), // Whether event has been processed
+    status: v.union(
+      v.literal("pending"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    error: v.optional(v.string()), // Error message if processing failed
+    retryCount: v.number(), // Number of retry attempts
+    lastRetry: v.optional(v.number()), // Timestamp of last retry
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_provider_eventId", ["provider", "eventId"])
+    .index("by_provider_status", ["provider", "status"])
+    .index("by_createdAt", ["createdAt"]),
 });

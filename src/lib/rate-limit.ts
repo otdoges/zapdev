@@ -57,10 +57,16 @@ export function getClientIp(request: Request): string {
 export async function checkRateLimit(
   request: Request,
   limiter: Ratelimit = authRateLimit
-): Promise<{ success: boolean; response?: Response }> {
+): Promise<{ success: boolean; response?: Response; headers?: Record<string, string> }> {
   const ip = getClientIp(request);
   const { success, limit, reset, remaining } = await limiter.limit(ip);
-  
+
+  const rateLimitHeaders = {
+    "X-RateLimit-Limit": limit.toString(),
+    "X-RateLimit-Remaining": remaining.toString(),
+    "X-RateLimit-Reset": new Date(reset).toISOString(),
+  };
+
   if (!success) {
     return {
       success: false,
@@ -74,15 +80,17 @@ export async function checkRateLimit(
           status: 429,
           headers: {
             "Content-Type": "application/json",
-            "X-RateLimit-Limit": limit.toString(),
-            "X-RateLimit-Remaining": remaining.toString(),
-            "X-RateLimit-Reset": new Date(reset).toISOString(),
+            ...rateLimitHeaders,
             "Retry-After": Math.ceil((reset - Date.now()) / 1000).toString(),
           },
         }
       ),
     };
   }
-  
-  return { success: true };
+
+  // Return rate limit headers for successful responses too
+  return {
+    success: true,
+    headers: rateLimitHeaders,
+  };
 }

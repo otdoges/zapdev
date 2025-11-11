@@ -3,18 +3,22 @@ import { cache } from 'react';
 import superjson from "superjson";
 import { cookies } from 'next/headers';
 import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
+import { getSession } from "@/lib/auth-server";
+import { Session } from "@/lib/auth";
 
 export const createTRPCContext = cache(async () => {
   // Get session from Better Auth cookie
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME);
-  
-  return { 
+
+  return {
     sessionToken: sessionToken?.value ?? null,
   };
 });
 
-export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
+export type Context = Awaited<ReturnType<typeof createTRPCContext>> & {
+  session?: Session & { user: { id: string } };
+};
 
 // Avoid exporting the entire t-object
 // since it's not very descriptive.
@@ -35,15 +39,36 @@ const isAuthed = t.middleware(async ({ next, ctx }) => {
     });
   }
 
-  // Verify the session token with Better Auth
-  // For now, we just check if it exists
-  // In production, you should verify the JWT signature
-  
-  return next({
-    ctx: {
-      sessionToken: ctx.sessionToken,
-    },
-  });
+  try {
+    // Validate the session token with Better Auth
+    // This verifies the JWT signature, expiration, and claims
+    const session = await getSession();
+
+    if (!session || !session.user) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
+    }
+
+    // Pass the validated session to downstream resolvers
+    return next({
+      ctx: {
+        sessionToken: ctx.sessionToken,
+        session,
+      },
+    });
+  } catch (error) {
+    // If getSession throws or returns invalid session, reject the request
+    if (error instanceof TRPCError) {
+      throw error;
+    }
+
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Not authenticated",
+    });
+  }
 });
 
 // Base router and procedure helpers
