@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
-import { ClerkProvider } from "@clerk/nextjs";
 import Script from "next/script";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -63,23 +62,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-  const content = (
-    <ConvexClientProvider>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
-        <Toaster />
-        <WebVitalsReporter />
-        {children}
-      </ThemeProvider>
-    </ConvexClientProvider>
-  );
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -108,24 +90,21 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body
-        className="antialiased"
-      >
-        {clerkPublishableKey ? (
-          <ClerkProvider
-            appearance={{
-              variables: {
-                colorPrimary: "#C96342",
-              },
-            }}
+      <body className="antialiased">
+        <ConvexClientProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
           >
-            {content}
-          </ClerkProvider>
-        ) : (
-          content
-        )}
+            <Toaster />
+            <WebVitalsReporter />
+            {children}
+          </ThemeProvider>
+        </ConvexClientProvider>
       </body>
-       <SpeedInsights />
+      <SpeedInsights />
     </html>
   );
 };
