@@ -587,7 +587,7 @@ const createCodeAgentTools = (sandboxId: string) => [
     description: "Use the terminal to run commands",
     parameters: z.object({
       command: z.string(),
-    }),
+    }) as any,
     handler: async (
       { command }: { command: string },
       opts: Tool.Options<AgentState>
@@ -625,7 +625,7 @@ const createCodeAgentTools = (sandboxId: string) => [
           content: z.string(),
         }),
       ),
-    }),
+    }) as any,
     handler: async (
       { files },
       { step, network }: Tool.Options<AgentState>
@@ -655,7 +655,7 @@ const createCodeAgentTools = (sandboxId: string) => [
     description: "Read files from the sandbox",
     parameters: z.object({
       files: z.array(z.string()),
-    }),
+    }) as any,
     handler: async ({ files }, { step }) => {
       return await step?.run("readFiles", async () => {
         try {

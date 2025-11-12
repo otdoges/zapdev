@@ -18,7 +18,7 @@
     "@convex-dev/better-auth": "0.9.7",
     "@databuddy/sdk": "^2.2.1",
     "@e2b/code-interpreter": "^1.5.1",
-    "@hookform/resolvers": "^5.2.2",
+    "@hookform/resolvers": "^3.3.4",
     "@inngest/agent-kit": "^0.8.4",
     "@inngest/realtime": "^0.4.4",
     "@opentelemetry/api": "^1.9.0",
@@ -98,7 +98,7 @@
     "uploadthing": "^7.7.4",
     "vaul": "^1.1.2",
     "web-vitals": "^5.1.0",
-    "zod": "^3.25.76"
+    "zod": "3.22.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
