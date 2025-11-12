@@ -160,4 +160,15 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_expire", ["expire"]),
+
+  // Rate Limits table - request-based rate limiting
+  rateLimits: defineTable({
+    key: v.string(), // Rate limit key (e.g., "user_123", "ip_192.168.1.1", "endpoint_/api/auth")
+    count: v.number(), // Current request count in this window
+    windowStart: v.number(), // Timestamp when the current window started
+    limit: v.number(), // Maximum requests allowed in the window
+    windowMs: v.number(), // Window duration in milliseconds
+  })
+    .index("by_key", ["key"])
+    .index("by_windowStart", ["windowStart"]),
 });
