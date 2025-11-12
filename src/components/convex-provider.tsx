@@ -1,8 +1,8 @@
 "use client";
 
-import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
-import { useAuth } from "@clerk/nextjs";
+import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
+import { authClient } from "@/lib/auth-client";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 
@@ -14,7 +14,11 @@ function getConvexClient() {
     if (!url) {
       throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
     }
-    convexClient = new ConvexReactClient(url);
+    convexClient = new ConvexReactClient(url, {
+      // Optionally pause queries until the user is authenticated
+      // Set to false if you have public routes
+      expectAuth: false,
+    });
   }
   return convexClient;
 }
@@ -33,8 +37,8 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+    <ConvexBetterAuthProvider client={convex} authClient={authClient}>
       {children}
-    </ConvexProviderWithClerk>
+    </ConvexBetterAuthProvider>
   );
 }
