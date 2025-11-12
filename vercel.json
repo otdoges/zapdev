@@ -1,17 +1,4 @@
 {
   "buildCommand": "bun run build",
-  "installCommand": "bun install",
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.zapdev.link"
-        }
-      ],
-      "destination": "https://zapdev.link/:path*",
-      "statusCode": 308
-    }
-  ]
+  "installCommand": "bun install"
 }
