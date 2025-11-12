@@ -275,6 +275,83 @@ export const clearAllData = internalMutation({
   },
 });
 
+/**
+ * Clean up orphaned projects and related data (projects with invalid userId references)
+ * This fixes schema validation errors when users table is missing references
+ */
+export const cleanupOrphanedProjects = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const allProjects = await ctx.db.query("projects").collect();
+    const allUsers = await ctx.db.query("users").collect();
+    const validUserIds = new Set(allUsers.map((u) => u._id));
+
+    let cleanedCount = 0;
+    const orphanedProjectIds: string[] = [];
+
+    // Find all orphaned projects (userId doesn't reference a valid user)
+    for (const project of allProjects) {
+      if (!validUserIds.has(project.userId)) {
+        orphanedProjectIds.push(project._id);
+      }
+    }
+
+    // Delete all data related to orphaned projects in reverse dependency order
+    for (const projectId of orphanedProjectIds) {
+      // Delete attachments for messages in this project
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_projectId", (q) => q.eq("projectId", projectId as any))
+        .collect();
+
+      for (const message of messages) {
+        const attachments = await ctx.db
+          .query("attachments")
+          .withIndex("by_messageId", (q) => q.eq("messageId", message._id))
+          .collect();
+
+        for (const attachment of attachments) {
+          await ctx.db.delete(attachment._id);
+        }
+
+        // Delete fragments for this message
+        const fragments = await ctx.db
+          .query("fragments")
+          .withIndex("by_messageId", (q) => q.eq("messageId", message._id))
+          .collect();
+
+        for (const fragment of fragments) {
+          await ctx.db.delete(fragment._id);
+        }
+
+        // Delete the message itself
+        await ctx.db.delete(message._id);
+      }
+
+      // Delete fragment drafts for this project
+      const drafts = await ctx.db
+        .query("fragmentDrafts")
+        .withIndex("by_projectId", (q) => q.eq("projectId", projectId as any))
+        .collect();
+
+      for (const draft of drafts) {
+        await ctx.db.delete(draft._id);
+      }
+
+      // Delete the project itself
+      await ctx.db.delete(projectId as any);
+      cleanedCount++;
+    }
+
+    return {
+      success: true,
+      message: `Cleaned up ${cleanedCount} orphaned projects and related data`,
+      cleanedProjectCount: cleanedCount,
+      orphanedProjectIds,
+    };
+  },
+});
+
 // Public action wrappers for HTTP client access
 export const importProjectAction = action({
   args: {
@@ -388,5 +465,21 @@ export const importUsageAction = action({
   },
   handler: async (ctx, args): Promise<{ userId: string; newId: any }> => {
     return await ctx.runMutation(internal.importData.importUsage, args);
+  },
+});
+
+/**
+ * Public action to clean up orphaned projects (admin function)
+ * Removes all projects with invalid userId references
+ */
+export const cleanupOrphanedProjectsAction = action({
+  args: {},
+  handler: async (ctx): Promise<{
+    success: boolean;
+    message: string;
+    cleanedProjectCount: number;
+    orphanedProjectIds: string[];
+  }> => {
+    return await ctx.runMutation(internal.importData.cleanupOrphanedProjects);
   },
 });
