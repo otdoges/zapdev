@@ -32,10 +32,6 @@ const nextConfig = {
             value: 'true'
           },
           {
-            key: 'Access-Control-Allow-Origin',
-            value: process.env.NEXT_PUBLIC_APP_URL || 'https://zapdev.link'
-          },
-          {
             key: 'Access-Control-Allow-Methods',
             value: 'GET,POST,PUT,DELETE,OPTIONS'
           },
