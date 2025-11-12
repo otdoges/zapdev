@@ -45,6 +45,9 @@ export const createAuth = (
       // The Convex plugin is required for Convex compatibility
       convex(),
     ],
+    // Disable ALL rate limiting features to avoid SQLite dependency
+    // Better Auth should not attempt to use any database for rate limiting
+    rateLimit: { enabled: false },
   });
 };
 
