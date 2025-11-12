@@ -110,7 +110,7 @@ export default defineSchema({
   // Projects table
   projects: defineTable({
     name: v.string(),
-    userId: v.id("users"), // Changed to reference users table
+    userId: v.id("users"), // References users table
     framework: frameworkEnum,
     modelPreference: v.optional(v.string()), // User's preferred AI model (e.g., "auto", "anthropic/claude-haiku-4.5", "openai/gpt-4o")
     createdAt: v.optional(v.number()), // timestamp
@@ -175,7 +175,7 @@ export default defineSchema({
 
   // OAuth Connections table - for storing encrypted OAuth tokens
   oauthConnections: defineTable({
-    userId: v.id("users"), // Changed to reference users table
+    userId: v.id("users"), // References users table
     provider: oauthProviderEnum,
     accessToken: v.string(), // Encrypted token
     refreshToken: v.optional(v.string()),
@@ -190,7 +190,7 @@ export default defineSchema({
 
   // Imports table - tracking import history and status
   imports: defineTable({
-    userId: v.id("users"), // Changed to reference users table
+    userId: v.id("users"), // References users table
     projectId: v.id("projects"),
     messageId: v.optional(v.id("messages")),
     source: importSourceEnum,
@@ -209,7 +209,7 @@ export default defineSchema({
 
   // Usage table - rate limiting and credit tracking
   usage: defineTable({
-    userId: v.id("users"), // Changed to reference users table
+    userId: v.id("users"), // References users table
     points: v.number(), // Remaining credits
     expire: v.optional(v.number()), // Expiration timestamp
     planType: v.optional(v.union(v.literal("free"), v.literal("pro"))), // Track plan type

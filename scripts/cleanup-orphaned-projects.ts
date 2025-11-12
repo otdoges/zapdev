@@ -37,15 +37,22 @@ async function cleanupOrphanedProjects() {
     const result = await client.action(api.importData.cleanupOrphanedProjectsAction, {});
 
     console.log(`✅ ${result.message}`);
-    console.log(`   Cleaned projects: ${result.cleanedProjectCount}`);
+    console.log(`   Total cleaned: ${result.totalCleaned}`);
+    console.log(`   - Projects: ${result.cleanedProjectCount}`);
+    console.log(`   - Usage records: ${result.cleanedUsageCount}`);
+    console.log(`   - OAuth connections: ${result.cleanedOAuthCount}`);
+    console.log(`   - Imports: ${result.cleanedImportsCount}`);
 
     if (result.orphanedProjectIds.length > 0) {
-      console.log("\n📋 Removed project IDs:");
-      for (const id of result.orphanedProjectIds) {
+      console.log(`\n📋 Removed ${result.orphanedProjectIds.length} orphaned project IDs (showing first 10):`);
+      for (const id of result.orphanedProjectIds.slice(0, 10)) {
         console.log(`   - ${id}`);
       }
+      if (result.orphanedProjectIds.length > 10) {
+        console.log(`   ... and ${result.orphanedProjectIds.length - 10} more`);
+      }
     } else {
-      console.log("\n✨ No orphaned projects found!");
+      console.log("\n✨ No orphaned data found!");
     }
 
     console.log("\n✅ Cleanup completed successfully!");

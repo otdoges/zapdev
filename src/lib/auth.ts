@@ -32,11 +32,16 @@ const makeSocialProviders = () => {
 
 // Determine base URL based on environment
 const getBaseURL = (): string => {
+  // Use environment variable first (production/staging)
+  if (process.env.BETTER_AUTH_URL) {
+    return process.env.BETTER_AUTH_URL;
+  }
+  // Development fallback
   if (process.env.NODE_ENV === "development") {
     return "http://localhost:3000";
   }
-  // Production URL - use hardcoded domain
-  return "https://zapdev-mu.vercel.app";
+  // Last resort: use NEXT_PUBLIC_APP_URL
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 };
 
 const baseURL = getBaseURL();

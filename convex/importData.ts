@@ -14,7 +14,7 @@ export const importProject = internalMutation({
   args: {
     oldId: v.string(), // Original PostgreSQL UUID
     name: v.string(),
-    userId: v.id("users"), // Changed from v.string() to v.id("users")
+    userId: v.id("users"), // References users table
     framework: v.union(
       v.literal("NEXTJS"),
       v.literal("ANGULAR"),
@@ -202,7 +202,7 @@ export const importAttachment = internalMutation({
 export const importUsage = internalMutation({
   args: {
     key: v.string(), // Original key like "rlflx:user_XXX"
-    userId: v.id("users"), // Changed from v.string() to v.id("users")
+    userId: v.id("users"), // References users table
     points: v.number(),
     expire: v.optional(v.string()), // ISO date string
   },
@@ -282,16 +282,19 @@ export const clearAllData = internalMutation({
 export const cleanupOrphanedProjects = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const allProjects = await ctx.db.query("projects").collect();
     const allUsers = await ctx.db.query("users").collect();
-    const validUserIds = new Set(allUsers.map((u) => u._id));
+    const validUserIds = new Set(allUsers.map((u) => u._id as string));
 
-    let cleanedCount = 0;
+    let cleanedProjectsCount = 0;
+    let cleanedUsageCount = 0;
+    let cleanedOAuthCount = 0;
+    let cleanedImportsCount = 0;
     const orphanedProjectIds: string[] = [];
 
-    // Find all orphaned projects (userId doesn't reference a valid user)
+    // 1. Find all orphaned projects
+    const allProjects = await ctx.db.query("projects").collect();
     for (const project of allProjects) {
-      if (!validUserIds.has(project.userId)) {
+      if (!validUserIds.has(project.userId as any)) {
         orphanedProjectIds.push(project._id);
       }
     }
@@ -340,13 +343,46 @@ export const cleanupOrphanedProjects = internalMutation({
 
       // Delete the project itself
       await ctx.db.delete(projectId as any);
-      cleanedCount++;
+      cleanedProjectsCount++;
     }
+
+    // 2. Clean up orphaned usage records
+    const allUsage = await ctx.db.query("usage").collect();
+    for (const usage of allUsage) {
+      if (!validUserIds.has(usage.userId as any)) {
+        await ctx.db.delete(usage._id);
+        cleanedUsageCount++;
+      }
+    }
+
+    // 3. Clean up orphaned oauthConnections
+    const allOAuth = await ctx.db.query("oauthConnections").collect();
+    for (const oauth of allOAuth) {
+      if (!validUserIds.has(oauth.userId as any)) {
+        await ctx.db.delete(oauth._id);
+        cleanedOAuthCount++;
+      }
+    }
+
+    // 4. Clean up orphaned imports
+    const allImports = await ctx.db.query("imports").collect();
+    for (const importRecord of allImports) {
+      if (!validUserIds.has(importRecord.userId as any)) {
+        await ctx.db.delete(importRecord._id);
+        cleanedImportsCount++;
+      }
+    }
+
+    const totalCleaned = cleanedProjectsCount + cleanedUsageCount + cleanedOAuthCount + cleanedImportsCount;
 
     return {
       success: true,
-      message: `Cleaned up ${cleanedCount} orphaned projects and related data`,
-      cleanedProjectCount: cleanedCount,
+      message: `Cleaned up ${totalCleaned} orphaned records (${cleanedProjectsCount} projects, ${cleanedUsageCount} usage, ${cleanedOAuthCount} oauth, ${cleanedImportsCount} imports)`,
+      cleanedProjectCount: cleanedProjectsCount,
+      cleanedUsageCount,
+      cleanedOAuthCount,
+      cleanedImportsCount,
+      totalCleaned,
       orphanedProjectIds,
     };
   },
@@ -357,7 +393,7 @@ export const importProjectAction = action({
   args: {
     oldId: v.string(),
     name: v.string(),
-    userId: v.id("users"), // Changed from v.string() to v.id("users")
+    userId: v.id("users"), // References users table
     framework: v.union(
       v.literal("NEXTJS"),
       v.literal("ANGULAR"),
@@ -459,7 +495,7 @@ export const importAttachmentAction = action({
 export const importUsageAction = action({
   args: {
     key: v.string(),
-    userId: v.id("users"), // Changed from v.string() to v.id("users")
+    userId: v.id("users"), // References users table
     points: v.number(),
     expire: v.optional(v.string()),
   },
@@ -469,8 +505,8 @@ export const importUsageAction = action({
 });
 
 /**
- * Public action to clean up orphaned projects (admin function)
- * Removes all projects with invalid userId references
+ * Public action to clean up ALL orphaned data (admin function)
+ * Removes all projects, usage, oauthConnections, imports with invalid userId references
  */
 export const cleanupOrphanedProjectsAction = action({
   args: {},
@@ -478,6 +514,10 @@ export const cleanupOrphanedProjectsAction = action({
     success: boolean;
     message: string;
     cleanedProjectCount: number;
+    cleanedUsageCount: number;
+    cleanedOAuthCount: number;
+    cleanedImportsCount: number;
+    totalCleaned: number;
     orphanedProjectIds: string[];
   }> => {
     return await ctx.runMutation(internal.importData.cleanupOrphanedProjects);
