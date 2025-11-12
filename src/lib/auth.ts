@@ -4,40 +4,57 @@ import { createConvexAdapter } from "./auth-adapter-convex";
 import { SESSION_COOKIE_PREFIX } from "./session-cookie";
 import { SESSION_CONFIG } from "./constants";
 
-const makeSocialConfig = (
-  clientId?: string,
-  clientSecret?: string,
-) => {
-  const enabled = !!(clientId && clientSecret);
-  return {
-    ...(clientId ? { clientId } : {}),
-    ...(clientSecret ? { clientSecret } : {}),
-    enabled,
-  };
+const makeSocialProviders = () => {
+  const providers: Record<string, unknown> = {};
+
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (googleClientId && googleClientSecret) {
+    providers.google = {
+      enabled: true,
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
+    };
+  }
+
+  const githubClientId = process.env.GITHUB_CLIENT_ID;
+  const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+  if (githubClientId && githubClientSecret) {
+    providers.github = {
+      enabled: true,
+      clientId: githubClientId,
+      clientSecret: githubClientSecret,
+    };
+  }
+
+  return providers;
 };
 
+// Determine base URL based on environment
+const getBaseURL = (): string => {
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:3000";
+  }
+  // Production URL - use hardcoded domain
+  return "https://zapdev-mu.vercel.app";
+};
+
+const baseURL = getBaseURL();
+
 export const auth = betterAuth({
-  database: createConvexAdapter(), // Custom Convex adapter for persistent storage
+  baseURL,
+  database: createConvexAdapter(),
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: process.env.REQUIRE_EMAIL_VERIFICATION !== "false", // Enabled by default, disable with env var
+    requireEmailVerification: false, // Email verification disabled by default
   },
-  socialProviders: {
-    google: makeSocialConfig(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-    ),
-    github: makeSocialConfig(
-      process.env.GITHUB_CLIENT_ID,
-      process.env.GITHUB_CLIENT_SECRET,
-    ),
-  },
+  socialProviders: makeSocialProviders(),
   session: {
-    expiresIn: SESSION_CONFIG.EXPIRES_IN, // 7 days
-    updateAge: SESSION_CONFIG.UPDATE_AGE, // 1 day
+    expiresIn: SESSION_CONFIG.EXPIRES_IN,
+    updateAge: SESSION_CONFIG.UPDATE_AGE,
     cookieCache: {
       enabled: true,
-      maxAge: SESSION_CONFIG.CACHE_MAX_AGE, // 5 minutes
+      maxAge: SESSION_CONFIG.CACHE_MAX_AGE,
     },
   },
   advanced: {

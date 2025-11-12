@@ -1,5 +1,8 @@
 "use client";
 
+// Skip static generation - auth validation can fail during build
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";

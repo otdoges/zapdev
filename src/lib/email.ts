@@ -5,8 +5,14 @@
 import { Inbound } from '@inboundemail/sdk';
 import { nanoid } from 'nanoid';
 
-// Initialize Inbound client
-const inbound = new Inbound(process.env.INBOUND_API_KEY!);
+// Lazy initialization of Inbound client
+function getInboundClient() {
+  const apiKey = process.env.INBOUND_API_KEY;
+  if (!apiKey) {
+    throw new Error('INBOUND_API_KEY environment variable is required');
+  }
+  return new Inbound(apiKey);
+}
 
 /**
  * Generate a secure verification token
@@ -30,6 +36,7 @@ export async function sendVerificationEmail({
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const verifyUrl = `${appUrl}/verify-email?token=${token}`;
   
+  const inbound = getInboundClient();
   const { data, error } = await inbound.email.send({
     from: 'ZapDev <noreply@yourdomain.com>', // TODO: Update with actual domain
     to: [email],
@@ -113,6 +120,7 @@ export async function sendPasswordResetEmail({
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const resetUrl = `${appUrl}/reset-password?token=${token}`;
   
+  const inbound = getInboundClient();
   const { data, error } = await inbound.email.send({
     from: 'ZapDev <noreply@yourdomain.com>', // TODO: Update with actual domain
     to: [email],

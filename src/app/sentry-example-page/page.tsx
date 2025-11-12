@@ -1,5 +1,8 @@
 "use client";
 
+// Skip static generation - auth issues during build
+export const dynamic = "force-dynamic";
+
 import Head from "next/head";
 import * as Sentry from "@sentry/nextjs";
 import { useState, useEffect } from "react";
