@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getToken } from "@/lib/auth-server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
 export async function GET() {
-  const { userId } = await auth();
+  const token = await getToken();
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  if (!userId) {
+  const user = await fetchQuery(api.auth.getCurrentUser, {}, { token });
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  const userId = user.userId || user._id.toString();
+
+  if (false) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

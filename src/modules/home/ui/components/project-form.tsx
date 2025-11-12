@@ -4,9 +4,8 @@ import { z } from "zod";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useState } from "react";
-import { useClerk } from "@clerk/nextjs";
-import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, FigmaIcon, GitBranchIcon } from "lucide-react";
@@ -42,7 +41,6 @@ interface AttachmentData {
 
 export const ProjectForm = () => {
   const router = useRouter();
-  const clerk = useClerk();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -95,7 +93,7 @@ export const ProjectForm = () => {
         toast.error(error.message);
 
         if (error.message.includes("Unauthenticated") || error.message.includes("Not authenticated")) {
-          clerk.openSignIn();
+          router.push("/sign-in");
         }
 
         if (error.message.includes("credits") || error.message.includes("out of credits")) {

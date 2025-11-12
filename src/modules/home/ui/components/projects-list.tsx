@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useUser } from "@clerk/nextjs";
+import { authClient } from "@/lib/auth-client";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -16,16 +16,18 @@ type ProjectWithPreview = Doc<"projects"> & {
 };
 
 export const ProjectsList = () => {
-  const { user } = useUser();
+  const { data: session } = authClient.useSession();
   const projects = useQuery(api.projects.list) as ProjectWithPreview[] | undefined;
 
-  if (!user) return null;
+  if (!session?.user) return null;
+
+  const userName = session.user.name?.split(" ")[0] || "";
 
   if (projects === undefined) {
     return (
       <div className="w-full bg-white dark:bg-sidebar rounded-xl p-8 border flex flex-col gap-y-6 sm:gap-y-4">
         <h2 className="text-2xl font-semibold">
-          {user.firstName ? `${user.firstName}'s Apps` : "Your Apps"}
+          {userName ? `${userName}'s Apps` : "Your Apps"}
         </h2>
         <div className="flex items-center justify-center py-8">
           <p className="text-sm text-muted-foreground">Loading...</p>
@@ -37,7 +39,7 @@ export const ProjectsList = () => {
   return (
     <div className="w-full bg-white dark:bg-sidebar rounded-xl p-8 border flex flex-col gap-y-6 sm:gap-y-4">
       <h2 className="text-2xl font-semibold">
-        {user.firstName ? `${user.firstName}'s Apps` : "Your Apps"}
+        {userName ? `${userName}'s Apps` : "Your Apps"}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {projects.length === 0 && (

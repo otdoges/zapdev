@@ -1,15 +1,25 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getToken } from "@/lib/auth-server";
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 
 const FIGMA_CLIENT_ID = process.env.FIGMA_CLIENT_ID;
 const FIGMA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/import/figma/callback`;
 
 export async function GET() {
-  const { userId } = await auth();
-
-  if (!userId) {
+  const token = await getToken();
+  
+  if (!token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const user = await fetchQuery(api.auth.getCurrentUser, {}, { token });
+  
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  const userId = user.userId || user._id.toString();
 
   if (!FIGMA_CLIENT_ID) {
     return NextResponse.json(
