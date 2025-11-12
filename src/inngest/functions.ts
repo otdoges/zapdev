@@ -1288,7 +1288,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
           const batchFilesMap: Record<string, string> = {};
           
           for (const filePath of batchFilePaths) {
-            const content = await readFileWithTimeout(sandbox, filePath);
+            const content = await readFileWithTimeout(sandbox, filePath, FILE_READ_TIMEOUT_MS);
             if (content !== null) {
               batchFilesMap[filePath] = content;
             }
