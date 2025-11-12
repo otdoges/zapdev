@@ -12,8 +12,6 @@
     "convex:deploy": "bunx convex deploy"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.34.2",
-    "@clerk/themes": "^2.4.31",
     "@convex-dev/auth": "^0.0.90",
     "@convex-dev/better-auth": "0.9.7",
     "@databuddy/sdk": "^2.2.1",

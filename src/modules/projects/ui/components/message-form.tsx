@@ -143,6 +143,7 @@ export const MessageForm = ({ projectId }: Props) => {
         <Usage
           points={usage.remainingPoints}
           msBeforeNext={usage.msBeforeNext}
+          planType={usage.planType}
         />
       )}
       <form

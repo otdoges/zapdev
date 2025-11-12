@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { fetchMutation, fetchQuery } from "convex/nextjs";
+import { getToken } from "@/lib/auth-server";
+import { fetchQuery, fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { inngest } from "@/inngest/client";
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
+  const token = await getToken();
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  if (!userId) {
+  const user = await fetchQuery(api.auth.getCurrentUser, {}, { token });
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  const userId = user.userId || user._id.toString();
+
+  if (false) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

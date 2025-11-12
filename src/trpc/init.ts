@@ -1,11 +1,27 @@
-import { auth } from '@clerk/nextjs/server';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { cache } from 'react';
 import superjson from "superjson";
+import { getToken } from '@/lib/auth-server';
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+
 export const createTRPCContext = cache(async () => {
-  return { auth: await auth() };
+  const token = await getToken();
+  let user = null;
+  
+  if (token) {
+    try {
+      user = await fetchQuery(api.auth.getCurrentUser, {}, { token });
+    } catch (error) {
+      console.error("Failed to get user from Better Auth:", error);
+    }
+  }
+  
+  return { user, token };
 });
+
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
+
 // Avoid exporting the entire t-object
 // since it's not very descriptive.
 // For instance, the use of a t variable
@@ -18,7 +34,7 @@ const t = initTRPC.context<Context>().create({
 });
 
 const isAuthed = t.middleware(({ next, ctx }) => {
-  if (!ctx.auth.userId) {
+  if (!ctx.user) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "Not authenticated",
@@ -27,7 +43,8 @@ const isAuthed = t.middleware(({ next, ctx }) => {
 
   return next({
     ctx: {
-      auth: ctx.auth,
+      user: ctx.user,
+      token: ctx.token,
     },
   });
 });

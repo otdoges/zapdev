@@ -1,25 +1,24 @@
 import { QueryCtx, MutationCtx } from "./_generated/server";
+import { authComponent } from "./auth";
 
 /**
- * Get the current authenticated user's Clerk ID from the auth token
+ * Get the current authenticated user's ID from Better Auth
  */
-export async function getCurrentUserClerkId(
+export async function getCurrentUserId(
   ctx: QueryCtx | MutationCtx
 ): Promise<string | null> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) return null;
-
-  // Clerk stores the user ID in the subject field
-  return identity.subject;
+  const user = await authComponent.getAuthUser(ctx);
+  if (!user) return null;
+  return user.userId || user._id.toString();
 }
 
 /**
- * Get the current authenticated user's Clerk ID or throw an error
+ * Get the current authenticated user's ID or throw an error
  */
 export async function requireAuth(
   ctx: QueryCtx | MutationCtx
 ): Promise<string> {
-  const userId = await getCurrentUserClerkId(ctx);
+  const userId = await getCurrentUserId(ctx);
   if (!userId) {
     throw new Error("Unauthorized");
   }
@@ -27,11 +26,32 @@ export async function requireAuth(
 }
 
 /**
- * Check if user has pro access based on Clerk custom claims
+ * Check if user has pro access
+ * For now, check if user has a plan field set to "pro" in their user record
+ * You can extend the Better Auth user schema to include a plan field
  */
-export function hasProAccess(identity: any): boolean {
-  // Clerk stores custom claims in tokenIdentifier or custom claims
-  // You'll need to check the specific structure from your Clerk JWT
-  const plan = identity?.plan || identity?.publicMetadata?.plan;
-  return plan === "pro";
+export async function hasProAccess(ctx: QueryCtx | MutationCtx): Promise<boolean> {
+  const user = await authComponent.getAuthUser(ctx);
+  if (!user) return false;
+  
+  const userId = user.userId || user._id.toString();
+  
+  // Check if user record has a plan field (you may need to extend the schema)
+  // For now, check the usage table which has planType
+  const usage = await ctx.db
+    .query("usage")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .first();
+  
+  return usage?.planType === "pro";
+}
+
+/**
+ * Legacy compatibility: Get Clerk-style user ID (now just returns Better Auth user ID)
+ * @deprecated Use getCurrentUserId instead
+ */
+export async function getCurrentUserClerkId(
+  ctx: QueryCtx | MutationCtx
+): Promise<string | null> {
+  return getCurrentUserId(ctx);
 }
