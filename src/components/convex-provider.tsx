@@ -1,14 +1,13 @@
 "use client";
 
 import { ConvexReactClient } from "convex/react";
-import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
-import { authClient } from "@/lib/auth-client";
+import { useStackApp } from "@stackframe/stack";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 
 let convexClient: ConvexReactClient | null = null;
 
-function getConvexClient() {
+function getConvexClient(stackApp: any) {
   if (!convexClient) {
     const url = process.env.NEXT_PUBLIC_CONVEX_URL;
     if (!url) {
@@ -19,11 +18,15 @@ function getConvexClient() {
       // Set to false if you have public routes
       expectAuth: false,
     });
+    // Set up Stack Auth for Convex
+    convexClient.setAuth(stackApp.getConvexClientAuth({}));
   }
   return convexClient;
 }
 
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
+  const stackApp = useStackApp();
+  
   const convex = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_CONVEX_URL;
     if (!url) {
@@ -33,12 +36,8 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
       console.error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
       return new ConvexReactClient("https://placeholder.convex.cloud");
     }
-    return getConvexClient();
-  }, []);
+    return getConvexClient(stackApp);
+  }, [stackApp]);
 
-  return (
-    <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-      {children}
-    </ConvexBetterAuthProvider>
-  );
+  return <>{children}</>;
 }

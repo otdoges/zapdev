@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import Script from "next/script";
+import { StackProvider, StackTheme, StackServerApp } from "@stackframe/stack";
 
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { ConvexClientProvider } from "@/components/convex-provider";
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -57,6 +58,10 @@ export const metadata: Metadata = {
   },
 };
 
+const stackServerApp = new StackServerApp({
+  tokenStore: "nextjs-cookie",
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -91,18 +96,22 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <ConvexClientProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <Toaster />
-            <WebVitalsReporter />
-            {children}
-          </ThemeProvider>
-        </ConvexClientProvider>
+        <StackProvider app={stackServerApp}>
+          <StackTheme>
+            <ConvexClientProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <Toaster />
+                <WebVitalsReporter />
+                {children}
+              </ThemeProvider>
+            </ConvexClientProvider>
+          </StackTheme>
+        </StackProvider>
       </body>
       <SpeedInsights />
     </html>

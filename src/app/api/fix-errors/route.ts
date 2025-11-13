@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getToken } from "@/lib/auth-server";
-import { fetchQuery } from "convex/nextjs";
+import { getUser, getConvexClientWithAuth } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { inngest } from "@/inngest/client";
@@ -20,23 +19,15 @@ function isFixErrorsRequestBody(value: unknown): value is FixErrorsRequestBody {
 
 export async function POST(request: Request) {
   try {
-    const token = await getToken();
-    if (!token) {
+    const stackUser = await getUser();
+    if (!stackUser) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const user = await fetchQuery(api.auth.getCurrentUser, {}, { token });
-    if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-    
-    const userId = user.userId || user._id.toString();
+    const convexClient = await getConvexClientWithAuth();
 
     let body: unknown;
     try {
@@ -58,11 +49,12 @@ export async function POST(request: Request) {
     const { fragmentId } = body;
 
     try {
-      await fetchQuery(api.messages.getFragmentByIdAuth, {
+      // Check if fragment exists and user has access to it
+      await convexClient.query(api.messages.getFragmentByIdAuth, {
         fragmentId: fragmentId as Id<"fragments">
       });
 
-      // If query succeeds, user is authorized
+      // If query succeeds, user is authorized - trigger error fix
       await inngest.send({
         name: "error-fix/run",
         data: {
