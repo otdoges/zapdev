@@ -19,7 +19,8 @@ function getConvexClient(stackApp: any) {
       expectAuth: false,
     });
     // Set up Stack Auth for Convex
-    convexClient.setAuth(stackApp.getConvexClientAuth({}));
+    // IMPORTANT: Must include tokenStore parameter for JWT authentication
+    convexClient.setAuth(stackApp.getConvexClientAuth({ tokenStore: "nextjs-cookie" }));
   }
   return convexClient;
 }
