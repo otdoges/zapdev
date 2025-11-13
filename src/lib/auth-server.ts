@@ -57,7 +57,7 @@ export async function getConvexClientWithAuth() {
   const httpClient = new ConvexHttpClient(convexUrl);
   
   // Set up Stack Auth for the Convex client
-  const authInfo = stackServerApp.getConvexHttpClientAuth({
+  const authInfo = await stackServerApp.getConvexHttpClientAuth({
     tokenStore: "nextjs-cookie",
   });
   
