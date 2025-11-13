@@ -4,7 +4,7 @@
 export default {
   providers: [
     {
-      domain: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+      domain: `https://api.stack-auth.com/api/v1/projects/${process.env.NEXT_PUBLIC_STACK_PROJECT_ID}`,
       applicationID: "convex",
     },
   ],
