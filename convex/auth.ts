@@ -22,7 +22,7 @@ export const createAuth = (
       disabled: optionsOnly,
     },
     baseURL: siteUrl,
-    database: () => authComponent.adapter(ctx),
+    database: authComponent.adapter(ctx),
     // Configure email/password authentication
     emailAndPassword: {
       enabled: true,
