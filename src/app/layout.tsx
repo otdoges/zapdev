@@ -64,8 +64,8 @@ const stackServerApp = new StackServerApp({
     // Keep handler routes as fallback for direct URL access
     signIn: "/handler/sign-in",
     signUp: "/handler/sign-up",
-    afterSignIn: "/dashboard",
-    afterSignUp: "/dashboard",
+    afterSignIn: "/",
+    afterSignUp: "/",
   },
 });
 
