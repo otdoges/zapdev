@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getToken } from "@/lib/auth-server";
-import { fetchQuery, fetchMutation } from "convex/nextjs";
+import { getUser, getConvexClientWithAuth } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { sanitizeTextForDatabase } from "@/lib/utils";
@@ -26,23 +25,15 @@ function isUpdateMessageRequestBody(value: unknown): value is UpdateMessageReque
 
 export async function PATCH(request: Request) {
   try {
-    const token = await getToken();
-    if (!token) {
+    const stackUser = await getUser();
+    if (!stackUser) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const user = await fetchQuery(api.auth.getCurrentUser, {}, { token });
-    if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-    
-    const userId = user.userId || user._id.toString();
+    const convexClient = await getConvexClientWithAuth();
 
     let body: unknown;
     try {
@@ -73,7 +64,7 @@ export async function PATCH(request: Request) {
     }
 
     try {
-      const updatedMessage = await fetchMutation(api.messages.updateMessage, {
+      const updatedMessage = await convexClient.mutation(api.messages.updateMessage, {
         messageId: messageId as Id<"messages">,
         content: sanitizedContent,
         status: status || "STREAMING",

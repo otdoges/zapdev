@@ -1,29 +1,9 @@
 ---
-description: ZapDev Convex guidelines - rules for building and maintaining the Convex backend for AI-powered code generation platform
-globs: convex/**/*.ts
+description: Guidelines and best practices for building Convex projects, including database schema design, queries, mutations, and real-world examples
+globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
 ---
 
-# ZapDev Convex Guidelines
-
-This file provides guidance specific to the **ZapDev** codebase, an AI-powered code generation platform using Convex as the real-time database backend.
-## ZapDev Project Context
-
-**Project Overview**: ZapDev is an AI-powered development platform where users can generate web applications through conversational AI interactions. The Convex backend stores projects, messages, generated code fragments, OAuth connections, and credit usage.
-
-**Core Data Model**:
-- `projects`: User projects with framework selection (Next.js, Angular, React, Vue, Svelte)
-- `messages`: Conversation history between user and AI agent (USER/ASSISTANT roles)
-- `fragments`: Generated code artifacts linked to messages
-- `attachments`: File references (images, Figma files, GitHub repos)
-- `oauthConnections`: Encrypted OAuth tokens for Figma/GitHub integrations
-- `imports`: Import job tracking (status, metadata)
-- `usage`: Credit tracking and rate limiting
-- `rateLimits`: Request-based rate limiting by key
-
-**Authentication**: Uses Clerk with JWT authentication. All authenticated mutations must call `requireAuth(ctx)` to get the Clerk user ID (stored in `oauthConnections`, `usage`, `imports`, and `projects.userId`).
-
----
-
+# Convex guidelines
 ## Function guidelines
 ### New function syntax
 - ALWAYS use the new function syntax for Convex functions. For example:
@@ -38,31 +18,6 @@ export const f = query({
     },
 });
 ```
-
-### ZapDev Authentication Pattern
-- Use the `requireAuth(ctx)` helper function (from `convex/helpers.ts`) to verify user identity and get the Clerk user ID
-- This helper throws an error if the user is not authenticated
-- Always store the returned `userId` for authorization checks on owned resources
-- Example:
-```typescript
-export const create = mutation({
-  args: { name: v.string() },
-  handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx); // Gets Clerk user ID
-    // Now you can use userId for storing/authorizing records
-  },
-});
-```
-
-### ZapDev Authorization Pattern
-- For queries/mutations that access project data, always verify ownership:
-```typescript
-const project = await ctx.db.get(args.projectId);
-if (!project || project.userId !== userId) {
-  throw new Error("Unauthorized");
-}
-```
-- Never allow access to resources (messages, fragments) without verifying the owning project belongs to the authenticated user
 
 ### Http endpoint syntax
 - HTTP endpoints are defined in `convex/http.ts` and require an `httpAction` decorator. For example:
@@ -186,28 +141,10 @@ export const g = query({
 - A private function defined in `convex/example.ts` named `g` has a function reference of `internal.example.g`.
 - Functions can also registered within directories nested within the `convex/` folder. For example, a public function `h` defined in `convex/messages/access.ts` has a function reference of `api.messages.access.h`.
 
-### ZapDev File Organization
-The `convex/` directory is organized by feature/domain:
-- `schema.ts` — Database schema with enums and table definitions (framework, messageRole, messageType, etc.)
-- `helpers.ts` — Common utilities like `requireAuth()` and `getCurrentUserClerkId()`
-- `projects.ts` — Project CRUD and management operations
-- `messages.ts` — Message creation, querying, streaming, and AI response integration
-- `usage.ts` — Credit tracking, plan validation, and rate limiting
-- `oauth.ts` — OAuth connection management (Figma, GitHub)
-- `imports.ts` — Import job tracking and processing
-- `rateLimit.ts` — Request-based rate limiting helpers
-- `auth.ts` — Authentication configuration for Better Auth
-- `auth.config.ts` — Better Auth provider setup
-- `http.ts` — HTTP endpoints for webhooks and external integrations
-- `importData.ts` — Data migration and import utilities
-
 ### Api design
-- Organize public functions (query, mutation, action) by feature in separate files
-- Use `query` for read-only operations (project list, message history)
-- Use `mutation` for database changes (create/update/delete projects, messages, usage)
-- Use `action` for side effects (calling AI APIs, processing imports, OAuth flows)
-- Use `internalQuery`, `internalMutation`, and `internalAction` for helper functions
-- All public functions must validate user authentication and authorization
+- Convex uses file-based routing, so thoughtfully organize files with public query, mutation, or action functions within the `convex/` directory.
+- Use `query`, `mutation`, and `action` to define public functions.
+- Use `internalQuery`, `internalMutation`, and `internalAction` to define private, internal functions.
 
 ### Pagination
 - Paginated queries are queries that return a list of results in incremental pages.
@@ -241,44 +178,12 @@ Note: `paginationOpts` is an object with the following properties:
 - `v.bigint()` is deprecated for representing signed 64-bit integers. Use `v.int64()` instead.
 - Use `v.record()` for defining a record type. `v.map()` and `v.set()` are not supported.
 
-## ZapDev Schema Guidelines
-
-### Enums in ZapDev
-All enum types are defined at the top of `convex/schema.ts` using `v.union()` with `v.literal()` values:
-- `frameworkEnum` — NEXTJS, ANGULAR, REACT, VUE, SVELTE
-- `messageRoleEnum` — USER, ASSISTANT
-- `messageTypeEnum` — RESULT, ERROR, STREAMING
-- `messageStatusEnum` — PENDING, STREAMING, COMPLETE
-- `attachmentTypeEnum` — IMAGE, FIGMA_FILE, GITHUB_REPO
-- `importSourceEnum` — FIGMA, GITHUB
-- `oauthProviderEnum` — figma, github
-- `importStatusEnum` — PENDING, PROCESSING, COMPLETE, FAILED
-
-When adding new enums, export them from `schema.ts` and import them into other files like `projects.ts`, `messages.ts`, etc.
-
-### ZapDev Table Structure
-- **projects**: userId (Clerk string), framework (enum), name, timestamps
-- **messages**: projectId, role (enum), type (enum), status (enum), content, timestamps
-- **fragments**: messageId, sandboxId, sandboxUrl, framework, files (JSON), metadata (JSON), timestamps
-- **attachments**: messageId, type (enum), url, dimensions, size, metadata, timestamps
-- **oauthConnections**: userId (Clerk string), provider (enum), encrypted tokens, metadata, timestamps
-- **imports**: userId (Clerk string), projectId, source (enum), status (enum), error message, timestamps
-- **usage**: userId (Clerk string), points (credit count), expiry, planType
-- **rateLimits**: key (rate limit key), count, windowStart, limit, windowMs
-
-### Key Indexing Patterns
-- Index by userId for user-scoped data: `by_userId`
-- Index by projectId for project-scoped data: `by_projectId`
-- Composite indexes for common query patterns: `by_userId_createdAt`, `by_projectId_createdAt`, `by_userId_provider`
-- Always query indexes in the defined field order (e.g., if index is `["userId", "createdAt"]`, query userId first, then createdAt)
-
 ## Schema guidelines
 - Always define your schema in `convex/schema.ts`.
 - Always import the schema definition functions from `convex/server`:
 - System fields are automatically added to all documents and are prefixed with an underscore. The two system fields that are automatically added to all documents are `_creationTime` which has the validator `v.number()` and `_id` which has the validator `v.id(tableName)`.
 - Always include all index fields in the index name. For example, if an index is defined as `["field1", "field2"]`, the index name should be "by_field1_and_field2".
 - Index fields must be queried in the same order they are defined. If you want to be able to query by "field1" then "field2" and by "field2" then "field1", you must create separate indexes.
-- **ZapDev Note**: Timestamps (createdAt, updatedAt) are stored as numbers (milliseconds since epoch) using `v.optional(v.number())`
 
 ## Typescript guidelines
 - You can use the helper typescript type `Id` imported from './_generated/dataModel' to get the type of the id for a given table. For example if there is a table called 'users' you can use `Id<'users'>` to get the type of the id for that table.
@@ -330,109 +235,13 @@ const messages = await ctx.db
 - Document queries that use indexes will be ordered based on the columns in the index and can avoid slow table scans.
 
 
-## ZapDev Mutation Patterns
-
-### Message Mutations
-When creating messages in ZapDev:
-```typescript
-const now = Date.now();
-const messageId = await ctx.db.insert("messages", {
-  projectId: args.projectId,
-  content: args.content,
-  role: "USER", // or "ASSISTANT"
-  type: "RESULT", // or "ERROR", "STREAMING"
-  status: "COMPLETE", // or "PENDING", "STREAMING"
-  createdAt: now,
-  updatedAt: now,
-});
-```
-
-### Project Mutations
-Always update both `createdAt` (immutable) and `updatedAt` (mutable) timestamps:
-```typescript
-await ctx.db.patch(projectId, {
-  name: newName,
-  updatedAt: Date.now(), // Always update this
-});
-```
-
-### Credit Consumption
-When creating a generation request (message with AI response), check and consume credits:
-```typescript
-const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
-if (creditResult.creditsRemaining <= 0) {
-  throw new Error("Insufficient credits");
-}
-// Credit is automatically consumed when message is created
-```
-
 ## Mutation guidelines
 - Use `ctx.db.replace` to fully replace an existing document. This method will throw an error if the document does not exist.
 - Use `ctx.db.patch` to shallow merge updates into an existing document. This method will throw an error if the document does not exist.
-- **ZapDev**: Always include `updatedAt: Date.now()` when patching documents to maintain audit trail
-
-## ZapDev Action Patterns
-
-### AI Agent Actions
-ZapDev uses actions for long-running operations like AI code generation:
-```typescript
-export const generateCode = action({
-  args: {
-    projectId: v.id("projects"),
-    messageId: v.id("messages"),
-    userPrompt: v.string(),
-  },
-  handler: async (ctx, args) => {
-    // 1. Load context (previous messages)
-    const messages = await ctx.runQuery(api.messages.list, { 
-      projectId: args.projectId 
-    });
-    
-    // 2. Call external AI API
-    const response = await callAIGateway(messages, args.userPrompt);
-    
-    // 3. Process response (validate, build in sandbox)
-    const fragment = await processSandboxOutput(response);
-    
-    // 4. Save results back to database
-    await ctx.runMutation(api.fragments.create, {
-      messageId: args.messageId,
-      sandboxUrl: fragment.url,
-      files: fragment.files,
-    });
-  },
-});
-```
-
-### OAuth Actions
-OAuth flows (Figma, GitHub) must be actions since they call external APIs:
-```typescript
-export const connectGitHub = action({
-  args: { code: v.string() },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
-    
-    const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      body: JSON.stringify({ code, /* ... */ }),
-    });
-    
-    // Save encrypted token to database
-    await ctx.runMutation(api.oauth.saveConnection, {
-      provider: "github",
-      encryptedToken: encrypted,
-    });
-  },
-});
-```
 
 ## Action guidelines
 - Always add `"use node";` to the top of files containing actions that use Node.js built-in modules.
 - Never use `ctx.db` inside of an action. Actions don't have access to the database.
-- Use `ctx.runQuery()`, `ctx.runMutation()` to access the database from actions
-- **ZapDev**: All AI generation, OAuth flows, and external API calls should be actions
-- **ZapDev**: Actions in ZapDev have a 60-minute timeout maximum per sandbox execution
 - Below is an example of the syntax for an action:
 ```ts
 import { action } from "./_generated/server";
@@ -506,140 +315,6 @@ export const exampleQuery = query({
 ```
 - Convex storage stores items as `Blob` objects. You must convert all items to/from a `Blob` when using Convex storage.
 
-
-# ZapDev-Specific Patterns & Examples
-
-## Common ZapDev Operations
-
-### Creating a Project
-```typescript
-// projects.ts
-export const create = mutation({
-  args: {
-    name: v.string(),
-    framework: frameworkEnum,
-  },
-  handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
-    const now = Date.now();
-    
-    return await ctx.db.insert("projects", {
-      name: args.name,
-      userId,
-      framework: args.framework,
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
-});
-```
-
-### Querying User Projects
-```typescript
-// projects.ts
-export const listByUser = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getCurrentUserClerkId(ctx);
-    if (!userId) return [];
-    
-    return await ctx.db
-      .query("projects")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .order("desc")
-      .collect();
-  },
-});
-```
-
-### Saving a Code Fragment
-```typescript
-// fragments.ts (if it exists)
-export const create = mutation({
-  args: {
-    messageId: v.id("messages"),
-    sandboxUrl: v.string(),
-    framework: frameworkEnum,
-    files: v.any(), // { [filename]: { content: string } }
-  },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    
-    return await ctx.db.insert("fragments", {
-      messageId: args.messageId,
-      sandboxUrl: args.sandboxUrl,
-      framework: args.framework,
-      files: args.files,
-      metadata: {},
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
-});
-```
-
-### Checking User Credits
-```typescript
-// usage.ts
-export const getUsageForUser = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
-    const usage = await ctx.db
-      .query("usage")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .unique();
-    
-    if (!usage) {
-      return { creditsRemaining: 5, planType: "free" };
-    }
-    
-    // Check if expired
-    if (usage.expire && usage.expire < Date.now()) {
-      // Reset credits for new period
-      return { creditsRemaining: 5, planType: "free" };
-    }
-    
-    return { 
-      creditsRemaining: usage.points, 
-      planType: usage.planType || "free" 
-    };
-  },
-});
-```
-
-### Rate Limiting Helper
-```typescript
-// rateLimit.ts
-export const checkRateLimit = internalQuery({
-  args: { 
-    key: v.string(),
-    limit: v.number(),
-    windowMs: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    const windowStart = now - args.windowMs;
-    
-    const rateLimit = await ctx.db
-      .query("rateLimits")
-      .withIndex("by_key", (q) => q.eq("key", args.key))
-      .unique();
-    
-    if (!rateLimit || rateLimit.windowStart < windowStart) {
-      // New window, reset count
-      return { allowed: true, remaining: args.limit - 1 };
-    }
-    
-    if (rateLimit.count >= args.limit) {
-      return { allowed: false, remaining: 0 };
-    }
-    
-    return { allowed: true, remaining: args.limit - rateLimit.count - 1 };
-  },
-});
-```
-
----
 
 # Examples:
 ## Example: chat-app
@@ -998,3 +673,4 @@ export default function App() {
   return <div>Hello World</div>;
 }
 ```
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { authClient } from "@/lib/auth-client";
+import { useUser } from "@stackframe/stack";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -19,22 +19,22 @@ interface Props {
 
 export const UserControl = ({ showName }: Props) => {
   const router = useRouter();
-  const { data: session } = authClient.useSession();
+  const user = useUser();
 
-  if (!session) return null;
+  if (!user) return null;
 
   const handleSignOut = async () => {
-    await authClient.signOut();
+    await user.signOut();
     router.push("/");
   };
 
-  const initials = session.user.name
+  const initials = user.displayName
     ?.split(" ")
     .map((n) => n[0])
     .join("")
-    .toUpperCase() || session.user.email?.[0]?.toUpperCase() || "U";
+    .toUpperCase() || user.primaryEmail?.[0]?.toUpperCase() || "U";
 
-  const avatarSrc = session.user.image ?? undefined;
+  const avatarSrc = user.profileImageUrl ?? undefined;
 
   return (
     <DropdownMenu>
@@ -45,16 +45,16 @@ export const UserControl = ({ showName }: Props) => {
         </Avatar>
         {showName && (
           <span className="text-sm font-medium hidden md:inline-block">
-            {session.user.name || session.user.email}
+            {user.displayName || user.primaryEmail}
           </span>
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{session.user.name}</p>
+            <p className="text-sm font-medium leading-none">{user.displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {session.user.email}
+              {user.primaryEmail}
             </p>
           </div>
         </DropdownMenuLabel>

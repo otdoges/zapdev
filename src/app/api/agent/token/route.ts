@@ -1,19 +1,8 @@
-import { getToken } from "@/lib/auth-server";
-import { fetchQuery } from "convex/nextjs";
-import { api } from "@/convex/_generated/api";
+import { getUser } from "@/lib/auth-server";
 
 export async function POST() {
   try {
-    const token = await getToken();
-    
-    if (!token) {
-      return Response.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const user = await fetchQuery(api.auth.getCurrentUser, {}, { token });
+    const user = await getUser();
     
     if (!user) {
       return Response.json(

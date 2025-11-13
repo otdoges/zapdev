@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
-import { authClient } from "@/lib/auth-client";
+import { useUser } from "@stackframe/stack";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -18,7 +18,7 @@ import {
 
 export const Navbar = () => {
   const isScrolled = useScroll();
-  const { data: session } = authClient.useSession();
+  const user = useUser();
 
   return (
     <nav
@@ -46,14 +46,14 @@ export const Navbar = () => {
             </NavigationMenuList>
           </NavigationMenu>
         </div>
-        {!session ? (
+        {!user ? (
           <div className="flex gap-2">
-            <Link href="/sign-up">
+            <Link href="/handler/sign-up">
               <Button variant="outline" size="sm">
                 Sign up
               </Button>
             </Link>
-            <Link href="/sign-in">
+            <Link href="/handler/sign-in">
               <Button size="sm">
                 Sign in
               </Button>
