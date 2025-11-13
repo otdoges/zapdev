@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
+import { AuthModal } from "@/components/auth-modal";
 import { useUser } from "@stackframe/stack";
 import {
   NavigationMenu,
@@ -19,50 +21,68 @@ import {
 export const Navbar = () => {
   const isScrolled = useScroll();
   const user = useUser();
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+
+  const openAuthModal = (mode: "signin" | "signup") => {
+    setAuthMode(mode);
+    setAuthModalOpen(true);
+  };
 
   return (
-    <nav
-      className={cn(
-        "p-4 bg-transparent fixed top-0 left-0 right-0 z-50 transition-all duration-200 border-b border-transparent",
-        isScrolled && "bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-border"
-      )}
-    >
-      <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.svg" alt="ZapDev - AI-Powered Development Platform" width={24} height={24} />
-            <span className="font-semibold text-lg">ZapDev</span>
-          </Link>
-          
-          <NavigationMenu className="hidden md:flex">
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <Link href="/pricing" legacyBehavior passHref>
-                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                    Pricing
-                  </NavigationMenuLink>
-                </Link>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-        </div>
-        {!user ? (
-          <div className="flex gap-2">
-            <Link href="/handler/sign-up">
-              <Button variant="outline" size="sm">
+    <>
+      <nav
+        className={cn(
+          "p-4 bg-transparent fixed top-0 left-0 right-0 z-50 transition-all duration-200 border-b border-transparent",
+          isScrolled && "bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-border"
+        )}
+      >
+        <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
+          <div className="flex items-center gap-8">
+            <Link href="/" className="flex items-center gap-2">
+              <Image src="/logo.svg" alt="ZapDev - AI-Powered Development Platform" width={24} height={24} />
+              <span className="font-semibold text-lg">ZapDev</span>
+            </Link>
+            
+            <NavigationMenu className="hidden md:flex">
+              <NavigationMenuList>
+                <NavigationMenuItem>
+                  <Link href="/pricing" legacyBehavior passHref>
+                    <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                      Pricing
+                    </NavigationMenuLink>
+                  </Link>
+                </NavigationMenuItem>
+              </NavigationMenuList>
+            </NavigationMenu>
+          </div>
+          {!user ? (
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => openAuthModal("signup")}
+              >
                 Sign up
               </Button>
-            </Link>
-            <Link href="/handler/sign-in">
-              <Button size="sm">
+              <Button 
+                size="sm"
+                onClick={() => openAuthModal("signin")}
+              >
                 Sign in
               </Button>
-            </Link>
-          </div>
-        ) : (
-          <UserControl showName />
-        )}
-      </div>
-    </nav>
+            </div>
+          ) : (
+            <UserControl showName />
+          )}
+        </div>
+      </nav>
+      
+      <AuthModal 
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        mode={authMode}
+      />
+    </>
   );
 };

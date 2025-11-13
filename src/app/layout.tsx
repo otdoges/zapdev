@@ -60,6 +60,13 @@ export const metadata: Metadata = {
 
 const stackServerApp = new StackServerApp({
   tokenStore: "nextjs-cookie",
+  urls: {
+    // Keep handler routes as fallback for direct URL access
+    signIn: "/handler/sign-in",
+    signUp: "/handler/sign-up",
+    afterSignIn: "/dashboard",
+    afterSignUp: "/dashboard",
+  },
 });
 
 export default function RootLayout({
