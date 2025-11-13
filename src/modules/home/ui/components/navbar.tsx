@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -16,6 +16,13 @@ import {
   NavigationMenuList,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { CalendarCheckIcon, MailIcon } from "lucide-react";
 
 
 export const Navbar = () => {
@@ -56,25 +63,56 @@ export const Navbar = () => {
               </NavigationMenuList>
             </NavigationMenu>
           </div>
-          {!user ? (
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => openAuthModal("signup")}
-              >
-                Sign up
-              </Button>
-              <Button 
-                size="sm"
-                onClick={() => openAuthModal("signin")}
-              >
-                Sign in
-              </Button>
-            </div>
-          ) : (
-            <UserControl showName />
-          )}
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="sm">
+                  Need help
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <a
+                    href="mailto:support@zapdev.link"
+                    className="flex items-center gap-2"
+                  >
+                    <MailIcon className="size-4 text-muted-foreground" />
+                    Email support
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a
+                    href="https://cal.com/jacksonwheeler"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2"
+                  >
+                    <CalendarCheckIcon className="size-4 text-muted-foreground" />
+                    Book a call
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {!user ? (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openAuthModal("signup")}
+                >
+                  Sign up
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => openAuthModal("signin")}
+                >
+                  Sign in
+                </Button>
+              </div>
+            ) : (
+              <UserControl showName />
+            )}
+          </div>
         </div>
       </nav>
       
