@@ -171,4 +171,30 @@ export default defineSchema({
   })
     .index("by_key", ["key"])
     .index("by_windowStart", ["windowStart"]),
+
+  // Subscriptions table - Polar.sh subscription tracking
+  subscriptions: defineTable({
+    userId: v.string(), // Stack Auth user ID
+    polarCustomerId: v.string(), // Polar.sh customer ID
+    polarSubscriptionId: v.string(), // Polar.sh subscription ID
+    productId: v.string(), // Polar product ID
+    productName: v.string(), // "Free" | "Pro" | "Enterprise"
+    status: v.union(
+      v.literal("incomplete"),
+      v.literal("active"),
+      v.literal("canceled"),
+      v.literal("past_due"),
+      v.literal("unpaid")
+    ),
+    currentPeriodStart: v.number(), // Timestamp
+    currentPeriodEnd: v.number(), // Timestamp
+    cancelAtPeriodEnd: v.boolean(), // Scheduled cancellation flag
+    metadata: v.optional(v.any()), // Additional Polar metadata
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_polarCustomerId", ["polarCustomerId"])
+    .index("by_polarSubscriptionId", ["polarSubscriptionId"])
+    .index("by_status", ["status"]),
 });

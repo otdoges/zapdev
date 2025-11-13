@@ -28,15 +28,25 @@ export async function requireAuth(
 
 /**
  * Check if user has pro access
- * For now, check if user has a plan field set to "pro" in their user record
- * You can extend the Stack Auth user schema to include a plan field
+ * Checks for active Polar.sh subscription with Pro or Enterprise tier
  */
 export async function hasProAccess(ctx: QueryCtx | MutationCtx): Promise<boolean> {
   const userId = await getCurrentUserId(ctx);
   if (!userId) return false;
   
-  // Check if user record has a plan field (you may need to extend the schema)
-  // For now, check the usage table which has planType
+  // Check active subscription from Polar
+  const subscription = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .filter((q) => q.eq(q.field("status"), "active"))
+    .first();
+  
+  // Pro access if active subscription exists and productName is "Pro" or "Enterprise"
+  if (subscription && ["Pro", "Enterprise"].includes(subscription.productName)) {
+    return true;
+  }
+  
+  // Fallback to legacy usage table check for backwards compatibility
   const usage = await ctx.db
     .query("usage")
     .withIndex("by_userId", (q) => q.eq("userId", userId))

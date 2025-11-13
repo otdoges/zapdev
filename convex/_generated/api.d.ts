@@ -16,6 +16,7 @@ import type * as messages from "../messages.js";
 import type * as oauth from "../oauth.js";
 import type * as projects from "../projects.js";
 import type * as rateLimit from "../rateLimit.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as usage from "../usage.js";
 
 import type {
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   oauth: typeof oauth;
   projects: typeof projects;
   rateLimit: typeof rateLimit;
+  subscriptions: typeof subscriptions;
   usage: typeof usage;
 }>;
 
