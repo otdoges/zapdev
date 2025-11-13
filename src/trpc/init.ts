@@ -1,23 +1,12 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { cache } from 'react';
 import superjson from "superjson";
-import { getToken } from '@/lib/auth-server';
-import { fetchQuery } from "convex/nextjs";
-import { api } from "@/convex/_generated/api";
+import { getUser } from '@/lib/auth-server';
 
 export const createTRPCContext = cache(async () => {
-  const token = await getToken();
-  let user = null;
+  const user = await getUser();
   
-  if (token) {
-    try {
-      user = await fetchQuery(api.auth.getCurrentUser, {}, { token });
-    } catch (error) {
-      console.error("Failed to get user from Better Auth:", error);
-    }
-  }
-  
-  return { user, token };
+  return { user };
 });
 
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
@@ -44,7 +33,6 @@ const isAuthed = t.middleware(({ next, ctx }) => {
   return next({
     ctx: {
       user: ctx.user,
-      token: ctx.token,
     },
   });
 });

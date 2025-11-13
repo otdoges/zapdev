@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getToken } from "@/lib/auth-server";
+import { getUser } from "@/lib/auth-server";
 import { fetchQuery, fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
@@ -8,17 +8,15 @@ const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const GITHUB_REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/import/github/callback`;
 
 export async function GET(request: Request) {
-  const token = await getToken();
-  if (!token) {
+  const stackUser = await getUser();
+  if (!stackUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await fetchQuery(api.auth.getCurrentUser, {}, { token });
-  if (!user) {
+  const userId = stackUser.id;
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
-  const userId = user.userId || user._id.toString();
 
   if (false) {
     return NextResponse.redirect(new URL("/", request.url));
