@@ -46,6 +46,7 @@ export const ProjectForm = () => {
     defaultValues: {
       value: "",
     },
+    mode: "onChange",
   });
 
   const createProjectWithMessageAndAttachments = useAction(api.projects.createWithMessageAndAttachments);
@@ -169,7 +170,12 @@ export const ProjectForm = () => {
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
-                    form.handleSubmit(onSubmit)(e);
+                    const currentValue = form.getValues("value").trim();
+                    if (!currentValue) {
+                      void form.trigger("value");
+                      return;
+                    }
+                    form.handleSubmit(onSubmit)(e).catch(() => null);
                   }
                 }}
               />
@@ -327,6 +333,7 @@ export const ProjectForm = () => {
                 "size-8 rounded-full",
                 isButtonDisabled && "bg-muted-foreground border"
               )}
+              type="submit"
             >
               {isPending ? (
                 <Loader2Icon className="size-4 animate-spin" />
