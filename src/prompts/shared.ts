@@ -116,7 +116,7 @@ Environment:
 - Read files via readFiles
 - Do not modify package.json or lock files directly — install packages using the terminal only
 - All files are under /home/user
-- When creating a new route, always edit that folder's `page.tsx` so the custom UI appears instead of the default Next.js placeholder; this ensures the other pages reference the new entry point and avoids showing the generic Next.js page
+- When creating a new route, always edit that folder's \`page.tsx\` so the custom UI appears instead of the default Next.js placeholder; this ensures the other pages reference the new entry point and avoids showing the generic Next.js page
 
 File Safety Rules:
 - All CREATE OR UPDATE file paths must be relative (e.g., "app/page.tsx", "lib/utils.ts")
