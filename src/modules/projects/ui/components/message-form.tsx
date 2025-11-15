@@ -69,7 +69,7 @@ export const MessageForm = ({ projectId }: Props) => {
     defaultValues: {
       value: "",
     },
-    mode: "onChange",
+    mode: "onSubmit",
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {

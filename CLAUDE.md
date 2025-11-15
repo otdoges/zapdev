@@ -177,7 +177,7 @@ Subscriptions enable real-time UI updates when data changes.
 
 ## Configuration
 
-### Environment Variables (16 required)
+### Environment Variables (17 required)
 
 ```bash
 # AI Gateway
@@ -191,11 +191,13 @@ CONVEX_DEPLOYMENT
 # Code Execution
 E2B_API_KEY
 
-# Authentication (Clerk)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-CLERK_SECRET_KEY
-CLERK_JWT_ISSUER_DOMAIN
-CLERK_WEBHOOK_SECRET
+# Authentication (Stack Auth)
+NEXT_PUBLIC_STACK_PROJECT_ID
+NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY
+STACK_SECRET_SERVER_KEY
+
+# File Upload (UploadThing)
+UPLOADTHING_TOKEN  # Get from https://uploadthing.com/dashboard
 
 # Background Jobs (Inngest)
 INNGEST_EVENT_KEY
