@@ -1371,6 +1371,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     }
 
     const errorReasons: string[] = [];
+    const warningReasons: string[] = [];
     const shadcnCompliant =
       selectedFramework !== "nextjs" || usesShadcnComponents(files);
 
@@ -1384,7 +1385,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       errorReasons.push("agent reported unresolved error");
     }
     if (!shadcnCompliant) {
-      errorReasons.push("missing Shadcn UI components");
+      warningReasons.push("missing Shadcn UI components");
     }
 
     const isError = errorReasons.length > 0;
@@ -1394,6 +1395,11 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       );
     } else {
       console.log("[DEBUG] Completion flagged as success.");
+    }
+    if (warningReasons.length > 0) {
+      console.warn(
+        `[WARN] Completion generated warnings: ${warningReasons.join(", ")}`,
+      );
     }
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
@@ -1713,10 +1719,19 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const parsedTitle = parseAgentOutput(fragmentTitleOutput);
 
       const sanitizedResponse = sanitizeTextForDatabase(parsedResponse ?? "");
-      const responseContent =
+      const baseResponseContent =
         sanitizedResponse.length > 0
           ? sanitizedResponse
           : "Generated code is ready.";
+      const warningsNote =
+        warningReasons.length > 0
+          ? sanitizeTextForDatabase(
+              `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
+            )
+          : "";
+      const responseContent = sanitizeTextForDatabase(
+        `${baseResponseContent}${warningsNote}`,
+      );
 
       const sanitizedTitle = sanitizeTextForDatabase(parsedTitle ?? "");
       const fragmentTitle =
@@ -1727,6 +1742,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         modelName: MODEL_CONFIGS[selectedModel].name,
         provider: MODEL_CONFIGS[selectedModel].provider,
         ...(allScreenshots.length > 0 && { screenshots: allScreenshots }),
+        ...(warningReasons.length > 0 && { warnings: warningReasons }),
       };
 
       // Create message first
