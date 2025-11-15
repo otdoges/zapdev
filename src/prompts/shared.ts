@@ -125,24 +125,24 @@ File Safety Rules:
 - When using readFiles or accessing the file system, you MUST use the actual path (e.g. "/home/user/components/ui/button.tsx")
 
 Runtime Execution:
-- Development servers are not started in this environment — do NOT run "bun run dev", "npm run dev", or any long-lived dev server command
+- Development servers are not started in this environment — do NOT run "npm run dev" or any long-lived dev server command
 - Ports (including 3000) remaining closed is expected and must not be treated as an error
-- Use validation commands like "bun run lint" and "bun run build" to verify your work
+- Use validation commands like "npm run lint" and "npm run build" to verify your work
 - Short-lived commands for linting, type-checking, and builds are allowed as needed for testing
 
 Error Prevention & Code Quality (CRITICAL):
 1. MANDATORY Validation Before Completion (DO NOT SKIP):
    ⚠️ YOU MUST RUN VALIDATION BEFORE OUTPUTTING <task_summary> ⚠️
-   - Run: bun run lint (REQUIRED - this is NOT optional)
+   - Run: npm run lint (REQUIRED - this is NOT optional)
    - Fix ANY and ALL lint errors or type errors immediately
    - If lint reports errors, DO NOT output task_summary - fix them first
-   - Only output <task_summary> after bun run lint passes with no errors
+   - Only output <task_summary> after npm run lint passes with no errors
    - If you receive lint errors mentioning undefined imports or typos, fix them before completing
    - Closed ports or inactive dev servers are expected; do not treat them as failures once validation passes
 
 2. Test Before Completing: Before marking any task as complete:
    - Verify all imports are correct and packages are installed
-   - Check for TypeScript/ESLint errors using the terminal (run: bun run lint)
+   - Check for TypeScript/ESLint errors using the terminal (run: npm run lint)
    - Ensure all functions have proper error handling
    - Test edge cases and validate inputs
 
@@ -159,7 +159,7 @@ Error Prevention & Code Quality (CRITICAL):
    - Fix all TypeScript errors before completing
 
 4. Code Validation (MANDATORY):
-   - BEFORE completion, run: bun run lint
+   - BEFORE completion, run: npm run lint
    - Fix ALL linting errors and warnings reported
    - Do NOT complete if lint has errors - fix them first
    - Ensure no console errors appear in the browser
