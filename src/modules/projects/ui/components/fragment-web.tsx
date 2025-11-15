@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { ExternalLinkIcon, RefreshCcwIcon, DownloadIcon, BotIcon } from "lucide-react";
+import { ExternalLinkIcon, RefreshCcwIcon, DownloadIcon, BotIcon, Loader2Icon } from "lucide-react";
 import JSZip from "jszip";
+import { toast } from "sonner";
 
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export function FragmentWeb({ data }: FragmentWebProps) {
   const [copied, setCopied] = useState(false);
   const [fragmentKey, setFragmentKey] = useState(0);
   const [isResuming, setIsResuming] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [currentUrl, setCurrentUrl] = useState<string>(data.sandboxUrl);
   const [sandboxId, setSandboxId] = useState<string | null>(data.sandboxId ?? null);
   const [hasAttemptedResume, setHasAttemptedResume] = useState(false);
@@ -93,29 +95,67 @@ export function FragmentWeb({ data }: FragmentWebProps) {
   };
 
   const handleDownload = async () => {
-    // Filter out E2B sandbox system files - only export AI-generated code
+    if (isDownloading) {
+      return;
+    }
+
+    const hasFiles = Object.keys(files).length > 0;
+    if (!hasFiles) {
+      toast.error("No files available to download yet.");
+      return;
+    }
+
     const aiGeneratedFiles = filterAIGeneratedFiles(files);
     const fileEntries = Object.entries(aiGeneratedFiles);
 
     if (fileEntries.length === 0) {
+      if (process.env.NODE_ENV !== "production") {
+        const filteredOutFiles = Object.keys(files).filter((filePath) => !(filePath in aiGeneratedFiles));
+        console.debug("Fragment download skipped: no AI-generated files after filtering", {
+          fragmentId: data._id,
+          filteredOutFiles,
+        });
+      }
+      toast.error("No AI-generated files are ready to download.");
       return;
     }
 
-    const zip = new JSZip();
+    setIsDownloading(true);
 
-    fileEntries.forEach(([filename, content]) => {
-      zip.file(filename, content);
-    });
+    let objectUrl: string | null = null;
+    let downloadLink: HTMLAnchorElement | null = null;
 
-    const zipBlob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(zipBlob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `ai-generated-code-${data._id}.zip`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    try {
+      const zip = new JSZip();
+
+      fileEntries.forEach(([filename, content]) => {
+        zip.file(filename, content);
+      });
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      objectUrl = URL.createObjectURL(zipBlob);
+
+      downloadLink = document.createElement("a");
+      downloadLink.href = objectUrl;
+      downloadLink.download = `ai-generated-code-${data._id}.zip`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+
+      toast.success(`Downloaded ${fileEntries.length} file${fileEntries.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      console.error("Download failed:", error);
+      toast.error("Failed to download files. Please try again.");
+    } finally {
+      if (downloadLink) {
+        downloadLink.remove();
+      }
+
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+
+      setIsDownloading(false);
+    }
   };
 
   const resumeSandbox = useCallback(
@@ -252,9 +292,9 @@ export function FragmentWeb({ data }: FragmentWebProps) {
             size="sm"
             variant="outline"
             onClick={handleDownload}
-            disabled={Object.keys(files).length === 0}
+            disabled={isDownloading || Object.keys(files).length === 0}
           >
-            <DownloadIcon />
+            {isDownloading ? <Loader2Icon className="size-4 animate-spin" /> : <DownloadIcon />}
           </Button>
         </Hint>
         {modelInfo && (
