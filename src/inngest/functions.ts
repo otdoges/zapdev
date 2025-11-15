@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
-import { openai, createAgent, createTool, createNetwork, type Tool, type Message, createState, type NetworkRun } from "@inngest/agent-kit";
+import {
+  openai,
+  createAgent,
+  createTool,
+  createNetwork,
+  type Tool,
+  type Message,
+  createState,
+  type NetworkRun,
+} from "@inngest/agent-kit";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -24,7 +33,7 @@ function getConvexClient() {
 const convex = new Proxy({} as ConvexHttpClient, {
   get(_target, prop) {
     return getConvexClient()[prop as keyof ConvexHttpClient];
-  }
+  },
 });
 import {
   FRAGMENT_TITLE_PROMPT,
@@ -39,7 +48,11 @@ import {
 
 import { inngest } from "./client";
 import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
-import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
+import {
+  getSandbox,
+  lastAssistantTextMessageContent,
+  parseAgentOutput,
+} from "./utils";
 import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
 import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
 // Multi-agent workflow removed; only single code agent is used.
@@ -50,8 +63,13 @@ type SandboxWithHost = Sandbox & {
 
 type FragmentMetadata = Record<string, unknown>;
 
-function frameworkToConvexEnum(framework: Framework): "NEXTJS" | "ANGULAR" | "REACT" | "VUE" | "SVELTE" {
-  const mapping: Record<Framework, "NEXTJS" | "ANGULAR" | "REACT" | "VUE" | "SVELTE"> = {
+function frameworkToConvexEnum(
+  framework: Framework,
+): "NEXTJS" | "ANGULAR" | "REACT" | "VUE" | "SVELTE" {
+  const mapping: Record<
+    Framework,
+    "NEXTJS" | "ANGULAR" | "REACT" | "VUE" | "SVELTE"
+  > = {
     nextjs: "NEXTJS",
     angular: "ANGULAR",
     react: "REACT",
@@ -72,8 +90,8 @@ export const MODEL_CONFIGS = {
     temperature: 0.7,
     frequency_penalty: 0.5,
   },
-  "openai/gpt-5-mini": {
-    name: "GPT-5",
+  "openai/gpt-5.1-codex-mini": {
+    name: "GPT-5.1 Codex",
     provider: "openai",
     description: "OpenAI's flagship model for complex tasks",
     temperature: 0.7,
@@ -96,7 +114,7 @@ export const MODEL_CONFIGS = {
   "xai/grok-4-fast-reasoning": {
     name: "Grok 4 Fast",
     provider: "xai",
-    description: "Experimental model from xAI",
+    description: "Good at nothing",
     temperature: 0.7,
     frequency_penalty: 0.5,
   },
@@ -105,21 +123,36 @@ export const MODEL_CONFIGS = {
 export type ModelId = keyof typeof MODEL_CONFIGS | "auto";
 
 // Auto-selection logic to choose the best model based on task complexity
-export function selectModelForTask(prompt: string, framework?: Framework): keyof typeof MODEL_CONFIGS {
+export function selectModelForTask(
+  prompt: string,
+  framework?: Framework,
+): keyof typeof MODEL_CONFIGS {
   const promptLength = prompt.length;
   const lowercasePrompt = prompt.toLowerCase();
   let chosenModel: keyof typeof MODEL_CONFIGS = "anthropic/claude-haiku-4.5";
 
   // Analyze task complexity
   const complexityIndicators = [
-    "advanced", "complex", "sophisticated", "enterprise",
-    "architecture", "performance", "optimization", "scalability",
-    "authentication", "authorization", "database", "api",
-    "integration", "deployment", "security", "testing",
+    "advanced",
+    "complex",
+    "sophisticated",
+    "enterprise",
+    "architecture",
+    "performance",
+    "optimization",
+    "scalability",
+    "authentication",
+    "authorization",
+    "database",
+    "api",
+    "integration",
+    "deployment",
+    "security",
+    "testing",
   ];
 
   const hasComplexityIndicators = complexityIndicators.some((indicator) =>
-    lowercasePrompt.includes(indicator)
+    lowercasePrompt.includes(indicator),
   );
 
   const isLongPrompt = promptLength > 500;
@@ -132,9 +165,15 @@ export function selectModelForTask(prompt: string, framework?: Framework): keyof
   }
 
   // Coding-specific keywords favor Qwen
-  const codingIndicators = ["refactor", "optimize", "debug", "fix bug", "improve code"];
+  const codingIndicators = [
+    "refactor",
+    "optimize",
+    "debug",
+    "fix bug",
+    "improve code",
+  ];
   const hasCodingFocus = codingIndicators.some((indicator) =>
-    lowercasePrompt.includes(indicator)
+    lowercasePrompt.includes(indicator),
   );
 
   if (hasCodingFocus && !isVeryLongPrompt) {
@@ -144,7 +183,7 @@ export function selectModelForTask(prompt: string, framework?: Framework): keyof
   // Speed-critical tasks favor Kimi, but only override if clearly requested
   const speedIndicators = ["quick", "fast", "simple", "basic", "prototype"];
   const needsSpeed = speedIndicators.some((indicator) =>
-    lowercasePrompt.includes(indicator)
+    lowercasePrompt.includes(indicator),
   );
 
   if (needsSpeed && !hasComplexityIndicators) {
@@ -160,12 +199,28 @@ export function selectModelForTask(prompt: string, framework?: Framework): keyof
 }
 
 const AUTO_FIX_ERROR_PATTERNS = [
-  /Error:/i, /\[ERROR\]/i, /ERROR/, /Failed\b/i, /failure\b/i, /Exception\b/i,
-  /SyntaxError/i, /TypeError/i, /ReferenceError/i, /Module not found/i,
-  /Cannot find module/i, /Failed to resolve/i, /Build failed/i,
-  /Compilation error/i, /undefined is not/i, /null is not/i,
-  /Cannot read propert/i, /is not a function/i, /is not defined/i,
-  /ESLint/i, /Type error/i, /TS\d+/i,
+  /Error:/i,
+  /\[ERROR\]/i,
+  /ERROR/,
+  /Failed\b/i,
+  /failure\b/i,
+  /Exception\b/i,
+  /SyntaxError/i,
+  /TypeError/i,
+  /ReferenceError/i,
+  /Module not found/i,
+  /Cannot find module/i,
+  /Failed to resolve/i,
+  /Build failed/i,
+  /Compilation error/i,
+  /undefined is not/i,
+  /null is not/i,
+  /Cannot read propert/i,
+  /is not a function/i,
+  /is not defined/i,
+  /ESLint/i,
+  /Type error/i,
+  /TS\d+/i,
 ];
 
 const usesShadcnComponents = (files: Record<string, string>) => {
@@ -235,7 +290,10 @@ const getLastAssistantMessage = (
 const runLintCheck = async (sandboxId: string): Promise<string | null> => {
   try {
     const sandbox = await getSandbox(sandboxId);
-    const buffers: { stdout: string; stderr: string } = { stdout: "", stderr: "" };
+    const buffers: { stdout: string; stderr: string } = {
+      stdout: "",
+      stderr: "",
+    };
 
     const result = await sandbox.commands.run("bun run lint", {
       onStdout: (data: string) => {
@@ -243,7 +301,7 @@ const runLintCheck = async (sandboxId: string): Promise<string | null> => {
       },
       onStderr: (data: string) => {
         buffers.stderr += data;
-      }
+      },
     });
 
     const output = buffers.stdout + buffers.stderr;
@@ -274,10 +332,13 @@ const runLintCheck = async (sandboxId: string): Promise<string | null> => {
 const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
   try {
     const sandbox = await getSandbox(sandboxId);
-    const buffers: { stdout: string; stderr: string } = { stdout: "", stderr: "" };
+    const buffers: { stdout: string; stderr: string } = {
+      stdout: "",
+      stderr: "",
+    };
 
     // Try to build the project to catch build-time errors
-    const buildCommand = 'bun run build';
+    const buildCommand = "bun run build";
     console.log("[DEBUG] Running build check with command:", buildCommand);
 
     const result = await sandbox.commands.run(buildCommand, {
@@ -294,14 +355,17 @@ const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
 
     // If build failed (non-zero exit code)
     if (result.exitCode !== 0) {
-      console.log("[DEBUG] Build check FAILED with exit code:", result.exitCode);
+      console.log(
+        "[DEBUG] Build check FAILED with exit code:",
+        result.exitCode,
+      );
       console.log("[DEBUG] Build output:\n", output);
-      
+
       // Check if output contains error patterns
       if (AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(output))) {
         return `Build failed with errors:\n${output}`;
       }
-      
+
       // Even if no specific pattern matches, if build failed it's an error
       return `Build failed with exit code ${result.exitCode}:\n${output}`;
     }
@@ -313,12 +377,16 @@ const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
     if (error instanceof Error && error.stack) {
       console.error("[DEBUG] Stack trace:", error.stack);
     } else {
-      console.error("[DEBUG] Serialized exception:", inspect(error, { depth: null }));
+      console.error(
+        "[DEBUG] Serialized exception:",
+        inspect(error, { depth: null }),
+      );
     }
 
-    const serializedError = error instanceof Error
-      ? `${error.message}${error.stack ? `\n${error.stack}` : ""}`.trim()
-      : inspect(error, { depth: null });
+    const serializedError =
+      error instanceof Error
+        ? `${error.message}${error.stack ? `\n${error.stack}` : ""}`.trim()
+        : inspect(error, { depth: null });
 
     // Return the error as it likely indicates a build problem
     return `Build check exception: ${serializedError}`;
@@ -327,30 +395,30 @@ const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
 
 const getE2BTemplate = (framework: Framework): string => {
   switch (framework) {
-    case 'nextjs':
-      return 'zapdev';
-    case 'angular':
-      return 'zapdev-angular';
-    case 'react':
-      return 'zapdev-react';
-    case 'vue':
-      return 'zapdev-vue';
-    case 'svelte':
-      return 'zapdev-svelte';
+    case "nextjs":
+      return "zapdev";
+    case "angular":
+      return "zapdev-angular";
+    case "react":
+      return "zapdev-react";
+    case "vue":
+      return "zapdev-vue";
+    case "svelte":
+      return "zapdev-svelte";
     default:
-      return 'zapdev';
+      return "zapdev";
   }
 };
 
 const getFrameworkPort = (framework: Framework): number => {
   switch (framework) {
-    case 'nextjs':
+    case "nextjs":
       return 3000;
-    case 'angular':
+    case "angular":
       return 4200;
-    case 'react':
-    case 'vue':
-    case 'svelte':
+    case "react":
+    case "vue":
+    case "svelte":
       return 5173;
     default:
       return 3000;
@@ -359,15 +427,15 @@ const getFrameworkPort = (framework: Framework): number => {
 
 const getFrameworkPrompt = (framework: Framework): string => {
   switch (framework) {
-    case 'nextjs':
+    case "nextjs":
       return NEXTJS_PROMPT;
-    case 'angular':
+    case "angular":
       return ANGULAR_PROMPT;
-    case 'react':
+    case "react":
       return REACT_PROMPT;
-    case 'vue':
+    case "vue":
       return VUE_PROMPT;
-    case 'svelte':
+    case "svelte":
       return SVELTE_PROMPT;
     default:
       return NEXTJS_PROMPT;
@@ -382,80 +450,90 @@ const FILE_READ_TIMEOUT_MS = 5000;
 const INNGEST_STEP_OUTPUT_SIZE_LIMIT = 1024 * 1024;
 const FILES_PER_STEP_BATCH = 50;
 
-const ALLOWED_WORKSPACE_PATHS = ['/home/user', '.'];
+const ALLOWED_WORKSPACE_PATHS = ["/home/user", "."];
 
 const escapeShellPattern = (pattern: string): string => {
   return pattern.replace(/'/g, "'\"'\"'");
 };
 
 export const isValidFilePath = (filePath: string): boolean => {
-  if (!filePath || typeof filePath !== 'string') {
+  if (!filePath || typeof filePath !== "string") {
     return false;
   }
 
   const normalizedPath = filePath.trim();
-  
+
   if (normalizedPath.length === 0 || normalizedPath.length > 4096) {
     return false;
   }
 
-  if (normalizedPath.includes('..')) {
+  if (normalizedPath.includes("..")) {
     return false;
   }
 
-  if (normalizedPath.includes('\0') || normalizedPath.includes('\n') || normalizedPath.includes('\r')) {
+  if (
+    normalizedPath.includes("\0") ||
+    normalizedPath.includes("\n") ||
+    normalizedPath.includes("\r")
+  ) {
     return false;
   }
 
-  const isInWorkspace = ALLOWED_WORKSPACE_PATHS.some(basePath => 
-    normalizedPath === basePath || 
-    normalizedPath.startsWith(`${basePath}/`) ||
-    normalizedPath.startsWith(`./`)
+  const isInWorkspace = ALLOWED_WORKSPACE_PATHS.some(
+    (basePath) =>
+      normalizedPath === basePath ||
+      normalizedPath.startsWith(`${basePath}/`) ||
+      normalizedPath.startsWith(`./`),
   );
 
-  return isInWorkspace || normalizedPath.startsWith('/home/user/');
+  return isInWorkspace || normalizedPath.startsWith("/home/user/");
 };
 
 const getFindCommand = (framework: Framework): string => {
   const baseIgnorePatterns = [
-    '*/node_modules/*',
-    '*/.git/*',
-    '*/dist/*',
-    '*/build/*',
+    "*/node_modules/*",
+    "*/.git/*",
+    "*/dist/*",
+    "*/build/*",
   ];
 
   const frameworkSpecificIgnores: Record<Framework, string[]> = {
-    nextjs: ['*/.next/*'],
-    angular: ['*/.angular/*'],
+    nextjs: ["*/.next/*"],
+    angular: ["*/.angular/*"],
     react: [],
     vue: [],
-    svelte: ['*/.svelte-kit/*'],
+    svelte: ["*/.svelte-kit/*"],
   };
 
-  const ignorePatterns = [...baseIgnorePatterns, ...(frameworkSpecificIgnores[framework] || [])];
-  const escapedPatterns = ignorePatterns.map(pattern => `-not -path '${escapeShellPattern(pattern)}'`);
-  const ignoreFlags = escapedPatterns.join(' ');
-  
+  const ignorePatterns = [
+    ...baseIgnorePatterns,
+    ...(frameworkSpecificIgnores[framework] || []),
+  ];
+  const escapedPatterns = ignorePatterns.map(
+    (pattern) => `-not -path '${escapeShellPattern(pattern)}'`,
+  );
+  const ignoreFlags = escapedPatterns.join(" ");
+
   return `find /home/user -type f ${ignoreFlags} 2>/dev/null || find . -type f ${ignoreFlags} 2>/dev/null`;
 };
 
 const isValidScreenshotUrl = (url: string): boolean => {
-  if (!url || typeof url !== 'string' || url.length === 0) {
+  if (!url || typeof url !== "string" || url.length === 0) {
     return false;
   }
-  
+
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
   } catch {
-    return url.startsWith('data:image/');
+    return url.startsWith("data:image/");
   }
 };
 
 export const readFileWithTimeout = async (
   sandbox: Sandbox,
   filePath: string,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<string | null> => {
   if (!isValidFilePath(filePath)) {
     console.warn(`[WARN] Invalid file path detected, skipping: ${filePath}`);
@@ -464,23 +542,25 @@ export const readFileWithTimeout = async (
 
   try {
     const readPromise = sandbox.files.read(filePath);
-    const timeoutPromise = new Promise<null>((resolve) => 
-      setTimeout(() => resolve(null), timeoutMs)
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), timeoutMs),
     );
-    
+
     const content = await Promise.race([readPromise, timeoutPromise]);
-    
+
     if (content === null) {
       console.warn(`[WARN] File read timeout for ${filePath}`);
       return null;
     }
-    
-    if (typeof content === 'string' && content.length > MAX_FILE_SIZE) {
-      console.warn(`[WARN] File ${filePath} exceeds size limit (${content.length} bytes), skipping`);
+
+    if (typeof content === "string" && content.length > MAX_FILE_SIZE) {
+      console.warn(
+        `[WARN] File ${filePath} exceeds size limit (${content.length} bytes), skipping`,
+      );
       return null;
     }
-    
-    return typeof content === 'string' ? content : null;
+
+    return typeof content === "string" ? content : null;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[ERROR] Failed to read file ${filePath}:`, errorMessage);
@@ -499,85 +579,112 @@ const calculateFilesMapSize = (filesMap: Record<string, string>): number => {
 export const readFilesInBatches = async (
   sandbox: Sandbox,
   filePaths: string[],
-  batchSize: number
+  batchSize: number,
 ): Promise<Record<string, string>> => {
   const allFilesMap: Record<string, string> = {};
-  
+
   const validFilePaths = filePaths.filter(isValidFilePath);
   const invalidCount = filePaths.length - validFilePaths.length;
-  
+
   if (invalidCount > 0) {
-    console.warn(`[WARN] Filtered out ${invalidCount} invalid file paths (path traversal attempts or invalid paths)`);
+    console.warn(
+      `[WARN] Filtered out ${invalidCount} invalid file paths (path traversal attempts or invalid paths)`,
+    );
   }
-  
+
   const totalFiles = Math.min(validFilePaths.length, MAX_FILE_COUNT);
-  
+
   if (validFilePaths.length > MAX_FILE_COUNT) {
-    console.warn(`[WARN] File count (${validFilePaths.length}) exceeds limit (${MAX_FILE_COUNT}), reading first ${MAX_FILE_COUNT} files`);
+    console.warn(
+      `[WARN] File count (${validFilePaths.length}) exceeds limit (${MAX_FILE_COUNT}), reading first ${MAX_FILE_COUNT} files`,
+    );
   }
-  
+
   const filesToRead = validFilePaths.slice(0, totalFiles);
-  
+
   for (let i = 0; i < filesToRead.length; i += batchSize) {
     const batch = filesToRead.slice(i, i + batchSize);
-    
+
     const batchResults = await Promise.all(
       batch.map(async (filePath) => {
-        const content = await readFileWithTimeout(sandbox, filePath, FILE_READ_TIMEOUT_MS);
+        const content = await readFileWithTimeout(
+          sandbox,
+          filePath,
+          FILE_READ_TIMEOUT_MS,
+        );
         return { filePath, content };
-      })
+      }),
     );
-    
+
     for (const { filePath, content } of batchResults) {
       if (content !== null) {
         allFilesMap[filePath] = content;
       }
     }
-    
-    console.log(`[DEBUG] Processed ${Math.min(i + batchSize, filesToRead.length)}/${filesToRead.length} files`);
+
+    console.log(
+      `[DEBUG] Processed ${Math.min(i + batchSize, filesToRead.length)}/${filesToRead.length} files`,
+    );
   }
-  
+
   return allFilesMap;
 };
 
-const CRITICAL_FILES = ['package.json', 'tsconfig.json', 'next.config.ts', 'next.config.js', 'tailwind.config.ts', 'tailwind.config.js'];
+const CRITICAL_FILES = [
+  "package.json",
+  "tsconfig.json",
+  "next.config.ts",
+  "next.config.js",
+  "tailwind.config.ts",
+  "tailwind.config.js",
+];
 
 const validateMergeStrategy = (
   agentFiles: Record<string, string>,
-  sandboxFiles: Record<string, string>
+  sandboxFiles: Record<string, string>,
 ): { warnings: string[]; isValid: boolean } => {
   const warnings: string[] = [];
-  
+
   const agentFilePaths = new Set(Object.keys(agentFiles));
   const sandboxFilePaths = new Set(Object.keys(sandboxFiles));
-  
+
   const overwrittenCriticalFiles = CRITICAL_FILES.filter(
-    file => sandboxFilePaths.has(file) && agentFilePaths.has(file) && 
-    agentFiles[file] !== sandboxFiles[file]
+    (file) =>
+      sandboxFilePaths.has(file) &&
+      agentFilePaths.has(file) &&
+      agentFiles[file] !== sandboxFiles[file],
   );
-  
+
   if (overwrittenCriticalFiles.length > 0) {
-    warnings.push(`Critical files were overwritten by agent: ${overwrittenCriticalFiles.join(', ')}`);
+    warnings.push(
+      `Critical files were overwritten by agent: ${overwrittenCriticalFiles.join(", ")}`,
+    );
   }
-  
+
   const missingCriticalFiles = CRITICAL_FILES.filter(
-    file => sandboxFilePaths.has(file) && !agentFilePaths.has(file)
+    (file) => sandboxFilePaths.has(file) && !agentFilePaths.has(file),
   );
-  
+
   if (missingCriticalFiles.length > 0) {
-    warnings.push(`Critical files from sandbox not in agent files (will be preserved): ${missingCriticalFiles.join(', ')}`);
+    warnings.push(
+      `Critical files from sandbox not in agent files (will be preserved): ${missingCriticalFiles.join(", ")}`,
+    );
   }
-  
+
   const agentFileCount = agentFilePaths.size;
   const sandboxFileCount = sandboxFilePaths.size;
-  
+
   if (agentFileCount > 0 && sandboxFileCount > agentFileCount * 10) {
-    warnings.push(`Large discrepancy: sandbox has ${sandboxFileCount} files but agent only tracked ${agentFileCount} files`);
+    warnings.push(
+      `Large discrepancy: sandbox has ${sandboxFileCount} files but agent only tracked ${agentFileCount} files`,
+    );
   }
-  
+
   return {
     warnings,
-    isValid: warnings.length === 0 || warnings.every(w => !w.includes('discrepancy')),
+    isValid:
+      warnings.length === 0 ||
+      warnings.every((w) => !w.includes("discrepancy")),
   };
 };
 
@@ -590,10 +697,13 @@ const createCodeAgentTools = (sandboxId: string) => [
     }),
     handler: async (
       { command }: { command: string },
-      opts: Tool.Options<AgentState>
+      opts: Tool.Options<AgentState>,
     ) => {
       return await opts.step?.run("terminal", async () => {
-        const buffers: { stdout: string; stderr: string } = { stdout: "", stderr: "" };
+        const buffers: { stdout: string; stderr: string } = {
+          stdout: "",
+          stderr: "",
+        };
 
         try {
           const sandbox = await getSandbox(sandboxId);
@@ -603,7 +713,7 @@ const createCodeAgentTools = (sandboxId: string) => [
             },
             onStderr: (data: string) => {
               buffers.stderr += data;
-            }
+            },
           });
           return result.stdout;
         } catch (e) {
@@ -626,10 +736,7 @@ const createCodeAgentTools = (sandboxId: string) => [
         }),
       ),
     }),
-    handler: async (
-      { files },
-      { step, network }: Tool.Options<AgentState>
-    ) => {
+    handler: async ({ files }, { step, network }: Tool.Options<AgentState>) => {
       const newFiles = await step?.run("createOrUpdateFiles", async () => {
         try {
           const updatedFiles = network.state.data.files || {};
@@ -648,7 +755,7 @@ const createCodeAgentTools = (sandboxId: string) => [
       if (typeof newFiles === "object") {
         network.state.data.files = newFiles;
       }
-    }
+    },
   }),
   createTool({
     name: "readFiles",
@@ -669,9 +776,9 @@ const createCodeAgentTools = (sandboxId: string) => [
         } catch (e) {
           return "Error: " + e;
         }
-      })
+      });
     },
-  })
+  }),
 ];
 
 export const codeAgentFunction = inngest.createFunction(
@@ -681,8 +788,11 @@ export const codeAgentFunction = inngest.createFunction(
     console.log("[DEBUG] Starting code-agent function");
     console.log("[DEBUG] Event data:", JSON.stringify(event.data));
     console.log("[DEBUG] E2B_API_KEY present:", !!process.env.E2B_API_KEY);
-    console.log("[DEBUG] AI_GATEWAY_API_KEY present:", !!process.env.AI_GATEWAY_API_KEY);
-    
+    console.log(
+      "[DEBUG] AI_GATEWAY_API_KEY present:",
+      !!process.env.AI_GATEWAY_API_KEY,
+    );
+
     // Get project to check if framework is already set
     const project = await step.run("get-project", async () => {
       return await convex.query(api.projects.getForSystem, {
@@ -690,12 +800,13 @@ export const codeAgentFunction = inngest.createFunction(
       });
     });
 
-    let selectedFramework: Framework = project?.framework?.toLowerCase() as Framework || 'nextjs';
+    let selectedFramework: Framework =
+      (project?.framework?.toLowerCase() as Framework) || "nextjs";
 
     // If project doesn't have a framework set, use framework selector
     if (!project?.framework) {
       console.log("[DEBUG] No framework set, running framework selector...");
-      
+
       const frameworkSelectorAgent = createAgent({
         name: "framework-selector",
         description: "Determines the best framework for the user's request",
@@ -703,30 +814,42 @@ export const codeAgentFunction = inngest.createFunction(
         model: openai({
           model: "google/gemini-2.5-flash-lite",
           apiKey: process.env.AI_GATEWAY_API_KEY!,
-          baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+          baseUrl:
+            process.env.AI_GATEWAY_BASE_URL ||
+            "https://ai-gateway.vercel.sh/v1",
           defaultParameters: {
             temperature: 0.3,
           },
         }),
       });
 
-      const frameworkResult = await frameworkSelectorAgent.run(event.data.value);
+      const frameworkResult = await frameworkSelectorAgent.run(
+        event.data.value,
+      );
       const frameworkOutput = frameworkResult.output[0];
-      
+
       if (frameworkOutput.type === "text") {
-        const detectedFramework = (typeof frameworkOutput.content === "string" 
-          ? frameworkOutput.content 
-          : frameworkOutput.content.map((c) => c.text).join("")).trim().toLowerCase();
-        
+        const detectedFramework = (
+          typeof frameworkOutput.content === "string"
+            ? frameworkOutput.content
+            : frameworkOutput.content.map((c) => c.text).join("")
+        )
+          .trim()
+          .toLowerCase();
+
         console.log("[DEBUG] Framework selector output:", detectedFramework);
-        
-        if (['nextjs', 'angular', 'react', 'vue', 'svelte'].includes(detectedFramework)) {
+
+        if (
+          ["nextjs", "angular", "react", "vue", "svelte"].includes(
+            detectedFramework,
+          )
+        ) {
           selectedFramework = detectedFramework as Framework;
         }
       }
-      
+
       console.log("[DEBUG] Selected framework:", selectedFramework);
-      
+
       // Update project with selected framework
       await step.run("update-project-framework", async () => {
         return await convex.mutation(api.projects.updateForUser, {
@@ -740,32 +863,41 @@ export const codeAgentFunction = inngest.createFunction(
     }
 
     // Model selection logic
-    const requestedModel = (event.data.model as ModelId) || project?.modelPreference || "auto";
+    const requestedModel =
+      (event.data.model as ModelId) || project?.modelPreference || "auto";
     console.log("[DEBUG] Requested model:", requestedModel);
 
     // Validate that the requested model exists in MODEL_CONFIGS
     let validatedModel: ModelId = requestedModel;
     if (requestedModel !== "auto" && !(requestedModel in MODEL_CONFIGS)) {
-      console.warn(`[WARN] Invalid model requested: "${requestedModel}". Falling back to "auto".`);
+      console.warn(
+        `[WARN] Invalid model requested: "${requestedModel}". Falling back to "auto".`,
+      );
       validatedModel = "auto";
     }
 
     const selectedModel: keyof typeof MODEL_CONFIGS =
       validatedModel === "auto"
         ? selectModelForTask(event.data.value, selectedFramework)
-        : validatedModel as keyof typeof MODEL_CONFIGS;
+        : (validatedModel as keyof typeof MODEL_CONFIGS);
 
     console.log("[DEBUG] Selected model:", selectedModel);
     console.log("[DEBUG] Model config:", MODEL_CONFIGS[selectedModel]);
 
     const sandboxId = await step.run("get-sandbox-id", async () => {
-      console.log("[DEBUG] Creating E2B sandbox for framework:", selectedFramework);
+      console.log(
+        "[DEBUG] Creating E2B sandbox for framework:",
+        selectedFramework,
+      );
       const template = getE2BTemplate(selectedFramework);
-      
+
       try {
         let sandbox;
         try {
-          console.log("[DEBUG] Attempting to create sandbox with template:", template);
+          console.log(
+            "[DEBUG] Attempting to create sandbox with template:",
+            template,
+          );
           // Use betaCreate to enable auto-pause on inactivity
           sandbox = await (Sandbox as any).betaCreate(template, {
             apiKey: process.env.E2B_API_KEY,
@@ -774,7 +906,9 @@ export const codeAgentFunction = inngest.createFunction(
           });
         } catch (e) {
           // Fallback to betaCreate with default zapdev template if framework-specific doesn't exist
-          console.log("[DEBUG] Framework template not found, using default 'zapdev' template");
+          console.log(
+            "[DEBUG] Framework template not found, using default 'zapdev' template",
+          );
           try {
             sandbox = await (Sandbox as any).betaCreate("zapdev", {
               apiKey: process.env.E2B_API_KEY,
@@ -783,22 +917,25 @@ export const codeAgentFunction = inngest.createFunction(
             });
           } catch {
             // Final fallback to standard create if betaCreate not available
-            console.log("[DEBUG] betaCreate not available, falling back to Sandbox.create");
+            console.log(
+              "[DEBUG] betaCreate not available, falling back to Sandbox.create",
+            );
             sandbox = await Sandbox.create("zapdev", {
               apiKey: process.env.E2B_API_KEY,
               timeoutMs: SANDBOX_TIMEOUT,
             });
           }
           // Fallback framework to nextjs if template doesn't exist
-          selectedFramework = 'nextjs';
+          selectedFramework = "nextjs";
         }
-        
+
         console.log("[DEBUG] Sandbox created successfully:", sandbox.sandboxId);
         await sandbox.setTimeout(SANDBOX_TIMEOUT);
         return sandbox.sandboxId;
       } catch (error) {
         console.error("[ERROR] Failed to create E2B sandbox:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
       }
     });
@@ -806,7 +943,10 @@ export const codeAgentFunction = inngest.createFunction(
     // Create sandbox session in Convex to track persistence state
     await step.run("create-sandbox-session", async () => {
       try {
-        console.log("[DEBUG] Creating sandbox session for sandboxId:", sandboxId);
+        console.log(
+          "[DEBUG] Creating sandbox session for sandboxId:",
+          sandboxId,
+        );
         await convex.mutation(api.sandboxSessions.create, {
           sandboxId,
           projectId: event.data.projectId as Id<"projects">,
@@ -821,35 +961,41 @@ export const codeAgentFunction = inngest.createFunction(
       }
     });
 
-    const previousMessages = await step.run("get-previous-messages", async () => {
-      console.log("[DEBUG] Fetching previous messages for project:", event.data.projectId);
-      const formattedMessages: Message[] = [];
+    const previousMessages = await step.run(
+      "get-previous-messages",
+      async () => {
+        console.log(
+          "[DEBUG] Fetching previous messages for project:",
+          event.data.projectId,
+        );
+        const formattedMessages: Message[] = [];
 
-      try {
-        const allMessages = await convex.query(api.messages.listForUser, {
-          userId: project.userId,
-          projectId: event.data.projectId as Id<"projects">,
-        });
+        try {
+          const allMessages = await convex.query(api.messages.listForUser, {
+            userId: project.userId,
+            projectId: event.data.projectId as Id<"projects">,
+          });
 
-        // Take last 3 messages for context
-        const messages = allMessages.slice(-3);
+          // Take last 3 messages for context
+          const messages = allMessages.slice(-3);
 
-        console.log("[DEBUG] Found", messages.length, "previous messages");
+          console.log("[DEBUG] Found", messages.length, "previous messages");
 
-        for (const message of messages) {
-          formattedMessages.push({
-            type: "text",
-            role: message.role === "ASSISTANT" ? "assistant" : "user",
-            content: message.content,
-          })
+          for (const message of messages) {
+            formattedMessages.push({
+              type: "text",
+              role: message.role === "ASSISTANT" ? "assistant" : "user",
+              content: message.content,
+            });
+          }
+
+          return formattedMessages;
+        } catch (error) {
+          console.error("[ERROR] Failed to fetch previous messages:", error);
+          return [];
         }
-
-        return formattedMessages;
-      } catch (error) {
-        console.error("[ERROR] Failed to fetch previous messages:", error);
-        return [];
-      }
-    });
+      },
+    );
 
     await step.run("notify-screenshots", async () => {
       const urls = extractUrls(event.data.value ?? "").slice(0, 2);
@@ -859,8 +1005,11 @@ export const codeAgentFunction = inngest.createFunction(
 
       try {
         for (const url of urls) {
-          const content = sanitizeTextForDatabase(`📸 Taking screenshot of ${url}...`);
-          const messageContent = content.length > 0 ? content : "Taking screenshot...";
+          const content = sanitizeTextForDatabase(
+            `📸 Taking screenshot of ${url}...`,
+          );
+          const messageContent =
+            content.length > 0 ? content : "Taking screenshot...";
 
           await convex.mutation(api.messages.createForUser, {
             userId: project.userId,
@@ -872,7 +1021,10 @@ export const codeAgentFunction = inngest.createFunction(
           });
         }
       } catch (error) {
-        console.error("[ERROR] Failed to create screenshot notifications:", error);
+        console.error(
+          "[ERROR] Failed to create screenshot notifications:",
+          error,
+        );
       }
     });
 
@@ -886,15 +1038,17 @@ export const codeAgentFunction = inngest.createFunction(
 
         console.log("[DEBUG] Found URLs in input:", urls);
 
-        const crawlWithTimeout = async (url: string): Promise<CrawledContent | null> => {
+        const crawlWithTimeout = async (
+          url: string,
+        ): Promise<CrawledContent | null> => {
           try {
             return await Promise.race([
               crawlUrl(url),
-              new Promise<null>((resolve) => 
+              new Promise<null>((resolve) =>
                 setTimeout(() => {
                   console.warn("[DEBUG] Crawl timeout for URL:", url);
                   resolve(null);
-                }, 10000)
+                }, 10000),
               ),
             ]);
           } catch (error) {
@@ -904,21 +1058,25 @@ export const codeAgentFunction = inngest.createFunction(
         };
 
         const results = await Promise.all(
-          urls.map(url => crawlWithTimeout(url))
+          urls.map((url) => crawlWithTimeout(url)),
         );
 
-        return results.filter((crawled): crawled is CrawledContent => crawled !== null);
+        return results.filter(
+          (crawled): crawled is CrawledContent => crawled !== null,
+        );
       } catch (error) {
         console.error("[ERROR] Failed to crawl URLs", error);
         return [] as CrawledContent[];
       }
     });
 
-    const contextMessages: Message[] = (crawledContexts ?? []).map((context) => ({
-      type: "text",
-      role: "user",
-      content: `Crawled context from ${context.url}:\n${context.content}`,
-    }));
+    const contextMessages: Message[] = (crawledContexts ?? []).map(
+      (context) => ({
+        type: "text",
+        role: "user",
+        content: `Crawled context from ${context.url}:\n${context.content}`,
+      }),
+    );
 
     const initialMessages = [...contextMessages, ...previousMessages];
 
@@ -938,7 +1096,12 @@ export const codeAgentFunction = inngest.createFunction(
     console.log("[DEBUG] Using prompt for framework:", selectedFramework);
 
     const modelConfig = MODEL_CONFIGS[selectedModel];
-    console.log("[DEBUG] Creating agent with model:", selectedModel, "config:", modelConfig);
+    console.log(
+      "[DEBUG] Creating agent with model:",
+      selectedModel,
+      "config:",
+      modelConfig,
+    );
 
     const codeAgent = createAgent<AgentState>({
       name: `${selectedFramework}-code-agent`,
@@ -947,7 +1110,8 @@ export const codeAgentFunction = inngest.createFunction(
       model: openai({
         model: selectedModel,
         apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+        baseUrl:
+          process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
           temperature: modelConfig.temperature,
           frequency_penalty: modelConfig.frequency_penalty,
@@ -960,12 +1124,15 @@ export const codeAgentFunction = inngest.createFunction(
             lastAssistantTextMessageContent(result);
 
           if (lastAssistantMessageText && network) {
-            const containsSummaryTag = lastAssistantMessageText.includes("<task_summary>");
+            const containsSummaryTag =
+              lastAssistantMessageText.includes("<task_summary>");
             console.log(
-              `[DEBUG] Agent response received (contains summary tag: ${containsSummaryTag})`
+              `[DEBUG] Agent response received (contains summary tag: ${containsSummaryTag})`,
             );
             if (containsSummaryTag) {
-              network.state.data.summary = extractSummaryText(lastAssistantMessageText);
+              network.state.data.summary = extractSummaryText(
+                lastAssistantMessageText,
+              );
               network.state.data.summaryRetryCount = 0;
             }
           }
@@ -981,7 +1148,9 @@ export const codeAgentFunction = inngest.createFunction(
       maxIter: 8,
       defaultState: state,
       router: async ({ network }) => {
-        const summaryText = extractSummaryText(network.state.data.summary ?? "");
+        const summaryText = extractSummaryText(
+          network.state.data.summary ?? "",
+        );
         const fileEntries = network.state.data.files ?? {};
         const fileCount = Object.keys(fileEntries).length;
 
@@ -997,7 +1166,7 @@ export const codeAgentFunction = inngest.createFunction(
         const currentRetry = network.state.data.summaryRetryCount ?? 0;
         if (currentRetry >= 2) {
           console.warn(
-            "[WARN] Missing <task_summary> after multiple attempts despite generated files; proceeding with fallback handling."
+            "[WARN] Missing <task_summary> after multiple attempts despite generated files; proceeding with fallback handling.",
           );
           return;
         }
@@ -1005,7 +1174,7 @@ export const codeAgentFunction = inngest.createFunction(
         const nextRetry = currentRetry + 1;
         network.state.data.summaryRetryCount = nextRetry;
         console.log(
-          `[DEBUG] No <task_summary> yet; retrying agent to request summary (attempt ${nextRetry}).`
+          `[DEBUG] No <task_summary> yet; retrying agent to request summary (attempt ${nextRetry}).`,
         );
         return codeAgent;
       },
@@ -1022,16 +1191,23 @@ export const codeAgentFunction = inngest.createFunction(
       }),
       step.run("post-completion-build-check", async () => {
         return await runBuildCheck(sandboxId);
-      })
+      }),
     ]);
 
     let autoFixAttempts = 0;
     let lastAssistantMessage = getLastAssistantMessage(result);
 
-    if (selectedFramework === 'nextjs') {
-      const currentFiles = (result.state.data.files || {}) as Record<string, string>;
-      if (Object.keys(currentFiles).length > 0 && !usesShadcnComponents(currentFiles)) {
-        const shadcnErrorMessage = "[ERROR] Missing Shadcn UI usage. Rebuild the UI using components imported from '@/components/ui/*' instead of plain HTML elements.";
+    if (selectedFramework === "nextjs") {
+      const currentFiles = (result.state.data.files || {}) as Record<
+        string,
+        string
+      >;
+      if (
+        Object.keys(currentFiles).length > 0 &&
+        !usesShadcnComponents(currentFiles)
+      ) {
+        const shadcnErrorMessage =
+          "[ERROR] Missing Shadcn UI usage. Rebuild the UI using components imported from '@/components/ui/*' instead of plain HTML elements.";
         console.warn("[WARN] Shadcn usage check failed. Triggering auto-fix.");
         if (!shouldTriggerAutoFix(lastAssistantMessage)) {
           lastAssistantMessage = shadcnErrorMessage;
@@ -1042,12 +1218,17 @@ export const codeAgentFunction = inngest.createFunction(
     }
 
     // Collect all validation errors
-    let validationErrors = [lintErrors, buildErrors].filter(Boolean).join("\n\n");
-    
+    let validationErrors = [lintErrors, buildErrors]
+      .filter(Boolean)
+      .join("\n\n");
+
     // Always include validation errors in the error message if they exist
     if (validationErrors) {
       console.log("[DEBUG] Validation errors detected:", validationErrors);
-      if (!lastAssistantMessage || !shouldTriggerAutoFix(lastAssistantMessage)) {
+      if (
+        !lastAssistantMessage ||
+        !shouldTriggerAutoFix(lastAssistantMessage)
+      ) {
         lastAssistantMessage = `Validation Errors Detected:\n${validationErrors}`;
       } else {
         lastAssistantMessage = `${lastAssistantMessage}\n\nValidation Errors:\n${validationErrors}`;
@@ -1060,10 +1241,13 @@ export const codeAgentFunction = inngest.createFunction(
       (shouldTriggerAutoFix(lastAssistantMessage) || validationErrors)
     ) {
       autoFixAttempts += 1;
-      const errorDetails = validationErrors || lastAssistantMessage || "No error details provided.";
+      const errorDetails =
+        validationErrors ||
+        lastAssistantMessage ||
+        "No error details provided.";
 
       console.log(
-        `\n[DEBUG] Auto-fix triggered (attempt ${autoFixAttempts}). Errors detected.\n${errorDetails}\n`
+        `\n[DEBUG] Auto-fix triggered (attempt ${autoFixAttempts}). Errors detected.\n${errorDetails}\n`,
       );
 
       result = await network.run(
@@ -1090,26 +1274,33 @@ REQUIRED ACTIONS:
 7. Provide an updated <task_summary> only after the error is fully resolved
 
 DO NOT proceed until the error is completely fixed. The fix must be thorough and address the root cause, not just mask the symptoms.`,
-        { state: result.state }
+        { state: result.state },
       );
 
       lastAssistantMessage = getLastAssistantMessage(result);
 
       // Re-run validation checks to verify if errors are actually fixed
-      console.log("[DEBUG] Re-running validation checks after auto-fix attempt...");
+      console.log(
+        "[DEBUG] Re-running validation checks after auto-fix attempt...",
+      );
       const [newLintErrors, newBuildErrors] = await Promise.all([
         step.run(`post-fix-lint-check-${autoFixAttempts}`, async () => {
           return await runLintCheck(sandboxId);
         }),
         step.run(`post-fix-build-check-${autoFixAttempts}`, async () => {
           return await runBuildCheck(sandboxId);
-        })
+        }),
       ]);
 
-      validationErrors = [newLintErrors, newBuildErrors].filter(Boolean).join("\n\n");
-      
+      validationErrors = [newLintErrors, newBuildErrors]
+        .filter(Boolean)
+        .join("\n\n");
+
       if (validationErrors) {
-        console.log("[DEBUG] Validation errors still present after fix attempt:", validationErrors);
+        console.log(
+          "[DEBUG] Validation errors still present after fix attempt:",
+          validationErrors,
+        );
       } else {
         console.log("[DEBUG] All validation errors resolved!");
       }
@@ -1131,7 +1322,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     const hasFiles = filePaths.length > 0;
 
     let summaryText = extractSummaryText(
-      typeof result.state.data.summary === "string" ? result.state.data.summary : ""
+      typeof result.state.data.summary === "string"
+        ? result.state.data.summary
+        : "",
     );
     const agentProvidedSummary = summaryText.length > 0;
     const agentReportedError = shouldTriggerAutoFix(lastAssistantMessage);
@@ -1141,7 +1334,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const remainingCount = filePaths.length - previewFiles.length;
       summaryText = `Generated or updated ${filePaths.length} file${filePaths.length === 1 ? "" : "s"}: ${previewFiles.join(", ")}${remainingCount > 0 ? ` (and ${remainingCount} more)` : ""}.`;
       console.warn(
-        "[WARN] Missing <task_summary> from agent despite generated files; using fallback summary."
+        "[WARN] Missing <task_summary> from agent despite generated files; using fallback summary.",
       );
     }
 
@@ -1150,7 +1343,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     const hasSummary = summaryText.length > 0;
 
     console.log(
-      `[DEBUG] Network run complete. Summary status: ${hasSummary ? "present" : "missing"}`
+      `[DEBUG] Network run complete. Summary status: ${hasSummary ? "present" : "missing"}`,
     );
     if (hasSummary) {
       console.log("[DEBUG] Summary preview:", summaryText.slice(0, 160));
@@ -1160,11 +1353,14 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       console.log("[DEBUG] File list preview:", filePaths.slice(0, 10));
     }
     if (agentReportedError) {
-      console.warn("[WARN] Last assistant message still signals an unresolved error.");
+      console.warn(
+        "[WARN] Last assistant message still signals an unresolved error.",
+      );
     }
 
     const errorReasons: string[] = [];
-    const shadcnCompliant = selectedFramework !== 'nextjs' || usesShadcnComponents(files);
+    const shadcnCompliant =
+      selectedFramework !== "nextjs" || usesShadcnComponents(files);
 
     if (!hasFiles) {
       errorReasons.push("no files generated");
@@ -1181,7 +1377,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     const isError = errorReasons.length > 0;
     if (isError) {
-      console.warn(`[WARN] Completion flagged as error: ${errorReasons.join(", ")}`);
+      console.warn(
+        `[WARN] Completion flagged as error: ${errorReasons.join(", ")}`,
+      );
     } else {
       console.log("[DEBUG] Completion flagged as success.");
     }
@@ -1190,7 +1388,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const sandbox = await getSandbox(sandboxId);
 
       if (typeof (sandbox as SandboxWithHost).getHost === "function") {
-        const host = (sandbox as SandboxWithHost).getHost(getFrameworkPort(selectedFramework));
+        const host = (sandbox as SandboxWithHost).getHost(
+          getFrameworkPort(selectedFramework),
+        );
 
         if (host && host.length > 0) {
           return host.startsWith("http") ? host : `https://${host}`;
@@ -1210,7 +1410,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         const titleModel = openai({
           model: "google/gemini-2.5-flash-lite",
           apiKey: process.env.AI_GATEWAY_API_KEY!,
-          baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+          baseUrl:
+            process.env.AI_GATEWAY_BASE_URL ||
+            "https://ai-gateway.vercel.sh/v1",
           defaultParameters: {
             temperature: 0.3,
           },
@@ -1238,7 +1440,10 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         fragmentTitleOutput = titleResult.output;
         responseOutput = responseResult.output;
       } catch (gatewayError) {
-        console.error("[ERROR] Failed to generate fragment metadata:", gatewayError);
+        console.error(
+          "[ERROR] Failed to generate fragment metadata:",
+          gatewayError,
+        );
         fragmentTitleOutput = undefined;
         responseOutput = undefined;
       }
@@ -1251,19 +1456,23 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
           screenshots.push(...context.screenshots);
         }
       }
-      
+
       const validScreenshots = screenshots.filter(isValidScreenshotUrl);
       const uniqueScreenshots = Array.from(new Set(validScreenshots));
-      
+
       if (screenshots.length > uniqueScreenshots.length) {
-        console.log(`[DEBUG] Deduplicated ${screenshots.length - uniqueScreenshots.length} duplicate screenshots`);
+        console.log(
+          `[DEBUG] Deduplicated ${screenshots.length - uniqueScreenshots.length} duplicate screenshots`,
+        );
       }
-      
+
       if (uniqueScreenshots.length > MAX_SCREENSHOTS) {
-        console.warn(`[WARN] Screenshot count (${uniqueScreenshots.length}) exceeds limit (${MAX_SCREENSHOTS}), keeping first ${MAX_SCREENSHOTS}`);
+        console.warn(
+          `[WARN] Screenshot count (${uniqueScreenshots.length}) exceeds limit (${MAX_SCREENSHOTS}), keeping first ${MAX_SCREENSHOTS}`,
+        );
         return uniqueScreenshots.slice(0, MAX_SCREENSHOTS);
       }
-      
+
       return uniqueScreenshots;
     });
 
@@ -1276,11 +1485,13 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         const sandbox = await getSandbox(sandboxId);
         const findCommand = getFindCommand(selectedFramework);
         const findResult = await sandbox.commands.run(findCommand);
-        
+
         const filePaths = findResult.stdout
-          .split('\n')
-          .map(line => line.trim())
-          .filter(line => line.length > 0 && !line.includes('Permission denied'))
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(
+            (line) => line.length > 0 && !line.includes("Permission denied"),
+          )
           .filter(isValidFilePath);
 
         console.log(`[DEBUG] Found ${filePaths.length} files in sandbox`);
@@ -1292,79 +1503,109 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
         const totalFiles = Math.min(filePaths.length, MAX_FILE_COUNT);
         if (filePaths.length > MAX_FILE_COUNT) {
-          console.warn(`[WARN] File count (${filePaths.length}) exceeds limit (${MAX_FILE_COUNT}), reading first ${MAX_FILE_COUNT} files`);
+          console.warn(
+            `[WARN] File count (${filePaths.length}) exceeds limit (${MAX_FILE_COUNT}), reading first ${MAX_FILE_COUNT} files`,
+          );
         }
 
         return filePaths.slice(0, totalFiles);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         console.error("[ERROR] Failed to find sandbox files:", errorMessage);
         return [];
       }
     });
 
     const allSandboxFiles: Record<string, string> = {};
-    
+
     if (filePathsList.length > 0) {
       const numBatches = Math.ceil(filePathsList.length / FILES_PER_STEP_BATCH);
-      
+
       for (let batchIndex = 0; batchIndex < numBatches; batchIndex++) {
         const batchStart = batchIndex * FILES_PER_STEP_BATCH;
-        const batchEnd = Math.min(batchStart + FILES_PER_STEP_BATCH, filePathsList.length);
+        const batchEnd = Math.min(
+          batchStart + FILES_PER_STEP_BATCH,
+          filePathsList.length,
+        );
         const batchFilePaths = filePathsList.slice(batchStart, batchEnd);
-        
-        const batchFiles = await step.run(`read-sandbox-files-batch-${batchIndex}`, async () => {
-          const sandbox = await getSandbox(sandboxId);
-          const batchFilesMap: Record<string, string> = {};
-          
-          for (const filePath of batchFilePaths) {
-            const content = await readFileWithTimeout(sandbox, filePath, FILE_READ_TIMEOUT_MS);
-            if (content !== null) {
-              batchFilesMap[filePath] = content;
-            }
-          }
-          
-          const batchSize = calculateFilesMapSize(batchFilesMap);
-          if (batchSize > INNGEST_STEP_OUTPUT_SIZE_LIMIT) {
-            console.warn(`[WARN] Batch ${batchIndex} size (${batchSize} bytes) exceeds Inngest limit, filtering large files`);
-            const filteredBatch: Record<string, string> = {};
-            let currentSize = 0;
-            
-            for (const [path, content] of Object.entries(batchFilesMap)) {
-              const fileSize = path.length + content.length;
-              if (currentSize + fileSize <= INNGEST_STEP_OUTPUT_SIZE_LIMIT * 0.9) {
-                filteredBatch[path] = content;
-                currentSize += fileSize;
-              } else {
-                console.warn(`[WARN] Skipping large file in batch: ${path} (${fileSize} bytes)`);
+
+        const batchFiles = await step.run(
+          `read-sandbox-files-batch-${batchIndex}`,
+          async () => {
+            const sandbox = await getSandbox(sandboxId);
+            const batchFilesMap: Record<string, string> = {};
+
+            for (const filePath of batchFilePaths) {
+              const content = await readFileWithTimeout(
+                sandbox,
+                filePath,
+                FILE_READ_TIMEOUT_MS,
+              );
+              if (content !== null) {
+                batchFilesMap[filePath] = content;
               }
             }
-            
-            return filteredBatch;
-          }
-          
-          return batchFilesMap;
-        });
-        
+
+            const batchSize = calculateFilesMapSize(batchFilesMap);
+            if (batchSize > INNGEST_STEP_OUTPUT_SIZE_LIMIT) {
+              console.warn(
+                `[WARN] Batch ${batchIndex} size (${batchSize} bytes) exceeds Inngest limit, filtering large files`,
+              );
+              const filteredBatch: Record<string, string> = {};
+              let currentSize = 0;
+
+              for (const [path, content] of Object.entries(batchFilesMap)) {
+                const fileSize = path.length + content.length;
+                if (
+                  currentSize + fileSize <=
+                  INNGEST_STEP_OUTPUT_SIZE_LIMIT * 0.9
+                ) {
+                  filteredBatch[path] = content;
+                  currentSize += fileSize;
+                } else {
+                  console.warn(
+                    `[WARN] Skipping large file in batch: ${path} (${fileSize} bytes)`,
+                  );
+                }
+              }
+
+              return filteredBatch;
+            }
+
+            return batchFilesMap;
+          },
+        );
+
         Object.assign(allSandboxFiles, batchFiles);
-        console.log(`[DEBUG] Processed batch ${batchIndex + 1}/${numBatches} (${Object.keys(batchFiles).length} files)`);
+        console.log(
+          `[DEBUG] Processed batch ${batchIndex + 1}/${numBatches} (${Object.keys(batchFiles).length} files)`,
+        );
       }
-      
-      console.log(`[DEBUG] Successfully read ${Object.keys(allSandboxFiles).length} files from sandbox in ${numBatches} batches`);
+
+      console.log(
+        `[DEBUG] Successfully read ${Object.keys(allSandboxFiles).length} files from sandbox in ${numBatches} batches`,
+      );
     }
 
     const agentFiles = result.state.data.files || {};
-    
+
     const mergeValidation = validateMergeStrategy(agentFiles, allSandboxFiles);
-    
+
     if (mergeValidation.warnings.length > 0) {
-      console.warn(`[WARN] Merge strategy warnings: ${mergeValidation.warnings.join('; ')}`);
+      console.warn(
+        `[WARN] Merge strategy warnings: ${mergeValidation.warnings.join("; ")}`,
+      );
     }
-    
+
     // Filter out E2B sandbox system files and configuration boilerplate
     const filteredSandboxFiles = filterAIGeneratedFiles(allSandboxFiles);
-    const removedFileCount = Object.keys(allSandboxFiles).length - Object.keys(filteredSandboxFiles).length;
-    console.log(`[DEBUG] Filtered sandbox files: ${Object.keys(allSandboxFiles).length} → ${Object.keys(filteredSandboxFiles).length} files (removed ${removedFileCount} system/config files)`);
+    const removedFileCount =
+      Object.keys(allSandboxFiles).length -
+      Object.keys(filteredSandboxFiles).length;
+    console.log(
+      `[DEBUG] Filtered sandbox files: ${Object.keys(allSandboxFiles).length} → ${Object.keys(filteredSandboxFiles).length} files (removed ${removedFileCount} system/config files)`,
+    );
 
     // Merge strategy: Agent files take priority over sandbox files
     // This ensures that any files explicitly created/modified by the agent
@@ -1373,34 +1614,47 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     // Critical files from sandbox are preserved if not in agent files.
     const mergedFiles = { ...filteredSandboxFiles, ...agentFiles };
 
-    const overwrittenFiles = Object.keys(agentFiles).filter(path => filteredSandboxFiles[path] !== undefined);
+    const overwrittenFiles = Object.keys(agentFiles).filter(
+      (path) => filteredSandboxFiles[path] !== undefined,
+    );
     if (overwrittenFiles.length > 0) {
-      console.log(`[DEBUG] Agent files overwriting ${overwrittenFiles.length} sandbox files: ${overwrittenFiles.slice(0, 5).join(', ')}${overwrittenFiles.length > 5 ? '...' : ''}`);
+      console.log(
+        `[DEBUG] Agent files overwriting ${overwrittenFiles.length} sandbox files: ${overwrittenFiles.slice(0, 5).join(", ")}${overwrittenFiles.length > 5 ? "..." : ""}`,
+      );
     }
-    
+
     // Validate all file paths in merged files to prevent path traversal
     const validatedMergedFiles: Record<string, string> = {};
     let invalidPathCount = 0;
-    
+
     for (const [path, content] of Object.entries(mergedFiles)) {
       if (isValidFilePath(path)) {
         validatedMergedFiles[path] = content;
       } else {
         invalidPathCount++;
-        console.warn(`[WARN] Filtered out invalid file path from merged files: ${path}`);
+        console.warn(
+          `[WARN] Filtered out invalid file path from merged files: ${path}`,
+        );
       }
     }
-    
+
     if (invalidPathCount > 0) {
-      console.warn(`[WARN] Filtered out ${invalidPathCount} invalid file paths from merged files`);
+      console.warn(
+        `[WARN] Filtered out ${invalidPathCount} invalid file paths from merged files`,
+      );
     }
 
     // Validate aggregate size to prevent exceeding Convex document limits
-    const totalSizeBytes = Object.values(validatedMergedFiles).reduce((sum, content) => sum + content.length, 0);
+    const totalSizeBytes = Object.values(validatedMergedFiles).reduce(
+      (sum, content) => sum + content.length,
+      0,
+    );
     const totalSizeMB = totalSizeBytes / (1024 * 1024);
     const fileCount = Object.keys(validatedMergedFiles).length;
 
-    console.log(`[DEBUG] Merged files size: ${totalSizeMB.toFixed(2)} MB (${fileCount} files, ${totalSizeBytes.toLocaleString()} bytes)`);
+    console.log(
+      `[DEBUG] Merged files size: ${totalSizeMB.toFixed(2)} MB (${fileCount} files, ${totalSizeBytes.toLocaleString()} bytes)`,
+    );
 
     // Convex document size limits: warn at 4MB, fail at 5MB
     const WARN_SIZE_MB = 4;
@@ -1409,15 +1663,15 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     if (totalSizeMB > MAX_SIZE_MB) {
       throw new Error(
         `Merged files size (${totalSizeMB.toFixed(2)} MB) exceeds maximum limit (${MAX_SIZE_MB} MB). ` +
-        `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
-        `File count: ${fileCount}. Please review the file filtering logic.`
+          `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
+          `File count: ${fileCount}. Please review the file filtering logic.`,
       );
     }
 
     if (totalSizeMB > WARN_SIZE_MB) {
       console.warn(
         `[WARN] Merged files size (${totalSizeMB.toFixed(2)} MB) is approaching limit (${MAX_SIZE_MB} MB). ` +
-        `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`
+          `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
       );
     }
 
@@ -1425,8 +1679,13 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     await step.run("save-result", async () => {
       if (isError) {
-        const errorContent = sanitizeTextForDatabase("Something went wrong. Please try again.");
-        const messageContent = errorContent.length > 0 ? errorContent : "An unexpected error occurred.";
+        const errorContent = sanitizeTextForDatabase(
+          "Something went wrong. Please try again.",
+        );
+        const messageContent =
+          errorContent.length > 0
+            ? errorContent
+            : "An unexpected error occurred.";
 
         return await convex.mutation(api.messages.createForUser, {
           userId: project.userId,
@@ -1442,14 +1701,14 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const parsedTitle = parseAgentOutput(fragmentTitleOutput);
 
       const sanitizedResponse = sanitizeTextForDatabase(parsedResponse ?? "");
-      const responseContent = sanitizedResponse.length > 0
-        ? sanitizedResponse
-        : "Generated code is ready.";
+      const responseContent =
+        sanitizedResponse.length > 0
+          ? sanitizedResponse
+          : "Generated code is ready.";
 
       const sanitizedTitle = sanitizeTextForDatabase(parsedTitle ?? "");
-      const fragmentTitle = sanitizedTitle.length > 0
-        ? sanitizedTitle
-        : "Generated Fragment";
+      const fragmentTitle =
+        sanitizedTitle.length > 0 ? sanitizedTitle : "Generated Fragment";
 
       const metadata: FragmentMetadata = {
         model: selectedModel,
@@ -1536,7 +1795,8 @@ export const sandboxTransferFunction = inngest.createFunction(
     });
 
     const sandboxId = fragment.sandboxId;
-    const framework = (fragment.framework?.toLowerCase() || "nextjs") as Framework;
+    const framework = (fragment.framework?.toLowerCase() ||
+      "nextjs") as Framework;
 
     const sandbox = await step.run("resume-sandbox", async () => {
       try {
@@ -1552,7 +1812,9 @@ export const sandboxTransferFunction = inngest.createFunction(
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       if (typeof (sandbox as SandboxWithHost).getHost === "function") {
-        const host = (sandbox as SandboxWithHost).getHost(getFrameworkPort(framework));
+        const host = (sandbox as SandboxWithHost).getHost(
+          getFrameworkPort(framework),
+        );
         if (host && host.length > 0) {
           return host.startsWith("http") ? host : `https://${host}`;
         }
@@ -1629,7 +1891,8 @@ export const errorFixFunction = inngest.createFunction(
       return proj;
     });
 
-    const fragmentFramework = (fragment.framework?.toLowerCase() || 'nextjs') as Framework;
+    const fragmentFramework = (fragment.framework?.toLowerCase() ||
+      "nextjs") as Framework;
     const sandboxId = fragment.sandboxId;
 
     await step.run("validate-sandbox", async () => {
@@ -1637,7 +1900,9 @@ export const errorFixFunction = inngest.createFunction(
         await getSandbox(sandboxId);
       } catch (error) {
         console.error("[ERROR] Sandbox validation failed:", error);
-        throw new Error("Sandbox is no longer active. Please refresh the fragment.");
+        throw new Error(
+          "Sandbox is no longer active. Please refresh the fragment.",
+        );
       }
     });
 
@@ -1650,11 +1915,18 @@ export const errorFixFunction = inngest.createFunction(
     };
 
     const fragmentRecord = fragment as Record<string, unknown>;
-    const supportsMetadata = Object.prototype.hasOwnProperty.call(fragmentRecord, "metadata");
-    const initialMetadata: FragmentMetadata = supportsMetadata ? toJsonObject(fragmentRecord.metadata) : {};
+    const supportsMetadata = Object.prototype.hasOwnProperty.call(
+      fragmentRecord,
+      "metadata",
+    );
+    const initialMetadata: FragmentMetadata = supportsMetadata
+      ? toJsonObject(fragmentRecord.metadata)
+      : {};
 
     // Extract model from fragment metadata, fall back to default
-    const fragmentModel = (initialMetadata.model as keyof typeof MODEL_CONFIGS) || "anthropic/claude-haiku-4.5";
+    const fragmentModel =
+      (initialMetadata.model as keyof typeof MODEL_CONFIGS) ||
+      "anthropic/claude-haiku-4.5";
     console.log("[DEBUG] Using model from original fragment:", fragmentModel);
 
     const fragmentFiles = (fragment.files || {}) as Record<string, string>;
@@ -1669,10 +1941,12 @@ export const errorFixFunction = inngest.createFunction(
       }),
       step.run("error-fix-build-check", async () => {
         return await runBuildCheck(sandboxId);
-      })
+      }),
     ]);
 
-    const validationErrors = [lintErrors, buildErrors].filter(Boolean).join("\n\n");
+    const validationErrors = [lintErrors, buildErrors]
+      .filter(Boolean)
+      .join("\n\n");
 
     if (!validationErrors) {
       console.log("[DEBUG] No errors detected in fragment");
@@ -1687,7 +1961,9 @@ export const errorFixFunction = inngest.createFunction(
     // Create a minimal state with existing files
     const state = createState<AgentState>(
       {
-        summary: (fragmentRecord.metadata as Record<string, unknown>)?.summary as string ?? "",
+        summary:
+          ((fragmentRecord.metadata as Record<string, unknown>)
+            ?.summary as string) ?? "",
         files: fragmentFiles,
         selectedFramework: fragmentFramework,
         summaryRetryCount: 0,
@@ -1699,7 +1975,12 @@ export const errorFixFunction = inngest.createFunction(
 
     const frameworkPrompt = getFrameworkPrompt(fragmentFramework);
     const errorFixModelConfig = MODEL_CONFIGS[fragmentModel];
-    console.log("[DEBUG] Creating error-fix agent with model:", fragmentModel, "config:", errorFixModelConfig);
+    console.log(
+      "[DEBUG] Creating error-fix agent with model:",
+      fragmentModel,
+      "config:",
+      errorFixModelConfig,
+    );
 
     const codeAgent = createAgent<AgentState>({
       name: `${fragmentFramework}-error-fix-agent`,
@@ -1708,7 +1989,8 @@ export const errorFixFunction = inngest.createFunction(
       model: openai({
         model: fragmentModel,
         apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+        baseUrl:
+          process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
           temperature: errorFixModelConfig.temperature,
           frequency_penalty: errorFixModelConfig.frequency_penalty,
@@ -1717,14 +1999,18 @@ export const errorFixFunction = inngest.createFunction(
       tools: createCodeAgentTools(sandboxId),
       lifecycle: {
         onResponse: async ({ result, network }) => {
-          const lastAssistantMessageText = lastAssistantTextMessageContent(result);
+          const lastAssistantMessageText =
+            lastAssistantTextMessageContent(result);
           if (lastAssistantMessageText && network) {
-            const containsSummaryTag = lastAssistantMessageText.includes("<task_summary>");
+            const containsSummaryTag =
+              lastAssistantMessageText.includes("<task_summary>");
             console.log(
-              `[DEBUG] Error-fix agent response received (contains summary tag: ${containsSummaryTag})`
+              `[DEBUG] Error-fix agent response received (contains summary tag: ${containsSummaryTag})`,
             );
             if (containsSummaryTag) {
-              network.state.data.summary = extractSummaryText(lastAssistantMessageText);
+              network.state.data.summary = extractSummaryText(
+                lastAssistantMessageText,
+              );
               network.state.data.summaryRetryCount = 0;
             }
           }
@@ -1739,7 +2025,9 @@ export const errorFixFunction = inngest.createFunction(
       maxIter: 10,
       defaultState: state,
       router: async ({ network }) => {
-        const summaryText = extractSummaryText(network.state.data.summary ?? "");
+        const summaryText = extractSummaryText(
+          network.state.data.summary ?? "",
+        );
         const fileEntries = network.state.data.files ?? {};
         const fileCount = Object.keys(fileEntries).length;
 
@@ -1755,7 +2043,7 @@ export const errorFixFunction = inngest.createFunction(
         const currentRetry = network.state.data.summaryRetryCount ?? 0;
         if (currentRetry >= 3) {
           console.warn(
-            "[WARN] Error-fix agent missing <task_summary> after multiple retries; proceeding with collected fixes."
+            "[WARN] Error-fix agent missing <task_summary> after multiple retries; proceeding with collected fixes.",
           );
           return;
         }
@@ -1763,7 +2051,7 @@ export const errorFixFunction = inngest.createFunction(
         const nextRetry = currentRetry + 1;
         network.state.data.summaryRetryCount = nextRetry;
         console.log(
-          `[DEBUG] Error-fix agent missing <task_summary>; retrying (attempt ${nextRetry}).`
+          `[DEBUG] Error-fix agent missing <task_summary>; retrying (attempt ${nextRetry}).`,
         );
         return codeAgent;
       },
@@ -1800,13 +2088,18 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         }),
         step.run("error-fix-verification-build-check", async () => {
           return await runBuildCheck(sandboxId);
-        })
+        }),
       ]);
 
-      const remainingErrors = [newLintErrors, newBuildErrors].filter(Boolean).join("\n\n");
-      
+      const remainingErrors = [newLintErrors, newBuildErrors]
+        .filter(Boolean)
+        .join("\n\n");
+
       if (remainingErrors) {
-        console.warn("[WARN] Some errors remain after fix attempt:", remainingErrors);
+        console.warn(
+          "[WARN] Some errors remain after fix attempt:",
+          remainingErrors,
+        );
       } else {
         console.log("[DEBUG] All errors resolved!");
       }
@@ -1815,49 +2108,63 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
       await step.run("sync-fixed-files-to-sandbox", async () => {
         const fixedFiles = result.state.data.files || {};
         const sandbox = await getSandbox(sandboxId);
-        
-        console.log("[DEBUG] Writing fixed files back to sandbox:", Object.keys(fixedFiles).length);
-        
+
+        console.log(
+          "[DEBUG] Writing fixed files back to sandbox:",
+          Object.keys(fixedFiles).length,
+        );
+
         for (const [path, content] of Object.entries(fixedFiles)) {
           try {
             await sandbox.files.write(path, content);
           } catch (error) {
-            console.error(`[ERROR] Failed to write file ${path} to sandbox:`, error);
+            console.error(
+              `[ERROR] Failed to write file ${path} to sandbox:`,
+              error,
+            );
           }
         }
-        
+
         console.log("[DEBUG] All fixed files synced to sandbox");
       });
 
-      const backupMetadata = await step.run("backup-original-files", async (): Promise<FragmentMetadata | null> => {
-        if (!supportsMetadata) {
-          console.warn("[WARN] Fragment metadata field not available; skipping backup snapshot");
-          return null;
-        }
+      const backupMetadata = await step.run(
+        "backup-original-files",
+        async (): Promise<FragmentMetadata | null> => {
+          if (!supportsMetadata) {
+            console.warn(
+              "[WARN] Fragment metadata field not available; skipping backup snapshot",
+            );
+            return null;
+          }
 
-        console.log("[DEBUG] Backing up original files before applying fixes");
-        const metadata: FragmentMetadata = {
-          ...initialMetadata,
-          previousFiles: sanitizeJsonForDatabase(originalFiles),
-          fixedAt: new Date().toISOString(),
-        };
+          console.log(
+            "[DEBUG] Backing up original files before applying fixes",
+          );
+          const metadata: FragmentMetadata = {
+            ...initialMetadata,
+            previousFiles: sanitizeJsonForDatabase(originalFiles),
+            fixedAt: new Date().toISOString(),
+          };
 
-        await convex.mutation(api.messages.createFragmentForUser, {
-          userId: project.userId,
-          messageId: fragment.messageId,
-          sandboxId: fragment.sandboxId || undefined,
-          sandboxUrl: fragment.sandboxUrl,
-          title: fragment.title,
-          files: fragment.files,
-          framework: frameworkToConvexEnum(fragmentFramework),
-          metadata,
-        });
+          await convex.mutation(api.messages.createFragmentForUser, {
+            userId: project.userId,
+            messageId: fragment.messageId,
+            sandboxId: fragment.sandboxId || undefined,
+            sandboxUrl: fragment.sandboxUrl,
+            title: fragment.title,
+            files: fragment.files,
+            framework: frameworkToConvexEnum(fragmentFramework),
+            metadata,
+          });
 
-        return metadata;
-      });
+          return metadata;
+        },
+      );
 
       await step.run("update-fragment-files", async () => {
-        const baseMetadata: FragmentMetadata = backupMetadata ?? initialMetadata;
+        const baseMetadata: FragmentMetadata =
+          backupMetadata ?? initialMetadata;
         const metadataUpdate = supportsMetadata
           ? {
               ...baseMetadata,
@@ -1886,64 +2193,84 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
 
       return {
         success: true,
-        message: remainingErrors ? "Some errors may remain. Please check the sandbox." : "Errors fixed successfully",
+        message: remainingErrors
+          ? "Some errors may remain. Please check the sandbox."
+          : "Errors fixed successfully",
         summary: result.state.data.summary,
         remainingErrors: remainingErrors || undefined,
       };
     } catch (error) {
       console.error("[ERROR] Error fix failed:", error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       const friendlyMessage = errorMessage.toLowerCase().includes("timeout")
         ? "Automatic fix timed out. Please refresh the fragment."
         : "Automatic fix failed. Please review the sandbox and try again.";
 
-      await step.run("record-error-fix-failure", async (): Promise<FragmentMetadata | null> => {
-        if (!supportsMetadata) {
-          console.warn("[WARN] Fragment metadata field not available; skipping failure metadata update");
-          return null;
-        }
-
-        console.log("[DEBUG] Recording failure details for fragment", event.data.fragmentId);
-
-        let latestMetadata = initialMetadata;
-        try {
-          const latestFragment = await convex.query(api.messages.getFragmentById, {
-            fragmentId: event.data.fragmentId as Id<"fragments">,
-          });
-
-          if (latestFragment) {
-            latestMetadata = toJsonObject(latestFragment.metadata);
+      await step.run(
+        "record-error-fix-failure",
+        async (): Promise<FragmentMetadata | null> => {
+          if (!supportsMetadata) {
+            console.warn(
+              "[WARN] Fragment metadata field not available; skipping failure metadata update",
+            );
+            return null;
           }
-        } catch (metadataReadError) {
-          console.error("[ERROR] Failed to load latest metadata:", metadataReadError);
-        }
 
-        const failureMetadata: FragmentMetadata = {
-          ...latestMetadata,
-          lastFixFailure: {
-            message: errorMessage,
-            occurredAt: new Date().toISOString(),
-            friendlyMessage,
-          },
-        };
+          console.log(
+            "[DEBUG] Recording failure details for fragment",
+            event.data.fragmentId,
+          );
 
-        try {
-          await convex.mutation(api.messages.createFragmentForUser, {
-            userId: project.userId,
-            messageId: fragment.messageId,
-            sandboxId: fragment.sandboxId || undefined,
-            sandboxUrl: fragment.sandboxUrl,
-            title: fragment.title,
-            files: fragment.files,
-            framework: frameworkToConvexEnum(fragmentFramework),
-            metadata: failureMetadata,
-          });
-        } catch (metadataError) {
-          console.error("[ERROR] Failed to persist failure metadata:", metadataError);
-        }
+          let latestMetadata = initialMetadata;
+          try {
+            const latestFragment = await convex.query(
+              api.messages.getFragmentById,
+              {
+                fragmentId: event.data.fragmentId as Id<"fragments">,
+              },
+            );
 
-        return failureMetadata;
-      });
+            if (latestFragment) {
+              latestMetadata = toJsonObject(latestFragment.metadata);
+            }
+          } catch (metadataReadError) {
+            console.error(
+              "[ERROR] Failed to load latest metadata:",
+              metadataReadError,
+            );
+          }
+
+          const failureMetadata: FragmentMetadata = {
+            ...latestMetadata,
+            lastFixFailure: {
+              message: errorMessage,
+              occurredAt: new Date().toISOString(),
+              friendlyMessage,
+            },
+          };
+
+          try {
+            await convex.mutation(api.messages.createFragmentForUser, {
+              userId: project.userId,
+              messageId: fragment.messageId,
+              sandboxId: fragment.sandboxId || undefined,
+              sandboxUrl: fragment.sandboxUrl,
+              title: fragment.title,
+              files: fragment.files,
+              framework: frameworkToConvexEnum(fragmentFramework),
+              metadata: failureMetadata,
+            });
+          } catch (metadataError) {
+            console.error(
+              "[ERROR] Failed to persist failure metadata:",
+              metadataError,
+            );
+          }
+
+          return failureMetadata;
+        },
+      );
 
       return {
         success: false,
@@ -1970,7 +2297,10 @@ export const sandboxCleanupFunction = inngest.createFunction(
       const sandboxes = await Sandbox.list();
 
       for (const sandbox of sandboxes) {
-        const startedAt = sandbox.startedAt instanceof Date ? sandbox.startedAt.getTime() : new Date(sandbox.startedAt).getTime();
+        const startedAt =
+          sandbox.startedAt instanceof Date
+            ? sandbox.startedAt.getTime()
+            : new Date(sandbox.startedAt).getTime();
 
         if (
           sandbox.state === "paused" &&
@@ -1980,9 +2310,16 @@ export const sandboxCleanupFunction = inngest.createFunction(
           try {
             await Sandbox.kill(sandbox.sandboxId);
             killedSandboxIds.push(sandbox.sandboxId);
-            console.log("[DEBUG] Killed sandbox due to age:", sandbox.sandboxId);
+            console.log(
+              "[DEBUG] Killed sandbox due to age:",
+              sandbox.sandboxId,
+            );
           } catch (error) {
-            console.error("[ERROR] Failed to kill sandbox", sandbox.sandboxId, error);
+            console.error(
+              "[ERROR] Failed to kill sandbox",
+              sandbox.sandboxId,
+              error,
+            );
           }
         }
       }
