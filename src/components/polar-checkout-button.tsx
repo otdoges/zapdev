@@ -49,7 +49,31 @@ export function PolarCheckoutButton({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to create checkout session");
+        
+        // Handle configuration errors with admin-friendly messages
+        if (error.isConfigError) {
+          console.error("Payment configuration error:", error.adminMessage || error.details);
+          
+          // Show user-friendly message
+          toast.error(error.error || "Payment system unavailable", {
+            description: error.details || "Please try again later or contact support.",
+            duration: 6000,
+          });
+          
+          // Log admin message for debugging (visible in browser console)
+          if (error.adminMessage) {
+            console.warn("🔧 Admin action required:", error.adminMessage);
+          }
+        } else {
+          // Handle other errors
+          toast.error(error.error || "Failed to create checkout session", {
+            description: error.details,
+            duration: 5000,
+          });
+        }
+        
+        setIsLoading(false);
+        return;
       }
 
       const { url } = await response.json();
@@ -58,9 +82,15 @@ export function PolarCheckoutButton({
       window.location.href = url;
     } catch (error) {
       console.error("Checkout error:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to start checkout"
-      );
+      
+      // Handle network errors or unexpected failures
+      toast.error("Unable to start checkout", {
+        description: error instanceof Error 
+          ? error.message 
+          : "Please check your internet connection and try again.",
+        duration: 5000,
+      });
+      
       setIsLoading(false);
     }
   };
