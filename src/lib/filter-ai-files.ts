@@ -67,6 +67,21 @@ export function filterAIGeneratedFiles(
     /^store\//,         // State management
     /^routes\//,        // Routes
     /^middleware\//,    // Middleware
+    /^assets\//,        // Assets folder
+    /^static\//,        // Static files
+    /^scss\//,          // SCSS styles
+    /^css\//,           // CSS styles
+    /^theme\//,         // Theme files
+    /^layouts\//,       // Layout components
+    /^types\//,         // TypeScript types
+    /^interfaces\//,    // TypeScript interfaces
+    /^constants\//,     // Constants
+    /^config\//,        // Configuration (if AI-generated)
+    /^helpers\//,       // Helper functions
+    /^contexts\//,      // React contexts
+    /^providers\//,     // Providers
+    /^tests?\//,        // Test files
+    /^__tests__\//,     // Jest test directories
   ];
 
   for (const [path, content] of Object.entries(files)) {
@@ -86,10 +101,26 @@ export function filterAIGeneratedFiles(
     // For files not matching include patterns, apply additional logic:
     // Include if it's a source code file in the root (e.g., page.tsx, layout.tsx)
     if (
-      /\.(tsx?|jsx?|vue|svelte|css|scss|sass|less)$/.test(path) &&
+      /\.(tsx?|jsx?|vue|svelte|css|scss|sass|less|html|htm|md|markdown|json)$/.test(path) &&
       !path.includes('/') // Root level source files only
     ) {
       filtered[path] = content;
+    }
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    const totalFiles = Object.keys(files).length;
+    const filteredFiles = Object.keys(filtered).length;
+    const removedFiles = totalFiles - filteredFiles;
+    
+    if (removedFiles > 0) {
+      console.debug(`[filterAIGeneratedFiles] Filtered ${removedFiles} files (${totalFiles} → ${filteredFiles})`);
+      
+      // Log first few filtered out files for debugging
+      const filteredOutPaths = Object.keys(files).filter((path) => !(path in filtered));
+      if (filteredOutPaths.length > 0) {
+        console.debug(`[filterAIGeneratedFiles] Sample filtered files:`, filteredOutPaths.slice(0, 5));
+      }
     }
   }
 
