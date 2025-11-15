@@ -69,7 +69,7 @@ export const MessageForm = ({ projectId }: Props) => {
     defaultValues: {
       value: "",
     },
-    mode: "onSubmit",
+    mode: "onChange",
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -284,7 +284,7 @@ export const MessageForm = ({ projectId }: Props) => {
                   {(() => {
                     const selectedOption = modelOptions.find((opt) => opt.id === selectedModel);
                     const imageSrc = selectedOption?.image || "/auto.svg";
-                    return <Image src={imageSrc} alt="Model" width={16} height={16} className="size-4" />;
+                    return <Image src={imageSrc} alt="Model" width={16} height={16} className="size-4" unoptimized />;
                   })()}
                 </Button>
               </PopoverTrigger>
@@ -308,7 +308,7 @@ export const MessageForm = ({ projectId }: Props) => {
                           isSelected && "bg-accent"
                         )}
                       >
-                        <Image src={option.image} alt={option.name} width={16} height={16} className="size-4 mt-0.5 flex-shrink-0" />
+                        <Image src={option.image} alt={option.name} width={16} height={16} className="size-4 mt-0.5 flex-shrink-0" unoptimized />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm">{option.name}</div>
                           <div className="text-xs text-muted-foreground">

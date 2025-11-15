@@ -6,6 +6,7 @@ import { useUser } from "@stackframe/stack";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -40,6 +41,11 @@ export function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
           <DialogTitle>
             {mode === "signin" ? "Sign in to ZapDev" : "Create your account"}
           </DialogTitle>
+          <DialogDescription>
+            {mode === "signin" 
+              ? "Sign in to access your projects and continue building with AI" 
+              : "Create an account to start building web applications with AI"}
+          </DialogDescription>
         </DialogHeader>
         <div className="mt-4">
           {mode === "signin" ? <SignIn /> : <SignUp />}
