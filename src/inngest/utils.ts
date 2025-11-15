@@ -19,6 +19,7 @@ export async function getSandbox(sandboxId: string) {
   }
   
   try {
+    // Sandbox.connect() automatically resumes if paused
     const sandbox = await Sandbox.connect(sandboxId, {
       apiKey: process.env.E2B_API_KEY,
     });
@@ -27,10 +28,18 @@ export async function getSandbox(sandboxId: string) {
     SANDBOX_CACHE.set(sandboxId, sandbox);
     clearCacheEntry(sandboxId);
     
+    console.log(`[DEBUG] Connected to sandbox ${sandboxId} (auto-resumed if paused)`);
+    
     return sandbox;
   } catch (error) {
     console.error("[ERROR] Failed to connect to E2B sandbox:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Check if sandbox was deleted or expired (>30 days)
+    if (errorMessage.includes("not found") || errorMessage.includes("not exist")) {
+      console.warn(`[WARN] Sandbox ${sandboxId} not found - may be expired or deleted`);
+    }
+    
     throw new Error(`E2B sandbox connection failed: ${errorMessage}`);
   }
 }
