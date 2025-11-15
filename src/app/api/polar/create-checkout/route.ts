@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { polarClient, getPolarOrganizationId, isPolarConfigured } from "@/lib/polar-client";
+import { getPolarClient, getPolarOrganizationId, isPolarConfigured } from "@/lib/polar-client";
 import { getUser } from "@/lib/auth-server";
 import { getSanitizedErrorDetails } from "@/lib/env-validation";
 
@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
     const organizationId = getPolarOrganizationId();
 
     // Create checkout session with Polar
-    const checkout = await polarClient.checkouts.create({
+    const polar = getPolarClient();
+    const checkout = await polar.checkouts.create({
       // Products array (can include multiple product IDs)
       products: [productId],
       // Pass user ID in metadata to link subscription to Stack Auth user

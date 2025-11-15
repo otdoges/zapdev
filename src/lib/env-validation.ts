@@ -12,8 +12,10 @@ interface EnvValidationError {
 /**
  * Validate Polar.sh environment variables
  * Throws descriptive errors if variables are missing or malformed
+ * 
+ * @param throwOnError - If false, only logs warnings instead of throwing (useful for build time)
  */
-export function validatePolarEnv(): void {
+export function validatePolarEnv(throwOnError = true): void {
   const errors: EnvValidationError[] = [];
 
   // Validate POLAR_ACCESS_TOKEN
@@ -100,10 +102,16 @@ export function validatePolarEnv(): void {
     );
   }
 
-  // Throw if any critical errors found
+  // Handle errors based on throwOnError flag
   if (errors.length > 0) {
     const errorMessage = formatEnvErrors(errors);
-    throw new Error(errorMessage);
+    
+    if (throwOnError) {
+      throw new Error(errorMessage);
+    } else {
+      // Just log warning during build
+      console.warn(errorMessage);
+    }
   }
 }
 
