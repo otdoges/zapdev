@@ -766,17 +766,29 @@ export const codeAgentFunction = inngest.createFunction(
         let sandbox;
         try {
           console.log("[DEBUG] Attempting to create sandbox with template:", template);
-          sandbox = await Sandbox.create(template, {
+          // Use betaCreate to enable auto-pause on inactivity
+          sandbox = await (Sandbox as any).betaCreate(template, {
             apiKey: process.env.E2B_API_KEY,
             timeoutMs: SANDBOX_TIMEOUT,
+            autoPause: true, // Enable auto-pause after inactivity
           });
-        } catch {
-          // Fallback to default zapdev template if framework-specific doesn't exist
+        } catch (e) {
+          // Fallback to betaCreate with default zapdev template if framework-specific doesn't exist
           console.log("[DEBUG] Framework template not found, using default 'zapdev' template");
-          sandbox = await Sandbox.create("zapdev", {
-            apiKey: process.env.E2B_API_KEY,
-            timeoutMs: SANDBOX_TIMEOUT,
-          });
+          try {
+            sandbox = await (Sandbox as any).betaCreate("zapdev", {
+              apiKey: process.env.E2B_API_KEY,
+              timeoutMs: SANDBOX_TIMEOUT,
+              autoPause: true,
+            });
+          } catch {
+            // Final fallback to standard create if betaCreate not available
+            console.log("[DEBUG] betaCreate not available, falling back to Sandbox.create");
+            sandbox = await Sandbox.create("zapdev", {
+              apiKey: process.env.E2B_API_KEY,
+              timeoutMs: SANDBOX_TIMEOUT,
+            });
+          }
           // Fallback framework to nextjs if template doesn't exist
           selectedFramework = 'nextjs';
         }
@@ -788,6 +800,24 @@ export const codeAgentFunction = inngest.createFunction(
         console.error("[ERROR] Failed to create E2B sandbox:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
         throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
+      }
+    });
+
+    // Create sandbox session in Convex to track persistence state
+    await step.run("create-sandbox-session", async () => {
+      try {
+        console.log("[DEBUG] Creating sandbox session for sandboxId:", sandboxId);
+        await convex.mutation(api.sandboxSessions.create, {
+          sandboxId,
+          projectId: event.data.projectId as Id<"projects">,
+          userId: project.userId,
+          framework: frameworkToConvexEnum(selectedFramework),
+          autoPauseTimeout: 10 * 60 * 1000, // Default 10 minutes
+        });
+        console.log("[DEBUG] Sandbox session created successfully");
+      } catch (error) {
+        console.error("[ERROR] Failed to create sandbox session:", error);
+        // Don't throw - continue without session tracking
       }
     });
 
@@ -1965,3 +1995,6 @@ export const sandboxCleanupFunction = inngest.createFunction(
     };
   },
 );
+
+// Export auto-pause function
+export { autoPauseSandboxes } from "./functions/auto-pause";

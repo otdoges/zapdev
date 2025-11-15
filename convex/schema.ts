@@ -50,6 +50,12 @@ export const importStatusEnum = v.union(
   v.literal("FAILED")
 );
 
+export const sandboxStateEnum = v.union(
+  v.literal("RUNNING"),
+  v.literal("PAUSED"),
+  v.literal("KILLED")
+);
+
 export default defineSchema({
   // Projects table
   projects: defineTable({
@@ -197,4 +203,22 @@ export default defineSchema({
     .index("by_polarCustomerId", ["polarCustomerId"])
     .index("by_polarSubscriptionId", ["polarSubscriptionId"])
     .index("by_status", ["status"]),
+
+  // Sandbox Sessions table - E2B sandbox persistence tracking
+  sandboxSessions: defineTable({
+    sandboxId: v.string(), // E2B sandbox ID
+    projectId: v.id("projects"), // Associated project
+    userId: v.string(), // Clerk user ID
+    framework: frameworkEnum, // Framework for the sandbox
+    state: sandboxStateEnum, // RUNNING, PAUSED, or KILLED
+    lastActivity: v.number(), // Timestamp of last user activity
+    autoPauseTimeout: v.number(), // Inactivity timeout in milliseconds (default: 10 minutes)
+    pausedAt: v.optional(v.number()), // Timestamp when sandbox was paused
+    createdAt: v.number(), // Timestamp when sandbox was created
+    updatedAt: v.number(), // Timestamp of last update
+  })
+    .index("by_projectId", ["projectId"])
+    .index("by_userId", ["userId"])
+    .index("by_state", ["state"])
+    .index("by_sandboxId", ["sandboxId"]),
 });
