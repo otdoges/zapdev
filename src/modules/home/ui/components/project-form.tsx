@@ -46,7 +46,7 @@ export const ProjectForm = () => {
     defaultValues: {
       value: "",
     },
-    mode: "onChange",
+    mode: "onTouched",
   });
 
   const createProjectWithMessageAndAttachments = useAction(api.projects.createWithMessageAndAttachments);
