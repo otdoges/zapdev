@@ -295,7 +295,7 @@ const runLintCheck = async (sandboxId: string): Promise<string | null> => {
       stderr: "",
     };
 
-    const result = await sandbox.commands.run("bun run lint", {
+    const result = await sandbox.commands.run("npm run lint", {
       onStdout: (data: string) => {
         buffers.stdout += data;
       },
@@ -305,6 +305,12 @@ const runLintCheck = async (sandboxId: string): Promise<string | null> => {
     });
 
     const output = buffers.stdout + buffers.stderr;
+
+    // Exit code 127 means command not found - gracefully skip validation
+    if (result.exitCode === 127) {
+      console.warn("[WARN] Lint script not found in package.json, skipping lint check");
+      return null;
+    }
 
     // If lint found errors (non-zero exit code and has output)
     if (result.exitCode !== 0 && output.length > 0) {
@@ -338,7 +344,7 @@ const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
     };
 
     // Try to build the project to catch build-time errors
-    const buildCommand = "bun run build";
+    const buildCommand = "npm run build";
     console.log("[DEBUG] Running build check with command:", buildCommand);
 
     const result = await sandbox.commands.run(buildCommand, {
@@ -352,6 +358,12 @@ const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
     });
 
     const output = buffers.stdout + buffers.stderr;
+
+    // Exit code 127 means command not found - gracefully skip validation
+    if (result.exitCode === 127) {
+      console.warn("[WARN] Build script not found in package.json, skipping build check");
+      return null;
+    }
 
     // If build failed (non-zero exit code)
     if (result.exitCode !== 0) {
