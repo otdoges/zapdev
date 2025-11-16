@@ -1904,6 +1904,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         ...(warningReasons.length > 0 && { warnings: warningReasons }),
       };
 
+      console.log(`[DEBUG] Preparing to save fragment with ${Object.keys(finalFiles).length} files`);
+      console.log(`[DEBUG] Sample file paths:`, Object.keys(finalFiles).slice(0, 10));
+
       // Create message first
       const messageId = await convex.mutation(api.messages.createForUser, {
         userId: project.userId,
@@ -1914,8 +1917,10 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         status: "COMPLETE",
       });
 
+      console.log(`[DEBUG] Created message ${messageId}, now creating fragment...`);
+
       // Then create fragment linked to the message
-      await convex.mutation(api.messages.createFragmentForUser, {
+      const fragmentId = await convex.mutation(api.messages.createFragmentForUser, {
         userId: project.userId,
         messageId: messageId as Id<"messages">,
         sandboxId: sandboxId || undefined,
@@ -1925,6 +1930,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         framework: frameworkToConvexEnum(selectedFramework),
         metadata: metadata,
       });
+
+      console.log(`[DEBUG] Fragment ${fragmentId} created successfully with ${Object.keys(finalFiles).length} files`);
 
       return messageId;
     });

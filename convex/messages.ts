@@ -550,6 +550,17 @@ export const createFragmentInternal = async (
 
   const now = Date.now();
 
+  // Log what we're about to save
+  const filesCount = files && typeof files === 'object' ? Object.keys(files).length : 0;
+  console.log(`[createFragmentInternal] Saving fragment with ${filesCount} files for message ${messageId}`);
+  
+  if (filesCount === 0) {
+    console.error('[createFragmentInternal] WARNING: files object is empty or invalid!', {
+      filesType: typeof files,
+      filesKeys: files ? Object.keys(files).slice(0, 5) : [],
+    });
+  }
+
   // Check if fragment already exists
   const existingFragment = await ctx.db
     .query("fragments")
@@ -558,6 +569,7 @@ export const createFragmentInternal = async (
 
   if (existingFragment) {
     // Update existing fragment
+    console.log(`[createFragmentInternal] Updating existing fragment ${existingFragment._id}`);
     await ctx.db.patch(existingFragment._id, {
       sandboxId,
       sandboxUrl,
@@ -566,10 +578,12 @@ export const createFragmentInternal = async (
       metadata,
       updatedAt: now,
     });
+    console.log(`[createFragmentInternal] Successfully updated fragment ${existingFragment._id}`);
     return existingFragment._id;
   }
 
   // Create new fragment
+  console.log(`[createFragmentInternal] Creating new fragment for message ${messageId}`);
   const fragmentId = await ctx.db.insert("fragments", {
     messageId: messageId as any,
     sandboxId,
@@ -581,6 +595,7 @@ export const createFragmentInternal = async (
     createdAt: now,
     updatedAt: now,
   });
+  console.log(`[createFragmentInternal] Successfully created fragment ${fragmentId} with ${filesCount} files`);
   return fragmentId;
 };
 
@@ -644,6 +659,21 @@ export const createFragmentForUser = mutation({
     framework: frameworkEnum,
   },
   handler: async (ctx, args) => {
+    // Log fragment creation for debugging
+    const filesCount = args.files && typeof args.files === 'object' 
+      ? Object.keys(args.files).length 
+      : 0;
+    
+    console.log(`[Convex] Creating fragment for message ${args.messageId} with ${filesCount} files`);
+    
+    if (filesCount === 0) {
+      console.error('[Convex] WARNING: Attempting to create fragment with 0 files!', {
+        messageId: args.messageId,
+        filesType: typeof args.files,
+        files: args.files,
+      });
+    }
+
     return createFragmentInternal(
       ctx,
       args.userId,

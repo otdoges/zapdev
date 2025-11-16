@@ -1,127 +1,91 @@
 /**
  * Filters out E2B sandbox system files and configuration boilerplate,
  * returning only AI-generated source code files.
+ * 
+ * Strategy: EXCLUDE-BY-DEFAULT (whitelist approach)
+ * This prevents accidentally filtering out legitimate AI-generated code.
  */
 export function filterAIGeneratedFiles(
   files: Record<string, string>
 ): Record<string, string> {
+  // Handle invalid input
+  if (!files || typeof files !== 'object') {
+    console.warn('[filterAIGeneratedFiles] Invalid input, returning empty object');
+    return {};
+  }
+
   const filtered: Record<string, string> = {};
 
-  // Patterns for files to EXCLUDE (E2B sandbox system files)
+  // Patterns for files to EXCLUDE (E2B sandbox system files and build artifacts)
   const excludePatterns = [
-    // Configuration files
-    /^package\.json$/,
+    // Lock files
     /^package-lock\.json$/,
     /^bun\.lockb$/,
     /^yarn\.lock$/,
     /^pnpm-lock\.yaml$/,
-    /^tsconfig.*\.json$/,
-    /^jsconfig.*\.json$/,
-    /\.config\.(js|ts|mjs|cjs)$/,
-    /^next-env\.d\.ts$/,
-
-    // Build and tooling configs
-    /^\.eslintrc/,
-    /^\.prettierrc/,
-    /^\.gitignore$/,
-    /^\.dockerignore$/,
-    /^Dockerfile$/,
-    /^docker-compose/,
-
-    // Documentation and meta files
-    /^README\.md$/,
-    /^LICENSE$/,
-    /^CHANGELOG\.md$/,
-
-    // Environment files (typically not AI-generated)
-    /^\.env/,
-
-    // Lock and cache files
-    /\.lock$/,
+    
+    // Build artifacts and cache
+    /^\.next\//,
+    /^dist\//,
+    /^build\//,
+    /^out\//,
+    /^\.cache\//,
+    /^node_modules\//,
     /\.cache$/,
-
-    // Test config files (unless in test directories)
-    /^jest\.config/,
-    /^vitest\.config/,
-    /^playwright\.config/,
-  ];
-
-  // Patterns for files to INCLUDE (AI-generated source code)
-  const includePatterns = [
-    /^app\//,           // Next.js app directory
-    /^pages\//,         // Next.js pages directory
-    /^src\//,           // Source code directory
-    /^components\//,    // Components directory
-    /^lib\//,           // Library/utility code
-    /^utils\//,         // Utilities
-    /^hooks\//,         // React hooks
-    /^styles\//,        // Styles
-    /^public\//,        // Public assets (if AI-generated)
-    /^api\//,           // API routes
-    /^server\//,        // Server code
-    /^client\//,        // Client code
-    /^views\//,         // Views (Angular/Vue)
-    /^controllers\//,   // Controllers
-    /^models\//,        // Models
-    /^services\//,      // Services
-    /^store\//,         // State management
-    /^routes\//,        // Routes
-    /^middleware\//,    // Middleware
-    /^assets\//,        // Assets folder
-    /^static\//,        // Static files
-    /^scss\//,          // SCSS styles
-    /^css\//,           // CSS styles
-    /^theme\//,         // Theme files
-    /^layouts\//,       // Layout components
-    /^types\//,         // TypeScript types
-    /^interfaces\//,    // TypeScript interfaces
-    /^constants\//,     // Constants
-    /^config\//,        // Configuration (if AI-generated)
-    /^helpers\//,       // Helper functions
-    /^contexts\//,      // React contexts
-    /^providers\//,     // Providers
-    /^tests?\//,        // Test files
-    /^__tests__\//,     // Jest test directories
+    
+    // System files
+    /^\.git\//,
+    /^\.DS_Store$/,
+    /^Thumbs\.db$/,
+    
+    // Environment files with secrets
+    /^\.env\.local$/,
+    /^\.env\.production$/,
+    
+    // Editor/IDE files
+    /^\.vscode\//,
+    /^\.idea\//,
+    /\.swp$/,
+    /\.swo$/,
   ];
 
   for (const [path, content] of Object.entries(files)) {
+    // Skip null/undefined content
+    if (content === null || content === undefined) {
+      console.warn(`[filterAIGeneratedFiles] Skipping file with null/undefined content: ${path}`);
+      continue;
+    }
+
     // Skip if matches any exclude pattern
     const shouldExclude = excludePatterns.some(pattern => pattern.test(path));
     if (shouldExclude) {
       continue;
     }
 
-    // Include if matches any include pattern
-    const shouldInclude = includePatterns.some(pattern => pattern.test(path));
-    if (shouldInclude) {
-      filtered[path] = content;
-      continue;
-    }
+    // INCLUDE BY DEFAULT - only exclude known system files
+    // This is the key change: we trust that files in the sandbox are AI-generated
+    // unless they match the explicit exclude patterns above
+    filtered[path] = content;
+  }
 
-    // For files not matching include patterns, apply additional logic:
-    // Include if it's a source code file in the root (e.g., page.tsx, layout.tsx)
-    if (
-      /\.(tsx?|jsx?|vue|svelte|css|scss|sass|less|html|htm|md|markdown|json)$/.test(path) &&
-      !path.includes('/') // Root level source files only
-    ) {
-      filtered[path] = content;
+  // Logging for debugging
+  const totalFiles = Object.keys(files).length;
+  const filteredFiles = Object.keys(filtered).length;
+  const removedFiles = totalFiles - filteredFiles;
+  
+  console.log(`[filterAIGeneratedFiles] Processed ${totalFiles} files → kept ${filteredFiles} files (excluded ${removedFiles})`);
+  
+  if (removedFiles > 0) {
+    // Log first few filtered out files for debugging
+    const filteredOutPaths = Object.keys(files).filter((path) => !(path in filtered));
+    if (filteredOutPaths.length > 0) {
+      console.debug(`[filterAIGeneratedFiles] Excluded files:`, filteredOutPaths.slice(0, 10));
     }
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    const totalFiles = Object.keys(files).length;
-    const filteredFiles = Object.keys(filtered).length;
-    const removedFiles = totalFiles - filteredFiles;
-    
-    if (removedFiles > 0) {
-      console.debug(`[filterAIGeneratedFiles] Filtered ${removedFiles} files (${totalFiles} → ${filteredFiles})`);
-      
-      // Log first few filtered out files for debugging
-      const filteredOutPaths = Object.keys(files).filter((path) => !(path in filtered));
-      if (filteredOutPaths.length > 0) {
-        console.debug(`[filterAIGeneratedFiles] Sample filtered files:`, filteredOutPaths.slice(0, 5));
-      }
-    }
+  if (filteredFiles === 0 && totalFiles > 0) {
+    console.error('[filterAIGeneratedFiles] WARNING: All files were filtered out! This is likely a bug.');
+    console.error('[filterAIGeneratedFiles] Sample file paths:', Object.keys(files).slice(0, 10));
   }
 
   return filtered;

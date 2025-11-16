@@ -13,18 +13,29 @@ interface FragmentWebProps {
 
 const normalizeFiles = (value: Doc<"fragments">["files"]): Record<string, string> => {
   if (typeof value !== "object" || value === null) {
+    console.warn('[FragmentWeb] Files value is not a valid object:', value);
     return {};
   }
 
-  return Object.entries(value as Record<string, unknown>).reduce<Record<string, string>>(
+  const normalized = Object.entries(value as Record<string, unknown>).reduce<Record<string, string>>(
     (acc, [path, content]) => {
       if (typeof content === "string") {
         acc[path] = content;
+      } else {
+        console.warn(`[FragmentWeb] Skipping non-string file content for: ${path}`, typeof content);
       }
       return acc;
     },
     {}
   );
+
+  console.log(`[FragmentWeb] Normalized ${Object.keys(normalized).length} files from fragment`);
+  
+  if (Object.keys(normalized).length === 0) {
+    console.error('[FragmentWeb] No valid files found after normalization!');
+  }
+
+  return normalized;
 };
 
 export function FragmentWeb({ data }: FragmentWebProps) {
