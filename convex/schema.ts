@@ -27,6 +27,13 @@ export const messageStatusEnum = v.union(
   v.literal("COMPLETE")
 );
 
+export const specModeEnum = v.union(
+  v.literal("PLANNING"),
+  v.literal("AWAITING_APPROVAL"),
+  v.literal("APPROVED"),
+  v.literal("REJECTED")
+);
+
 export const attachmentTypeEnum = v.union(
   v.literal("IMAGE"),
   v.literal("FIGMA_FILE"),
@@ -76,6 +83,9 @@ export default defineSchema({
     type: messageTypeEnum,
     status: messageStatusEnum,
     projectId: v.id("projects"),
+    specMode: v.optional(specModeEnum), // Spec/planning mode status
+    specContent: v.optional(v.string()), // Markdown spec from AI
+    selectedModel: v.optional(v.string()), // Model used for this message
     createdAt: v.optional(v.number()), // timestamp
     updatedAt: v.optional(v.number()), // timestamp
   })

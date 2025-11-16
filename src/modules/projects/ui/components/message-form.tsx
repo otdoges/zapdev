@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
-import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, GitBranchIcon, FigmaIcon } from "lucide-react";
+import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, GitBranchIcon, FigmaIcon, SparklesIcon } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/lib/convex-api";
@@ -20,6 +20,8 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 import { Usage } from "./usage";
 import type { OurFileRouter } from "@/lib/uploadthing";
@@ -53,6 +55,7 @@ export const MessageForm = ({ projectId }: Props) => {
   const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelId>("auto");
+  const [specModeEnabled, setSpecModeEnabled] = useState(false);
 
   // Model configurations matching backend
   const modelOptions = [
@@ -78,8 +81,12 @@ export const MessageForm = ({ projectId }: Props) => {
       const result = await createMessageWithAttachments({
         value: values.value,
         projectId,
+        selectedModel: selectedModel,
         attachments: attachments.length > 0 ? attachments : undefined,
       });
+
+      // Determine if we should use spec mode
+      const useSpecMode = specModeEnabled && selectedModel === "openai/gpt-5.1-codex";
 
       // Trigger Inngest event for AI processing
       await fetch("/api/inngest/trigger", {
@@ -89,6 +96,8 @@ export const MessageForm = ({ projectId }: Props) => {
           projectId: result.projectId,
           value: result.value,
           model: selectedModel,
+          messageId: result.messageId,
+          specMode: useSpecMode,
         }),
       });
 
@@ -302,6 +311,10 @@ export const MessageForm = ({ projectId }: Props) => {
                         onClick={() => {
                           setSelectedModel(option.id);
                           setIsModelMenuOpen(false);
+                          // Auto-disable spec mode if not GPT-5.1 Codex
+                          if (option.id !== "openai/gpt-5.1-codex") {
+                            setSpecModeEnabled(false);
+                          }
                         }}
                         className={cn(
                           "flex items-start gap-3 w-full px-3 py-2.5 rounded-md hover:bg-accent text-left transition-colors",
@@ -318,6 +331,30 @@ export const MessageForm = ({ projectId }: Props) => {
                       </button>
                     );
                   })}
+                  
+                  {selectedModel === "openai/gpt-5.1-codex" && (
+                    <>
+                      <div className="h-px bg-border my-1" />
+                      <div className="px-3 py-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <SparklesIcon className="size-3.5 text-primary" />
+                            <Label htmlFor="spec-mode" className="text-sm font-medium cursor-pointer">
+                              Spec Mode
+                            </Label>
+                          </div>
+                          <Switch
+                            id="spec-mode"
+                            checked={specModeEnabled}
+                            onCheckedChange={setSpecModeEnabled}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          AI will create a detailed plan for your approval before building
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </PopoverContent>
             </Popover>

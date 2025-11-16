@@ -75,10 +75,9 @@ export async function createSandboxWithRetry(
       console.log(`[DEBUG] Sandbox creation attempt ${attempt}/${maxRetries} for template: ${template}`);
       const startTime = Date.now();
 
-      const sandbox = await (Sandbox as any).betaCreate(template, {
+      const sandbox = await Sandbox.create(template, {
         apiKey: process.env.E2B_API_KEY,
         timeoutMs: SANDBOX_TIMEOUT,
-        autoPause: true,
       });
 
       // Validate sandbox is ready

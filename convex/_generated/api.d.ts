@@ -19,6 +19,7 @@ import type * as oauth from "../oauth.js";
 import type * as projects from "../projects.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as sandboxSessions from "../sandboxSessions.js";
+import type * as specs from "../specs.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as usage from "../usage.js";
 
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   rateLimit: typeof rateLimit;
   sandboxSessions: typeof sandboxSessions;
+  specs: typeof specs;
   subscriptions: typeof subscriptions;
   usage: typeof usage;
 }>;

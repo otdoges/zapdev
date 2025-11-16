@@ -21,6 +21,7 @@ export const create = mutation({
     role: messageRoleEnum,
     type: messageTypeEnum,
     status: v.optional(messageStatusEnum),
+    selectedModel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -39,6 +40,7 @@ export const create = mutation({
       role: args.role,
       type: args.type,
       status: args.status || "COMPLETE",
+      selectedModel: args.selectedModel,
       createdAt: now,
       updatedAt: now,
     });
@@ -55,6 +57,7 @@ export const createWithAttachments = action({
   args: {
     value: v.string(),
     projectId: v.string(),
+    selectedModel: v.optional(v.string()),
     attachments: v.optional(
       v.array(
         v.object({
@@ -89,6 +92,7 @@ export const createWithAttachments = action({
       role: "USER",
       type: "RESULT",
       status: "COMPLETE",
+      selectedModel: args.selectedModel,
     });
 
     // Add attachments if provided
