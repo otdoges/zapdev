@@ -221,4 +221,39 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_state", ["state"])
     .index("by_sandboxId", ["sandboxId"]),
+
+  // E2B Rate Limits table - track E2B API usage to prevent hitting limits
+  e2bRateLimits: defineTable({
+    operation: v.string(), // Operation type: "sandbox_create", "sandbox_connect", etc.
+    timestamp: v.number(), // When the request was made
+  })
+    .index("by_operation", ["operation"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_operation_timestamp", ["operation", "timestamp"]),
+
+  // Job Queue table - queue requests when E2B is unavailable
+  jobQueue: defineTable({
+    type: v.string(), // Job type: "code_generation", "error_fix", etc.
+    projectId: v.id("projects"),
+    userId: v.string(), // Clerk user ID
+    payload: v.any(), // Job-specific data (event.data from Inngest)
+    priority: v.union(v.literal("high"), v.literal("normal"), v.literal("low")),
+    status: v.union(
+      v.literal("PENDING"),
+      v.literal("PROCESSING"),
+      v.literal("COMPLETED"),
+      v.literal("FAILED")
+    ),
+    attempts: v.number(), // Number of processing attempts
+    maxAttempts: v.optional(v.number()), // Max retry attempts (default 3)
+    error: v.optional(v.string()), // Last error message
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    processedAt: v.optional(v.number()), // When job was completed/failed
+  })
+    .index("by_status", ["status"])
+    .index("by_projectId", ["projectId"])
+    .index("by_userId", ["userId"])
+    .index("by_status_priority", ["status", "priority"])
+    .index("by_createdAt", ["createdAt"]),
 });
