@@ -2,8 +2,10 @@
  * Filters out E2B sandbox system files and configuration boilerplate,
  * returning only AI-generated source code files.
  * 
- * Strategy: EXCLUDE-BY-DEFAULT (whitelist approach)
- * This prevents accidentally filtering out legitimate AI-generated code.
+ * Strategy: DUAL-MODE (whitelist + blacklist)
+ * 1. Whitelist common source code extensions
+ * 2. Blacklist known system/build files
+ * 3. Include everything else by default (trust the sandbox)
  */
 export function filterAIGeneratedFiles(
   files: Record<string, string>
@@ -16,7 +18,19 @@ export function filterAIGeneratedFiles(
 
   const filtered: Record<string, string> = {};
 
-  // Patterns for files to EXCLUDE (E2B sandbox system files and build artifacts)
+  // Whitelist: Common source code file extensions that should ALWAYS be included
+  const sourceCodeExtensions = [
+    /\.(tsx|ts|jsx|js)$/i,           // TypeScript/JavaScript
+    /\.(css|scss|sass|less)$/i,      // Stylesheets
+    /\.(html|htm)$/i,                // HTML
+    /\.(json)$/i,                    // JSON (but will exclude lock files below)
+    /\.(md|mdx)$/i,                  // Markdown
+    /\.(svg|png|jpg|jpeg|gif|webp|ico)$/i, // Images
+    /\.(vue|svelte)$/i,              // Framework-specific
+    /\.(xml|yaml|yml)$/i,            // Config files
+  ];
+
+  // Blacklist: Files to EXCLUDE (E2B sandbox system files and build artifacts)
   const excludePatterns = [
     // Lock files
     /^package-lock\.json$/,
@@ -47,45 +61,71 @@ export function filterAIGeneratedFiles(
     /^\.idea\//,
     /\.swp$/,
     /\.swo$/,
+    
+    // Angular-specific build artifacts
+    /^\.angular\//,
+    
+    // Svelte-specific build artifacts
+    /^\.svelte-kit\//,
   ];
+
+  const excludedFiles: string[] = [];
+  const includedByWhitelist: string[] = [];
+  const includedByDefault: string[] = [];
 
   for (const [path, content] of Object.entries(files)) {
     // Skip null/undefined content
     if (content === null || content === undefined) {
       console.warn(`[filterAIGeneratedFiles] Skipping file with null/undefined content: ${path}`);
+      excludedFiles.push(path);
       continue;
     }
 
-    // Skip if matches any exclude pattern
+    // Skip if matches any exclude pattern (highest priority)
     const shouldExclude = excludePatterns.some(pattern => pattern.test(path));
     if (shouldExclude) {
+      excludedFiles.push(path);
       continue;
     }
 
-    // INCLUDE BY DEFAULT - only exclude known system files
-    // This is the key change: we trust that files in the sandbox are AI-generated
-    // unless they match the explicit exclude patterns above
+    // Include if matches source code extension whitelist
+    const isSourceCode = sourceCodeExtensions.some(pattern => pattern.test(path));
+    if (isSourceCode) {
+      filtered[path] = content;
+      includedByWhitelist.push(path);
+      continue;
+    }
+
+    // INCLUDE BY DEFAULT - trust the sandbox for unknown file types
+    // This catches config files like package.json, tsconfig.json, etc.
     filtered[path] = content;
+    includedByDefault.push(path);
   }
 
-  // Logging for debugging
+  // Enhanced logging for debugging
   const totalFiles = Object.keys(files).length;
   const filteredFiles = Object.keys(filtered).length;
   const removedFiles = totalFiles - filteredFiles;
   
   console.log(`[filterAIGeneratedFiles] Processed ${totalFiles} files → kept ${filteredFiles} files (excluded ${removedFiles})`);
+  console.debug(`[filterAIGeneratedFiles] Breakdown: ${includedByWhitelist.length} by whitelist, ${includedByDefault.length} by default, ${excludedFiles.length} excluded`);
   
   if (removedFiles > 0) {
-    // Log first few filtered out files for debugging
-    const filteredOutPaths = Object.keys(files).filter((path) => !(path in filtered));
-    if (filteredOutPaths.length > 0) {
-      console.debug(`[filterAIGeneratedFiles] Excluded files:`, filteredOutPaths.slice(0, 10));
-    }
+    console.debug(`[filterAIGeneratedFiles] Excluded files:`, excludedFiles.slice(0, 10));
+  }
+
+  // Log included files for transparency
+  if (filteredFiles > 0 && filteredFiles <= 20) {
+    console.debug(`[filterAIGeneratedFiles] Included files:`, Object.keys(filtered));
   }
 
   if (filteredFiles === 0 && totalFiles > 0) {
-    console.error('[filterAIGeneratedFiles] WARNING: All files were filtered out! This is likely a bug.');
-    console.error('[filterAIGeneratedFiles] Sample file paths:', Object.keys(files).slice(0, 10));
+    console.error('[filterAIGeneratedFiles] CRITICAL: All files were filtered out! This is a bug.');
+    console.error('[filterAIGeneratedFiles] All file paths:', Object.keys(files));
+    console.error('[filterAIGeneratedFiles] Excluded breakdown:', excludedFiles);
+    // Return all files as fallback to prevent data loss
+    console.warn('[filterAIGeneratedFiles] FALLBACK: Returning all files to prevent data loss');
+    return files;
   }
 
   return filtered;

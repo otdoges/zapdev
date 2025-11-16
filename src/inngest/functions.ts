@@ -1246,10 +1246,15 @@ Generate code that matches the approved specification.`;
 
     const modelConfig = MODEL_CONFIGS[selectedModel];
     console.log(
-      "[DEBUG] Creating agent with model:",
-      selectedModel,
-      "config:",
-      modelConfig,
+      "[MODEL_SELECTION] Creating agent with:",
+      {
+        model: selectedModel,
+        modelName: modelConfig.name,
+        provider: modelConfig.provider,
+        framework: selectedFramework,
+        temperature: modelConfig.temperature,
+        autoSelected: validatedModel === "auto"
+      }
     );
 
     const codeAgent = createAgent<AgentState>({
@@ -1352,6 +1357,55 @@ Generate code that matches the approved specification.`;
       } else {
         console.warn("[WARN] Summary still missing after explicit request, will use fallback");
       }
+    }
+
+    // Post-execution validation: Check if expected entry point file was modified
+    const generatedFiles = result.state.data.files || {};
+    const fileKeys = Object.keys(generatedFiles);
+    
+    // Define expected entry points by framework
+    const entryPointsByFramework: Record<Framework, string[]> = {
+      nextjs: ["app/page.tsx", "pages/index.tsx"],
+      angular: ["src/app/app.component.ts", "src/app/app.component.html"],
+      react: ["src/App.tsx", "src/main.tsx", "src/index.tsx"],
+      vue: ["src/App.vue", "src/main.ts"],
+      svelte: ["src/routes/+page.svelte", "src/App.svelte"],
+    };
+    
+    const expectedEntryPoints = entryPointsByFramework[selectedFramework] || [];
+    const modifiedEntryPoint = expectedEntryPoints.some(entry => fileKeys.includes(entry));
+    
+    if (hasGeneratedFiles && !modifiedEntryPoint) {
+      console.warn(
+        `[VALIDATION_WARNING] Expected entry point file not modified for ${selectedFramework}`,
+        {
+          model: selectedModel,
+          expectedFiles: expectedEntryPoints,
+          actualFiles: fileKeys.slice(0, 10),
+          userRequest: event.data.value.slice(0, 200)
+        }
+      );
+      
+      // Log specific warning for OpenAI models (GPT-5.1)
+      if (modelConfig.provider === "openai") {
+        console.error(
+          "[MODEL_BEHAVIOR] OpenAI model did not edit the expected entry point file!",
+          {
+            model: selectedModel,
+            framework: selectedFramework,
+            expectedFiles: expectedEntryPoints,
+            filesGenerated: fileKeys.length
+          }
+        );
+      }
+    } else if (modifiedEntryPoint) {
+      console.log(
+        `[VALIDATION_SUCCESS] Entry point file correctly modified for ${selectedFramework}`,
+        {
+          model: selectedModel,
+          modifiedFile: fileKeys.find(key => expectedEntryPoints.includes(key))
+        }
+      );
     }
 
     // Post-completion validation: Run lint and build checks to catch any errors the agent missed

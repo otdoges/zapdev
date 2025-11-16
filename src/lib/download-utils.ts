@@ -12,52 +12,90 @@ interface DownloadResult {
  * Downloads AI-generated files from a fragment as a ZIP archive
  * @param files - The raw files object from the fragment
  * @param fragmentId - The fragment ID for naming the download
+ * @param includeAllFiles - If true, skip filtering and download all files (for debugging)
  * @returns Promise with download result
  */
 export async function downloadFragmentFiles(
   files: Record<string, unknown>,
-  fragmentId: string
+  fragmentId: string,
+  includeAllFiles = false
 ): Promise<DownloadResult> {
+  console.log('[downloadFragmentFiles] Starting download', {
+    fragmentId,
+    rawFileCount: Object.keys(files).length,
+    includeAllFiles
+  });
+
   // Normalize files to Record<string, string>
   const normalizedFiles = Object.entries(files).reduce<Record<string, string>>(
     (acc, [path, content]) => {
       if (typeof content === "string") {
         acc[path] = content;
+      } else if (content !== null && content !== undefined) {
+        // Attempt to convert non-string content to string
+        try {
+          const stringified = typeof content === 'object' ? JSON.stringify(content, null, 2) : String(content);
+          acc[path] = stringified;
+          console.warn(`[downloadFragmentFiles] Converted non-string content for: ${path}`);
+        } catch (err) {
+          console.error(`[downloadFragmentFiles] Failed to convert content for: ${path}`, err);
+        }
       }
       return acc;
     },
     {}
   );
 
+  const normalizedCount = Object.keys(normalizedFiles).length;
+  console.log(`[downloadFragmentFiles] Normalized ${normalizedCount} files`);
+
   // Check if there are any files
-  const hasFiles = Object.keys(normalizedFiles).length > 0;
-  if (!hasFiles) {
-    toast.error("No files available to download yet.");
+  if (normalizedCount === 0) {
+    console.error('[downloadFragmentFiles] No files available after normalization');
+    toast.error("No files available to download. The files may still be generating.");
     return { success: false, error: "No files available" };
   }
 
-  // Filter to only AI-generated files
-  const aiGeneratedFiles = filterAIGeneratedFiles(normalizedFiles);
-  const fileEntries = Object.entries(aiGeneratedFiles);
+  // Filter to only AI-generated files (unless includeAllFiles is true)
+  const filesToDownload = includeAllFiles 
+    ? normalizedFiles 
+    : filterAIGeneratedFiles(normalizedFiles);
+  
+  const fileEntries = Object.entries(filesToDownload);
+  const filteredCount = fileEntries.length;
 
-  if (fileEntries.length === 0) {
-    if (process.env.NODE_ENV !== "production") {
-      const filteredOutFiles = Object.keys(normalizedFiles).filter(
-        (filePath) => !(filePath in aiGeneratedFiles)
-      );
-      console.debug("Fragment download skipped: no AI-generated files after filtering", {
-        fragmentId,
-        filteredOutFiles,
-      });
-    }
-    toast.error("No AI-generated files are ready to download.");
-    return { success: false, error: "No AI-generated files" };
+  console.log(`[downloadFragmentFiles] Files to download: ${filteredCount}`, {
+    filtered: !includeAllFiles,
+    removedByFilter: normalizedCount - filteredCount
+  });
+
+  if (filteredCount === 0) {
+    console.error('[downloadFragmentFiles] No files remain after filtering', {
+      fragmentId,
+      normalizedCount,
+      samplePaths: Object.keys(normalizedFiles).slice(0, 5)
+    });
+    
+    // Offer to download all files as fallback
+    toast.error(
+      "No AI-generated files found. This might be a filtering issue.",
+      {
+        action: {
+          label: "Download All Files",
+          onClick: () => downloadFragmentFiles(files, fragmentId, true)
+        },
+        duration: 10000
+      }
+    );
+    
+    return { success: false, error: "No AI-generated files after filtering" };
   }
 
   let objectUrl: string | null = null;
   let downloadLink: HTMLAnchorElement | null = null;
 
   try {
+    console.log('[downloadFragmentFiles] Creating ZIP archive...');
     const zip = new JSZip();
 
     // Add each file to the ZIP
@@ -65,24 +103,51 @@ export async function downloadFragmentFiles(
       zip.file(filename, content);
     });
 
-    // Generate ZIP blob
-    const zipBlob = await zip.generateAsync({ type: "blob" });
+    // Generate ZIP blob with progress
+    toast.loading(`Preparing ${filteredCount} file${filteredCount === 1 ? "" : "s"}...`, {
+      id: `download-${fragmentId}`
+    });
+
+    const zipBlob = await zip.generateAsync({ 
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 }
+    });
+    
+    console.log(`[downloadFragmentFiles] ZIP created: ${(zipBlob.size / 1024).toFixed(2)} KB`);
+
+    // Dismiss loading toast
+    toast.dismiss(`download-${fragmentId}`);
+
     objectUrl = URL.createObjectURL(zipBlob);
 
     // Create and trigger download
     downloadLink = document.createElement("a");
     downloadLink.href = objectUrl;
-    downloadLink.download = `ai-generated-code-${fragmentId}.zip`;
+    const filename = includeAllFiles 
+      ? `all-files-${fragmentId}.zip`
+      : `ai-generated-code-${fragmentId}.zip`;
+    downloadLink.download = filename;
     document.body.appendChild(downloadLink);
     downloadLink.click();
 
-    toast.success(`Downloaded ${fileEntries.length} file${fileEntries.length === 1 ? "" : "s"}`);
+    const successMessage = includeAllFiles
+      ? `Downloaded all ${filteredCount} files`
+      : `Downloaded ${filteredCount} AI-generated file${filteredCount === 1 ? "" : "s"}`;
     
-    return { success: true, fileCount: fileEntries.length };
+    toast.success(successMessage);
+    console.log('[downloadFragmentFiles] Download completed successfully');
+    
+    return { success: true, fileCount: filteredCount };
   } catch (error) {
-    console.error("Download failed:", error);
-    toast.error("Failed to download files. Please try again.");
-    return { success: false, error: "Download failed" };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[downloadFragmentFiles] Download failed:', error);
+    
+    // Dismiss any loading toasts
+    toast.dismiss(`download-${fragmentId}`);
+    
+    toast.error(`Download failed: ${errorMessage}. Please try again.`);
+    return { success: false, error: `Download failed: ${errorMessage}` };
   } finally {
     // Cleanup
     if (downloadLink) {
