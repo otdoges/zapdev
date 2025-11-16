@@ -634,8 +634,8 @@ export const listForUser = query({
 
         return {
           ...message,
-          fragment,
-          attachments,
+          Fragment: fragment,
+          Attachment: attachments,
         };
       })
     );
