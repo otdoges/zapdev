@@ -32,8 +32,9 @@ interface Props {
 
 const formSchema = z.object({
   value: z.string()
-    .min(1, { message: "Value is required" })
-    .max(10000, { message: "Value is too long" }),
+    .trim()
+    .min(1, { message: "Please enter a message" })
+    .max(10000, { message: "Message is too long" }),
 })
 
 interface AttachmentData {
