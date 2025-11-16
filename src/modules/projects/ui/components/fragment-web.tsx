@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ExternalLinkIcon, RefreshCcwIcon, DownloadIcon, BotIcon, Loader2Icon } from "lucide-react";
-import JSZip from "jszip";
-import { toast } from "sonner";
 
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
 import type { Doc } from "@/convex/_generated/dataModel";
-import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
+import { downloadFragmentFiles } from "@/lib/download-utils";
 import { cn } from "@/lib/utils";
 
 interface FragmentWebProps {
@@ -99,61 +97,11 @@ export function FragmentWeb({ data }: FragmentWebProps) {
       return;
     }
 
-    const hasFiles = Object.keys(files).length > 0;
-    if (!hasFiles) {
-      toast.error("No files available to download yet.");
-      return;
-    }
-
-    const aiGeneratedFiles = filterAIGeneratedFiles(files);
-    const fileEntries = Object.entries(aiGeneratedFiles);
-
-    if (fileEntries.length === 0) {
-      if (process.env.NODE_ENV !== "production") {
-        const filteredOutFiles = Object.keys(files).filter((filePath) => !(filePath in aiGeneratedFiles));
-        console.debug("Fragment download skipped: no AI-generated files after filtering", {
-          fragmentId: data._id,
-          filteredOutFiles,
-        });
-      }
-      toast.error("No AI-generated files are ready to download.");
-      return;
-    }
-
     setIsDownloading(true);
 
-    let objectUrl: string | null = null;
-    let downloadLink: HTMLAnchorElement | null = null;
-
     try {
-      const zip = new JSZip();
-
-      fileEntries.forEach(([filename, content]) => {
-        zip.file(filename, content);
-      });
-
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      objectUrl = URL.createObjectURL(zipBlob);
-
-      downloadLink = document.createElement("a");
-      downloadLink.href = objectUrl;
-      downloadLink.download = `ai-generated-code-${data._id}.zip`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-
-      toast.success(`Downloaded ${fileEntries.length} file${fileEntries.length === 1 ? "" : "s"}`);
-    } catch (error) {
-      console.error("Download failed:", error);
-      toast.error("Failed to download files. Please try again.");
+      await downloadFragmentFiles(files, data._id);
     } finally {
-      if (downloadLink) {
-        downloadLink.remove();
-      }
-
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-
       setIsDownloading(false);
     }
   };
