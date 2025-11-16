@@ -45,22 +45,57 @@ export const ProjectView = ({ projectId }: Props) => {
   const [tabState, setTabState] = useState<"preview" | "code">("preview");
 
   const explorerFiles = useMemo(() => {
-    if (!activeFragment || typeof activeFragment.files !== "object" || activeFragment.files === null) {
+    if (!activeFragment) {
+      console.debug('[ProjectView] No active fragment');
       return {} as Record<string, string>;
     }
 
+    console.log('[ProjectView] Active fragment:', {
+      id: activeFragment._id,
+      filesType: typeof activeFragment.files,
+      filesIsNull: activeFragment.files === null,
+      filesKeys: activeFragment.files ? Object.keys(activeFragment.files as Record<string, unknown>).length : 0,
+    });
+
+    if (typeof activeFragment.files !== "object" || activeFragment.files === null) {
+      console.warn('[ProjectView] Fragment files is not a valid object:', activeFragment.files);
+      return {} as Record<string, string>;
+    }
+
+    // Normalize files: convert any non-string values to empty objects
     const normalizedFiles = Object.entries(activeFragment.files as Record<string, unknown>).reduce<Record<string, string>>(
       (acc, [path, content]) => {
         if (typeof content === "string") {
           acc[path] = content;
+        } else {
+          console.warn(`[ProjectView] Skipping non-string file content for: ${path}`, typeof content);
         }
         return acc;
       },
       {}
     );
 
+    console.log(`[ProjectView] Normalized ${Object.keys(normalizedFiles).length} files`);
+    
+    if (Object.keys(normalizedFiles).length === 0) {
+      console.error('[ProjectView] No valid files found after normalization!');
+      console.error('[ProjectView] Raw files object:', activeFragment.files);
+      // Return empty object to show "No files" message
+      return {} as Record<string, string>;
+    }
+
     // Filter out E2B sandbox system files - only show AI-generated code
-    return filterAIGeneratedFiles(normalizedFiles);
+    const filtered = filterAIGeneratedFiles(normalizedFiles);
+    
+    console.log(`[ProjectView] After filtering: ${Object.keys(filtered).length} files`);
+    
+    if (Object.keys(filtered).length === 0 && Object.keys(normalizedFiles).length > 0) {
+      console.error('[ProjectView] All files were filtered out! Returning unfiltered files as fallback.');
+      // Fallback: if filtering removed all files, show the normalized files anyway
+      return normalizedFiles;
+    }
+
+    return filtered;
   }, [activeFragment]);
 
   return (
