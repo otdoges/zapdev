@@ -221,6 +221,12 @@ const AUTO_FIX_ERROR_PATTERNS = [
   /ESLint/i,
   /Type error/i,
   /TS\d+/i,
+  // ECMAScript/Turbopack errors
+  /Ecmascript file had an error/i,
+  /Parsing ecmascript source code failed/i,
+  /Turbopack build failed/i,
+  /the name .* is defined multiple times/i,
+  /Expected a semicolon/i,
 ];
 
 const usesShadcnComponents = (files: Record<string, string>) => {
@@ -1189,15 +1195,6 @@ export const codeAgentFunction = inngest.createFunction(
           `[DEBUG] No <task_summary> yet; retrying agent to request summary (attempt ${nextRetry}).`,
         );
         
-        // Add explicit message to agent requesting the summary
-        const summaryRequestMessage: Message = {
-          type: "text",
-          role: "user",
-          content: "You have completed the file generation. Now provide your final <task_summary> tag with a brief description of what was built. This is required to complete the task."
-        };
-        
-        network.state.addMessage(summaryRequestMessage);
-        
         return codeAgent;
       },
     });
@@ -1364,7 +1361,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     const filePaths = Object.keys(files);
     const hasFiles = filePaths.length > 0;
 
-    let summaryText = extractSummaryText(
+    summaryText = extractSummaryText(
       typeof result.state.data.summary === "string"
         ? result.state.data.summary
         : "",
@@ -2112,15 +2109,6 @@ export const errorFixFunction = inngest.createFunction(
         console.log(
           `[DEBUG] Error-fix agent missing <task_summary>; retrying (attempt ${nextRetry}).`,
         );
-        
-        // Add explicit message to agent requesting the summary
-        const summaryRequestMessage: Message = {
-          type: "text",
-          role: "user",
-          content: "You have completed the error fixes. Now provide your final <task_summary> tag with a brief description of what was fixed. This is required to complete the task."
-        };
-        
-        network.state.addMessage(summaryRequestMessage);
         
         return codeAgent;
       },
