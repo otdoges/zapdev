@@ -58,41 +58,65 @@ export const ProjectView = ({ projectId }: Props) => {
     });
 
     if (typeof activeFragment.files !== "object" || activeFragment.files === null) {
-      console.warn('[ProjectView] Fragment files is not a valid object:', activeFragment.files);
+      console.error('[ProjectView] CRITICAL: Fragment files is not a valid object:', {
+        type: typeof activeFragment.files,
+        value: activeFragment.files,
+        fragmentId: activeFragment._id
+      });
       return {} as Record<string, string>;
     }
 
-    // Normalize files: convert any non-string values to empty objects
+    // Normalize files: convert any non-string values to strings if possible
     const normalizedFiles = Object.entries(activeFragment.files as Record<string, unknown>).reduce<Record<string, string>>(
       (acc, [path, content]) => {
         if (typeof content === "string") {
           acc[path] = content;
+        } else if (content !== null && content !== undefined) {
+          // Attempt to recover non-string content
+          try {
+            const stringified = typeof content === 'object' ? JSON.stringify(content, null, 2) : String(content);
+            acc[path] = stringified;
+            console.warn(`[ProjectView] Converted non-string content to string for: ${path}`, {
+              originalType: typeof content,
+              convertedLength: stringified.length
+            });
+          } catch (err) {
+            console.error(`[ProjectView] Failed to convert content for: ${path}`, err);
+          }
         } else {
-          console.warn(`[ProjectView] Skipping non-string file content for: ${path}`, typeof content);
+          console.warn(`[ProjectView] Skipping null/undefined content for: ${path}`);
         }
         return acc;
       },
       {}
     );
 
-    console.log(`[ProjectView] Normalized ${Object.keys(normalizedFiles).length} files`);
+    const normalizedCount = Object.keys(normalizedFiles).length;
+    console.log(`[ProjectView] Normalized ${normalizedCount} files from ${Object.keys(activeFragment.files).length} raw files`);
     
-    if (Object.keys(normalizedFiles).length === 0) {
-      console.error('[ProjectView] No valid files found after normalization!');
-      console.error('[ProjectView] Raw files object:', activeFragment.files);
+    if (normalizedCount === 0) {
+      console.error('[ProjectView] CRITICAL: No valid files found after normalization!', {
+        fragmentId: activeFragment._id,
+        rawFilesCount: Object.keys(activeFragment.files).length,
+        samplePaths: Object.keys(activeFragment.files).slice(0, 5)
+      });
       // Return empty object to show "No files" message
       return {} as Record<string, string>;
     }
 
     // Filter out E2B sandbox system files - only show AI-generated code
     const filtered = filterAIGeneratedFiles(normalizedFiles);
+    const filteredCount = Object.keys(filtered).length;
     
-    console.log(`[ProjectView] After filtering: ${Object.keys(filtered).length} files`);
+    console.log(`[ProjectView] After filtering: ${filteredCount} files (removed ${normalizedCount - filteredCount} system files)`);
     
-    if (Object.keys(filtered).length === 0 && Object.keys(normalizedFiles).length > 0) {
-      console.error('[ProjectView] All files were filtered out! Returning unfiltered files as fallback.');
-      // Fallback: if filtering removed all files, show the normalized files anyway
-      return normalizedFiles;
+    // The filter function now has built-in fallback, so we trust its output
+    if (filteredCount === 0) {
+      console.error('[ProjectView] WARNING: No files remain after filtering', {
+        fragmentId: activeFragment._id,
+        normalizedCount,
+        sampleNormalizedPaths: Object.keys(normalizedFiles).slice(0, 10)
+      });
     }
 
     return filtered;

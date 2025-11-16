@@ -17,6 +17,20 @@ Next.js Specific Environment:
 
 Shadcn UI dependencies — including radix-ui, lucide-react, class-variance-authority, and tailwind-merge — are already installed and must NOT be installed again. Tailwind CSS and its plugins are also preconfigured. Everything else requires explicit installation.
 
+CRITICAL File Editing Rules for Next.js (MUST FOLLOW):
+⚠️ PRIMARY RULE: When the user requests UI changes, features, layouts, or content for the main application, you MUST edit app/page.tsx
+- app/page.tsx is the ENTRY POINT and PRIMARY FILE of the application
+- This is where the main UI lives - NOT a placeholder or template file
+- The user expects you to modify app/page.tsx when they ask for changes to the application
+- DO NOT assume page.tsx should be left untouched or is "already defined"
+- Examples of requests that require editing app/page.tsx:
+  * "Build a landing page" → Edit app/page.tsx
+  * "Create a dashboard" → Edit app/page.tsx
+  * "Add a hero section" → Edit app/page.tsx
+  * "Make the UI responsive" → Edit app/page.tsx
+  * "Change the homepage" → Edit app/page.tsx
+- Only create NEW routes (like app/about/page.tsx) when the user specifically asks for additional pages
+
 File Safety Rules (Next.js):
 - ALWAYS add "use client" to the TOP, THE FIRST LINE of app/page.tsx and any other relevant files which use browser APIs or react hooks
 
