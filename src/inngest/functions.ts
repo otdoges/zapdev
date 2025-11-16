@@ -1188,12 +1188,43 @@ export const codeAgentFunction = inngest.createFunction(
         console.log(
           `[DEBUG] No <task_summary> yet; retrying agent to request summary (attempt ${nextRetry}).`,
         );
+        
+        // Add explicit message to agent requesting the summary
+        const summaryRequestMessage: Message = {
+          type: "text",
+          role: "user",
+          content: "You have completed the file generation. Now provide your final <task_summary> tag with a brief description of what was built. This is required to complete the task."
+        };
+        
+        network.state.addMessage(summaryRequestMessage);
+        
         return codeAgent;
       },
     });
 
     console.log("[DEBUG] Running network with input:", event.data.value);
     let result = await network.run(event.data.value, { state });
+
+    // Post-network fallback: If no summary but files exist, make one more explicit request
+    let summaryText = extractSummaryText(result.state.data.summary ?? "");
+    const hasGeneratedFiles = Object.keys(result.state.data.files || {}).length > 0;
+    
+    if (!summaryText && hasGeneratedFiles) {
+      console.log("[DEBUG] No summary detected after network run, requesting explicitly...");
+      result = await network.run(
+        "IMPORTANT: You have successfully generated files, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built. This is required to complete the task.",
+        { state: result.state }
+      );
+      
+      // Re-extract summary after explicit request
+      summaryText = extractSummaryText(result.state.data.summary ?? "");
+      
+      if (summaryText) {
+        console.log("[DEBUG] Summary successfully extracted after explicit request");
+      } else {
+        console.warn("[WARN] Summary still missing after explicit request, will use fallback");
+      }
+    }
 
     // Post-completion validation: Run lint and build checks to catch any errors the agent missed
     console.log("[DEBUG] Running post-completion validation checks...");
@@ -2081,6 +2112,16 @@ export const errorFixFunction = inngest.createFunction(
         console.log(
           `[DEBUG] Error-fix agent missing <task_summary>; retrying (attempt ${nextRetry}).`,
         );
+        
+        // Add explicit message to agent requesting the summary
+        const summaryRequestMessage: Message = {
+          type: "text",
+          role: "user",
+          content: "You have completed the error fixes. Now provide your final <task_summary> tag with a brief description of what was fixed. This is required to complete the task."
+        };
+        
+        network.state.addMessage(summaryRequestMessage);
+        
         return codeAgent;
       },
     });
@@ -2106,7 +2147,28 @@ REQUIRED ACTIONS:
 DO NOT proceed until all errors are completely resolved. Focus on fixing the root cause, not just masking symptoms.`;
 
     try {
-      const result = await network.run(fixPrompt, { state });
+      let result = await network.run(fixPrompt, { state });
+
+      // Post-network fallback: If no summary but files were modified, make one more explicit request
+      let summaryText = extractSummaryText(result.state.data.summary ?? "");
+      const hasModifiedFiles = Object.keys(result.state.data.files || {}).length > 0;
+      
+      if (!summaryText && hasModifiedFiles) {
+        console.log("[DEBUG] No summary detected after error-fix, requesting explicitly...");
+        result = await network.run(
+          "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
+          { state: result.state }
+        );
+        
+        // Re-extract summary after explicit request
+        summaryText = extractSummaryText(result.state.data.summary ?? "");
+        
+        if (summaryText) {
+          console.log("[DEBUG] Summary successfully extracted after explicit request");
+        } else {
+          console.warn("[WARN] Summary still missing after explicit request, will use fallback");
+        }
+      }
 
       // Re-run validation checks to verify if errors are actually fixed
       console.log("[DEBUG] Re-running validation checks after error fix...");
