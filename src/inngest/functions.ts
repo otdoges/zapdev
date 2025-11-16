@@ -52,7 +52,10 @@ import {
   getSandbox,
   lastAssistantTextMessageContent,
   parseAgentOutput,
+  createSandboxWithRetry,
+  validateSandboxHealth,
 } from "./utils";
+import { e2bCircuitBreaker } from "./circuit-breaker";
 import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
 import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
 // Multi-agent workflow removed; only single code agent is used.
@@ -360,7 +363,7 @@ const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
       onStderr: (data: string) => {
         buffers.stderr += data;
       },
-      timeoutMs: 60000, // 60 second timeout for build
+      timeoutMs: BUILD_TIMEOUT_MS, // 2 minute timeout for build (some builds need more time)
     });
 
     const output = buffers.stdout + buffers.stderr;
@@ -464,7 +467,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const MAX_FILE_COUNT = 500;
 const MAX_SCREENSHOTS = 20;
 const FILE_READ_BATCH_SIZE = 10;
-const FILE_READ_TIMEOUT_MS = 5000;
+const FILE_READ_TIMEOUT_MS = 3000; // Reduced from 5000 to 3000ms for faster failure detection
+const BUILD_TIMEOUT_MS = 120000; // 2 minutes for build operations (increased from 60s)
 const INNGEST_STEP_OUTPUT_SIZE_LIMIT = 1024 * 1024;
 const FILES_PER_STEP_BATCH = 50;
 
@@ -907,53 +911,140 @@ export const codeAgentFunction = inngest.createFunction(
         "[DEBUG] Creating E2B sandbox for framework:",
         selectedFramework,
       );
+      console.log("[E2B_METRICS]", {
+        event: "sandbox_create_start",
+        framework: selectedFramework,
+        template: getE2BTemplate(selectedFramework),
+        circuitBreakerState: e2bCircuitBreaker.getState(),
+        timestamp: Date.now(),
+      });
+
+      // Check rate limit before attempting creation
+      try {
+        const rateLimitStatus = await convex.query(api.e2bRateLimits.checkRateLimit, {
+          operation: "sandbox_create",
+          maxPerHour: 100, // Adjust based on your E2B plan
+        });
+
+        if (rateLimitStatus.exceeded) {
+          console.error("[E2B_METRICS]", {
+            event: "rate_limit_exceeded",
+            count: rateLimitStatus.count,
+            limit: rateLimitStatus.limit,
+            timestamp: Date.now(),
+          });
+          throw new Error(
+            `E2B rate limit exceeded: ${rateLimitStatus.count}/${rateLimitStatus.limit} requests in last hour`
+          );
+        }
+
+        // Warn at 80% usage
+        if (rateLimitStatus.count >= rateLimitStatus.limit * 0.8) {
+          console.warn("[E2B_METRICS]", {
+            event: "rate_limit_warning",
+            count: rateLimitStatus.count,
+            limit: rateLimitStatus.limit,
+            remaining: rateLimitStatus.remaining,
+            percentUsed: Math.round((rateLimitStatus.count / rateLimitStatus.limit) * 100),
+            timestamp: Date.now(),
+          });
+        }
+      } catch (rateLimitError) {
+        console.warn("[WARN] Failed to check rate limit:", rateLimitError);
+        // Don't block sandbox creation if rate limit check fails
+      }
+
       const template = getE2BTemplate(selectedFramework);
 
       try {
-        let sandbox;
-        try {
-          console.log(
-            "[DEBUG] Attempting to create sandbox with template:",
-            template,
-          );
-          // Use betaCreate to enable auto-pause on inactivity
-          sandbox = await (Sandbox as any).betaCreate(template, {
-            apiKey: process.env.E2B_API_KEY,
-            timeoutMs: SANDBOX_TIMEOUT,
-            autoPause: true, // Enable auto-pause after inactivity
+        // Check if circuit breaker is open - queue the request instead
+        if (e2bCircuitBreaker.getState() === "OPEN") {
+          console.warn("[E2B_METRICS]", {
+            event: "circuit_breaker_open_queue",
+            framework: selectedFramework,
+            timestamp: Date.now(),
           });
-        } catch (e) {
-          // Fallback to betaCreate with default zapdev template if framework-specific doesn't exist
-          console.log(
-            "[DEBUG] Framework template not found, using default 'zapdev' template",
+
+          // Queue the request for later processing
+          const jobId = await convex.mutation(api.jobQueue.enqueue, {
+            type: "code_generation",
+            projectId: event.data.projectId as Id<"projects">,
+            userId: project.userId,
+            payload: event.data,
+            priority: "normal",
+          });
+
+          // Notify user
+          await convex.mutation(api.messages.createForUser, {
+            userId: project.userId,
+            projectId: event.data.projectId as Id<"projects">,
+            content:
+              "E2B service is temporarily unavailable. Your request has been queued and will be processed automatically when the service recovers. You'll be notified when it's ready.",
+            role: "ASSISTANT",
+            type: "RESULT",
+            status: "COMPLETE",
+          });
+
+          console.log("[E2B_METRICS]", {
+            event: "request_queued",
+            jobId,
+            timestamp: Date.now(),
+          });
+
+          // Throw error to stop current execution (request is queued)
+          throw new Error(
+            "E2B service unavailable - request queued for later processing"
           );
-          try {
-            sandbox = await (Sandbox as any).betaCreate("zapdev", {
-              apiKey: process.env.E2B_API_KEY,
-              timeoutMs: SANDBOX_TIMEOUT,
-              autoPause: true,
-            });
-          } catch {
-            // Final fallback to standard create if betaCreate not available
-            console.log(
-              "[DEBUG] betaCreate not available, falling back to Sandbox.create",
-            );
-            sandbox = await Sandbox.create("zapdev", {
-              apiKey: process.env.E2B_API_KEY,
-              timeoutMs: SANDBOX_TIMEOUT,
-            });
-          }
-          // Fallback framework to nextjs if template doesn't exist
-          selectedFramework = "nextjs";
         }
 
+        // Use circuit breaker to prevent cascading failures
+        const sandbox = await e2bCircuitBreaker.execute(async () => {
+          // Try framework-specific template first
+          try {
+            return await createSandboxWithRetry(template, 3);
+          } catch (templateError) {
+            // Fallback to default zapdev template if framework-specific doesn't exist
+            console.log(
+              "[DEBUG] Framework template not found, using default 'zapdev' template",
+            );
+            selectedFramework = "nextjs"; // Reset to default framework
+            return await createSandboxWithRetry("zapdev", 3);
+          }
+        });
+
         console.log("[DEBUG] Sandbox created successfully:", sandbox.sandboxId);
-        await sandbox.setTimeout(SANDBOX_TIMEOUT);
+        
+        // Record rate limit usage
+        try {
+          await convex.mutation(api.e2bRateLimits.recordRequest, {
+            operation: "sandbox_create",
+          });
+        } catch (recordError) {
+          console.warn("[WARN] Failed to record rate limit:", recordError);
+        }
+        
+        // Validate sandbox is healthy before proceeding
+        const isHealthy = await validateSandboxHealth(sandbox);
+        if (!isHealthy) {
+          console.warn("[WARN] Sandbox health check failed, but continuing...");
+        }
+        
         return sandbox.sandboxId;
       } catch (error) {
         console.error("[ERROR] Failed to create E2B sandbox:", error);
         const errorMessage =
           error instanceof Error ? error.message : String(error);
+        
+        // Log failure metrics
+        console.error("[E2B_METRICS]", {
+          event: "sandbox_create_critical_failure",
+          framework: selectedFramework,
+          template,
+          error: errorMessage,
+          circuitBreakerState: e2bCircuitBreaker.getState(),
+          timestamp: Date.now(),
+        });
+        
         throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
       }
     });
