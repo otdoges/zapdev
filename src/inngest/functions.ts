@@ -90,7 +90,7 @@ export const MODEL_CONFIGS = {
     temperature: 0.7,
     frequency_penalty: 0.5,
   },
-  "openai/gpt-5.1-codex-mini": {
+  "openai/gpt-5.1-codex": {
     name: "GPT-5.1 Codex",
     provider: "openai",
     description: "OpenAI's flagship model for complex tasks",
