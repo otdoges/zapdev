@@ -44,6 +44,7 @@ import {
   REACT_PROMPT,
   VUE_PROMPT,
   SVELTE_PROMPT,
+  SPEC_MODE_PROMPT,
 } from "@/prompt";
 
 import { inngest } from "./client";
@@ -1201,7 +1202,46 @@ export const codeAgentFunction = inngest.createFunction(
       },
     );
 
-    const frameworkPrompt = getFrameworkPrompt(selectedFramework);
+    // Check if this message has an approved spec
+    const currentMessage = await step.run("get-current-message", async () => {
+      try {
+        const allMessages = await convex.query(api.messages.listForUser, {
+          userId: project.userId,
+          projectId: event.data.projectId as Id<"projects">,
+        });
+        // Find the most recent user message (should be the one that triggered this)
+        return allMessages.filter((m) => m.role === "USER").pop();
+      } catch (error) {
+        console.error("[ERROR] Failed to fetch current message:", error);
+        return null;
+      }
+    });
+
+    const hasApprovedSpec = currentMessage?.specMode === "APPROVED";
+    const specContent = currentMessage?.specContent;
+
+    let frameworkPrompt = getFrameworkPrompt(selectedFramework);
+    
+    // If there's an approved spec, enhance the prompt with it
+    if (hasApprovedSpec && specContent) {
+      console.log("[DEBUG] Using approved spec for code generation");
+      frameworkPrompt = `${frameworkPrompt}
+
+## IMPORTANT: Implementation Specification
+
+The user has approved the following detailed implementation specification. Follow it closely:
+
+${specContent}
+
+Your task is to implement this specification accurately. Refer to the spec for:
+- Component structure and architecture
+- Feature requirements and user interactions
+- Technical approach and patterns
+- Implementation steps and order
+
+Generate code that matches the approved specification.`;
+    }
+
     console.log("[DEBUG] Using prompt for framework:", selectedFramework);
 
     const modelConfig = MODEL_CONFIGS[selectedModel];
@@ -2447,6 +2487,224 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         error: errorMessage,
       };
     }
+  },
+);
+
+// Helper function to extract spec content from agent response
+const extractSpecContent = (output: Message[]): string => {
+  const textContent = output
+    .filter((msg) => msg.type === "text")
+    .map((msg) => {
+      if (typeof msg.content === "string") {
+        return msg.content;
+      }
+      if (Array.isArray(msg.content)) {
+        return msg.content
+          .filter((c) => c.type === "text")
+          .map((c) => c.text)
+          .join("\n");
+      }
+      return "";
+    })
+    .join("\n");
+
+  // Extract content between <spec>...</spec> tags
+  const specMatch = /<spec>([\s\S]*?)<\/spec>/i.exec(textContent);
+  if (specMatch && specMatch[1]) {
+    return specMatch[1].trim();
+  }
+
+  // If no tags found, return the entire response
+  return textContent.trim();
+};
+
+// Spec Planning Agent Function
+export const specPlanningAgentFunction = inngest.createFunction(
+  { id: "spec-planning-agent" },
+  { event: "spec-agent/run" },
+  async ({ event, step }) => {
+    console.log("[DEBUG] Starting spec-planning-agent function");
+    console.log("[DEBUG] Event data:", JSON.stringify(event.data));
+
+    // Get project details
+    const project = await step.run("get-project", async () => {
+      return await convex.query(api.projects.getForSystem, {
+        projectId: event.data.projectId as Id<"projects">,
+      });
+    });
+
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    // Get the message that triggered this spec generation
+    const messageId = event.data.messageId as Id<"messages">;
+
+    // Update message to PLANNING status
+    await step.run("update-planning-status", async () => {
+      await convex.mutation(api.specs.updateSpec, {
+        messageId,
+        specContent: "",
+        status: "PLANNING",
+      });
+    });
+
+    // Determine framework (use existing or detect)
+    let selectedFramework: Framework =
+      (project?.framework?.toLowerCase() as Framework) || "nextjs";
+
+    if (!project?.framework) {
+      console.log("[DEBUG] No framework set, running framework selector...");
+
+      const frameworkSelectorAgent = createAgent({
+        name: "framework-selector",
+        description: "Determines the best framework for the user's request",
+        system: FRAMEWORK_SELECTOR_PROMPT,
+        model: openai({
+          model: "google/gemini-2.5-flash-lite",
+          apiKey: process.env.AI_GATEWAY_API_KEY!,
+          baseUrl:
+            process.env.AI_GATEWAY_BASE_URL ||
+            "https://ai-gateway.vercel.sh/v1",
+          defaultParameters: {
+            temperature: 0.3,
+          },
+        }),
+      });
+
+      const frameworkResult = await frameworkSelectorAgent.run(
+        event.data.value,
+      );
+      const frameworkOutput = frameworkResult.output[0];
+
+      if (frameworkOutput.type === "text") {
+        const detectedFramework = (
+          typeof frameworkOutput.content === "string"
+            ? frameworkOutput.content
+            : frameworkOutput.content.map((c) => c.text).join("")
+        )
+          .trim()
+          .toLowerCase();
+
+        if (
+          ["nextjs", "angular", "react", "vue", "svelte"].includes(
+            detectedFramework,
+          )
+        ) {
+          selectedFramework = detectedFramework as Framework;
+        }
+      }
+
+      // Update project with selected framework
+      await step.run("update-project-framework", async () => {
+        return await convex.mutation(api.projects.updateForUser, {
+          userId: project.userId,
+          projectId: event.data.projectId as Id<"projects">,
+          framework: frameworkToConvexEnum(selectedFramework),
+        });
+      });
+    }
+
+    console.log("[DEBUG] Selected framework for spec:", selectedFramework);
+
+    // Get framework-specific context
+    const frameworkPrompt = getFrameworkPrompt(selectedFramework);
+
+    // Create enhanced prompt that includes framework context
+    const enhancedSpecPrompt = `${SPEC_MODE_PROMPT}
+
+## Framework Context
+You are creating a specification for a ${selectedFramework.toUpperCase()} application.
+
+${frameworkPrompt}
+
+Remember to wrap your complete specification in <spec>...</spec> tags.`;
+
+    // Create planning agent with GPT-5.1 Codex
+    const planningAgent = createAgent({
+      name: "spec-planning-agent",
+      description: "Creates detailed implementation specifications",
+      system: enhancedSpecPrompt,
+      model: openai({
+        model: "openai/gpt-5.1-codex",
+        apiKey: process.env.AI_GATEWAY_API_KEY!,
+        baseUrl:
+          process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+        defaultParameters: {
+          temperature: 0.7,
+          frequency_penalty: 0.5,
+        },
+      }),
+    });
+
+    console.log("[DEBUG] Running planning agent with user request");
+
+    // Get previous messages for context
+    const previousMessages = await step.run(
+      "get-previous-messages",
+      async () => {
+        try {
+          const allMessages = await convex.query(api.messages.listForUser, {
+            userId: project.userId,
+            projectId: event.data.projectId as Id<"projects">,
+          });
+
+          // Take last 3 messages for context (excluding current one)
+          const messages = allMessages.slice(-4, -1);
+
+          const formattedMessages: Message[] = messages.map((msg) => ({
+            type: "text",
+            role: msg.role === "ASSISTANT" ? "assistant" : "user",
+            content: msg.content,
+          }));
+
+          return formattedMessages;
+        } catch (error) {
+          console.error("[ERROR] Failed to fetch previous messages:", error);
+          return [];
+        }
+      },
+    );
+
+    // Run the planning agent
+    const result = await step.run("generate-spec", async () => {
+      const state = createState<AgentState>(
+        {
+          summary: "",
+          files: {},
+          selectedFramework,
+          summaryRetryCount: 0,
+        },
+        {
+          messages: previousMessages,
+        },
+      );
+
+      const planResult = await planningAgent.run(event.data.value, { state });
+      return planResult;
+    });
+
+    // Extract spec content from response
+    const specContent = extractSpecContent(result.output);
+
+    console.log("[DEBUG] Spec generated, length:", specContent.length);
+
+    // Save spec to database with AWAITING_APPROVAL status
+    await step.run("save-spec", async () => {
+      await convex.mutation(api.specs.updateSpec, {
+        messageId,
+        specContent,
+        status: "AWAITING_APPROVAL",
+      });
+    });
+
+    console.log("[DEBUG] Spec saved, awaiting user approval");
+
+    return {
+      success: true,
+      specContent,
+      framework: selectedFramework,
+    };
   },
 );
 

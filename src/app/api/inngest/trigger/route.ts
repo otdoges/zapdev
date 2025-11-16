@@ -5,12 +5,15 @@ import { getAgentEventName } from "@/lib/agent-mode";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { projectId, value, model } = body;
+    const { projectId, value, model, messageId, specMode, isSpecRevision, isFromApprovedSpec } = body;
 
     console.log("[Inngest Trigger] Received request:", {
       projectId,
       valueLength: value?.length || 0,
       model,
+      specMode,
+      isSpecRevision,
+      isFromApprovedSpec,
       timestamp: new Date().toISOString(),
     });
 
@@ -25,7 +28,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const eventName = getAgentEventName();
+    // Determine which event to trigger
+    let eventName: string;
+    
+    // If spec mode is enabled and not from an approved spec, trigger spec planning
+    if (specMode && !isFromApprovedSpec) {
+      eventName = "spec-agent/run";
+      console.log("[Inngest Trigger] Triggering spec planning mode");
+    } else {
+      // Normal code generation flow
+      eventName = getAgentEventName();
+    }
+
     console.log("[Inngest Trigger] Sending event:", {
       eventName,
       projectId,
@@ -37,7 +51,9 @@ export async function POST(request: NextRequest) {
       data: {
         value,
         projectId,
+        messageId,
         model: model || "auto", // Default to "auto" if not specified
+        isSpecRevision: isSpecRevision || false,
       },
     });
 
