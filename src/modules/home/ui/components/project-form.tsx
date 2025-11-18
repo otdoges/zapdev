@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, FigmaIcon, GitBranchIcon } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/lib/convex-api";
 import type { ModelId } from "@/inngest/functions";
 
@@ -51,6 +51,7 @@ export const ProjectForm = () => {
   });
 
   const createProjectWithMessageAndAttachments = useAction(api.projects.createWithMessageAndAttachments);
+  const usage = useQuery(api.usage.getUsage);
   const [isCreating, setIsCreating] = useState(false);
   const [attachments, setAttachments] = useState<AttachmentData[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -64,7 +65,7 @@ export const ProjectForm = () => {
     { id: "anthropic/claude-haiku-4.5" as ModelId, name: "Claude Haiku 4.5", image: "/haiku.svg", description: "Fast and efficient" },
     { id: "openai/gpt-5.1-codex" as ModelId, name: "GPT-5.1 Codex", image: "/openai.svg", description: "OpenAI's flagship model for complex tasks" },
     { id: "moonshotai/kimi-k2-thinking" as ModelId, name: "Kimi K2 Thinking", image: "/kimi.svg", description: "Fast and efficient for speed-critical tasks" },
-    { id: "alibaba/qwen3-max" as ModelId, name: "Qwen 3 Max", image: "/qwen.svg", description: "Specialized for coding tasks" },
+    { id: "google/gemini-3-pro-preview" as ModelId, name: "Gemini 3 Pro", image: "/gemini.svg", description: "Specialized for coding tasks", isProOnly: true },
     { id: "xai/grok-4-fast-reasoning" as ModelId, name: "Grok 4 Fast", image: "/grok.svg", description: "Experimental model from xAI" },
   ];
 
@@ -295,22 +296,36 @@ export const ProjectForm = () => {
                     </div>
                     {modelOptions.map((option) => {
                       const isSelected = selectedModel === option.id;
+                      const isGemini = option.id === "google/gemini-3-pro-preview";
+                      const isLocked = isGemini && usage?.planType !== "pro";
+                      
                       return (
                         <button
                           key={option.id}
                           type="button"
+                          disabled={isLocked}
                           onClick={() => {
-                            setSelectedModel(option.id);
-                            setIsModelMenuOpen(false);
+                            if (!isLocked) {
+                              setSelectedModel(option.id);
+                              setIsModelMenuOpen(false);
+                            }
                           }}
                           className={cn(
                             "flex items-start gap-3 w-full px-3 py-2.5 rounded-md hover:bg-accent text-left transition-colors",
-                            isSelected && "bg-accent"
+                            isSelected && "bg-accent",
+                            isLocked && "opacity-50 cursor-not-allowed"
                           )}
                         >
                           <Image src={option.image} alt={option.name} width={16} height={16} className="size-4 mt-0.5 flex-shrink-0" unoptimized />
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm">{option.name}</div>
+                            <div className="flex items-center gap-2">
+                              <div className="font-medium text-sm">{option.name}</div>
+                              {isLocked && (
+                                <span className="text-[10px] font-medium bg-muted px-1.5 py-0.5 rounded border">
+                                  PRO
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-muted-foreground">
                               {option.description}
                             </div>

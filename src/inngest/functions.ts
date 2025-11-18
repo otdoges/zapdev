@@ -108,9 +108,9 @@ export const MODEL_CONFIGS = {
     temperature: 0.7,
     frequency_penalty: 0.5,
   },
-  "alibaba/qwen3-max": {
-    name: "Qwen 3 Max",
-    provider: "qwen",
+  "google/gemini-3-pro-preview": {
+    name: "Gemini 3 Pro",
+    provider: "google",
     description: "Specialized for coding tasks",
     temperature: 0.7,
     frequency_penalty: 0.5,
@@ -181,7 +181,7 @@ export function selectModelForTask(
   );
 
   if (hasCodingFocus && !isVeryLongPrompt) {
-    chosenModel = "alibaba/qwen3-max";
+    chosenModel = "google/gemini-3-pro-preview";
   }
 
   // Speed-critical tasks favor Kimi, but only override if clearly requested
@@ -823,6 +823,13 @@ export const codeAgentFunction = inngest.createFunction(
       });
     });
 
+    // Get user usage to check for plan type
+    const usage = await step.run("get-user-usage", async () => {
+      return await convex.query(api.usage.getUsageForUser, {
+        userId: project.userId,
+      });
+    });
+
     let selectedFramework: Framework =
       (project?.framework?.toLowerCase() as Framework) || "nextjs";
 
@@ -899,10 +906,34 @@ export const codeAgentFunction = inngest.createFunction(
       validatedModel = "auto";
     }
 
-    const selectedModel: keyof typeof MODEL_CONFIGS =
+    // Enforce Pro restriction for Gemini model
+    if (validatedModel === "google/gemini-3-pro-preview" && usage?.planType !== "pro") {
+      console.warn(
+        `[WARN] Pro model requested by non-pro user. Falling back to "auto".`,
+      );
+      validatedModel = "auto";
+    }
+
+    let selectedModel: keyof typeof MODEL_CONFIGS =
       validatedModel === "auto"
         ? selectModelForTask(event.data.value, selectedFramework)
         : (validatedModel as keyof typeof MODEL_CONFIGS);
+
+    // Enforce Pro plan for Gemini 3 Pro
+    if (selectedModel === "google/gemini-3-pro-preview") {
+      const usage = await step.run("check-user-plan", async () => {
+        return await convex.query(api.usage.getUsageForUser, {
+          userId: project.userId,
+        });
+      });
+
+      if (usage.planType !== "pro") {
+        console.warn(
+          `[WARN] User ${project.userId} is not Pro but selected Gemini. Falling back to Haiku.`,
+        );
+        selectedModel = "anthropic/claude-haiku-4.5";
+      }
+    }
 
     console.log("[DEBUG] Selected model:", selectedModel);
     console.log("[DEBUG] Model config:", MODEL_CONFIGS[selectedModel]);
