@@ -41,6 +41,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for environment mismatch
+    const isProduction = process.env.NODE_ENV === "production";
+    // Polar production IDs start with "prod_", sandbox IDs are UUIDs
+    const isProdId = typeof productId === 'string' && productId.startsWith("prod_");
+    
+    if (isProduction && !isProdId) {
+       console.error("❌ Configuration mismatch: Using sandbox ID in production");
+       return NextResponse.json(
+           { 
+               error: "Configuration mismatch", 
+               details: "Using a sandbox product ID in production environment.",
+               isConfigError: true 
+           },
+           { status: 400 }
+       );
+    }
+    
+    if (!isProduction && isProdId) {
+       console.error("❌ Configuration mismatch: Using production ID in sandbox");
+       return NextResponse.json(
+           { 
+               error: "Configuration mismatch", 
+               details: "Using a production product ID in sandbox environment.",
+               isConfigError: true 
+           },
+           { status: 400 }
+       );
+    }
+
     const organizationId = getPolarOrganizationId();
 
     // Create checkout session with Polar
@@ -109,6 +138,19 @@ export async function POST(request: NextRequest) {
             adminMessage: "Check NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID and ensure the product exists in Polar.sh dashboard."
           },
           { status: 404 }
+        );
+      }
+
+      if (errorMessage.includes('400') || errorMessage.includes('Bad Request')) {
+        console.error('❌ Polar bad request');
+        return NextResponse.json(
+            {
+                error: "Invalid request",
+                details: "The payment provider rejected the request.",
+                isConfigError: true,
+                adminMessage: "Check that the Product ID matches the environment (Sandbox vs Production)."
+            },
+            { status: 400 }
         );
       }
       
