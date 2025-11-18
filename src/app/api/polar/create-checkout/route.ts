@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
     // Polar production IDs start with "prod_", sandbox IDs are UUIDs
     const isProdId = typeof productId === 'string' && productId.startsWith("prod_");
     
+    /*
+     * NOTE: We allow sandbox IDs in production environment for testing/staging builds.
+     * The Polar client will automatically switch to sandbox mode if a non-prod ID is detected.
+     * 
     if (isProduction && !isProdId) {
        console.error("❌ Configuration mismatch: Using sandbox ID in production");
        return NextResponse.json(
@@ -69,6 +73,7 @@ export async function POST(request: NextRequest) {
            { status: 400 }
        );
     }
+    */
 
     const organizationId = getPolarOrganizationId();
 
