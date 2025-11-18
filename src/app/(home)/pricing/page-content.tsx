@@ -41,28 +41,17 @@ export function PricingPageContent() {
       // Check if it looks like a UUID (8-4-4-4-12 hex chars)
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(POLAR_PRO_PRODUCT_ID);
       
-      if (isUuid) {
-        setConfigError("Invalid product ID format (UUID detected)");
-        setIsPolarConfigured(false);
-        console.warn(
-          "⚠️ Polar.sh product ID appears to be a UUID:\n" +
-          `Current value: "${POLAR_PRO_PRODUCT_ID}"\n\n` +
-          "You are likely using an internal ID instead of the Product ID.\n" +
-          "1. Go to Polar Dashboard -> Products\n" +
-          "2. Click on your 'Pro' product\n" +
-          "3. Look for 'Product ID' which starts with 'prod_'\n" +
-          "4. Copy that value to your environment variables\n\n" +
-          "Direct link: https://polar.sh/dashboard/products"
-        );
-        return;
-      }
+      /* 
+       * NOTE: Polar sandbox IDs are UUIDs, while production IDs start with "prod_".
+       * We allow both formats now.
+       */
 
-      if (!POLAR_PRO_PRODUCT_ID.startsWith("prod_")) {
+      if (!POLAR_PRO_PRODUCT_ID.startsWith("prod_") && !isUuid) {
         setConfigError("Invalid product ID format");
         setIsPolarConfigured(false);
         console.warn(
           "⚠️ Polar.sh product ID appears invalid:\n" +
-          "Product IDs should start with 'prod_'\n" +
+          "Product IDs should start with 'prod_' or be a valid UUID (for sandbox)\n" +
           "Current value: " + POLAR_PRO_PRODUCT_ID
         );
         return;
