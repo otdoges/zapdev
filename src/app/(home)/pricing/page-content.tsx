@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Check } from "lucide-react";
+import { Check, AlertCircle } from "lucide-react";
 import { PolarCheckoutButton } from "@/components/polar-checkout-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,11 +12,61 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useEffect, useState } from "react";
 
 export function PricingPageContent() {
-  // TODO: Replace these with your actual Polar product IDs
-  // Create products in your Polar dashboard and paste the IDs here
+  // Check if Polar is properly configured
   const POLAR_PRO_PRODUCT_ID = process.env.NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID || "YOUR_PRO_PRODUCT_ID";
+  const POLAR_ORG_ID = process.env.NEXT_PUBLIC_POLAR_ORGANIZATION_ID;
+  
+  const [isPolarConfigured, setIsPolarConfigured] = useState<boolean | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Validate Polar configuration on client side
+    const checkConfig = () => {
+      if (!POLAR_PRO_PRODUCT_ID || POLAR_PRO_PRODUCT_ID === "YOUR_PRO_PRODUCT_ID") {
+        setConfigError("Product ID not configured");
+        setIsPolarConfigured(false);
+        console.warn(
+          "⚠️ Polar.sh is not configured:\n" +
+          "NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID is missing or not set.\n" +
+          "Please create a product in Polar.sh and add the product ID to environment variables.\n" +
+          "See: explanations/POLAR_INTEGRATION.md"
+        );
+        return;
+      }
+
+      if (!POLAR_PRO_PRODUCT_ID.startsWith("prod_")) {
+        setConfigError("Invalid product ID format");
+        setIsPolarConfigured(false);
+        console.warn(
+          "⚠️ Polar.sh product ID appears invalid:\n" +
+          "Product IDs should start with 'prod_'\n" +
+          "Current value: " + POLAR_PRO_PRODUCT_ID
+        );
+        return;
+      }
+
+      if (!POLAR_ORG_ID) {
+        setConfigError("Organization ID not configured");
+        setIsPolarConfigured(false);
+        console.warn(
+          "⚠️ Polar.sh organization ID is missing:\n" +
+          "NEXT_PUBLIC_POLAR_ORGANIZATION_ID is not set.\n" +
+          "Please add your organization ID to environment variables."
+        );
+        return;
+      }
+
+      // All checks passed
+      setIsPolarConfigured(true);
+      setConfigError(null);
+    };
+
+    checkConfig();
+  }, [POLAR_PRO_PRODUCT_ID, POLAR_ORG_ID]);
 
   return (
     <div className="flex flex-col max-w-5xl mx-auto w-full">
@@ -34,6 +84,21 @@ export function PricingPageContent() {
         <p className="text-muted-foreground text-center text-sm md:text-base">
           Choose the plan that fits your needs
         </p>
+
+        {/* Configuration Warning Alert */}
+        {isPolarConfigured === false && (
+          <Alert variant="destructive" className="mt-8">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Payment system is currently being configured. Please check back soon or contact support.
+              {process.env.NODE_ENV === "development" && configError && (
+                <span className="block mt-2 text-xs font-mono">
+                  Dev Info: {configError}
+                </span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-2 gap-8 mt-12">
@@ -112,15 +177,25 @@ export function PricingPageContent() {
               </ul>
             </CardContent>
             <CardFooter>
-              <PolarCheckoutButton
-                productId={POLAR_PRO_PRODUCT_ID}
-                productName="Pro"
-                price="$29"
-                interval="month"
-                className="w-full"
-              >
-                Upgrade to Pro
-              </PolarCheckoutButton>
+              {isPolarConfigured ? (
+                <PolarCheckoutButton
+                  productId={POLAR_PRO_PRODUCT_ID}
+                  productName="Pro"
+                  price="$29"
+                  interval="month"
+                  className="w-full"
+                >
+                  Upgrade to Pro
+                </PolarCheckoutButton>
+              ) : (
+                <Button disabled className="w-full" variant="default">
+                  {isPolarConfigured === null ? (
+                    "Loading..."
+                  ) : (
+                    "Contact Support to Upgrade"
+                  )}
+                </Button>
+              )}
             </CardFooter>
           </Card>
         </div>
