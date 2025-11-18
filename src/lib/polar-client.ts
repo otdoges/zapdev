@@ -43,18 +43,9 @@ export function createPolarClient(server?: "sandbox" | "production"): Polar {
     throw new Error(errorMsg);
   }
 
-  // If server not explicitly provided, detect environment based on Product ID and NODE_ENV
+  // If server not explicitly provided, default to production
   if (!server) {
-    const productId = process.env.NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID;
-    const isSandboxId = productId && !productId.startsWith("prod_");
-    
-    // Use sandbox if explicit dev env OR if we detect a sandbox product ID (even in prod env)
-    // This allows testing sandbox payments in a preview/production build
-    server = (process.env.NODE_ENV === "production" && !isSandboxId) ? "production" : "sandbox";
-
-    if (process.env.NODE_ENV === "production" && isSandboxId) {
-      console.log("⚠️ Polar: Using sandbox environment in production build (detected sandbox Product ID)");
-    }
+    server = "production";
   }
 
   return new Polar({

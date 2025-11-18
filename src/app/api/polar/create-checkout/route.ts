@@ -41,16 +41,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if using Sandbox or Production ID
-    const isProdId = typeof productId === 'string' && productId.startsWith("prod_");
-    const targetServer = isProdId ? "production" : "sandbox";
+    // Use production environment
+    const targetServer = "production";
 
     console.log(`creating checkout for product: ${productId} (server: ${targetServer})`);
 
     const organizationId = getPolarOrganizationId();
 
     // Create checkout session with Polar
-    // Explicitly force the correct environment based on the Product ID being used
     const polar = createPolarClient(targetServer);
     
     const checkout = await polar.checkouts.create({
