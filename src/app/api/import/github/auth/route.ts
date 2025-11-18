@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth-server";
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
-const GITHUB_REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/import/github/callback`;
+const GITHUB_REDIRECT_URI = process.env.NODE_ENV === "production" 
+  ? "https://zapdev.link/api/import/github/callback"
+  : "http://localhost:3000/api/import/github/callback";
 
 export async function GET() {
   const stackUser = await getUser();
