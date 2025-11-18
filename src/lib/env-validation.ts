@@ -43,17 +43,12 @@ export function validatePolarEnv(throwOnError = true): void {
       issue: 'Is empty or contains only whitespace',
       setupInstructions: 'Provide a valid Organization Access Token from Polar.sh'
     });
-  } else if (process.env.NODE_ENV === 'production' && !accessToken.startsWith('polar_at_')) {
-    errors.push({
-      variable: 'POLAR_ACCESS_TOKEN',
-      issue: 'Token format appears invalid (should start with "polar_at_")',
-      setupInstructions: 
-        'Regenerate your Organization Access Token:\n' +
-        '1. Go to https://polar.sh → Settings → API Keys\n' +
-        '2. Delete the old token\n' +
-        '3. Create a new Organization Access Token\n' +
-        '4. Update in Vercel environment variables'
-    });
+  } else if (process.env.NODE_ENV === 'production' && !accessToken.startsWith('polar_oat_')) {
+    // Only warn, don't fail, as custom tokens or future formats might vary
+    console.warn(
+      '⚠️ POLAR_ACCESS_TOKEN format notice: Typically starts with "polar_oat_" (Organization Access Token). ' +
+      'If authentication fails, please verify your Organization Access Token at https://polar.sh/settings/api-keys'
+    );
   }
 
   // Validate NEXT_PUBLIC_POLAR_ORGANIZATION_ID
