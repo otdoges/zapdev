@@ -5,7 +5,9 @@ import { api } from "@/convex/_generated/api";
 
 const FIGMA_CLIENT_ID = process.env.FIGMA_CLIENT_ID;
 const FIGMA_CLIENT_SECRET = process.env.FIGMA_CLIENT_SECRET;
-const FIGMA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/import/figma/callback`;
+const FIGMA_REDIRECT_URI = process.env.NODE_ENV === "production"
+  ? "https://zapdev.link/api/import/figma/callback"
+  : "http://localhost:3000/api/import/figma/callback";
 
 export async function GET(request: Request) {
   const stackUser = await getUser();

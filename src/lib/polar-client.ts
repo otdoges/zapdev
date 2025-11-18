@@ -44,10 +44,9 @@ function createPolarClient(): Polar {
 
   return new Polar({
     accessToken: accessToken.trim(),
-    // Use sandbox environment for development/testing
-    server: process.env.NODE_ENV === "development" 
-      ? "sandbox" 
-      : "production",
+    // FORCED SANDBOX MODE: Always use sandbox to prevent real payments
+    // To enable production mode, change "sandbox" to conditional logic based on NODE_ENV
+    server: "sandbox",
   });
 }
 
