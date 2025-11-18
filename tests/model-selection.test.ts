@@ -12,11 +12,11 @@ describe('Model Selection Logic', () => {
     expect(MODEL_CONFIGS[result]).toBeDefined();
   });
 
-  it('prefers Qwen for coding-focused refinements', () => {
+  it('prefers Gemini for coding-focused refinements', () => {
     const prompt = 'Please refactor this component to improve readability.';
     const result = selectModelForTask(prompt);
 
-    expect(result).toBe('alibaba/qwen3-max');
+    expect(result).toBe('google/gemini-3-pro-preview');
   });
 
   it('prefers Kimi for clearly speed-focused prompts without complexity', () => {
