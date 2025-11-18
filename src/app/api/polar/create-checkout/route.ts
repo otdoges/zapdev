@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPolarClient, getPolarOrganizationId, isPolarConfigured } from "@/lib/polar-client";
+import { createPolarClient, getPolarOrganizationId, isPolarConfigured } from "@/lib/polar-client";
 import { getUser } from "@/lib/auth-server";
 import { getSanitizedErrorDetails } from "@/lib/env-validation";
 
@@ -41,44 +41,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for environment mismatch
-    const isProduction = process.env.NODE_ENV === "production";
-    // Polar production IDs start with "prod_", sandbox IDs are UUIDs
+    // Check if using Sandbox or Production ID
     const isProdId = typeof productId === 'string' && productId.startsWith("prod_");
-    
-    /*
-     * NOTE: We allow sandbox IDs in production environment for testing/staging builds.
-     * The Polar client will automatically switch to sandbox mode if a non-prod ID is detected.
-     * 
-    if (isProduction && !isProdId) {
-       console.error("❌ Configuration mismatch: Using sandbox ID in production");
-       return NextResponse.json(
-           { 
-               error: "Configuration mismatch", 
-               details: "Using a sandbox product ID in production environment.",
-               isConfigError: true 
-           },
-           { status: 400 }
-       );
-    }
-    
-    if (!isProduction && isProdId) {
-       console.error("❌ Configuration mismatch: Using production ID in sandbox");
-       return NextResponse.json(
-           { 
-               error: "Configuration mismatch", 
-               details: "Using a production product ID in sandbox environment.",
-               isConfigError: true 
-           },
-           { status: 400 }
-       );
-    }
-    */
+    const targetServer = isProdId ? "production" : "sandbox";
+
+    console.log(`creating checkout for product: ${productId} (server: ${targetServer})`);
 
     const organizationId = getPolarOrganizationId();
 
     // Create checkout session with Polar
-    const polar = getPolarClient();
+    // Explicitly force the correct environment based on the Product ID being used
+    const polar = createPolarClient(targetServer);
+    
     const checkout = await polar.checkouts.create({
       // Products array (can include multiple product IDs)
       products: [productId],
