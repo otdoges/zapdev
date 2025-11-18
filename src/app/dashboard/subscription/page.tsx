@@ -44,7 +44,7 @@ export default function SubscriptionPage() {
   }
 
   const isProUser = subscription?.status === "active" && 
-    ["Pro", "Enterprise"].includes(subscription.productName);
+    /\b(pro|enterprise)\b/i.test(subscription.productName);
 
   // TODO: Replace with actual Polar product ID
   const POLAR_PRO_PRODUCT_ID = process.env.NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID || "YOUR_PRO_PRODUCT_ID";

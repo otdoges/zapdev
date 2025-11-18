@@ -41,8 +41,13 @@ export async function hasProAccess(ctx: QueryCtx | MutationCtx): Promise<boolean
     .filter((q) => q.eq(q.field("status"), "active"))
     .first();
   
-  // Pro access if active subscription exists and productName is "Pro" or "Enterprise"
-  if (subscription && ["Pro", "Enterprise"].includes(subscription.productName)) {
+  // Pro access if active subscription exists and productName contains "Pro" or "Enterprise" (case-insensitive)
+  // We use word boundary check to match "Pro", "Pro Plan", "Enterprise Plan" etc.
+  // but avoid false positives like "Project Management" or "Professional" (if those are not intended to be Pro)
+  // This aligns with the client-side check in src/app/dashboard/subscription/page.tsx
+  if (subscription && (
+    /\b(pro|enterprise)\b/i.test(subscription.productName)
+  )) {
     return true;
   }
   

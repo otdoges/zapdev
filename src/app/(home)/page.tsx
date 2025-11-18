@@ -1,8 +1,7 @@
-import Image from "next/image";
 import { Metadata } from "next";
+import { Suspense } from "react";
 
-import { ProjectForm } from "@/modules/home/ui/components/project-form";
-import { ProjectsList } from "@/modules/home/ui/components/projects-list";
+import PageContent from "./page-content";
 import { generateMetadata as generateSEOMetadata, generateStructuredData, generateFAQStructuredData } from "@/lib/seo";
 import { StructuredData } from "@/components/seo/structured-data";
 
@@ -57,29 +56,13 @@ const Page = () => {
   return (
     <>
       <StructuredData data={structuredData} />
-    <div className="flex flex-col max-w-5xl mx-auto w-full">
-      <section className="space-y-6 py-[16vh] 2xl:py-48">
-        <div className="flex flex-col items-center">
-          <Image
-            src="/logo.svg"
-            alt="ZapDev"
-            width={50}
-            height={50}
-            className="hidden md:block"
-          />
+      <Suspense fallback={
+        <div className="flex flex-col max-w-5xl mx-auto w-full items-center justify-center min-h-screen">
+          <p>Loading...</p>
         </div>
-        <h1 className="text-2xl md:text-5xl font-bold text-center">
-          Build something with ZapDev
-        </h1>
-        <p className="text-lg md:text-xl text-muted-foreground text-center">
-          Create apps and websites by chatting with AI
-        </p>
-        <div className="max-w-3xl mx-auto w-full">
-          <ProjectForm />
-        </div>
-      </section>
-      <ProjectsList />
-    </div>
+      }>
+        <PageContent />
+      </Suspense>
     </>
   );
 };
