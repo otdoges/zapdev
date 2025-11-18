@@ -30,14 +30,18 @@ export async function requireAuth(
  * Check if user has pro access
  * Checks for active Polar.sh subscription with Pro or Enterprise tier
  */
-export async function hasProAccess(ctx: QueryCtx | MutationCtx): Promise<boolean> {
-  const userId = await getCurrentUserId(ctx);
-  if (!userId) return false;
+export async function hasProAccess(
+  ctx: QueryCtx | MutationCtx,
+  userId?: string
+): Promise<boolean> {
+  // If userId is not provided, try to get it from auth context
+  const targetUserId = userId ?? (await getCurrentUserId(ctx));
+  if (!targetUserId) return false;
   
   // Check active subscription from Polar
   const subscription = await ctx.db
     .query("subscriptions")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .withIndex("by_userId", (q) => q.eq("userId", targetUserId))
     .filter((q) => q.eq(q.field("status"), "active"))
     .first();
   
@@ -54,7 +58,7 @@ export async function hasProAccess(ctx: QueryCtx | MutationCtx): Promise<boolean
   // Fallback to legacy usage table check for backwards compatibility
   const usage = await ctx.db
     .query("usage")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .withIndex("by_userId", (q) => q.eq("userId", targetUserId))
     .first();
   
   return usage?.planType === "pro";
