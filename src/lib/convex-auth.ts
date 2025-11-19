@@ -1,7 +1,7 @@
 import { importPKCS8, importSPKI, exportJWK, generateKeyPair, SignJWT } from 'jose';
 
-let privateKey: any;
-let publicKey: any;
+let privateKey: CryptoKey | undefined;
+let publicKey: CryptoKey | undefined;
 let jwks: any;
 
 const ALG = 'RS256';
@@ -21,11 +21,13 @@ async function getKeys() {
         }
     }
 
-    if (!process.env.CONVEX_AUTH_PRIVATE_KEY && process.env.NODE_ENV === 'production') {
-        throw new Error('CONVEX_AUTH_PRIVATE_KEY required in production');
+    if (process.env.NODE_ENV === 'production') {
+        if (!process.env.CONVEX_AUTH_PRIVATE_KEY || !process.env.CONVEX_AUTH_PUBLIC_KEY) {
+            throw new Error('CONVEX_AUTH_PRIVATE_KEY and CONVEX_AUTH_PUBLIC_KEY must be set in production');
+        }
     }
 
-    // Generate new keys
+    // Generate new keys (Development only)
     const { privateKey: priv, publicKey: pub } = await generateKeyPair(ALG);
     privateKey = priv;
     publicKey = pub;
@@ -41,8 +43,16 @@ export async function getJWKS() {
     return jwks;
 }
 
+/**
+ * Signs a JWT for Convex authentication
+ * @param payload - The payload to sign
+ * @returns The signed JWT string
+ */
 export async function signConvexJWT(payload: any) {
     const { privateKey } = await getKeys();
+    if (!privateKey) {
+        throw new Error("Failed to load private key");
+    }
     const jwt = await new SignJWT(payload)
         .setProtectedHeader({ alg: ALG, kid: 'convex-auth-key' })
         .setIssuedAt()

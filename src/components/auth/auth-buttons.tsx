@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
-import { Github, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +16,7 @@ export function SocialAuthButtons() {
                 callbackURL: "/dashboard",
             });
         } catch (error) {
+            console.error("Social sign-in error:", error);
             toast.error("Something went wrong. Please try again.");
             setIsLoading(null);
         }
@@ -32,7 +34,7 @@ export function SocialAuthButtons() {
                 {isLoading === "github" ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                    <img src="/github.svg" alt="GitHub" className="mr-2 h-4 w-4" />
+                    <Image src="/github.svg" alt="GitHub" width={16} height={16} className="mr-2 h-4 w-4" />
                 )}
                 Continue with GitHub
             </Button>
@@ -46,7 +48,7 @@ export function SocialAuthButtons() {
                 {isLoading === "google" ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                    <img src="/google.svg" alt="Google" className="mr-2 h-4 w-4" />
+                    <Image src="/google.svg" alt="Google" width={16} height={16} className="mr-2 h-4 w-4" />
                 )}
                 Continue with Google
             </Button>
