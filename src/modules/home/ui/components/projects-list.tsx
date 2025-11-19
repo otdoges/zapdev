@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useUser } from "@stackframe/stack";
+import { authClient } from "@/lib/auth-client";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -16,12 +16,12 @@ type ProjectWithPreview = Doc<"projects"> & {
 };
 
 export const ProjectsList = () => {
-  const user = useUser();
+  const { data: session } = authClient.useSession();
   const projects = useQuery(api.projects.list) as ProjectWithPreview[] | undefined;
 
-  if (!user) return null;
+  if (!session) return null;
 
-  const userName = user.displayName?.split(" ")[0] || "";
+  const userName = session.user.name?.split(" ")[0] || "";
 
   if (projects === undefined) {
     return (

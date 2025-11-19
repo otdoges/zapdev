@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
-import { getUser } from "@/lib/auth-server";
-import { fetchQuery, fetchMutation } from "convex/nextjs";
-import { api } from "@/convex/_generated/api";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export async function POST(request: Request) {
-  const stackUser = await getUser();
-  if (!stackUser) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!stackUser.id) {
+  const user = session.user;
+
+  if (!user.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
