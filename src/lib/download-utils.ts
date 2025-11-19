@@ -52,15 +52,23 @@ export async function downloadFragmentFiles(
   // Check if there are any files
   if (normalizedCount === 0) {
     console.error('[downloadFragmentFiles] No files available after normalization');
+    // If we have raw files but normalization failed, we should try to download raw files
+    if (Object.keys(files).length > 0) {
+      console.warn('[downloadFragmentFiles] Normalization failed but raw files exist. Attempting to download raw files.');
+      // Fallback logic could go here, but for now let's just return error with more info
+      toast.error("Unable to process files for download. Please try again.");
+      return { success: false, error: "File normalization failed" };
+    }
+
     toast.error("No files available to download. The files may still be generating.");
     return { success: false, error: "No files available" };
   }
 
   // Filter to only AI-generated files (unless includeAllFiles is true)
-  const filesToDownload = includeAllFiles 
-    ? normalizedFiles 
+  const filesToDownload = includeAllFiles
+    ? normalizedFiles
     : filterAIGeneratedFiles(normalizedFiles);
-  
+
   const fileEntries = Object.entries(filesToDownload);
   const filteredCount = fileEntries.length;
 
@@ -75,7 +83,7 @@ export async function downloadFragmentFiles(
       normalizedCount,
       samplePaths: Object.keys(normalizedFiles).slice(0, 5)
     });
-    
+
     // Offer to download all files as fallback
     toast.error(
       "No AI-generated files found. This might be a filtering issue.",
@@ -87,7 +95,7 @@ export async function downloadFragmentFiles(
         duration: 10000
       }
     );
-    
+
     return { success: false, error: "No AI-generated files after filtering" };
   }
 
@@ -108,12 +116,12 @@ export async function downloadFragmentFiles(
       id: `download-${fragmentId}`
     });
 
-    const zipBlob = await zip.generateAsync({ 
+    const zipBlob = await zip.generateAsync({
       type: "blob",
       compression: "DEFLATE",
       compressionOptions: { level: 6 }
     });
-    
+
     console.log(`[downloadFragmentFiles] ZIP created: ${(zipBlob.size / 1024).toFixed(2)} KB`);
 
     // Dismiss loading toast
@@ -124,7 +132,7 @@ export async function downloadFragmentFiles(
     // Create and trigger download
     downloadLink = document.createElement("a");
     downloadLink.href = objectUrl;
-    const filename = includeAllFiles 
+    const filename = includeAllFiles
       ? `all-files-${fragmentId}.zip`
       : `ai-generated-code-${fragmentId}.zip`;
     downloadLink.download = filename;
@@ -134,18 +142,18 @@ export async function downloadFragmentFiles(
     const successMessage = includeAllFiles
       ? `Downloaded all ${filteredCount} files`
       : `Downloaded ${filteredCount} AI-generated file${filteredCount === 1 ? "" : "s"}`;
-    
+
     toast.success(successMessage);
     console.log('[downloadFragmentFiles] Download completed successfully');
-    
+
     return { success: true, fileCount: filteredCount };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[downloadFragmentFiles] Download failed:', error);
-    
+
     // Dismiss any loading toasts
     toast.dismiss(`download-${fragmentId}`);
-    
+
     toast.error(`Download failed: ${errorMessage}. Please try again.`);
     return { success: false, error: `Download failed: ${errorMessage}` };
   } finally {
