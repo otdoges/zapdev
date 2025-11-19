@@ -30,6 +30,10 @@ const signUpSchema = z.object({
         .regex(/[0-9]/, "Password must contain at least one number"),
 });
 
+/**
+ * Authentication modal component
+ * Handles sign in and sign up flows with email/password and social providers
+ */
 export function AuthModal({
     children,
     isOpen: externalIsOpen,

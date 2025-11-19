@@ -22,16 +22,23 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
 if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
     throw new Error("Missing required environment variable: NEXT_PUBLIC_CONVEX_URL");
 }
+if (!process.env.INBOUND_API_KEY) {
+    throw new Error("Missing required environment variable: INBOUND_API_KEY");
+}
 
 const polarClient = new Polar({
     accessToken: process.env.POLAR_ACCESS_TOKEN,
     server: process.env.NODE_ENV === "development" ? "sandbox" : "production",
 });
 
-const inbound = new Inbound(process.env.INBOUND_API_KEY || "build_placeholder");
+const inbound = new Inbound(process.env.INBOUND_API_KEY);
 
 // Instantiate ConvexHttpClient once
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL);
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+const getAppUrl = () => process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 type ConvexSubscriptionStatus = "incomplete" | "active" | "canceled" | "past_due" | "unpaid";
 
@@ -51,7 +58,7 @@ async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
     if (!userId) return;
 
     // Safe status mapping
-    const status = POLAR_TO_CONVEX_STATUS[subscription.status] || "active";
+    const status = (POLAR_TO_CONVEX_STATUS[subscription.status] || "active") as ConvexSubscriptionStatus;
 
     await convex.mutation(api.subscriptions.createOrUpdateSubscription, {
         userId,
@@ -65,7 +72,7 @@ async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
             : Date.now(),
         currentPeriodEnd: subscription.currentPeriodEnd
             ? new Date(subscription.currentPeriodEnd).getTime()
-            : Date.now() + 30 * 24 * 60 * 60 * 1000,
+            : Date.now() + THIRTY_DAYS_MS,
         cancelAtPeriodEnd: subscription.cancelAtPeriodEnd || false,
         metadata: subscription.metadata,
     });
@@ -75,6 +82,9 @@ async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
     }
 }
 
+/**
+ * Better Auth configuration
+ */
 export const auth = betterAuth({
     plugins: [
         nextCookies(),
@@ -86,8 +96,8 @@ export const auth = betterAuth({
                     // We will configure products dynamically or via environment variables if needed
                     // For now, we enable it to allow checkout sessions
                     authenticatedUsersOnly: true,
-                    successUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/?subscription=success`,
-                    returnUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/pricing?canceled=true`,
+                    successUrl: `${getAppUrl()}/?subscription=success`,
+                    returnUrl: `${getAppUrl()}/pricing?canceled=true`,
                 }),
                 portal(),
                 usage(),
