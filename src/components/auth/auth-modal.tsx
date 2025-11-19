@@ -15,6 +15,20 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SocialAuthButtons } from "./auth-buttons";
+import { z } from "zod";
+
+const signInSchema = z.object({
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(1, "Password is required"),
+});
+
+const signUpSchema = z.object({
+    name: z.string().min(2, "Name must be at least 2 characters"),
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(8, "Password must be at least 8 characters")
+        .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+        .regex(/[0-9]/, "Password must contain at least one number"),
+});
 
 export function AuthModal({
     children,
@@ -44,6 +58,13 @@ export function AuthModal({
         e.preventDefault();
         setIsLoading(true);
         try {
+            const result = signInSchema.safeParse({ email, password });
+            if (!result.success) {
+                toast.error(result.error.errors[0].message);
+                setIsLoading(false);
+                return;
+            }
+
             await authClient.signIn.email({
                 email,
                 password,
@@ -51,7 +72,11 @@ export function AuthModal({
             });
             setIsOpen(false);
         } catch (error) {
-            toast.error("Invalid credentials. Please try again.");
+            console.error('Auth error:', error);
+            const message = error instanceof Error 
+                ? error.message 
+                : 'Authentication failed. Please try again.';
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }
@@ -61,6 +86,13 @@ export function AuthModal({
         e.preventDefault();
         setIsLoading(true);
         try {
+            const result = signUpSchema.safeParse({ name, email, password });
+            if (!result.success) {
+                toast.error(result.error.errors[0].message);
+                setIsLoading(false);
+                return;
+            }
+
             await authClient.signUp.email({
                 email,
                 password,
@@ -70,7 +102,11 @@ export function AuthModal({
             setIsOpen(false);
             toast.success("Account created successfully!");
         } catch (error) {
-            toast.error("Failed to create account. Please try again.");
+            console.error('Auth error:', error);
+            const message = error instanceof Error 
+                ? error.message 
+                : 'Failed to create account. Please try again.';
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }
