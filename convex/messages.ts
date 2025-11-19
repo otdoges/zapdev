@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
-import { requireAuth } from "./helpers";
+import { requireAuth, getCurrentUserId } from "./helpers";
 import {
   messageRoleEnum,
   messageTypeEnum,
@@ -127,12 +127,12 @@ export const list = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await getCurrentUserId(ctx);
 
     // Verify project ownership
     const project = await ctx.db.get(args.projectId);
     if (!project || project.userId !== userId) {
-      throw new Error("Unauthorized");
+      return [];
     }
 
     const messages = await ctx.db

@@ -36,8 +36,12 @@ export const ProjectHeader = ({ projectId }: Props) => {
 
   const { setTheme, theme } = useTheme();
 
-  if (!project) {
+  if (project === undefined) {
     return <header className="p-2 flex justify-between items-center border-b">Loading...</header>;
+  }
+
+  if (project === null) {
+    return <header className="p-2 flex justify-between items-center border-b">Project not found</header>;
   }
 
   return (
