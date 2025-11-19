@@ -62,16 +62,18 @@ export function AuthModal({
         e.preventDefault();
         setIsLoading(true);
         try {
-            const result = signInSchema.safeParse({ email, password });
+            const trimmedEmail = email.trim();
+            const trimmedPassword = password.trim();
+            const result = signInSchema.safeParse({ email: trimmedEmail, password: trimmedPassword });
             if (!result.success) {
-                toast.error(result.error.errors[0].message);
+                toast.error(result.error.issues[0].message);
                 setIsLoading(false);
                 return;
             }
 
             await authClient.signIn.email({
-                email,
-                password,
+                email: trimmedEmail,
+                password: trimmedPassword,
                 callbackURL: "/dashboard",
             });
             setIsOpen(false);
@@ -90,17 +92,20 @@ export function AuthModal({
         e.preventDefault();
         setIsLoading(true);
         try {
-            const result = signUpSchema.safeParse({ name, email, password });
+            const trimmedName = name.trim();
+            const trimmedEmail = email.trim();
+            const trimmedPassword = password.trim();
+            const result = signUpSchema.safeParse({ name: trimmedName, email: trimmedEmail, password: trimmedPassword });
             if (!result.success) {
-                toast.error(result.error.errors[0].message);
+                toast.error(result.error.issues[0].message);
                 setIsLoading(false);
                 return;
             }
 
             await authClient.signUp.email({
-                email,
-                password,
-                name,
+                email: trimmedEmail,
+                password: trimmedPassword,
+                name: trimmedName,
                 callbackURL: "/dashboard",
             });
             setIsOpen(false);

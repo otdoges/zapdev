@@ -38,7 +38,21 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL);
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
-const getAppUrl = () => process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const getAppUrl = () => {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    
+    if (process.env.NODE_ENV === "production") {
+        if (!appUrl) {
+            throw new Error("NEXT_PUBLIC_APP_URL must be set in production environment");
+        }
+        if (!appUrl.startsWith("https://")) {
+            throw new Error(`NEXT_PUBLIC_APP_URL must use HTTPS in production. Got: ${appUrl}`);
+        }
+        return appUrl;
+    }
+    
+    return appUrl || "https://zapdev.link";
+};
 
 type ConvexSubscriptionStatus = "incomplete" | "active" | "canceled" | "past_due" | "unpaid";
 
@@ -53,9 +67,12 @@ const POLAR_TO_CONVEX_STATUS: Record<string, ConvexSubscriptionStatus> = {
 };
 
 async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
-    const userId = subscription.metadata?.userId as string;
-
-    if (!userId) return;
+    const userId = subscription.metadata?.userId;
+    
+    if (!userId || typeof userId !== "string" || userId.trim() === "") {
+        console.error("Invalid userId in subscription metadata:", subscription.metadata);
+        return;
+    }
 
     // Safe status mapping
     const status = (POLAR_TO_CONVEX_STATUS[subscription.status] || "active") as ConvexSubscriptionStatus;
@@ -124,8 +141,8 @@ export const auth = betterAuth({
                             polarSubscriptionId: subscription.id,
                         });
 
-                        const userId = subscription.metadata?.userId as string;
-                        if (userId) {
+                        const userId = subscription.metadata?.userId;
+                        if (userId && typeof userId === "string" && userId.trim() !== "") {
                             await convex.mutation(api.usage.resetUsage, { userId });
                         }
                     },
