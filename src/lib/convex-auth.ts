@@ -21,6 +21,10 @@ async function getKeys() {
         }
     }
 
+    if (!process.env.CONVEX_AUTH_PRIVATE_KEY && process.env.NODE_ENV === 'production') {
+        throw new Error('CONVEX_AUTH_PRIVATE_KEY required in production');
+    }
+
     // Generate new keys
     const { privateKey: priv, publicKey: pub } = await generateKeyPair(ALG);
     privateKey = priv;
