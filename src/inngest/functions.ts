@@ -906,34 +906,34 @@ export const codeAgentFunction = inngest.createFunction(
       validatedModel = "auto";
     }
 
-    // Enforce Pro restriction for Gemini model
-    if (validatedModel === "google/gemini-3-pro-preview" && usage?.planType !== "pro") {
-      console.warn(
-        `[WARN] Pro model requested by non-pro user. Falling back to "auto".`,
-      );
-      validatedModel = "auto";
-    }
+    // Enforce Pro restriction for Gemini model - REMOVED TEMPORARILY
+    // if (validatedModel === "google/gemini-3-pro-preview" && usage?.planType !== "pro") {
+    //   console.warn(
+    //     `[WARN] Pro model requested by non-pro user. Falling back to "auto".`,
+    //   );
+    //   validatedModel = "auto";
+    // }
 
     let selectedModel: keyof typeof MODEL_CONFIGS =
       validatedModel === "auto"
         ? selectModelForTask(event.data.value, selectedFramework)
         : (validatedModel as keyof typeof MODEL_CONFIGS);
 
-    // Enforce Pro plan for Gemini 3 Pro
-    if (selectedModel === "google/gemini-3-pro-preview") {
-      const usage = await step.run("check-user-plan", async () => {
-        return await convex.query(api.usage.getUsageForUser, {
-          userId: project.userId,
-        });
-      });
+    // Enforce Pro plan for Gemini 3 Pro - REMOVED TEMPORARILY
+    // if (selectedModel === "google/gemini-3-pro-preview") {
+    //   const usage = await step.run("check-user-plan", async () => {
+    //     return await convex.query(api.usage.getUsageForUser, {
+    //       userId: project.userId,
+    //     });
+    //   });
 
-      if (usage.planType !== "pro") {
-        console.warn(
-          `[WARN] User ${project.userId} is not Pro but selected Gemini. Falling back to Haiku.`,
-        );
-        selectedModel = "anthropic/claude-haiku-4.5";
-      }
-    }
+    //   if (usage.planType !== "pro") {
+    //     console.warn(
+    //       `[WARN] User ${project.userId} is not Pro but selected Gemini. Falling back to Haiku.`,
+    //     );
+    //     selectedModel = "anthropic/claude-haiku-4.5";
+    //   }
+    // }
 
     console.log("[DEBUG] Selected model:", selectedModel);
     console.log("[DEBUG] Model config:", MODEL_CONFIGS[selectedModel]);

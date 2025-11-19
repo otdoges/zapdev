@@ -296,8 +296,8 @@ export const ProjectForm = () => {
                     </div>
                     {modelOptions.map((option) => {
                       const isSelected = selectedModel === option.id;
-                      const isGemini = option.id === "google/gemini-3-pro-preview";
-                      const isLocked = isGemini && usage?.planType !== "pro";
+                      // const isGemini = option.id === "google/gemini-3-pro-preview";
+                      const isLocked = false; // Gemini 3 Pro restriction removed temporarily
                       
                       return (
                         <button
