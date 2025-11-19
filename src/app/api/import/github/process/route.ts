@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { getConvexClientWithAuth } from "@/lib/auth-server";
+import { api } from "@/convex/_generated/api";
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -16,6 +18,8 @@ export async function POST(request: Request) {
   if (!user.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const convex = await getConvexClientWithAuth(user.id);
 
   if (false) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -33,7 +37,7 @@ export async function POST(request: Request) {
     }
 
     // Get OAuth connection
-    const connection = await fetchQuery((api as any).oauth.getConnection, {
+    const connection = await convex.query(api.oauth.getConnection, {
       provider: "github",
     });
 
@@ -62,7 +66,7 @@ export async function POST(request: Request) {
     const repoData = await repoResponse.json();
 
     // Create import record in Convex
-    const importRecord = await fetchMutation((api as any).imports.createImport, {
+    const importRecord = await convex.mutation(api.imports.createImport, {
       projectId,
       source: "GITHUB",
       sourceId: repoId.toString(),

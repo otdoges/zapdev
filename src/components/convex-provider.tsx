@@ -22,10 +22,16 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
           isLoading: isPending,
           isAuthenticated: !!session,
           fetchAccessToken: async ({ forceRefreshToken }) => {
-            // TODO: Implement proper token fetching for Better Auth if needed.
-            // For now, we rely on the session cookie or return null.
-            // If Convex needs a JWT, we might need to fetch it from an API route.
-            return null;
+            try {
+              const response = await fetch("/api/convex-auth");
+              if (!response.ok) {
+                return null;
+              }
+              const { token } = await response.json();
+              return token;
+            } catch (error) {
+              return null;
+            }
           },
         };
       }}

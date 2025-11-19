@@ -3,6 +3,7 @@ import { getUser, getConvexClientWithAuth } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { sanitizeTextForDatabase } from "@/lib/utils";
+import { ConvexHttpClient } from "convex/browser";
 
 type UpdateMessageRequestBody = {
   messageId: string;
@@ -25,21 +26,18 @@ function isUpdateMessageRequestBody(value: unknown): value is UpdateMessageReque
 
 export async function PATCH(request: Request) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const user = await getUser();
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const convexClient = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-    // Note: We are not setting auth on convexClient here because we don't have the token easily.
-    // This might fail if the mutation requires auth.
-    // TODO: Fix server-side Convex auth with Better Auth.
+    const convexClient = await getConvexClientWithAuth(user.id);
+    // Note: We are setting auth on convexClient using the signed JWT.
+
 
     let body: unknown;
     try {
