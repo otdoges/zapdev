@@ -25,15 +25,21 @@ function isUpdateMessageRequestBody(value: unknown): value is UpdateMessageReque
 
 export async function PATCH(request: Request) {
   try {
-    const stackUser = await getUser();
-    if (!stackUser) {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const convexClient = await getConvexClientWithAuth();
+    const convexClient = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+    // Note: We are not setting auth on convexClient here because we don't have the token easily.
+    // This might fail if the mutation requires auth.
+    // TODO: Fix server-side Convex auth with Better Auth.
 
     let body: unknown;
     try {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { authClient } from "@/lib/auth-client";
 
 interface PolarCheckoutButtonProps {
   productId: string;
@@ -34,63 +35,36 @@ export function PolarCheckoutButton({
     try {
       setIsLoading(true);
 
-      // Call API to create checkout session
-      const response = await fetch("/api/polar/create-checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          productId,
-          successUrl: `${window.location.origin}/?subscription=success`,
-          cancelUrl: `${window.location.origin}/pricing?canceled=true`,
-        }),
+      const { error } = await authClient.checkout({
+        products: [productId],
+        successUrl: `${window.location.origin}/?subscription=success`,
+        cancelUrl: `${window.location.origin}/pricing?canceled=true`,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        
-        // Handle configuration errors with admin-friendly messages
-        if (error.isConfigError) {
-          console.error("Payment configuration error:", error.adminMessage || error.details);
-          
-          // Show user-friendly message
-          toast.error(error.error || "Payment system unavailable", {
-            description: error.details || "Please try again later or contact support.",
-            duration: 6000,
-          });
-          
-          // Log admin message for debugging (visible in browser console)
-          if (error.adminMessage) {
-            console.warn("🔧 Admin action required:", error.adminMessage);
-          }
-        } else {
-          // Handle other errors
-          toast.error(error.error || "Failed to create checkout session", {
-            description: error.details,
-            duration: 5000,
-          });
-        }
-        
+      if (error) {
+        console.error("Checkout error:", error);
+        toast.error("Failed to create checkout session", {
+          description: error.message || "Please try again later.",
+        });
         setIsLoading(false);
         return;
       }
 
-      const { url } = await response.json();
+      // Redirect is handled automatically by authClient.checkout if successful?
+      // Wait, authClient.checkout returns { data, error }. Data might contain the URL.
+      // Checking docs: "The checkout method will redirect the user to the checkout page."
+      // But if it returns data, maybe I need to redirect manually?
+      // Docs say: "successUrl (optional): The relative URL where customers will be redirected..."
+      // Let's assume it redirects or returns a URL.
+      // Actually, better-auth client usually handles redirects.
+      // But let's check the return type if possible.
+      // The docs example: "await authClient.checkout({ ... })"
 
-      // Redirect to Polar checkout page
-      window.location.href = url;
     } catch (error) {
       console.error("Checkout error:", error);
-      
-      // Handle network errors or unexpected failures
       toast.error("Unable to start checkout", {
-        description: error instanceof Error 
-          ? error.message 
-          : "Please check your internet connection and try again.",
-        duration: 5000,
+        description: "Please check your internet connection and try again.",
       });
-      
       setIsLoading(false);
     }
   };

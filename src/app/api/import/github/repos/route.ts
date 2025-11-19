@@ -16,12 +16,17 @@ interface GitHubRepo {
 }
 
 export async function GET() {
-  const stackUser = await getUser();
-  if (!stackUser) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!stackUser.id) {
+  const user = session.user;
+
+  if (!user.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

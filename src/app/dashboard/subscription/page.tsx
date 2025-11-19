@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useUser } from "@stackframe/stack";
+import { authClient } from "@/lib/auth-client";
 import { format } from "date-fns";
 import {
   Card,
@@ -19,11 +19,21 @@ import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 import Link from "next/link";
 
 export default function SubscriptionPage() {
-  const user = useUser();
+  const { data: session, isPending } = authClient.useSession();
   const subscription = useQuery(api.subscriptions.getSubscription);
   const usage = useQuery(api.usage.getUsage);
 
-  if (!user) {
+  if (isPending) {
+    return (
+      <div className="container mx-auto p-6 max-w-4xl">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
     return (
       <div className="container mx-auto p-6 max-w-4xl">
         <div className="text-center py-12">
@@ -43,7 +53,7 @@ export default function SubscriptionPage() {
     );
   }
 
-  const isProUser = subscription?.status === "active" && 
+  const isProUser = subscription?.status === "active" &&
     /\b(pro|enterprise)\b/i.test(subscription.productName);
 
   // TODO: Replace with actual Polar product ID
