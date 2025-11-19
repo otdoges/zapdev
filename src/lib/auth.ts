@@ -4,11 +4,14 @@ import { Polar } from "@polar-sh/sdk";
 import { nextCookies } from "better-auth/next-js";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { Inbound } from "@inboundemail/sdk";
 
 const polarClient = new Polar({
     accessToken: process.env.POLAR_ACCESS_TOKEN!,
     server: process.env.NODE_ENV === "development" ? "sandbox" : "production",
 });
+
+const inbound = new Inbound(process.env.INBOUND_API_KEY || "build_placeholder");
 
 export const auth = betterAuth({
     plugins: [
@@ -146,5 +149,22 @@ export const auth = betterAuth({
     },
     emailAndPassword: {
         enabled: true,
+        requireEmailVerification: true,
+        sendEmailVerification: async ({ user, url }: { user: { email: string }, url: string }) => {
+            await inbound.emails.send({
+                from: "noreply@zapdev.link",
+                to: user.email,
+                subject: "Verify your email address",
+                html: `<p>Click the link below to verify your email address:</p><a href="${url}">${url}</a>`,
+            });
+        },
+        sendResetPassword: async ({ user, url }: { user: { email: string }, url: string }) => {
+            await inbound.emails.send({
+                from: "noreply@zapdev.link",
+                to: user.email,
+                subject: "Reset your password",
+                html: `<p>Click the link below to reset your password:</p><a href="${url}">${url}</a>`,
+            });
+        },
     }
 });
