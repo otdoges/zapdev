@@ -35,10 +35,8 @@ export function PolarCheckoutButton({
     try {
       setIsLoading(true);
 
-      const { error } = await authClient.checkout({
+      const { data, error } = await authClient.checkout({
         products: [productId],
-        successUrl: `${window.location.origin}/?subscription=success`,
-        cancelUrl: `${window.location.origin}/pricing?canceled=true`,
       });
 
       if (error) {
@@ -50,15 +48,9 @@ export function PolarCheckoutButton({
         return;
       }
 
-      // Redirect is handled automatically by authClient.checkout if successful?
-      // Wait, authClient.checkout returns { data, error }. Data might contain the URL.
-      // Checking docs: "The checkout method will redirect the user to the checkout page."
-      // But if it returns data, maybe I need to redirect manually?
-      // Docs say: "successUrl (optional): The relative URL where customers will be redirected..."
-      // Let's assume it redirects or returns a URL.
-      // Actually, better-auth client usually handles redirects.
-      // But let's check the return type if possible.
-      // The docs example: "await authClient.checkout({ ... })"
+      if (data?.url) {
+        window.location.href = data.url;
+      }
 
     } catch (error) {
       console.error("Checkout error:", error);

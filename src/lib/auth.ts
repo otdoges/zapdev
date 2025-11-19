@@ -21,6 +21,8 @@ export const auth = betterAuth({
                     // We will configure products dynamically or via environment variables if needed
                     // For now, we enable it to allow checkout sessions
                     authenticatedUsersOnly: true,
+                    successUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/?subscription=success`,
+                    returnUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/pricing?canceled=true`,
                 }),
                 portal(),
                 usage(),

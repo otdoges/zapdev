@@ -16,12 +16,29 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { SocialAuthButtons } from "./auth-buttons";
 
-export function AuthModal({ children }: { children?: React.ReactNode }) {
-    const [isOpen, setIsOpen] = useState(false);
+export function AuthModal({
+    children,
+    isOpen: externalIsOpen,
+    onClose,
+    mode = "signin"
+}: {
+    children?: React.ReactNode;
+    isOpen?: boolean;
+    onClose?: () => void;
+    mode?: "signin" | "signup";
+}) {
+    const [internalIsOpen, setInternalIsOpen] = useState(false);
+    const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+    const setIsOpen = onClose ? (open: boolean) => !open && onClose() : setInternalIsOpen;
+
     const [isLoading, setIsLoading] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [name, setName] = useState("");
+
+    // Reset state when mode changes if needed, or just use the prop to set default tab
+    // We'll use the mode prop to control the default tab value
+
 
     const handleSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -61,9 +78,11 @@ export function AuthModal({ children }: { children?: React.ReactNode }) {
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                {children || <Button variant="default">Sign In</Button>}
-            </DialogTrigger>
+            {children && (
+                <DialogTrigger asChild>
+                    {children}
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[400px] p-0 overflow-hidden gap-0">
                 <div className="p-6 pt-8 text-center bg-muted/50">
                     <DialogHeader>
@@ -77,7 +96,7 @@ export function AuthModal({ children }: { children?: React.ReactNode }) {
                 </div>
 
                 <div className="p-6">
-                    <Tabs defaultValue="signin" className="w-full">
+                    <Tabs defaultValue={mode} className="w-full">
                         <TabsList className="grid w-full grid-cols-2 mb-6">
                             <TabsTrigger value="signin">Sign In</TabsTrigger>
                             <TabsTrigger value="signup">Sign Up</TabsTrigger>

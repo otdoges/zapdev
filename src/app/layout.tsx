@@ -92,20 +92,18 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <body className="antialiased">
-          <ConvexClientProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              <Toaster />
-              <WebVitalsReporter />
-              {children}
-            </ThemeProvider>
-          </ConvexClientProvider>
-        </body>
+        <ConvexClientProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <Toaster />
+            <WebVitalsReporter />
+            {children}
+          </ThemeProvider>
+        </ConvexClientProvider>
       </body>
       <SpeedInsights />
     </html>

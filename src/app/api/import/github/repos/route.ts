@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getUser } from "@/lib/auth-server";
-import { fetchQuery } from "convex/nextjs";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { getConvexClientWithAuth } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
 
 interface GitHubRepo {
@@ -36,7 +37,8 @@ export async function GET() {
 
   try {
     // Get OAuth connection
-    const connection = await fetchQuery((api as any).oauth.getConnection, {
+    const convex = await getConvexClientWithAuth(user.id);
+    const connection = await convex.query(api.oauth.getConnection, {
       provider: "github",
     });
 

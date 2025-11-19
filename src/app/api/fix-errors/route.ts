@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const convexClient = await getConvexClientWithAuth();
+    const convexClient = await getConvexClientWithAuth(stackUser.id);
 
     let body: unknown;
     try {

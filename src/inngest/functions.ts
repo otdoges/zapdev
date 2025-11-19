@@ -113,6 +113,7 @@ export const MODEL_CONFIGS = {
     provider: "google",
     description: "Specialized for coding tasks",
     temperature: 0.7,
+    frequency_penalty: undefined,
     // Note: Gemini doesn't support frequency_penalty
   },
   "xai/grok-4-fast-reasoning": {
