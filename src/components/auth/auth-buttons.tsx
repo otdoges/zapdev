@@ -18,6 +18,7 @@ export function SocialAuthButtons() {
         } catch (error) {
             console.error("Social sign-in error:", error);
             toast.error("Something went wrong. Please try again.");
+        } finally {
             setIsLoading(null);
         }
     };

@@ -12,6 +12,13 @@ export async function GET(req: Request) {
         return new NextResponse(null, { status: 401 });
     }
 
+    if (!session.user.emailVerified) {
+        return new NextResponse(
+            JSON.stringify({ error: "Email verification required" }),
+            { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+    }
+
     const jwt = await signConvexJWT({
         sub: session.user.id,
         name: session.user.name,

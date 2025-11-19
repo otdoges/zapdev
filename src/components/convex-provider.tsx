@@ -25,11 +25,13 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
             try {
               const response = await fetch("/api/convex-auth");
               if (!response.ok) {
+                console.error("Failed to fetch Convex auth token:", response.status, response.statusText);
                 return null;
               }
               const { token } = await response.json();
               return token;
             } catch (error) {
+              console.error("Error fetching Convex auth token:", error);
               return null;
             }
           },
