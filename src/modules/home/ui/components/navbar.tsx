@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
-import { AuthModal } from "@/components/auth-modal";
-import { useUser } from "@stackframe/stack";
+import { AuthModal } from "@/components/auth/auth-modal";
+import { authClient } from "@/lib/auth-client";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -27,7 +27,7 @@ import { CalendarCheckIcon, MailIcon } from "lucide-react";
 
 export const Navbar = () => {
   const isScrolled = useScroll();
-  const user = useUser();
+  const { data: session } = authClient.useSession();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
 
@@ -50,7 +50,7 @@ export const Navbar = () => {
               <Image src="/logo.svg" alt="ZapDev - AI-Powered Development Platform" width={24} height={24} />
               <span className="font-semibold text-lg">ZapDev</span>
             </Link>
-            
+
             <NavigationMenu className="hidden md:flex">
               <NavigationMenuList>
                 <NavigationMenuItem>
@@ -93,7 +93,7 @@ export const Navbar = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {!user ? (
+            {!session ? (
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -115,8 +115,8 @@ export const Navbar = () => {
           </div>
         </div>
       </nav>
-      
-      <AuthModal 
+
+      <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         mode={authMode}

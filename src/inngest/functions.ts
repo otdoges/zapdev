@@ -113,7 +113,6 @@ export const MODEL_CONFIGS = {
     provider: "google",
     description: "Specialized for coding tasks",
     temperature: 0.7,
-    // Note: Gemini doesn't support frequency_penalty
   },
   "xai/grok-4-fast-reasoning": {
     name: "Grok 4 Fast",
@@ -1299,8 +1298,8 @@ Generate code that matches the approved specification.`;
           process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
           temperature: modelConfig.temperature,
-          ...(modelConfig.frequency_penalty !== undefined && {
-            frequency_penalty: modelConfig.frequency_penalty,
+          ...(modelConfig.provider !== "google" && (modelConfig as any).frequency_penalty !== undefined && {
+            frequency_penalty: (modelConfig as any).frequency_penalty,
           }),
         },
       }),
@@ -2274,8 +2273,8 @@ export const errorFixFunction = inngest.createFunction(
           process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
           temperature: errorFixModelConfig.temperature,
-          ...(errorFixModelConfig.frequency_penalty !== undefined && {
-            frequency_penalty: errorFixModelConfig.frequency_penalty,
+          ...(errorFixModelConfig.provider !== "google" && (errorFixModelConfig as any).frequency_penalty !== undefined && {
+            frequency_penalty: (errorFixModelConfig as any).frequency_penalty,
           }),
         },
       }),

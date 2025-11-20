@@ -3,6 +3,7 @@ import { getUser, getConvexClientWithAuth } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { sanitizeTextForDatabase } from "@/lib/utils";
+import { ConvexHttpClient } from "convex/browser";
 
 type UpdateMessageRequestBody = {
   messageId: string;
@@ -25,15 +26,18 @@ function isUpdateMessageRequestBody(value: unknown): value is UpdateMessageReque
 
 export async function PATCH(request: Request) {
   try {
-    const stackUser = await getUser();
-    if (!stackUser) {
+    const user = await getUser();
+
+    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const convexClient = await getConvexClientWithAuth();
+    const convexClient = await getConvexClientWithAuth(user.id);
+    // Note: We are setting auth on convexClient using the signed JWT.
+
 
     let body: unknown;
     try {

@@ -67,7 +67,7 @@ export default defineSchema({
   // Projects table
   projects: defineTable({
     name: v.string(),
-    userId: v.string(), // Clerk user ID (not v.id - we'll store the Clerk ID directly)
+    userId: v.string(), // Better Auth user ID (not v.id - we'll store the Better Auth ID directly)
     framework: frameworkEnum,
     modelPreference: v.optional(v.string()), // User's preferred AI model (e.g., "auto", "anthropic/claude-haiku-4.5", "openai/gpt-4o")
     createdAt: v.optional(v.number()), // timestamp
@@ -135,7 +135,7 @@ export default defineSchema({
 
   // OAuth Connections table - for storing encrypted OAuth tokens
   oauthConnections: defineTable({
-    userId: v.string(), // Clerk user ID
+    userId: v.string(), // Better Auth user ID
     provider: oauthProviderEnum,
     accessToken: v.string(), // Encrypted token
     refreshToken: v.optional(v.string()),
@@ -150,7 +150,7 @@ export default defineSchema({
 
   // Imports table - tracking import history and status
   imports: defineTable({
-    userId: v.string(), // Clerk user ID
+    userId: v.string(), // Better Auth user ID
     projectId: v.id("projects"),
     messageId: v.optional(v.id("messages")),
     source: importSourceEnum,
@@ -169,7 +169,7 @@ export default defineSchema({
 
   // Usage table - rate limiting and credit tracking
   usage: defineTable({
-    userId: v.string(), // Clerk user ID
+    userId: v.string(), // Better Auth user ID
     points: v.number(), // Remaining credits
     expire: v.optional(v.number()), // Expiration timestamp
     planType: v.optional(v.union(v.literal("free"), v.literal("pro"))), // Track plan type
@@ -190,7 +190,7 @@ export default defineSchema({
 
   // Subscriptions table - Polar.sh subscription tracking
   subscriptions: defineTable({
-    userId: v.string(), // Stack Auth user ID
+    userId: v.string(), // Better Auth user ID
     polarCustomerId: v.string(), // Polar.sh customer ID
     polarSubscriptionId: v.string(), // Polar.sh subscription ID
     productId: v.string(), // Polar product ID
@@ -218,7 +218,7 @@ export default defineSchema({
   sandboxSessions: defineTable({
     sandboxId: v.string(), // E2B sandbox ID
     projectId: v.id("projects"), // Associated project
-    userId: v.string(), // Clerk user ID
+    userId: v.string(), // Better Auth user ID
     framework: frameworkEnum, // Framework for the sandbox
     state: sandboxStateEnum, // RUNNING, PAUSED, or KILLED
     lastActivity: v.number(), // Timestamp of last user activity
@@ -232,6 +232,18 @@ export default defineSchema({
     .index("by_state", ["state"])
     .index("by_sandboxId", ["sandboxId"]),
 
+  // User profile table to mirror auth state (email verification, etc.)
+  users: defineTable({
+    userId: v.string(),
+    email: v.optional(v.string()),
+    emailVerified: v.boolean(),
+    verifiedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_email", ["email"]),
+
   // E2B Rate Limits table - track E2B API usage to prevent hitting limits
   e2bRateLimits: defineTable({
     operation: v.string(), // Operation type: "sandbox_create", "sandbox_connect", etc.
@@ -241,11 +253,22 @@ export default defineSchema({
     .index("by_timestamp", ["timestamp"])
     .index("by_operation_timestamp", ["operation", "timestamp"]),
 
+  // Webhook Events table - track processed webhooks for idempotency
+  webhookEvents: defineTable({
+    idempotencyKey: v.string(), // Unique key for webhook event (e.g., "sub_123:1234567890:active")
+    provider: v.string(), // "polar", "stripe", etc.
+    eventType: v.string(), // "subscription.created", "subscription.updated", etc.
+    processedAt: v.number(), // Timestamp when webhook was processed
+    expiresAt: v.number(), // TTL for cleanup (e.g., processedAt + 5 minutes)
+  })
+    .index("by_idempotencyKey", ["idempotencyKey"])
+    .index("by_expiresAt", ["expiresAt"]),
+
   // Job Queue table - queue requests when E2B is unavailable
   jobQueue: defineTable({
     type: v.string(), // Job type: "code_generation", "error_fix", etc.
     projectId: v.id("projects"),
-    userId: v.string(), // Clerk user ID
+    userId: v.string(), // Better Auth user ID
     payload: v.any(), // Job-specific data (event.data from Inngest)
     priority: v.union(v.literal("high"), v.literal("normal"), v.literal("low")),
     status: v.union(
