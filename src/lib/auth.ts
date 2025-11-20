@@ -13,7 +13,7 @@ import {
     toSafeTimestamp,
 } from "./subscription-metadata";
 import { validatePassword } from "./password-validation";
-import { passwordValidationPlugin } from "./password-validation-plugin";
+// import { passwordValidationPlugin } from "./password-validation-plugin"; // Disabled - incompatible with Better Auth v1.3.34+
 
 // Lazy initialization of environment-dependent clients
 // This prevents build-time crashes for routes that don't need auth
@@ -241,8 +241,9 @@ export const auth = betterAuth({
         // nextCookies() automatically enables CSRF protection
         // via sameSite: 'lax' cookies and CSRF token validation
         nextCookies(),
-        // Password validation plugin for server-side password strength validation
-        passwordValidationPlugin(),
+        // Password validation plugin disabled - incompatible with Better Auth v1.3.34+
+        // Client-side validation handles password requirements
+        // passwordValidationPlugin(),
         polar({
             client: getPolarClient(),
             createCustomerOnSignUp: true,

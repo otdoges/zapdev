@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "bunx convex codegen && next build --turbopack",
     "start": "next start",
     "lint": "next lint",
     "migrate:convex": "bun run scripts/migrate-to-convex.ts",

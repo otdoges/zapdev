@@ -1,47 +1,21 @@
 /**
  * Better Auth plugin for server-side password validation
  *
- * This plugin intercepts password creation/updates and validates
- * them against security requirements to prevent weak passwords.
+ * DEPRECATED: This plugin is incompatible with Better Auth v1.3.34+
+ * The hooks API has changed and no longer supports the user.create/update structure.
+ *
+ * Password validation is now handled by:
+ * - Better Auth built-in minPasswordLength/maxPasswordLength settings
+ * - Client-side validation in forms
+ *
+ * This file is kept for reference only and should not be used.
  */
 
 import type { BetterAuthPlugin } from "better-auth";
-import { validatePassword } from "./password-validation";
 
 export const passwordValidationPlugin = (): BetterAuthPlugin => {
+    // Disabled - return minimal plugin that does nothing
     return {
-        id: "password-validation",
-        hooks: {
-            user: {
-                create: {
-                    before: async (user) => {
-                        // Validate password on user creation (signup)
-                        if ("password" in user && user.password) {
-                            const validation = validatePassword(user.password as string);
-
-                            if (!validation.valid) {
-                                throw new Error(validation.errors[0]);
-                            }
-                        }
-
-                        return user;
-                    },
-                },
-                update: {
-                    before: async (user) => {
-                        // Validate password on user update (password change)
-                        if ("password" in user && user.password) {
-                            const validation = validatePassword(user.password as string);
-
-                            if (!validation.valid) {
-                                throw new Error(validation.errors[0]);
-                            }
-                        }
-
-                        return user;
-                    },
-                },
-            },
-        },
-    };
+        id: "password-validation-deprecated",
+    } as BetterAuthPlugin;
 };
