@@ -9,7 +9,7 @@ ZapDev is an AI-powered development platform that enables users to create web ap
 ## Technology Stack
 
 **Frontend**: Next.js 15 (Turbopack), React 19, TypeScript 5.9, Tailwind CSS v4, Shadcn/ui, React Query
-**Backend**: Convex (real-time database), tRPC (type-safe APIs), Clerk (authentication)
+**Backend**: Convex (real-time database), tRPC (type-safe APIs), Better Auth (authentication)
 **AI & Execution**: Vercel AI Gateway, Inngest 3.44 (job orchestration), E2B Code Interpreter (sandboxes)
 **Monitoring**: Sentry, OpenTelemetry
 
@@ -157,7 +157,7 @@ Subscriptions enable real-time UI updates when data changes.
 - **Free tier**: 5 generations per 24 hours
 - **Pro tier**: 100 generations per 24 hours
 - **Tracked**: In `usage` table with rolling 24-hour expiration window
-- **Synced**: With Clerk custom claim `plan: "pro"`
+- **Synced**: With Better Auth session claim `plan: "pro"`
 
 ### 6. OAuth & Imports
 
@@ -171,13 +171,13 @@ Subscriptions enable real-time UI updates when data changes.
 - Frontend uses tRPC client hooks (`useQuery`, `useMutation` from `src/trpc/client.tsx`)
 - Backend uses tRPC procedures defined in `src/trpc/routers/`
 - Convex queries/mutations auto-typed via `@convex-dev/react`
-- Clerk authentication middleware in `src/middleware.ts`
+- Better Auth middleware in `src/middleware.ts`
 
 **Query Client**: React Query configured in `src/trpc/query-client.ts` for caching, refetching, and optimistic updates.
 
 ## Configuration
 
-### Environment Variables (17 required)
+### Environment Variables (Required)
 
 ```bash
 # AI Gateway
@@ -191,10 +191,14 @@ CONVEX_DEPLOYMENT
 # Code Execution
 E2B_API_KEY
 
-# Authentication (Stack Auth)
-NEXT_PUBLIC_STACK_PROJECT_ID
-NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY
-STACK_SECRET_SERVER_KEY
+# Authentication (Better Auth)
+NEXT_PUBLIC_BETTER_AUTH_URL
+BETTER_AUTH_SECRET
+CONVEX_AUTH_PRIVATE_KEY
+CONVEX_AUTH_PUBLIC_KEY
+
+# Email (Inbound Email)
+INBOUND_API_KEY
 
 # File Upload (UploadThing)
 UPLOADTHING_TOKEN  # Get from https://uploadthing.com/dashboard
@@ -203,9 +207,11 @@ UPLOADTHING_TOKEN  # Get from https://uploadthing.com/dashboard
 INNGEST_EVENT_KEY
 INNGEST_SIGNING_KEY
 
-# OAuth (Optional)
-FIGMA_CLIENT_ID, FIGMA_CLIENT_SECRET
+# OAuth & Payments
 GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+POLAR_ACCESS_TOKEN
+POLAR_WEBHOOK_SECRET
 
 # Application
 NEXT_PUBLIC_APP_URL

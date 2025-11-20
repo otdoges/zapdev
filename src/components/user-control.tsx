@@ -1,6 +1,5 @@
 "use client";
 
-import { useUser } from "@stackframe/stack";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -12,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, User, Settings } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   showName?: boolean;
@@ -19,22 +20,33 @@ interface Props {
 
 export const UserControl = ({ showName }: Props) => {
   const router = useRouter();
-  const user = useUser();
+  const { data: session, isPending } = authClient.useSession();
 
-  if (!user) return null;
+  if (isPending) return null; // Or a skeleton
+
+  if (!session) {
+    return null;
+  }
+
+  const user = session.user;
 
   const handleSignOut = async () => {
-    await user.signOut();
-    router.push("/");
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push("/");
+        },
+      },
+    });
   };
 
-  const initials = user.displayName
+  const initials = user.name
     ?.split(" ")
     .map((n) => n[0])
     .join("")
-    .toUpperCase() || user.primaryEmail?.[0]?.toUpperCase() || "U";
+    .toUpperCase() || user.email?.[0]?.toUpperCase() || "U";
 
-  const avatarSrc = user.profileImageUrl ?? undefined;
+  const avatarSrc = user.image ?? undefined;
 
   return (
     <DropdownMenu>
@@ -45,16 +57,16 @@ export const UserControl = ({ showName }: Props) => {
         </Avatar>
         {showName && (
           <span className="text-sm font-medium hidden md:inline-block">
-            {user.displayName || user.primaryEmail}
+            {user.name || user.email}
           </span>
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.displayName}</p>
+            <p className="text-sm font-medium leading-none">{user.name}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {user.primaryEmail}
+              {user.email}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -76,3 +88,4 @@ export const UserControl = ({ showName }: Props) => {
     </DropdownMenu>
   );
 };
+

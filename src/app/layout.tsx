@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import Script from "next/script";
-import { StackProvider, StackTheme, StackServerApp } from "@stackframe/stack";
-
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { ConvexClientProvider } from "@/components/convex-provider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { VerificationWarning } from "@/components/auth/verification-warning";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -58,16 +57,7 @@ export const metadata: Metadata = {
   },
 };
 
-const stackServerApp = new StackServerApp({
-  tokenStore: "nextjs-cookie",
-  urls: {
-    // Keep handler routes as fallback for direct URL access
-    signIn: "/handler/sign-in",
-    signUp: "/handler/sign-up",
-    afterSignIn: "/",
-    afterSignUp: "/",
-  },
-});
+
 
 export default function RootLayout({
   children,
@@ -103,22 +93,19 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <StackProvider app={stackServerApp}>
-          <StackTheme>
-            <ConvexClientProvider>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
-                <Toaster />
-                <WebVitalsReporter />
-                {children}
-              </ThemeProvider>
-            </ConvexClientProvider>
-          </StackTheme>
-        </StackProvider>
+        <ConvexClientProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <Toaster />
+            <WebVitalsReporter />
+            <VerificationWarning />
+            {children}
+          </ThemeProvider>
+        </ConvexClientProvider>
       </body>
       <SpeedInsights />
     </html>
