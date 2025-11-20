@@ -232,6 +232,18 @@ export default defineSchema({
     .index("by_state", ["state"])
     .index("by_sandboxId", ["sandboxId"]),
 
+  // User profile table to mirror auth state (email verification, etc.)
+  users: defineTable({
+    userId: v.string(),
+    email: v.optional(v.string()),
+    emailVerified: v.boolean(),
+    verifiedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_email", ["email"]),
+
   // E2B Rate Limits table - track E2B API usage to prevent hitting limits
   e2bRateLimits: defineTable({
     operation: v.string(), // Operation type: "sandbox_create", "sandbox_connect", etc.
