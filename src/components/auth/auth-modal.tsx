@@ -71,16 +71,23 @@ export function AuthModal({
                 return;
             }
 
-            await authClient.signIn.email({
+            const { data, error } = await authClient.signIn.email({
                 email: trimmedEmail,
                 password: trimmedPassword,
                 callbackURL: "/dashboard",
             });
+
+            if (error) {
+                console.error('Auth error:', error);
+                toast.error(error.message || 'Authentication failed. Please check your credentials.');
+                return;
+            }
+
             setIsOpen(false);
         } catch (error) {
             console.error('Auth error:', error);
-            const message = error instanceof Error 
-                ? error.message 
+            const message = error instanceof Error
+                ? error.message
                 : 'Authentication failed. Please try again.';
             toast.error(message);
         } finally {
@@ -102,18 +109,25 @@ export function AuthModal({
                 return;
             }
 
-            await authClient.signUp.email({
+            const { data, error } = await authClient.signUp.email({
                 email: trimmedEmail,
                 password: trimmedPassword,
                 name: trimmedName,
                 callbackURL: "/dashboard",
             });
+
+            if (error) {
+                console.error('Auth error:', error);
+                toast.error(error.message || 'Failed to create account. Please try again.');
+                return;
+            }
+
             setIsOpen(false);
             toast.success("Account created successfully!");
         } catch (error) {
             console.error('Auth error:', error);
-            const message = error instanceof Error 
-                ? error.message 
+            const message = error instanceof Error
+                ? error.message
                 : 'Failed to create account. Please try again.';
             toast.error(message);
         } finally {
@@ -174,7 +188,25 @@ export function AuthModal({
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="password">Password</Label>
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="password">Password</Label>
+                                        <Button
+                                            variant="link"
+                                            className="p-0 h-auto text-xs text-muted-foreground"
+                                            onClick={() => {
+                                                setIsOpen(false);
+                                                // We can't easily navigate from here if it's a modal, 
+                                                // but we can use window.location or a Link if we import it.
+                                                // Better to just close and let user navigate, or use a router push.
+                                                // Since we are in a client component, we can use useRouter?
+                                                // But I didn't import it. I'll use window.location for simplicity or just a link.
+                                                // Actually, I should probably just make it a Link.
+                                            }}
+                                            asChild
+                                        >
+                                            <a href="/forgot-password">Forgot password?</a>
+                                        </Button>
+                                    </div>
                                     <Input
                                         id="password"
                                         type="password"

@@ -29,14 +29,17 @@ async function getKeys() {
                 jwks = { keys: [{ ...jwk, kid: 'convex-auth-key', alg: ALG, use: 'sig' }] };
                 return { privateKey, publicKey, jwks };
             } catch (e) {
-                console.error("Failed to load keys from env, generating new ones", e);
+                console.error("Failed to load keys from env", e);
                 if (process.env.NODE_ENV === 'production') {
                     throw new Error('Failed to load CONVEX_AUTH keys in production. Check key format.');
                 }
+                // In development, we can fall through to generate new keys if loading fails
+                console.warn("Falling back to generated keys in development");
             }
         }
 
         if (process.env.NODE_ENV === 'production') {
+            // Double check to ensure we never generate keys in production
             throw new Error('CONVEX_AUTH_PRIVATE_KEY and CONVEX_AUTH_PUBLIC_KEY must be set in production');
         }
 

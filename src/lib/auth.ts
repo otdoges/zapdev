@@ -38,9 +38,25 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL);
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
+const toSafeTimestamp = (value: unknown, fallback: number) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        return value.getTime();
+    }
+    if (typeof value === "string" && value.trim() !== "") {
+        const parsed = Date.parse(value);
+        if (!Number.isNaN(parsed)) {
+            return parsed;
+        }
+    }
+    return fallback;
+};
+
 const getAppUrl = () => {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    
+
     if (process.env.NODE_ENV === "production") {
         if (!appUrl) {
             throw new Error("NEXT_PUBLIC_APP_URL must be set in production environment");
@@ -50,13 +66,13 @@ const getAppUrl = () => {
         }
         return appUrl;
     }
-    
+
     return appUrl || "https://zapdev.link";
 };
 
 type ConvexSubscriptionStatus = "incomplete" | "active" | "canceled" | "past_due" | "unpaid";
 
-const POLAR_TO_CONVEX_STATUS: Record<string, ConvexSubscriptionStatus> = {
+const POLAR_TO_CONVEX_STATUS: Partial<Record<string, ConvexSubscriptionStatus>> = {
     "active": "active",
     "canceled": "canceled",
     "incomplete": "incomplete",
@@ -67,35 +83,88 @@ const POLAR_TO_CONVEX_STATUS: Record<string, ConvexSubscriptionStatus> = {
 };
 
 async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
-    const userId = subscription.metadata?.userId;
-    
-    if (!userId || typeof userId !== "string" || userId.trim() === "") {
-        console.error("Invalid userId in subscription metadata:", subscription.metadata);
-        return;
+    const payload = subscription ?? {};
+    const metadata = payload.metadata;
+    const userId =
+        typeof metadata?.userId === "string" && metadata.userId.trim() !== ""
+            ? metadata.userId.trim()
+            : "";
+
+    if (!userId) {
+        const error = new Error(`Skipping Convex sync: missing or invalid userId in metadata. SubscriptionId: ${payload.id}`);
+        console.error(error.message, { metadata });
+        throw error;
     }
 
-    // Safe status mapping
-    const status = (POLAR_TO_CONVEX_STATUS[subscription.status] || "active") as ConvexSubscriptionStatus;
+    const subscriptionId = typeof payload.id === "string" && payload.id.trim() !== "" ? payload.id.trim() : "";
+    const customerId = typeof payload.customerId === "string" && payload.customerId.trim() !== "" ? payload.customerId.trim() : "";
+    const productId = typeof payload.productId === "string" && payload.productId.trim() !== "" ? payload.productId.trim() : "";
+    const statusKey = typeof payload.status === "string" ? payload.status : "";
 
-    await convex.mutation(api.subscriptions.createOrUpdateSubscription, {
-        userId,
-        polarCustomerId: subscription.customerId,
-        polarSubscriptionId: subscription.id,
-        productId: subscription.productId,
-        productName: subscription.product?.name || "Pro",
-        status,
-        currentPeriodStart: subscription.currentPeriodStart
-            ? new Date(subscription.currentPeriodStart).getTime()
-            : Date.now(),
-        currentPeriodEnd: subscription.currentPeriodEnd
-            ? new Date(subscription.currentPeriodEnd).getTime()
-            : Date.now() + THIRTY_DAYS_MS,
-        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd || false,
-        metadata: subscription.metadata,
-    });
+    const missingFields = [
+        !subscriptionId && "id",
+        !customerId && "customerId",
+        !productId && "productId",
+        !statusKey && "status",
+    ].filter(Boolean) as string[];
 
-    if (resetUsage) {
-        await convex.mutation(api.usage.resetUsage, { userId });
+    if (missingFields.length) {
+        console.error("Skipping Convex sync: subscription missing critical fields", {
+            missingFields,
+            subscription: payload,
+        });
+        return { success: false };
+    }
+
+    const mappedStatus = POLAR_TO_CONVEX_STATUS[statusKey];
+    if (!mappedStatus) {
+        console.error("Unhandled Polar subscription status during Convex sync", {
+            statusKey,
+            subscriptionId,
+            metadata,
+            customerId,
+            payload,
+        });
+        throw new Error(
+            `Unhandled Polar subscription status "${statusKey}" for subscription ${subscriptionId || "<missing id>"}`
+        );
+    }
+
+    const status = mappedStatus as ConvexSubscriptionStatus;
+    const now = Date.now();
+    const currentPeriodStart = toSafeTimestamp(payload.currentPeriodStart, now);
+    const currentPeriodEnd = toSafeTimestamp(payload.currentPeriodEnd, now + THIRTY_DAYS_MS);
+    const productName =
+        typeof payload.product?.name === "string" && payload.product.name.trim() !== ""
+            ? payload.product.name.trim()
+            : "Pro";
+    const cancelAtPeriodEnd = Boolean(payload.cancelAtPeriodEnd);
+
+    try {
+        await convex.mutation(api.subscriptions.createOrUpdateSubscription, {
+            userId,
+            polarCustomerId: customerId,
+            polarSubscriptionId: subscriptionId,
+            productId,
+            productName,
+            status,
+            currentPeriodStart,
+            currentPeriodEnd,
+            cancelAtPeriodEnd,
+            metadata,
+        });
+
+        if (resetUsage) {
+            await convex.mutation(api.usage.resetUsage, { userId });
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to sync subscription to Convex", {
+            subscription: payload,
+            error,
+        });
+        throw error;
     }
 }
 
@@ -171,20 +240,32 @@ export const auth = betterAuth({
         enabled: true,
         requireEmailVerification: true,
         sendEmailVerification: async ({ user, url }: { user: { email: string }, url: string }) => {
-            await inbound.emails.send({
-                from: "noreply@zapdev.link",
-                to: user.email,
-                subject: "Verify your email address",
-                html: `<p>Click the link below to verify your email address:</p><a href="${url}">${url}</a>`,
-            });
+            const contextMessage = `sendEmailVerification(${user.email}, ${url})`;
+            try {
+                await inbound.emails.send({
+                    from: "noreply@zapdev.link",
+                    to: user.email,
+                    subject: "Verify your email address",
+                    html: `<p>Click the link below to verify your email address:</p><a href="${url}">${url}</a>`,
+                });
+            } catch (error) {
+                console.error(`${contextMessage} failed`, error);
+                throw new Error(`${contextMessage} failed: ${error instanceof Error ? error.message : String(error)}`);
+            }
         },
         sendResetPassword: async ({ user, url }: { user: { email: string }, url: string }) => {
-            await inbound.emails.send({
-                from: "noreply@zapdev.link",
-                to: user.email,
-                subject: "Reset your password",
-                html: `<p>Click the link below to reset your password:</p><a href="${url}">${url}</a>`,
-            });
+            const contextMessage = `sendResetPassword(${user.email}, ${url})`;
+            try {
+                await inbound.emails.send({
+                    from: "noreply@zapdev.link",
+                    to: user.email,
+                    subject: "Reset your password",
+                    html: `<p>Click the link below to reset your password:</p><a href="${url}">${url}</a>`,
+                });
+            } catch (error) {
+                console.error(`${contextMessage} failed`, error);
+                throw new Error(`${contextMessage} failed: ${error instanceof Error ? error.message : String(error)}`);
+            }
         },
     }
 });

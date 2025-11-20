@@ -33,6 +33,13 @@ const isAuthed = t.middleware(({ next, ctx }) => {
     });
   }
 
+  if (!ctx.user.emailVerified) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Email verification required",
+    });
+  }
+
   return next({
     ctx: {
       user: ctx.user,
