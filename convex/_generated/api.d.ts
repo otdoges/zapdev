@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as crons from "../crons.js";
 import type * as e2bRateLimits from "../e2bRateLimits.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
@@ -23,6 +24,7 @@ import type * as specs from "../specs.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as usage from "../usage.js";
 import type * as users from "../users.js";
+import type * as webhookEvents from "../webhookEvents.js";
 
 import type {
   ApiFromModules,
@@ -31,6 +33,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  crons: typeof crons;
   e2bRateLimits: typeof e2bRateLimits;
   helpers: typeof helpers;
   http: typeof http;
@@ -46,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   subscriptions: typeof subscriptions;
   usage: typeof usage;
   users: typeof users;
+  webhookEvents: typeof webhookEvents;
 }>;
 
 /**

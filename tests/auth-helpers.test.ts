@@ -64,5 +64,9 @@ describe('Convex Auth helpers (Better Auth)', () => {
       expect(extractResetToken(new URLSearchParams({ oobCode: 'xyz' }))).toBe('xyz');
       expect(extractResetToken(new URLSearchParams())).toBeNull();
     });
+
+    it('returns null when params are not provided', () => {
+      expect(extractResetToken(null)).toBeNull();
+    });
   });
 });

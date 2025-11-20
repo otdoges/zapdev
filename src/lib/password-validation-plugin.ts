@@ -8,40 +8,48 @@
 import type { BetterAuthPlugin } from "better-auth";
 import { validatePassword } from "./password-validation";
 
+type PasswordCarrier = Record<string, unknown> & {
+    password?: unknown;
+};
+
+function enforcePasswordPolicy(payload: PasswordCarrier) {
+    if (!("password" in payload)) {
+        return;
+    }
+
+    const password = payload.password;
+
+    if (typeof password !== "string" || password.length === 0) {
+        return;
+    }
+
+    const validation = validatePassword(password);
+
+    if (!validation.valid) {
+        throw new Error(validation.errors[0]);
+    }
+}
+
 export const passwordValidationPlugin = (): BetterAuthPlugin => {
     return {
         id: "password-validation",
-        hooks: {
-            user: {
-                create: {
-                    before: async (user) => {
-                        // Validate password on user creation (signup)
-                        if ("password" in user && user.password) {
-                            const validation = validatePassword(user.password as string);
-
-                            if (!validation.valid) {
-                                throw new Error(validation.errors[0]);
-                            }
-                        }
-
-                        return user;
-                    },
-                },
-                update: {
-                    before: async (user) => {
-                        // Validate password on user update (password change)
-                        if ("password" in user && user.password) {
-                            const validation = validatePassword(user.password as string);
-
-                            if (!validation.valid) {
-                                throw new Error(validation.errors[0]);
-                            }
-                        }
-
-                        return user;
+        init: () => ({
+            options: {
+                databaseHooks: {
+                    user: {
+                        create: {
+                            before: async (user) => {
+                                enforcePasswordPolicy(user);
+                            },
+                        },
+                        update: {
+                            before: async (user) => {
+                                enforcePasswordPolicy(user);
+                            },
+                        },
                     },
                 },
             },
-        },
+        }),
     };
 };
