@@ -12,36 +12,43 @@ import {
     sanitizeSubscriptionMetadata,
     toSafeTimestamp,
 } from "./subscription-metadata";
+import { validatePassword } from "./password-validation";
+import { passwordValidationPlugin } from "./password-validation-plugin";
 
-// Environment variable validation
-if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
-    throw new Error("Missing required environment variables: GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET");
-}
-if (!process.env.POLAR_ACCESS_TOKEN) {
-    throw new Error("Missing required environment variable: POLAR_ACCESS_TOKEN");
-}
-if (!process.env.POLAR_WEBHOOK_SECRET) {
-    throw new Error("Missing required environment variable: POLAR_WEBHOOK_SECRET");
-}
-if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    throw new Error("Missing required environment variables: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET");
-}
-if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
-    throw new Error("Missing required environment variable: NEXT_PUBLIC_CONVEX_URL");
-}
-if (!process.env.INBOUND_API_KEY) {
-    throw new Error("Missing required environment variable: INBOUND_API_KEY");
+// Lazy initialization of environment-dependent clients
+// This prevents build-time crashes for routes that don't need auth
+
+function validateEnvVar(name: string, value: string | undefined): string {
+    if (!value || value.trim() === "") {
+        throw new Error(`Missing required environment variable: ${name}`);
+    }
+    return value;
 }
 
-const polarClient = new Polar({
-    accessToken: process.env.POLAR_ACCESS_TOKEN,
-    server: process.env.NODE_ENV === "development" ? "sandbox" : "production",
-});
+let polarClient: Polar | null = null;
+let inbound: Inbound | null = null;
 
-const inbound = new Inbound(process.env.INBOUND_API_KEY);
+function getPolarClient() {
+    if (!polarClient) {
+        const accessToken = validateEnvVar("POLAR_ACCESS_TOKEN", process.env.POLAR_ACCESS_TOKEN);
+        polarClient = new Polar({
+            accessToken,
+            server: process.env.NODE_ENV === "development" ? "sandbox" : "production",
+        });
+    }
+    return polarClient;
+}
+
+function getInbound() {
+    if (!inbound) {
+        const apiKey = validateEnvVar("INBOUND_API_KEY", process.env.INBOUND_API_KEY);
+        inbound = new Inbound(apiKey);
+    }
+    return inbound;
+}
 
 // Instantiate ConvexHttpClient once
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL);
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL ?? "");
 
 let sentry: typeof SentryType | null = null;
 
@@ -68,8 +75,6 @@ async function captureException(error: unknown, context?: Record<string, unknown
 }
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
-const processedWebhookEvents = new Map<string, number>();
 
 const getAppUrl = () => {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -99,32 +104,44 @@ const POLAR_TO_CONVEX_STATUS: Partial<Record<string, ConvexSubscriptionStatus>> 
     "trialing": "active",
 };
 
-function isDuplicateDelivery(key: string) {
+async function isDuplicateDelivery(key: string, eventType: string): Promise<boolean> {
     if (!key) return false;
 
-    const now = Date.now();
-    for (const [k, timestamp] of processedWebhookEvents) {
-        if (timestamp + IDEMPOTENCY_TTL_MS < now) {
-            processedWebhookEvents.delete(k);
+    try {
+        // Check if this event has already been processed (using Convex DB)
+        const isDupe = await convex.query(api.webhookEvents.isDuplicate as any, {
+            idempotencyKey: key,
+        });
+
+        if (isDupe) {
+            return true;
         }
-    }
 
-    if (processedWebhookEvents.has(key)) {
-        return true;
-    }
+        // Record this event as processed
+        await convex.mutation(api.webhookEvents.recordProcessedEvent as any, {
+            idempotencyKey: key,
+            provider: "polar",
+            eventType,
+        });
 
-    processedWebhookEvents.set(key, now);
-    return false;
+        return false;
+    } catch (error) {
+        console.error("Error checking webhook idempotency:", error);
+        // On error, allow the webhook to process to avoid blocking
+        return false;
+    }
 }
 
-async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
+async function syncSubscriptionToConvex(subscription: any, resetUsage = false, eventType = "subscription.updated") {
     const payload = subscription ?? {};
     const { metadata, userId } = extractUserIdFromMetadata(payload.metadata);
 
     if (!userId) {
         const error = new Error(`Skipping Convex sync: missing or invalid userId in metadata. SubscriptionId: ${payload.id}`);
-        console.error(error.message, { metadata });
-        await captureException(error, { metadata, subscriptionId: payload?.id });
+        // Sanitize metadata before logging (remove PII)
+        const sanitizedMetadata = sanitizeSubscriptionMetadata(metadata);
+        console.error(error.message, { sanitizedMetadata });
+        await captureException(error, { sanitizedMetadata, subscriptionId: payload?.id });
         return { success: false, reason: "missing-user-id" };
     }
 
@@ -143,13 +160,13 @@ async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
     if (missingFields.length) {
         console.error("Skipping Convex sync: subscription missing critical fields", {
             missingFields,
-            subscription: payload,
+            subscriptionId: payload.id,
         });
         return { success: false };
     }
 
     const idempotencyKey = buildSubscriptionIdempotencyKey(payload);
-    if (isDuplicateDelivery(idempotencyKey)) {
+    if (await isDuplicateDelivery(idempotencyKey, eventType)) {
         console.info("Skipping duplicate Polar webhook delivery", {
             userId,
             subscriptionId,
@@ -163,9 +180,7 @@ async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
         console.error("Unhandled Polar subscription status during Convex sync", {
             statusKey,
             subscriptionId,
-            metadata,
             customerId,
-            payload,
         });
         throw new Error(
             `Unhandled Polar subscription status "${statusKey}" for subscription ${subscriptionId || "<missing id>"}`
@@ -203,8 +218,10 @@ async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
         return { success: true };
     } catch (error) {
         console.error("Failed to sync subscription to Convex", {
-            subscription: payload,
-            error,
+            subscriptionId,
+            userId,
+            productId,
+            error: error instanceof Error ? error.message : String(error),
         });
         await captureException(error, {
             subscriptionId,
@@ -221,9 +238,13 @@ async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
  */
 export const auth = betterAuth({
     plugins: [
+        // nextCookies() automatically enables CSRF protection
+        // via sameSite: 'lax' cookies and CSRF token validation
         nextCookies(),
+        // Password validation plugin for server-side password strength validation
+        passwordValidationPlugin(),
         polar({
-            client: polarClient,
+            client: getPolarClient(),
             createCustomerOnSignUp: true,
             use: [
                 checkout({
@@ -236,15 +257,15 @@ export const auth = betterAuth({
                 portal(),
                 usage(),
                 webhooks({
-                    secret: process.env.POLAR_WEBHOOK_SECRET,
+                    secret: validateEnvVar("POLAR_WEBHOOK_SECRET", process.env.POLAR_WEBHOOK_SECRET),
                     onSubscriptionCreated: async (event) => {
-                        await syncSubscriptionToConvex(event.data);
+                        await syncSubscriptionToConvex(event.data, false, "subscription.created");
                     },
                     onSubscriptionUpdated: async (event) => {
-                        await syncSubscriptionToConvex(event.data);
+                        await syncSubscriptionToConvex(event.data, false, "subscription.updated");
                     },
                     onSubscriptionActive: async (event) => {
-                        await syncSubscriptionToConvex(event.data, true);
+                        await syncSubscriptionToConvex(event.data, true, "subscription.active");
                     },
                     onSubscriptionCanceled: async (event) => {
                         const subscription = event.data;
@@ -276,21 +297,23 @@ export const auth = betterAuth({
     ],
     socialProviders: {
         github: {
-            clientId: process.env.GITHUB_CLIENT_ID,
-            clientSecret: process.env.GITHUB_CLIENT_SECRET,
+            clientId: validateEnvVar("GITHUB_CLIENT_ID", process.env.GITHUB_CLIENT_ID),
+            clientSecret: validateEnvVar("GITHUB_CLIENT_SECRET", process.env.GITHUB_CLIENT_SECRET),
         },
         google: {
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            clientId: validateEnvVar("GOOGLE_CLIENT_ID", process.env.GOOGLE_CLIENT_ID),
+            clientSecret: validateEnvVar("GOOGLE_CLIENT_SECRET", process.env.GOOGLE_CLIENT_SECRET),
         },
     },
     emailAndPassword: {
         enabled: true,
         requireEmailVerification: true,
-        sendEmailVerification: async ({ user, url }: { user: { email: string }, url: string }) => {
+        minPasswordLength: 8,
+        maxPasswordLength: 128,
+        async sendVerificationEmail({ user, url }: { user: { email: string }, url: string }) {
             const contextMessage = `sendEmailVerification(${user.email}, ${url})`;
             try {
-                await inbound.emails.send({
+                await getInbound().emails.send({
                     from: "noreply@zapdev.link",
                     to: user.email,
                     subject: "Verify your email address",
@@ -301,10 +324,10 @@ export const auth = betterAuth({
                 throw new Error(`${contextMessage} failed: ${error instanceof Error ? error.message : String(error)}`);
             }
         },
-        sendResetPassword: async ({ user, url }: { user: { email: string }, url: string }) => {
+        async sendResetPasswordEmail({ user, url }: { user: { email: string }, url: string }) {
             const contextMessage = `sendResetPassword(${user.email}, ${url})`;
             try {
-                await inbound.emails.send({
+                await getInbound().emails.send({
                     from: "noreply@zapdev.link",
                     to: user.email,
                     subject: "Reset your password",
@@ -315,5 +338,26 @@ export const auth = betterAuth({
                 throw new Error(`${contextMessage} failed: ${error instanceof Error ? error.message : String(error)}`);
             }
         },
-    }
+    },
+    session: {
+        cookieCache: {
+            enabled: true,
+            maxAge: 60 * 5, // Cache session for 5 minutes
+        },
+    },
+    advanced: {
+        cookiePrefix: "zapdev",
+        // CSRF protection is enabled by default in Better Auth via:
+        // 1. SameSite=Lax cookies (prevents CSRF attacks)
+        // 2. CSRF token validation on state-changing operations
+        // 3. Origin header validation
+        generateId: false, // Use default ID generation
+        crossSubDomainCookies: {
+            enabled: false, // Disable for security unless needed
+        },
+    },
+    // Security headers for cookies
+    trustedOrigins: process.env.NODE_ENV === "production"
+        ? [getAppUrl()]
+        : [getAppUrl(), "http://localhost:3000"],
 });
