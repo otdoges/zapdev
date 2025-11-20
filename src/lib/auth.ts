@@ -5,6 +5,13 @@ import { nextCookies } from "better-auth/next-js";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Inbound } from "@inboundemail/sdk";
+import type * as SentryType from "@sentry/nextjs";
+import {
+    buildSubscriptionIdempotencyKey,
+    extractUserIdFromMetadata,
+    sanitizeSubscriptionMetadata,
+    toSafeTimestamp,
+} from "./subscription-metadata";
 
 // Environment variable validation
 if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
@@ -36,23 +43,33 @@ const inbound = new Inbound(process.env.INBOUND_API_KEY);
 // Instantiate ConvexHttpClient once
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL);
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+let sentry: typeof SentryType | null = null;
 
-const toSafeTimestamp = (value: unknown, fallback: number) => {
-    if (typeof value === "number" && Number.isFinite(value)) {
-        return value;
+async function getSentry() {
+    if (sentry !== null) {
+        return sentry;
     }
-    if (value instanceof Date && !Number.isNaN(value.getTime())) {
-        return value.getTime();
+
+    try {
+        const mod = await import("@sentry/nextjs");
+        sentry = mod;
+        return mod;
+    } catch {
+        sentry = null;
+        return null;
     }
-    if (typeof value === "string" && value.trim() !== "") {
-        const parsed = Date.parse(value);
-        if (!Number.isNaN(parsed)) {
-            return parsed;
-        }
+}
+
+async function captureException(error: unknown, context?: Record<string, unknown>) {
+    const Sentry = await getSentry();
+    if (Sentry?.captureException) {
+        Sentry.captureException(error, { extra: context });
     }
-    return fallback;
-};
+}
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
+const processedWebhookEvents = new Map<string, number>();
 
 const getAppUrl = () => {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -82,18 +99,33 @@ const POLAR_TO_CONVEX_STATUS: Partial<Record<string, ConvexSubscriptionStatus>> 
     "trialing": "active",
 };
 
+function isDuplicateDelivery(key: string) {
+    if (!key) return false;
+
+    const now = Date.now();
+    for (const [k, timestamp] of processedWebhookEvents) {
+        if (timestamp + IDEMPOTENCY_TTL_MS < now) {
+            processedWebhookEvents.delete(k);
+        }
+    }
+
+    if (processedWebhookEvents.has(key)) {
+        return true;
+    }
+
+    processedWebhookEvents.set(key, now);
+    return false;
+}
+
 async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
     const payload = subscription ?? {};
-    const metadata = payload.metadata;
-    const userId =
-        typeof metadata?.userId === "string" && metadata.userId.trim() !== ""
-            ? metadata.userId.trim()
-            : "";
+    const { metadata, userId } = extractUserIdFromMetadata(payload.metadata);
 
     if (!userId) {
         const error = new Error(`Skipping Convex sync: missing or invalid userId in metadata. SubscriptionId: ${payload.id}`);
         console.error(error.message, { metadata });
-        throw error;
+        await captureException(error, { metadata, subscriptionId: payload?.id });
+        return { success: false, reason: "missing-user-id" };
     }
 
     const subscriptionId = typeof payload.id === "string" && payload.id.trim() !== "" ? payload.id.trim() : "";
@@ -114,6 +146,16 @@ async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
             subscription: payload,
         });
         return { success: false };
+    }
+
+    const idempotencyKey = buildSubscriptionIdempotencyKey(payload);
+    if (isDuplicateDelivery(idempotencyKey)) {
+        console.info("Skipping duplicate Polar webhook delivery", {
+            userId,
+            subscriptionId,
+            idempotencyKey,
+        });
+        return { success: true, duplicate: true };
     }
 
     const mappedStatus = POLAR_TO_CONVEX_STATUS[statusKey];
@@ -163,6 +205,12 @@ async function syncSubscriptionToConvex(subscription: any, resetUsage = false) {
         console.error("Failed to sync subscription to Convex", {
             subscription: payload,
             error,
+        });
+        await captureException(error, {
+            subscriptionId,
+            userId,
+            productId,
+            idempotencyKey,
         });
         throw error;
     }

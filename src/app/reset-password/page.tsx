@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import { extractResetToken } from "@/lib/reset-password";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -21,22 +22,31 @@ const resetPasswordSchema = z.object({
     path: ["confirmPassword"],
 });
 
+function ErrorView({ message }: { message: string }) {
+    return (
+        <div className="text-center space-y-4">
+            <h3 className="text-lg font-medium">Unable to reset password</h3>
+            <p className="text-muted-foreground">{message}</p>
+            <Button asChild className="w-full">
+                <Link href="/handler/forgot-password">Request a new reset link</Link>
+            </Button>
+        </div>
+    );
+}
+
 function ResetPasswordForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    // Better Auth usually passes the token as a query param or hash? 
-    // Actually, usually it's `token` query param.
-    // But `better-auth` might handle it automatically if we use `resetPassword` function?
-    // No, we usually need to pass the token if it's not in the URL in a way the client expects?
-    // Wait, `authClient.resetPassword` usually takes `newPassword` and optionally `token`?
-    // If the token is in the URL, `better-auth` client might pick it up automatically?
-    // Let's assume we need to pass it if we can extract it.
-    // But wait, `resetPassword` function signature usually is `({ newPassword, token })`.
+    const token = extractResetToken(searchParams);
 
     const [isLoading, setIsLoading] = useState(false);
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isSuccess, setIsSuccess] = useState(false);
+
+    if (!token) {
+        return <ErrorView message="Invalid or missing reset token. Please use the link from your email." />;
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -49,18 +59,9 @@ function ResetPasswordForm() {
                 return;
             }
 
-            // We rely on the token being in the URL or handled by the client automatically?
-            // Usually we need to pass it.
-            // Let's try to get it from search params.
-            // Note: Better Auth might use `token` or `code`.
-            // If `authClient.resetPassword` is used, it sends a request to the server.
-            // The server needs the token.
-
             const { data, error } = await authClient.resetPassword({
                 newPassword: password,
-                // If we don't pass token, it might try to find it in URL?
-                // Let's check if we can pass it.
-                // If not, we hope it works automagically.
+                token,
             });
 
             if (error) {
@@ -90,10 +91,10 @@ function ResetPasswordForm() {
             <div className="text-center space-y-4">
                 <h3 className="text-lg font-medium">Password Reset Complete</h3>
                 <p className="text-muted-foreground">
-                    Your password has been successfully updated. Redirecting to login...
+                    Your password has been successfully updated. Redirecting to sign in...
                 </p>
                 <Button asChild className="w-full">
-                    <Link href="/">Sign In Now</Link>
+                    <Link href="/handler/sign-in">Sign in now</Link>
                 </Button>
             </div>
         );

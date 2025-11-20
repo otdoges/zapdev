@@ -1,59 +1,211 @@
-import { importPKCS8, importSPKI, exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { exportJWK, generateKeyPair, importPKCS8, importSPKI, SignJWT } from 'jose';
 
-let privateKey: CryptoKey | undefined;
-let publicKey: CryptoKey | undefined;
-let jwks: any;
-let keysPromise: Promise<{ privateKey: CryptoKey; publicKey: CryptoKey; jwks: any }> | undefined;
+type StoredKey = {
+    kid: string;
+    privateKey?: CryptoKey;
+    publicKey: CryptoKey;
+    jwk: any;
+    createdAt: number;
+    source: "env" | "generated" | "additional";
+};
 
 const ALG = 'RS256';
+const DEFAULT_KID = process.env.CONVEX_AUTH_KEY_ID || 'convex-auth-key';
+const ROTATION_WARNING_MS = Number.parseInt(process.env.CONVEX_AUTH_KEY_STALENESS_HOURS || "72", 10) * 60 * 60 * 1000;
+const DEV_ROTATION_MS = Number.parseInt(process.env.CONVEX_AUTH_ROTATE_AFTER_HOURS || "24", 10) * 60 * 60 * 1000;
 
-async function getKeys() {
-    if (privateKey && publicKey) return { privateKey, publicKey, jwks };
+const keyStore = new Map<string, StoredKey>();
+let activeKid: string | null = null;
+let initPromise: Promise<void> | null = null;
 
-    if (keysPromise) {
-        return keysPromise;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const buildJwks = () => ({
+    keys: Array.from(keyStore.values()).map((key) => key.jwk),
+});
+
+async function loadAdditionalPublicKeys() {
+    const raw = process.env.CONVEX_AUTH_ADDITIONAL_PUBLIC_KEYS;
+    if (!raw) return;
+
+    try {
+        const entries = JSON.parse(raw);
+        if (!Array.isArray(entries)) {
+            console.warn("CONVEX_AUTH_ADDITIONAL_PUBLIC_KEYS must be an array of { kid, publicKey }");
+            return;
+        }
+
+        for (const entry of entries) {
+            const kid = typeof entry?.kid === "string" && entry.kid.trim() ? entry.kid.trim() : undefined;
+            const publicKeyString = typeof entry?.publicKey === "string" && entry.publicKey.trim()
+                ? entry.publicKey.trim()
+                : undefined;
+
+            if (!kid || !publicKeyString) continue;
+
+            try {
+                const publicKey = await importSPKI(publicKeyString, ALG);
+                const jwk = await exportJWK(publicKey);
+                keyStore.set(kid, {
+                    kid,
+                    publicKey,
+                    jwk: { ...jwk, kid, alg: ALG, use: 'sig' },
+                    createdAt: Date.now(),
+                    source: "additional",
+                });
+            } catch (error) {
+                console.error(`Failed to import additional public key for kid=${kid}`, error);
+            }
+        }
+    } catch (error) {
+        console.error("Failed to parse CONVEX_AUTH_ADDITIONAL_PUBLIC_KEYS", error);
+    }
+}
+
+async function loadEnvKeys() {
+    const privateKeyPem = process.env.CONVEX_AUTH_PRIVATE_KEY;
+    const publicKeyPem = process.env.CONVEX_AUTH_PUBLIC_KEY;
+
+    if (privateKeyPem && publicKeyPem) {
+        const kid = DEFAULT_KID;
+        const privateKey = await importPKCS8(privateKeyPem, ALG);
+        const publicKey = await importSPKI(publicKeyPem, ALG);
+        const jwk = await exportJWK(publicKey);
+
+        keyStore.set(kid, {
+            kid,
+            privateKey,
+            publicKey,
+            jwk: { ...jwk, kid, alg: ALG, use: 'sig' },
+            createdAt: Date.now(),
+            source: "env",
+        });
+        activeKid = kid;
     }
 
-    keysPromise = (async () => {
+    await loadAdditionalPublicKeys();
+}
+
+async function generateKeyPairWithKid(kid?: string) {
+    const generatedKid = kid || `convex-dev-${Date.now()}`;
+    const { privateKey, publicKey } = await generateKeyPair(ALG);
+    const jwk = await exportJWK(publicKey);
+
+    keyStore.set(generatedKid, {
+        kid: generatedKid,
+        privateKey,
+        publicKey,
+        jwk: { ...jwk, kid: generatedKid, alg: ALG, use: 'sig' },
+        createdAt: Date.now(),
+        source: "generated",
+    });
+    activeKid = generatedKid;
+}
+
+function getActiveKey(): StoredKey | undefined {
+    if (!activeKid) return undefined;
+    return keyStore.get(activeKid);
+}
+
+async function initialiseKeys() {
+    if (initPromise) {
+        return initPromise;
+    }
+
+    initPromise = (async () => {
         if (process.env.NODE_ENV === 'production') {
             if (!process.env.CONVEX_AUTH_PRIVATE_KEY || !process.env.CONVEX_AUTH_PUBLIC_KEY) {
                 throw new Error('CONVEX_AUTH_PRIVATE_KEY and CONVEX_AUTH_PUBLIC_KEY must be set in production');
             }
         }
 
-        if (process.env.CONVEX_AUTH_PRIVATE_KEY && process.env.CONVEX_AUTH_PUBLIC_KEY) {
-            try {
-                privateKey = await importPKCS8(process.env.CONVEX_AUTH_PRIVATE_KEY, ALG);
-                publicKey = await importSPKI(process.env.CONVEX_AUTH_PUBLIC_KEY, ALG);
-                const jwk = await exportJWK(publicKey);
-                jwks = { keys: [{ ...jwk, kid: 'convex-auth-key', alg: ALG, use: 'sig' }] };
-                return { privateKey, publicKey, jwks };
-            } catch (e) {
-                console.error("Failed to load keys from env", e);
-                if (process.env.NODE_ENV === 'production') {
-                    throw new Error('Failed to load CONVEX_AUTH keys in production. Check key format.');
-                }
-                // In development, we can fall through to generate new keys if loading fails
-                console.warn("Falling back to generated keys in development");
+        try {
+            await loadEnvKeys();
+        } catch (error) {
+            console.error("Failed to load Convex Auth keys from environment", error);
+            if (process.env.NODE_ENV === 'production') {
+                throw new Error('Failed to initialise Convex Auth keys in production');
             }
         }
 
-        if (process.env.NODE_ENV === 'production') {
-            // Double check to ensure we never generate keys in production
-            throw new Error('CONVEX_AUTH_PRIVATE_KEY and CONVEX_AUTH_PUBLIC_KEY must be set in production');
+        if (!keyStore.size) {
+            if (process.env.NODE_ENV === 'production') {
+                throw new Error('Convex Auth keys missing in production');
+            }
+
+            await generateKeyPairWithKid(DEFAULT_KID);
+            console.warn("Generated Convex Auth keys for development. Tokens will be invalid after process restart.");
         }
+    })()
+        .finally(() => {
+            initPromise = null;
+        });
 
-        const { privateKey: priv, publicKey: pub } = await generateKeyPair(ALG);
-        privateKey = priv;
-        publicKey = pub;
-        const jwk = await exportJWK(pub);
-        jwks = { keys: [{ ...jwk, kid: 'convex-auth-key', alg: ALG, use: 'sig' }] };
-        console.warn("Generated new Convex Auth keys. Tokens will be invalid after restart. Set CONVEX_AUTH_PRIVATE_KEY and CONVEX_AUTH_PUBLIC_KEY to persist.");
+    return initPromise;
+}
 
-        return { privateKey, publicKey, jwks };
-    })();
+async function ensureDevRotation() {
+    const activeKey = getActiveKey();
+    if (!activeKey || activeKey.source !== "generated") return;
 
-    return keysPromise;
+    const age = Date.now() - activeKey.createdAt;
+    if (age < DEV_ROTATION_MS) return;
+
+    await generateKeyPairWithKid();
+
+    // Keep the previous public key available for existing tokens (1h expiry)
+    const jwk = await exportJWK(activeKey.publicKey);
+    keyStore.set(activeKey.kid, {
+        ...activeKey,
+        jwk: { ...jwk, kid: activeKey.kid, alg: ALG, use: 'sig' },
+    });
+}
+
+async function maybeWarnForStaleKeys() {
+    const activeKey = getActiveKey();
+    if (!activeKey) return;
+    if (!Number.isFinite(ROTATION_WARNING_MS) || ROTATION_WARNING_MS <= 0) return;
+
+    const age = Date.now() - activeKey.createdAt;
+    if (age < ROTATION_WARNING_MS) return;
+
+    const message = `Convex Auth key ${activeKey.kid} is older than configured staleness threshold (${ROTATION_WARNING_MS / (1000 * 60 * 60)}h). Rotate keys to limit blast radius.`;
+    console.warn(message);
+
+    try {
+        const Sentry = await import("@sentry/nextjs");
+        Sentry.captureMessage(message, {
+            level: "warning",
+            tags: { kid: activeKey.kid, source: activeKey.source },
+        });
+    } catch {
+        // Sentry optional; ignore if not configured
+    }
+}
+
+async function getKeys() {
+    await initialiseKeys();
+
+    // Prevent duplicate generation under concurrency
+    const activeKey = getActiveKey();
+    if (!activeKey) {
+        await sleep(50);
+    }
+
+    await ensureDevRotation();
+    await maybeWarnForStaleKeys();
+
+    const selectedKey = getActiveKey();
+    if (!selectedKey || !selectedKey.privateKey) {
+        throw new Error("Active Convex Auth signing key missing. Ensure CONVEX_AUTH_PRIVATE_KEY and CONVEX_AUTH_PUBLIC_KEY are configured.");
+    }
+
+    return {
+        privateKey: selectedKey.privateKey,
+        publicKey: selectedKey.publicKey,
+        jwks: buildJwks(),
+        kid: selectedKey.kid,
+    };
 }
 
 export async function getJWKS() {
@@ -67,12 +219,9 @@ export async function getJWKS() {
  * @returns The signed JWT string
  */
 export async function signConvexJWT(payload: any) {
-    const { privateKey } = await getKeys();
-    if (!privateKey) {
-        throw new Error("Failed to load private key");
-    }
+    const { privateKey, kid } = await getKeys();
     const jwt = await new SignJWT(payload)
-        .setProtectedHeader({ alg: ALG, kid: 'convex-auth-key' })
+        .setProtectedHeader({ alg: ALG, kid })
         .setIssuedAt()
         .setIssuer(process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000")
         .setAudience("convex")
