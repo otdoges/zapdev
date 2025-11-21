@@ -135,8 +135,6 @@ export async function getOrCreatePolarCustomer(
     name?: string;
   }
 ): Promise<string> {
-  const orgId = getPolarOrganizationId();
-  
   try {
     // Try to get existing customer by external ID (Stack Auth user ID)
     const existingCustomer = await polar.customers.getExternal({
@@ -149,11 +147,11 @@ export async function getOrCreatePolarCustomer(
     // Customer doesn't exist, create one
     console.log(`Creating new Polar customer for user ${customerData.externalId}`);
     
+    // Note: organizationId is implicit when using an organization access token
     const newCustomer = await polar.customers.create({
       externalId: customerData.externalId,
       email: customerData.email || `${customerData.externalId}@placeholder.local`,
       name: customerData.name,
-      organizationId: orgId,
     });
     
     console.log(`Created Polar customer ${newCustomer.id} for user ${customerData.externalId}`);
