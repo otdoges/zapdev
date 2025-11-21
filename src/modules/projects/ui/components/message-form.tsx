@@ -181,12 +181,7 @@ export const MessageForm = ({ projectId }: Props) => {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
-                  const currentValue = form.getValues("value").trim();
-                  if (!currentValue) {
-                    void form.trigger("value");
-                    return;
-                  }
-                  form.handleSubmit(onSubmit)(e).catch(() => null);
+                  form.handleSubmit(onSubmit)(e);
                 }
               }}
             />
@@ -346,7 +341,7 @@ export const MessageForm = ({ projectId }: Props) => {
                       </button>
                     );
                   })}
-                  
+
                   {selectedModel === "openai/gpt-5.1-codex" && (
                     <>
                       <div className="h-px bg-border my-1" />

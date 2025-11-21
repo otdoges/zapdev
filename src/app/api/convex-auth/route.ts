@@ -37,6 +37,7 @@ export async function GET(req: Request) {
     });
 
     if (!session) {
+        console.log("Convex Auth: No session found");
         return new NextResponse(null, { status: 401 });
     }
 
