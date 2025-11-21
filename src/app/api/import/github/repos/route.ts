@@ -37,7 +37,7 @@ export async function GET() {
 
   try {
     // Get OAuth connection
-    const convex = await getConvexClientWithAuth(user.id);
+    const convex = await getConvexClientWithAuth();
     const connection = await convex.query(api.oauth.getConnection, {
       provider: "github",
     });

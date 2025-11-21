@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const convex = await getConvexClientWithAuth(user.id);
+  const convex = await getConvexClientWithAuth();
 
   if (false) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

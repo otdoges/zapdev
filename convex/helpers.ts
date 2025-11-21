@@ -10,7 +10,7 @@ export async function getCurrentUserId(
 ): Promise<string | null> {
   // Get user from Better Auth component
   const user = await authComponent.getAuthUser(ctx);
-  return user?.id || null;
+  return user?._id || null;
 }
 
 /**

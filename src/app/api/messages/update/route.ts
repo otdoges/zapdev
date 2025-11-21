@@ -35,7 +35,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const convexClient = await getConvexClientWithAuth(user.id);
+    const convexClient = await getConvexClientWithAuth();
     // Note: We are setting auth on convexClient using the signed JWT.
 
 
