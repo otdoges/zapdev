@@ -16,15 +16,22 @@ const siteUrl = process.env.SITE_URL!;
 // Better Auth component client for Convex integration
 export const authComponent = createClient<DataModel>(components.betterAuth);
 
-// Create ConvexHttpClient for webhook handlers
-const convexClient = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL ?? "");
-
 // Helper functions for lazy initialization
 function validateEnvVar(name: string, value: string | undefined): string {
     if (!value || value.trim() === "") {
         throw new Error(`Missing required environment variable: ${name}`);
     }
     return value;
+}
+
+let convexClient: ConvexHttpClient | null = null;
+
+function getConvexClient() {
+    if (!convexClient) {
+        const url = validateEnvVar("NEXT_PUBLIC_CONVEX_URL", process.env.NEXT_PUBLIC_CONVEX_URL);
+        convexClient = new ConvexHttpClient(url);
+    }
+    return convexClient;
 }
 
 let polarClient: Polar | null = null;
@@ -149,24 +156,24 @@ export const createAuth = (
                         },
                         onSubscriptionCanceled: async (event) => {
                             const subscription = event.data;
-                            await convexClient.mutation(api.subscriptions.markSubscriptionForCancellation, {
+                            await getConvexClient().mutation(api.subscriptions.markSubscriptionForCancellation, {
                                 polarSubscriptionId: subscription.id,
                             });
                         },
                         onSubscriptionRevoked: async (event) => {
                             const subscription = event.data;
-                            await convexClient.mutation(api.subscriptions.revokeSubscription, {
+                            await getConvexClient().mutation(api.subscriptions.revokeSubscription, {
                                 polarSubscriptionId: subscription.id,
                             });
 
                             const userId = subscription.metadata?.userId;
                             if (userId && typeof userId === "string" && userId.trim() !== "") {
-                                await convexClient.mutation(api.usage.resetUsage, { userId });
+                                await getConvexClient().mutation(api.usage.resetUsage, { userId });
                             }
                         },
                         onSubscriptionUncanceled: async (event) => {
                             const subscription = event.data;
-                            await convexClient.mutation(api.subscriptions.reactivateSubscription, {
+                            await getConvexClient().mutation(api.subscriptions.reactivateSubscription, {
                                 polarSubscriptionId: subscription.id,
                             });
                         },
@@ -277,7 +284,7 @@ async function syncSubscriptionToConvex(
     const idempotencyKey = buildSubscriptionIdempotencyKey(payload);
 
     // Check for duplicate delivery
-    const isDupe = await convexClient.query(api.webhookEvents.isDuplicate, {
+    const isDupe = await getConvexClient().query(api.webhookEvents.isDuplicate, {
         idempotencyKey,
     });
 
@@ -291,7 +298,7 @@ async function syncSubscriptionToConvex(
     }
 
     // Record this event as processed
-    await convexClient.mutation(api.webhookEvents.recordProcessedEvent, {
+    await getConvexClient().mutation(api.webhookEvents.recordProcessedEvent, {
         idempotencyKey,
         provider: "polar",
         eventType,
@@ -320,7 +327,7 @@ async function syncSubscriptionToConvex(
     const cancelAtPeriodEnd = Boolean(payload.cancelAtPeriodEnd);
 
     try {
-        await convexClient.mutation(api.subscriptions.createOrUpdateSubscription, {
+        await getConvexClient().mutation(api.subscriptions.createOrUpdateSubscription, {
             userId,
             polarCustomerId: customerId,
             polarSubscriptionId: subscriptionId,
@@ -334,7 +341,7 @@ async function syncSubscriptionToConvex(
         });
 
         if (resetUsage) {
-            await convexClient.mutation(api.usage.resetUsage, { userId });
+            await getConvexClient().mutation(api.usage.resetUsage, { userId });
         }
 
         return { success: true };
