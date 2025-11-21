@@ -92,35 +92,30 @@ export const MODEL_CONFIGS = {
     provider: "anthropic",
     description: "Fast and efficient for most coding tasks",
     temperature: 0.7,
-    frequency_penalty: 0.5,
   },
   "openai/gpt-5.1-codex": {
     name: "GPT-5.1 Codex",
     provider: "openai",
     description: "OpenAI's flagship model for complex tasks",
     temperature: 0.7,
-    frequency_penalty: 0.5,
   },
   "moonshotai/kimi-k2-thinking": {
     name: "Kimi K2 Thinking",
     provider: "moonshot",
     description: "Fast and efficient for speed-critical tasks",
     temperature: 0.7,
-    frequency_penalty: 0.5,
   },
   "google/gemini-3-pro-preview": {
     name: "Gemini 3 Pro",
     provider: "google",
     description: "Specialized for coding tasks",
     temperature: 0.7,
-    // Note: Gemini doesn't support frequency_penalty
   },
   "xai/grok-4-fast-reasoning": {
     name: "Grok 4 Fast",
     provider: "xai",
     description: "Good at nothing",
     temperature: 0.7,
-    frequency_penalty: 0.5,
   },
 } as const;
 
@@ -1299,9 +1294,6 @@ Generate code that matches the approved specification.`;
           process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
           temperature: modelConfig.temperature,
-          ...(modelConfig.frequency_penalty !== undefined && {
-            frequency_penalty: modelConfig.frequency_penalty,
-          }),
         },
       }),
       tools: createCodeAgentTools(sandboxId),
@@ -2274,9 +2266,6 @@ export const errorFixFunction = inngest.createFunction(
           process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
           temperature: errorFixModelConfig.temperature,
-          ...(errorFixModelConfig.frequency_penalty !== undefined && {
-            frequency_penalty: errorFixModelConfig.frequency_penalty,
-          }),
         },
       }),
       tools: createCodeAgentTools(sandboxId),
@@ -2728,7 +2717,6 @@ Remember to wrap your complete specification in <spec>...</spec> tags.`;
           process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
         defaultParameters: {
           temperature: 0.7,
-          frequency_penalty: 0.5,
         },
       }),
     });
