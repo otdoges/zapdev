@@ -357,7 +357,12 @@ export const auth = betterAuth({
         },
     },
     // Security headers for cookies
+    // Include both www and non-www versions to handle redirects
     trustedOrigins: process.env.NODE_ENV === "production"
-        ? [getAppUrl()]
+        ? [
+            getAppUrl(),
+            "https://zapdev.link",
+            "https://www.zapdev.link",
+        ]
         : [getAppUrl(), "http://localhost:3000"],
 });
