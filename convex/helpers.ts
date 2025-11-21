@@ -65,7 +65,7 @@ export async function hasProAccess(
 }
 
 /**
- * Legacy compatibility: Get user ID (now just returns Better Auth user ID)
+ * Legacy compatibility: Get user ID (alias for Stack Auth identifiers)
  * @deprecated Use getCurrentUserId instead
  */
 export async function getCurrentUserClerkId(

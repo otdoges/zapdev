@@ -12,7 +12,11 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
   
   useEffect(() => {
     // Set Stack Auth authentication for Convex
-    convex.setAuth(stackApp.getConvexClientAuth({}));
+    convex.setAuth(
+      stackApp.getConvexClientAuth({
+        tokenStore: "nextjs-cookie",
+      })
+    );
   }, [stackApp]);
 
   return (

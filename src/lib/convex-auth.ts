@@ -1,4 +1,4 @@
-import { exportJWK, generateKeyPair, importPKCS8, importSPKI, SignJWT } from 'jose';
+import { exportJWK, generateKeyPair, importPKCS8, importSPKI, JWTPayload, SignJWT } from 'jose';
 
 type StoredKey = {
     kid: string;
@@ -213,17 +213,25 @@ export async function getJWKS() {
     return jwks;
 }
 
+function getAppIssuer(): string {
+    return (
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        "http://localhost:3000"
+    );
+}
+
 /**
  * Signs a JWT for Convex authentication
  * @param payload - The payload to sign
  * @returns The signed JWT string
  */
-export async function signConvexJWT(payload: any) {
+export async function signConvexJWT(payload: JWTPayload) {
     const { privateKey, kid } = await getKeys();
     const jwt = await new SignJWT(payload)
         .setProtectedHeader({ alg: ALG, kid })
         .setIssuedAt()
-        .setIssuer(process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000")
+        .setIssuer(getAppIssuer())
         .setAudience("convex")
         .setExpirationTime('1h')
         .sign(privateKey);

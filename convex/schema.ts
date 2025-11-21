@@ -67,7 +67,7 @@ export default defineSchema({
   // Projects table
   projects: defineTable({
     name: v.string(),
-    userId: v.string(), // Better Auth user ID (not v.id - we'll store the Better Auth ID directly)
+      userId: v.string(), // Stack Auth user ID (not v.id - we store the Stack Auth ID directly)
     framework: frameworkEnum,
     modelPreference: v.optional(v.string()), // User's preferred AI model (e.g., "auto", "anthropic/claude-haiku-4.5", "openai/gpt-4o")
     createdAt: v.optional(v.number()), // timestamp
@@ -135,7 +135,7 @@ export default defineSchema({
 
   // OAuth Connections table - for storing encrypted OAuth tokens
   oauthConnections: defineTable({
-    userId: v.string(), // Better Auth user ID
+      userId: v.string(), // Stack Auth user ID
     provider: oauthProviderEnum,
     accessToken: v.string(), // Encrypted token
     refreshToken: v.optional(v.string()),
@@ -150,7 +150,7 @@ export default defineSchema({
 
   // Imports table - tracking import history and status
   imports: defineTable({
-    userId: v.string(), // Better Auth user ID
+      userId: v.string(), // Stack Auth user ID
     projectId: v.id("projects"),
     messageId: v.optional(v.id("messages")),
     source: importSourceEnum,
@@ -169,7 +169,7 @@ export default defineSchema({
 
   // Usage table - rate limiting and credit tracking
   usage: defineTable({
-    userId: v.string(), // Better Auth user ID
+      userId: v.string(), // Stack Auth user ID
     points: v.number(), // Remaining credits
     expire: v.optional(v.number()), // Expiration timestamp
     planType: v.optional(v.union(v.literal("free"), v.literal("pro"))), // Track plan type
@@ -190,7 +190,7 @@ export default defineSchema({
 
   // Subscriptions table - Polar.sh subscription tracking
   subscriptions: defineTable({
-    userId: v.string(), // Better Auth user ID
+      userId: v.string(), // Stack Auth user ID
     polarCustomerId: v.string(), // Polar.sh customer ID
     polarSubscriptionId: v.string(), // Polar.sh subscription ID
     productId: v.string(), // Polar product ID
@@ -218,7 +218,7 @@ export default defineSchema({
   sandboxSessions: defineTable({
     sandboxId: v.string(), // E2B sandbox ID
     projectId: v.id("projects"), // Associated project
-    userId: v.string(), // Better Auth user ID
+      userId: v.string(), // Stack Auth user ID
     framework: frameworkEnum, // Framework for the sandbox
     state: sandboxStateEnum, // RUNNING, PAUSED, or KILLED
     lastActivity: v.number(), // Timestamp of last user activity
@@ -268,7 +268,7 @@ export default defineSchema({
   jobQueue: defineTable({
     type: v.string(), // Job type: "code_generation", "error_fix", etc.
     projectId: v.id("projects"),
-    userId: v.string(), // Better Auth user ID
+      userId: v.string(), // Stack Auth user ID
     payload: v.any(), // Job-specific data (event.data from Inngest)
     priority: v.union(v.literal("high"), v.literal("normal"), v.literal("low")),
     status: v.union(

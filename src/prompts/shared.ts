@@ -239,7 +239,7 @@ Instructions:
 11. Do not assume existing file contents — use readFiles if unsure
 12. Do not include any commentary, explanation, or markdown — use only tool outputs
 13. When users request database-backed features, default to Drizzle ORM with a Prisma Console–hosted PostgreSQL instance and manage schema via Drizzle migrations.
-14. When users request authentication capabilities, implement them with Better Auth on top of the Drizzle/PostgreSQL setup.
+14. When users request authentication capabilities, implement them with Stack Auth using the official @stackframe/stack patterns and wire it through Convex.
 15. Always build full, real-world features or screens — not demos, stubs, or isolated widgets
 16. Unless explicitly asked otherwise, always assume the task requires a full page layout — including all structural elements
 17. Always implement realistic behavior and interactivity — not just static UI

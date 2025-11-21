@@ -47,36 +47,54 @@ export function PolarCheckoutButton({
         return;
       }
 
-      // Call our API to create a Polar checkout session
-      const response = await fetch("/api/polar/create-checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          productId,
-          userId: user.id,
-        }),
-      });
+        // Call our API to create a Polar checkout session
+        const response = await fetch("/api/polar/create-checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            productId,
+            userId: user.id,
+          }),
+        });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create checkout session");
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const errorMessage =
+            typeof payload?.error === "string"
+              ? payload.error
+              : "Failed to create checkout session";
+          const description =
+            typeof payload?.details === "string"
+              ? payload.details
+              : "Please try again later.";
+
+          toast.error(errorMessage, { description });
+
+          if (typeof payload?.adminMessage === "string") {
+            console.error("🔧 Polar checkout admin message:", payload.adminMessage);
+          }
+          return;
+        }
+
+        if (payload?.url) {
+          window.location.href = payload.url as string;
+          return;
+        }
+
+        toast.error("Unable to start checkout", {
+          description: "Polar did not return a checkout URL. Please try again.",
+        });
+      } catch (error) {
+        console.error("Checkout error:", error);
+        toast.error("Unable to start checkout", {
+          description: error instanceof Error ? error.message : "Please try again later.",
+        });
+      } finally {
+        setIsLoading(false);
       }
-
-      const { url } = await response.json();
-      
-      if (url) {
-        window.location.href = url;
-      }
-
-    } catch (error) {
-      console.error("Checkout error:", error);
-      toast.error("Unable to start checkout", {
-        description: error instanceof Error ? error.message : "Please try again later.",
-      });
-      setIsLoading(false);
-    }
   };
 
   return (

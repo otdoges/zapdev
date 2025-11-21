@@ -8,7 +8,9 @@ import {
   sanitizeSubscriptionMetadata,
 } from '../src/lib/subscription-metadata';
 
-describe('Convex Auth helpers (Better Auth)', () => {
+type JoseJWKSInput = Parameters<typeof createLocalJWKSet>[0];
+
+describe('Convex Auth helpers (Stack Auth)', () => {
   describe('subscription metadata parsing', () => {
     it('extracts and trims userId from metadata objects', () => {
       const { metadata, userId } = extractUserIdFromMetadata({ userId: '  user_123  ', plan: 'pro' });
@@ -19,7 +21,7 @@ describe('Convex Auth helpers (Better Auth)', () => {
     it('guards against unexpected metadata shapes', () => {
       expect(sanitizeSubscriptionMetadata(null)).toEqual({});
       expect(sanitizeSubscriptionMetadata(42)).toEqual({});
-      expect(extractUserIdFromMetadata({} as any).userId).toBe('');
+      expect(extractUserIdFromMetadata({}).userId).toBe('');
     });
 
     it('builds stable idempotency keys', () => {
@@ -36,11 +38,14 @@ describe('Convex Auth helpers (Better Auth)', () => {
     it('signs JWTs with a kid and verifies against JWKS', async () => {
       const token = await signConvexJWT({ sub: 'user_abc' });
       const jwks = await getJWKS();
-      const jwkSet = createLocalJWKSet(jwks as any);
+      const jwkSet = createLocalJWKSet(jwks as JoseJWKSInput);
 
       const { payload, protectedHeader } = await jwtVerify(token, jwkSet, {
         audience: 'convex',
-        issuer: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || 'http://localhost:3000',
+        issuer:
+          process.env.NEXT_PUBLIC_APP_URL ||
+          process.env.NEXT_PUBLIC_BASE_URL ||
+          'http://localhost:3000',
       });
 
       expect(payload.sub).toBe('user_abc');
