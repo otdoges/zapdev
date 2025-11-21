@@ -65,6 +65,40 @@ const getAppUrl = () => {
     return appUrl || "https://zapdev.link";
 };
 
+// Build trusted origins with both www/non-www variants so Convex auth
+// accepts requests regardless of which hostname the user visits.
+const buildTrustedOrigins = () => {
+    const origins = new Set<string>();
+
+    const addOrigin = (value?: string | null) => {
+        if (!value) return;
+        try {
+            const parsed = new URL(value);
+            origins.add(parsed.origin);
+
+            const { hostname, protocol } = parsed;
+            if (hostname.startsWith("www.")) {
+                origins.add(`${protocol}//${hostname.slice(4)}`);
+            } else {
+                origins.add(`${protocol}//www.${hostname}`);
+            }
+        } catch {
+            // Ignore invalid URLs
+        }
+    };
+
+    addOrigin(getAppUrl());
+    addOrigin(process.env.NEXT_PUBLIC_APP_URL);
+    addOrigin(process.env.NEXT_PUBLIC_BETTER_AUTH_URL);
+    addOrigin(process.env.SITE_URL);
+
+    if (process.env.NODE_ENV !== "production") {
+        origins.add("http://localhost:3000");
+    }
+
+    return Array.from(origins);
+};
+
 type ConvexSubscriptionStatus = "incomplete" | "active" | "canceled" | "past_due" | "unpaid";
 
 const POLAR_TO_CONVEX_STATUS: Partial<Record<string, ConvexSubscriptionStatus>> = {
@@ -240,13 +274,7 @@ export const createAuth = (
             },
         },
         // Include both www and non-www versions to handle redirects
-        trustedOrigins: process.env.NODE_ENV === "production"
-            ? [
-                getAppUrl(),
-                "https://zapdev.link",
-                "https://www.zapdev.link",
-            ]
-            : [getAppUrl(), "http://localhost:3000"],
+        trustedOrigins: buildTrustedOrigins(),
     });
 };
 
