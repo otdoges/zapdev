@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/stack-auth";
+import { getPolarClient } from "@/lib/polar";
 
-// NOTE: Polar checkout will be implemented after Stack Auth is fully configured
-// This is a placeholder route for now
 export async function POST(req: NextRequest) {
   try {
     // Authenticate user with Stack Auth
@@ -15,11 +14,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: Implement Polar checkout once Stack Auth is configured with proper API keys
-    return NextResponse.json(
-      { error: "Polar checkout not yet configured. Please set up Stack Auth first." },
-      { status: 501 }
-    );
+    const body = await req.json();
+    const { productId } = body;
+
+    if (!productId) {
+      return NextResponse.json(
+        { error: "Missing productId" },
+        { status: 400 }
+      );
+    }
+
+    const polar = getPolarClient();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    
+    // Create checkout
+    // We pass userId in metadata so we can link subscription to user in webhook
+    const checkout = await polar.checkouts.create({
+      productId,
+      successUrl: `${appUrl}/dashboard?checkout=success`,
+      customerEmail: user.primaryEmail || undefined,
+      metadata: {
+        userId: user.id,
+      },
+    });
+
+    return NextResponse.json({ url: checkout.url });
   } catch (error) {
     console.error("Error creating Polar checkout session:", error);
     
