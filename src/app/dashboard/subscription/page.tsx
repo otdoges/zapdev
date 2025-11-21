@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { authClient } from "@/lib/auth-client";
+import { useUser } from "@stackframe/stack";
 import { format } from "date-fns";
 import {
   Card,
@@ -19,21 +19,11 @@ import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 import Link from "next/link";
 
 export default function SubscriptionPage() {
-  const { data: session, isPending } = authClient.useSession();
+  const user = useUser();
   const subscription = useQuery(api.subscriptions.getSubscription);
   const usage = useQuery(api.usage.getUsage);
 
-  if (isPending) {
-    return (
-      <div className="container mx-auto p-6 max-w-4xl">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!session) {
+  if (!user) {
     return (
       <div className="container mx-auto p-6 max-w-4xl">
         <div className="text-center py-12">

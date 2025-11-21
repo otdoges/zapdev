@@ -1,16 +1,16 @@
 import { QueryCtx, MutationCtx } from "./_generated/server";
-import { authComponent } from "./auth";
 
 /**
- * Get the current authenticated user's ID from Better Auth
- * Better Auth integration provides the user via authComponent
+ * Get the current authenticated user's ID from Stack Auth
+ * Stack Auth integration provides the user identity via ctx.auth.getUserIdentity()
  */
 export async function getCurrentUserId(
   ctx: QueryCtx | MutationCtx
 ): Promise<string | null> {
-  // Get user from Better Auth component
-  const user = await authComponent.getAuthUser(ctx);
-  return user?._id || null;
+  // Get user identity from Stack Auth
+  const identity = await ctx.auth.getUserIdentity();
+  // Stack Auth provides the user ID in the 'subject' field
+  return identity?.subject || null;
 }
 
 /**

@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, User, Settings } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
+import { useUser } from "@stackframe/stack";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -20,33 +20,25 @@ interface Props {
 
 export const UserControl = ({ showName }: Props) => {
   const router = useRouter();
-  const { data: session, isPending } = authClient.useSession();
+  const user = useUser();
 
-  if (isPending) return null; // Or a skeleton
-
-  if (!session) {
+  if (!user) {
     return null;
   }
 
-  const user = session.user;
-
   const handleSignOut = async () => {
-    await authClient.signOut({
-      fetchOptions: {
-        onSuccess: () => {
-          router.push("/");
-        },
-      },
-    });
+    await user.signOut();
+    router.push("/");
   };
 
-  const initials = user.name
+  const displayName = user.displayName || user.primaryEmail || "User";
+  const initials = user.displayName
     ?.split(" ")
     .map((n) => n[0])
     .join("")
-    .toUpperCase() || user.email?.[0]?.toUpperCase() || "U";
+    .toUpperCase() || user.primaryEmail?.[0]?.toUpperCase() || "U";
 
-  const avatarSrc = user.image ?? undefined;
+  const avatarSrc = user.profileImageUrl ?? undefined;
 
   return (
     <DropdownMenu>
@@ -57,16 +49,16 @@ export const UserControl = ({ showName }: Props) => {
         </Avatar>
         {showName && (
           <span className="text-sm font-medium hidden md:inline-block">
-            {user.name || user.email}
+            {displayName}
           </span>
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
+              {user.primaryEmail}
             </p>
           </div>
         </DropdownMenuLabel>

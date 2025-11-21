@@ -1,15 +1,19 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { cache } from 'react';
 import superjson from "superjson";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { getUser } from "@/lib/stack-auth";
 
 export const createTRPCContext = cache(async () => {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const user = await getUser();
 
-  return { user: session?.user ?? null };
+  return { 
+    user: user ? {
+      id: user.id,
+      email: user.primaryEmail || "",
+      emailVerified: user.hasPasswordAuth || user.signedUpAt !== null,
+      name: user.displayName,
+    } : null 
+  };
 });
 
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>;

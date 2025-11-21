@@ -1,13 +1,12 @@
-// Better Auth + Convex Integration
-// This file configures Better Auth as the authentication provider for Convex
-// Using the official @convex-dev/better-auth component
+// Stack Auth + Convex Integration
+// This file configures Stack Auth as the authentication provider for Convex
+// Using the official Stack Auth Convex integration
+
+import { getConvexProvidersConfig } from "@stackframe/stack";
 
 export default {
-  providers: [
-    {
-      domain: process.env.CONVEX_SITE_URL,
-      applicationID: "convex",
-    },
-  ],
+  providers: getConvexProvidersConfig({
+    projectId: process.env.NEXT_PUBLIC_STACK_PROJECT_ID!,
+  }),
 };
 

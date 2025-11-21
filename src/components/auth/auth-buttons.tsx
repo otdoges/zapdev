@@ -1,5 +1,7 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/auth-client";
+import { useStackApp } from "@stackframe/stack";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
@@ -7,14 +9,12 @@ import { toast } from "sonner";
 
 export function SocialAuthButtons() {
     const [isLoading, setIsLoading] = useState<string | null>(null);
+    const stackApp = useStackApp();
 
     const handleSignIn = async (provider: "github" | "google") => {
         setIsLoading(provider);
         try {
-            await authClient.signIn.social({
-                provider,
-                callbackURL: "/dashboard",
-            });
+            await stackApp.signInWithOAuth(provider);
         } catch (error) {
             console.error("Social sign-in error:", error);
             toast.error("Something went wrong. Please try again.");

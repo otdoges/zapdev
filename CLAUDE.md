@@ -9,7 +9,7 @@ ZapDev is an AI-powered development platform that enables users to create web ap
 ## Technology Stack
 
 **Frontend**: Next.js 15 (Turbopack), React 19, TypeScript 5.9, Tailwind CSS v4, Shadcn/ui, React Query
-**Backend**: Convex (real-time database), tRPC (type-safe APIs), Better Auth (authentication)
+**Backend**: Convex (real-time database), tRPC (type-safe APIs), Stack Auth (authentication)
 **AI & Execution**: Vercel AI Gateway, Inngest 3.44 (job orchestration), E2B Code Interpreter (sandboxes)
 **Monitoring**: Sentry, OpenTelemetry
 
@@ -191,11 +191,10 @@ CONVEX_DEPLOYMENT
 # Code Execution
 E2B_API_KEY
 
-# Authentication (Better Auth)
-NEXT_PUBLIC_BETTER_AUTH_URL
-BETTER_AUTH_SECRET
-CONVEX_AUTH_PRIVATE_KEY
-CONVEX_AUTH_PUBLIC_KEY
+# Authentication (Stack Auth)
+NEXT_PUBLIC_STACK_PROJECT_ID
+NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY
+STACK_SECRET_SERVER_KEY
 
 # Email (Inbound Email)
 INBOUND_API_KEY

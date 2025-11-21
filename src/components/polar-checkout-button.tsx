@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { authClient } from "@/lib/auth-client";
+import { useUser } from "@stackframe/stack";
 
 interface PolarCheckoutButtonProps {
   productId: string;
@@ -30,32 +30,50 @@ export function PolarCheckoutButton({
   children,
 }: PolarCheckoutButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const user = useUser();
 
   const handleCheckout = async () => {
     try {
       setIsLoading(true);
 
-      const { data, error } = await authClient.checkout({
-        products: [productId],
-      });
-
-      if (error) {
-        console.error("Checkout error:", error);
-        toast.error("Failed to create checkout session", {
-          description: error.message || "Please try again later.",
+      // Check if user is authenticated
+      if (!user) {
+        toast.error("Please sign in to continue", {
+          description: "You need to be signed in to purchase a subscription.",
         });
         setIsLoading(false);
+        // Redirect to sign in page
+        window.location.href = "/handler/sign-in";
         return;
       }
 
-      if (data?.url) {
-        window.location.href = data.url;
+      // Call our API to create a Polar checkout session
+      const response = await fetch("/api/polar/create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId,
+          userId: user.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create checkout session");
+      }
+
+      const { url } = await response.json();
+      
+      if (url) {
+        window.location.href = url;
       }
 
     } catch (error) {
       console.error("Checkout error:", error);
       toast.error("Unable to start checkout", {
-        description: "Please check your internet connection and try again.",
+        description: error instanceof Error ? error.message : "Please try again later.",
       });
       setIsLoading(false);
     }

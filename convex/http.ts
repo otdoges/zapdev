@@ -1,9 +1,7 @@
 import { httpRouter } from "convex/server";
-import { authComponent, createAuth } from "./auth";
 
+// Stack Auth handles authentication via Next.js routes
+// No Convex HTTP routes needed for auth
 const http = httpRouter();
-
-// Register Better Auth routes on Convex HTTP router
-authComponent.registerRoutes(http, createAuth);
 
 export default http;

@@ -1,7 +1,7 @@
 import { defineApp } from "convex/server";
-import betterAuth from "@convex-dev/better-auth/convex.config";
 
+// No additional configuration needed for Stack Auth
+// Stack Auth integrates via auth.config.ts providers
 const app = defineApp();
-app.use(betterAuth);
 
 export default app;

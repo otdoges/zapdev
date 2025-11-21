@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getUser } from "@/lib/stack-auth";
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
 
@@ -7,15 +7,11 @@ const f = createUploadthing();
 export const ourFileRouter = {
   imageUploader: f({ image: { maxFileSize: "4MB", maxFileCount: 5 } })
     .middleware(async ({ req }) => {
-      const session = await auth.api.getSession({
-        headers: req.headers,
-      });
+      const user = await getUser();
 
-      if (!session) {
+      if (!user) {
         throw new UploadThingError("Unauthorized");
       }
-
-      const user = session.user;
 
       return { userId: user.id };
     })

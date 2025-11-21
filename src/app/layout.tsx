@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { ConvexClientProvider } from "@/components/convex-provider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { VerificationWarning } from "@/components/auth/verification-warning";
+import { StackProviderWrapper } from "@/components/stack-provider-wrapper";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -93,19 +93,20 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <ConvexClientProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <Toaster />
-            <WebVitalsReporter />
-            <VerificationWarning />
-            {children}
-          </ThemeProvider>
-        </ConvexClientProvider>
+        <StackProviderWrapper>
+          <ConvexClientProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <Toaster />
+              <WebVitalsReporter />
+              {children}
+            </ThemeProvider>
+          </ConvexClientProvider>
+        </StackProviderWrapper>
       </body>
       <SpeedInsights />
     </html>

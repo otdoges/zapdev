@@ -7,8 +7,7 @@ import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
-import { AuthModal } from "@/components/auth/auth-modal";
-import { authClient } from "@/lib/auth-client";
+import { useUser } from "@stackframe/stack";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -27,14 +26,7 @@ import { CalendarCheckIcon, MailIcon } from "lucide-react";
 
 export const Navbar = () => {
   const isScrolled = useScroll();
-  const { data: session } = authClient.useSession();
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-
-  const openAuthModal = (mode: "signin" | "signup") => {
-    setAuthMode(mode);
-    setAuthModalOpen(true);
-  };
+  const user = useUser();
 
   return (
     <>
@@ -93,20 +85,20 @@ export const Navbar = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {!session ? (
+            {!user ? (
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => openAuthModal("signup")}
+                  asChild
                 >
-                  Sign up
+                  <Link href="/handler/sign-up">Sign up</Link>
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() => openAuthModal("signin")}
+                  asChild
                 >
-                  Sign in
+                  <Link href="/handler/sign-in">Sign in</Link>
                 </Button>
               </div>
             ) : (
@@ -115,12 +107,6 @@ export const Navbar = () => {
           </div>
         </div>
       </nav>
-
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        mode={authMode}
-      />
     </>
   );
 };
