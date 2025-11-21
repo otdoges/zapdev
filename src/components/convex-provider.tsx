@@ -1,44 +1,18 @@
 "use client";
 
-import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
+import { ReactNode } from "react";
+import { ConvexReactClient } from "convex/react";
 import { authClient } from "@/lib/auth-client";
-import { ReactNode, useMemo } from "react";
+import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
+
+const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!, {
+  expectAuth: true,
+});
 
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
-  const convex = useMemo(() => {
-    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-    if (!url) {
-      return new ConvexReactClient("https://placeholder.convex.cloud");
-    }
-    return new ConvexReactClient(url);
-  }, []);
-
   return (
-    <ConvexProviderWithAuth
-      client={convex}
-      useAuth={() => {
-        const { data: session, isPending } = authClient.useSession();
-        return {
-          isLoading: isPending,
-          isAuthenticated: !!session,
-          fetchAccessToken: async ({ forceRefreshToken }) => {
-            try {
-              const response = await fetch("/api/convex-auth");
-              if (!response.ok) {
-                console.error("Failed to fetch Convex auth token:", response.status, response.statusText);
-                return null;
-              }
-              const { token } = await response.json();
-              return token;
-            } catch (error) {
-              console.error("Error fetching Convex auth token:", error);
-              return null;
-            }
-          },
-        };
-      }}
-    >
+    <ConvexBetterAuthProvider client={convex} authClient={authClient}>
       {children}
-    </ConvexProviderWithAuth>
+    </ConvexBetterAuthProvider>
   );
 }

@@ -1,8 +1,9 @@
 import { httpRouter } from "convex/server";
+import { authComponent, createAuth } from "./auth";
 
 const http = httpRouter();
 
-// Stack Auth handles authentication routes automatically
-// No need to register auth routes here like with Better Auth
+// Register Better Auth routes on Convex HTTP router
+authComponent.registerRoutes(http, createAuth);
 
 export default http;

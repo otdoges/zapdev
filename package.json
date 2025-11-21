@@ -12,6 +12,7 @@
     "convex:deploy": "bunx convex deploy"
   },
   "dependencies": {
+    "@convex-dev/better-auth": "^0.9.7",
     "@databuddy/sdk": "^2.2.1",
     "@e2b/code-interpreter": "^1.5.1",
     "@hookform/resolvers": "^3.3.4",

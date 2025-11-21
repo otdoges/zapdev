@@ -1,19 +1,18 @@
+import { createAuth } from "@/convex/auth";
+import { getToken as getTokenNextjs } from "@convex-dev/better-auth/nextjs";
 import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { ConvexHttpClient } from "convex/browser";
-import { signConvexJWT } from "@/lib/convex-auth";
 
+export const getToken = () => {
+  return getTokenNextjs(createAuth);
+};
+
+// Helper to get current user from Better Auth
 export async function getUser() {
+  const { createAuth: createAuthInstance } = await import("@/convex/auth");
+  const auth = createAuthInstance(undefined as any, { optionsOnly: true });
   const session = await auth.api.getSession({
     headers: await headers(),
   });
   return session?.user;
-}
-
-export async function getConvexClientWithAuth(userId: string) {
-  const token = await signConvexJWT({ sub: userId });
-  const client = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-  client.setAuth(token);
-  return client;
 }
 

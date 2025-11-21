@@ -1,16 +1,16 @@
 import { QueryCtx, MutationCtx } from "./_generated/server";
+import { authComponent } from "./auth";
 
 /**
- * Get the current authenticated user's ID from Stack Auth
- * Stack Auth automatically sets ctx.auth when a user is authenticated
+ * Get the current authenticated user's ID from Better Auth
+ * Better Auth integration provides the user via authComponent
  */
 export async function getCurrentUserId(
   ctx: QueryCtx | MutationCtx
 ): Promise<string | null> {
-  // Get user ID from Convex auth context
-  // Convex's auth system provides the subject (user ID) via ctx.auth
-  const identity = await ctx.auth.getUserIdentity();
-  return identity?.subject || null;
+  // Get user from Better Auth component
+  const user = await authComponent.getAuthUser(ctx);
+  return user?.id || null;
 }
 
 /**
@@ -65,7 +65,7 @@ export async function hasProAccess(
 }
 
 /**
- * Legacy compatibility: Get user ID (now just returns Stack Auth user ID)
+ * Legacy compatibility: Get user ID (now just returns Better Auth user ID)
  * @deprecated Use getCurrentUserId instead
  */
 export async function getCurrentUserClerkId(
