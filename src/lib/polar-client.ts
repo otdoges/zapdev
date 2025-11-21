@@ -118,3 +118,66 @@ export function isPolarConfigured(): boolean {
     hasEnvVar('POLAR_WEBHOOK_SECRET')
   );
 }
+
+/**
+ * Get or create a Polar customer with external_id for Stack Auth linking
+ * This ensures the customer exists and is linked to the Stack Auth user ID
+ * 
+ * @param polar - Polar client instance
+ * @param customerData - Customer data with externalId (Stack Auth user ID)
+ * @returns Polar customer ID
+ */
+export async function getOrCreatePolarCustomer(
+  polar: Polar,
+  customerData: {
+    externalId: string;
+    email?: string;
+    name?: string;
+  }
+): Promise<string> {
+  const orgId = getPolarOrganizationId();
+  
+  try {
+    // Try to get existing customer by external ID (Stack Auth user ID)
+    const existingCustomer = await polar.customers.getExternal({
+      externalId: customerData.externalId,
+    });
+    
+    console.log(`Found existing Polar customer for user ${customerData.externalId}: ${existingCustomer.id}`);
+    return existingCustomer.id;
+  } catch (error) {
+    // Customer doesn't exist, create one
+    console.log(`Creating new Polar customer for user ${customerData.externalId}`);
+    
+    const newCustomer = await polar.customers.create({
+      externalId: customerData.externalId,
+      email: customerData.email || `${customerData.externalId}@placeholder.local`,
+      name: customerData.name,
+      organizationId: orgId,
+    });
+    
+    console.log(`Created Polar customer ${newCustomer.id} for user ${customerData.externalId}`);
+    return newCustomer.id;
+  }
+}
+
+/**
+ * Get customer state by Stack Auth user ID (external_id)
+ * Returns the full customer state including active subscriptions and benefits
+ * 
+ * @param userId - Stack Auth user ID
+ * @returns Customer state or null if customer doesn't exist
+ */
+export async function getCustomerState(userId: string) {
+  const polar = getPolarClient();
+  
+  try {
+    const state = await polar.customers.getStateExternal({
+      externalId: userId,
+    });
+    return state;
+  } catch {
+    // Customer doesn't exist
+    return null;
+  }
+}

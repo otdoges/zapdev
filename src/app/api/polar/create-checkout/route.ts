@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPolarClient, getPolarOrganizationId, isPolarConfigured } from "@/lib/polar-client";
+import { createPolarClient, getPolarOrganizationId, isPolarConfigured, getOrCreatePolarCustomer } from "@/lib/polar-client";
 import { getUser } from "@/lib/auth-server";
 import { getSanitizedErrorDetails } from "@/lib/env-validation";
 
@@ -51,10 +51,20 @@ export async function POST(request: NextRequest) {
     // Create checkout session with Polar
     const polar = createPolarClient(targetServer);
     
+    // Ensure Polar customer exists with external_id linked to Stack Auth user
+    // This enables querying customer state by Stack Auth user ID
+    const customerId = await getOrCreatePolarCustomer(polar, {
+      externalId: user.id,
+      email: user.primaryEmail || undefined,
+      name: user.displayName || undefined,
+    });
+    
     const checkout = await polar.checkouts.create({
       // Products array (can include multiple product IDs)
       products: [productId],
-      // Pass user ID in metadata to link subscription to Stack Auth user
+      // Link to Polar customer with external_id for proper customer linking
+      customerId,
+      // Pass user ID in metadata as backup for webhook processing
       metadata: {
         userId: user.id,
         userEmail: user.primaryEmail || "",

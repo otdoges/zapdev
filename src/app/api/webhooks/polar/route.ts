@@ -149,6 +149,73 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      case "customer.state_changed": {
+        // Unified handler for all customer state changes (subscriptions, benefits, etc.)
+        const customerState = event.data;
+        const externalId = customerState.externalId; // Stack Auth user ID
+        
+        if (!externalId) {
+          console.log("Customer state change without external ID, skipping sync");
+          break;
+        }
+        
+        console.log(`Processing customer.state_changed for user ${externalId}`);
+        
+        // Get active subscriptions from state
+        const activeSubscriptions = customerState.activeSubscriptions || [];
+        const grantedBenefits = customerState.grantedBenefits || [];
+        
+        // Update/create subscription records for each active subscription
+        for (const sub of activeSubscriptions) {
+          // Map Polar status to our status enum (Polar uses "active" | "trialing", we need to map to our values)
+          const mappedStatus = sub.status === "trialing" ? "active" : sub.status;
+          
+          await convex.mutation(api.subscriptions.createOrUpdateSubscription, {
+            userId: externalId,
+            polarCustomerId: customerState.id,
+            polarSubscriptionId: sub.id,
+            productId: sub.productId,
+            // CustomerStateSubscription doesn't have product.name, use "Pro" as default
+            // The productId can be used to determine the plan if needed
+            productName: "Pro",
+            status: mappedStatus as "incomplete" | "active" | "canceled" | "past_due" | "unpaid",
+            currentPeriodStart: sub.currentPeriodStart instanceof Date 
+              ? sub.currentPeriodStart.getTime() 
+              : Date.now(),
+            currentPeriodEnd: sub.currentPeriodEnd instanceof Date 
+              ? sub.currentPeriodEnd.getTime() 
+              : Date.now() + 30 * 24 * 60 * 60 * 1000,
+            cancelAtPeriodEnd: sub.cancelAtPeriodEnd || false,
+            metadata: { 
+              benefits: grantedBenefits.map((b) => ({ id: b.id, type: b.benefitType })),
+              syncedAt: Date.now(),
+            },
+          });
+          
+          console.log(`Synced subscription ${sub.id} for user ${externalId}`);
+        }
+        
+        // If no active subscriptions, revoke all user subscriptions
+        if (activeSubscriptions.length === 0) {
+          try {
+            await convex.mutation(api.subscriptions.revokeAllUserSubscriptions, {
+              userId: externalId,
+            });
+            console.log(`Revoked all subscriptions for user ${externalId} (no active subscriptions)`);
+          } catch (err) {
+            console.log(`No subscriptions to revoke for user ${externalId}`);
+          }
+        }
+        
+        // Reset usage credits based on new subscription state
+        await convex.mutation(api.usage.resetUsage, {
+          userId: externalId,
+        });
+        
+        console.log(`Customer state updated for user ${externalId}: ${activeSubscriptions.length} active subscriptions, ${grantedBenefits.length} benefits`);
+        break;
+      }
+
       default:
         console.log(`Unhandled webhook event type: ${event.type}`);
     }

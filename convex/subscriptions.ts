@@ -210,3 +210,34 @@ export const getUserSubscriptions = query({
     return subscriptions;
   },
 });
+
+/**
+ * Revoke all active subscriptions for a user
+ * Called when customer.state_changed webhook shows no active subscriptions
+ */
+export const revokeAllUserSubscriptions = mutation({
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    
+    // Find all active subscriptions for this user
+    const activeSubscriptions = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    // Mark all as canceled
+    for (const sub of activeSubscriptions) {
+      await ctx.db.patch(sub._id, {
+        status: "canceled",
+        cancelAtPeriodEnd: false,
+        updatedAt: now,
+      });
+    }
+
+    return { revokedCount: activeSubscriptions.length };
+  },
+});
