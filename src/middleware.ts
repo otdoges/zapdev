@@ -1,6 +1,12 @@
 import { authkitMiddleware } from '@workos-inc/authkit-nextjs';
 
-export default authkitMiddleware();
+export default authkitMiddleware({
+  redirectUri: process.env.WORKOS_REDIRECT_URI || (
+    process.env.NODE_ENV === "production" 
+      ? "https://zapdev.link/auth/callback" 
+      : "http://localhost:3000/auth/callback"
+  ),
+});
 
 export const config = {
   matcher: [
