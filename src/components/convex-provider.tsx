@@ -5,14 +5,14 @@ import { ReactNode, useMemo } from "react";
 import { useAuth, useAccessToken } from "@workos-inc/authkit-nextjs/components";
 
 function useWorkOSConvexAuth() {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
   const { accessToken } = useAccessToken();
   
   return useMemo(() => ({
-    isLoading,
+    isLoading: loading,
     isAuthenticated: !!user,
     fetchAccessToken: async () => accessToken || null,
-  }), [user, isLoading, accessToken]);
+  }), [user, loading, accessToken]);
 }
 
 export function ConvexClientProvider({ children }: { children: ReactNode }) {

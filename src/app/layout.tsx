@@ -35,12 +35,12 @@ export const metadata: Metadata = {
     title: "Zapdev - Build Fast, Scale Smart",
     description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
     siteName: "Zapdev",
-    twitter: {
-      card: "summary_large_image",
-      title: "Zapdev - Build Fast, Scale Smart",
-      description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-      creator: "@zapdev",
-    },
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Zapdev - Build Fast, Scale Smart",
+    description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
+    creator: "@zapdev",
   },
   robots: {
     index: true,
