@@ -39,11 +39,10 @@ export const createWithMessage = action({
   },
   handler: async (ctx, args) => {
     // Get the authenticated user
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity || !identity.subject) {
+    const userId = await ctx.runQuery(api.users.getAuthUserId);
+    if (!userId) {
       throw new Error("Unauthorized");
     }
-    const userId = identity.subject;
 
     // Check and consume credit first
     const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
@@ -107,11 +106,10 @@ export const createWithMessageAndAttachments = action({
   },
   handler: async (ctx, args) => {
     // Get the authenticated user
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity || !identity.subject) {
+    const userId = await ctx.runQuery(api.users.getAuthUserId);
+    if (!userId) {
       throw new Error("Unauthorized");
     }
-    const userId = identity.subject;
 
     // Check and consume credit first
     const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
