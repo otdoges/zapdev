@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@workos-inc/authkit-nextjs/components";
+import { useUser } from "@stackframe/stack";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -19,16 +19,16 @@ interface Props {
 
 export const UserControl = ({ showName }: Props) => {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const user = useUser();
 
   if (!user) return null;
 
   const handleSignOut = async () => {
-    await signOut();
+    await user.signOut();
     router.push("/");
   };
 
-  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+  const displayName = user.displayName || user.primaryEmail || "User";
   const initials = displayName
     ?.split(" ")
     .map((n) => n[0])
@@ -36,7 +36,7 @@ export const UserControl = ({ showName }: Props) => {
     .toUpperCase()
     .slice(0, 2) || "U";
 
-  const avatarSrc = user.profilePictureUrl || undefined;
+  const avatarSrc = user.profileImageUrl || undefined;
 
   return (
     <DropdownMenu>
@@ -56,7 +56,7 @@ export const UserControl = ({ showName }: Props) => {
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
+              {user.primaryEmail}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -65,7 +65,7 @@ export const UserControl = ({ showName }: Props) => {
           <User className="mr-2 h-4 w-4" />
           <span>Dashboard</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/settings")}>
+        <DropdownMenuItem onClick={() => router.push("/handler/account-settings")}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@workos-inc/authkit-nextjs/components";
+import { useUser } from "@stackframe/stack";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { getSignInUrlAction, getSignUpUrlAction } from "@/app/actions";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,13 +19,13 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
-  const { user } = useAuth();
+  const user = useUser();
   const [previousUser, setPreviousUser] = useState(user);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!previousUser && user) {
-      const name = user.firstName ? `${user.firstName} ${user.lastName}` : user.email;
+      const name = user.displayName || user.primaryEmail;
       toast.success("Welcome back!", {
         description: `Signed in as ${name}`,
       });
@@ -38,10 +37,10 @@ export function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
   const handleAuth = async () => {
     try {
       setLoading(true);
-      const url = mode === "signin" ? await getSignInUrlAction() : await getSignUpUrlAction();
-      window.location.href = url;
+      const path = mode === "signin" ? "/handler/sign-in" : "/handler/sign-up";
+      window.location.href = path;
     } catch (error) {
-      console.error("Failed to get auth URL", error);
+      console.error("Failed to start authentication", error);
       toast.error("Failed to start authentication");
       setLoading(false);
     }

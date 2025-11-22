@@ -2,10 +2,8 @@
 export default {
   providers: [
     {
-      type: "customJwt",
-      issuer: process.env.WORKOS_ISSUER_URL || "https://api.workos.com/sso",
-      jwks: `https://api.workos.com/sso/jwks/${process.env.WORKOS_CLIENT_ID}`,
-      algorithm: "RS256",
+      domain: `https://api.stack-auth.com/api/v1/projects/${process.env.NEXT_PUBLIC_STACK_PROJECT_ID}`,
+      applicationID: "convex",
     },
   ],
 };

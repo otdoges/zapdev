@@ -1,12 +1,6 @@
-import { authkitMiddleware } from '@workos-inc/authkit-nextjs';
+import { stackMiddlewares } from "@stackframe/stack/next";
 
-export default authkitMiddleware({
-  redirectUri: process.env.WORKOS_REDIRECT_URI || (
-    process.env.NODE_ENV === "production" 
-      ? "https://zapdev.link/auth/callback" 
-      : "http://localhost:3000/auth/callback"
-  ),
-});
+export default stackMiddlewares;
 
 export const config = {
   matcher: [

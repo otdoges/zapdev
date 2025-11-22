@@ -1,12 +1,9 @@
 "use server";
 
-import { getSignInUrl, getSignUpUrl } from "@workos-inc/authkit-nextjs";
-
 export async function getSignInUrlAction() {
-  return await getSignInUrl();
+  return "/handler/sign-in";
 }
 
 export async function getSignUpUrlAction() {
-  return await getSignUpUrl();
+  return "/handler/sign-up";
 }
-

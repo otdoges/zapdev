@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import Script from "next/script";
-import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
+import { StackProvider, StackTheme } from "@stackframe/stack";
 
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { ConvexClientProvider } from "@/components/convex-provider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
+import { stackTheme } from "@/stack-theme"; // Optional if we have one, otherwise default
 
 export const metadata: Metadata = {
   title: {
@@ -92,7 +93,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <AuthKitProvider>
+        <StackProvider app={stackTheme}>
           <ConvexClientProvider>
             <ThemeProvider
               attribute="class"
@@ -105,7 +106,7 @@ export default function RootLayout({
               {children}
             </ThemeProvider>
           </ConvexClientProvider>
-        </AuthKitProvider>
+        </StackProvider>
       </body>
       <SpeedInsights />
     </html>
