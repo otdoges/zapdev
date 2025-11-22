@@ -815,6 +815,7 @@ export const codeAgentFunction = inngest.createFunction(
     const project = await step.run("get-project", async () => {
       return await convex.query(api.projects.getForSystem, {
         projectId: event.data.projectId as Id<"projects">,
+        systemKey: process.env.INNGEST_SIGNING_KEY!,
       });
     });
 
@@ -2060,6 +2061,7 @@ export const sandboxTransferFunction = inngest.createFunction(
     const project = await step.run("get-project", async () => {
       const proj = await convex.query(api.projects.getForSystem, {
         projectId: message.projectId as Id<"projects">,
+        systemKey: process.env.INNGEST_SIGNING_KEY!,
       });
       if (!proj) {
         throw new Error("Project not found");
@@ -2157,6 +2159,7 @@ export const errorFixFunction = inngest.createFunction(
     const project = await step.run("get-project", async () => {
       const proj = await convex.query(api.projects.getForSystem, {
         projectId: message.projectId as Id<"projects">,
+        systemKey: process.env.INNGEST_SIGNING_KEY!,
       });
       if (!proj) {
         throw new Error("Project not found");
@@ -2615,6 +2618,7 @@ export const specPlanningAgentFunction = inngest.createFunction(
     const project = await step.run("get-project", async () => {
       return await convex.query(api.projects.getForSystem, {
         projectId: event.data.projectId as Id<"projects">,
+        systemKey: process.env.INNGEST_SIGNING_KEY!,
       });
     });
 

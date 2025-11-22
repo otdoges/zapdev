@@ -37,6 +37,21 @@ export async function POST(request: NextRequest) {
 
     console.log("Polar webhook event received:", event.type);
 
+    // Check for replay attacks
+    // Use a combination of event type and data ID as unique event ID
+    const eventId = event.data.id || `${event.type}_${Date.now()}`;
+    const isNewEvent = await convex.mutation(api.webhooks.checkAndRecordWebhookEvent, {
+      provider: "polar",
+      eventId: eventId,
+      eventType: event.type,
+      systemKey: process.env.INNGEST_SIGNING_KEY!,
+    });
+
+    if (!isNewEvent) {
+      console.log(`[SECURITY] Replay attack prevented: Polar event ${eventId} already processed`);
+      return NextResponse.json({ received: true, replay: true });
+    }
+
     // Handle different webhook events
     switch (event.type) {
       case "subscription.created":
@@ -78,8 +93,9 @@ export async function POST(request: NextRequest) {
         // Update usage credits based on subscription status
         if (subscription.status === "active") {
           // Grant Pro credits (100/day)
-          await convex.mutation(api.usage.resetUsage, {
+          await convex.mutation(api.usage.resetUsageSystem, {
             userId,
+            systemKey: process.env.INNGEST_SIGNING_KEY!,
           });
         }
 
@@ -110,8 +126,9 @@ export async function POST(request: NextRequest) {
         // Reset to free tier credits
         const userId = subscription.metadata?.userId as string;
         if (userId) {
-          await convex.mutation(api.usage.resetUsage, {
+          await convex.mutation(api.usage.resetUsageSystem, {
             userId,
+            systemKey: process.env.INNGEST_SIGNING_KEY!,
           });
         }
 
@@ -208,8 +225,9 @@ export async function POST(request: NextRequest) {
         }
         
         // Reset usage credits based on new subscription state
-        await convex.mutation(api.usage.resetUsage, {
+        await convex.mutation(api.usage.resetUsageSystem, {
           userId: externalId,
+          systemKey: process.env.INNGEST_SIGNING_KEY!,
         });
         
         console.log(`Customer state updated for user ${externalId}: ${activeSubscriptions.length} active subscriptions, ${grantedBenefits.length} benefits`);

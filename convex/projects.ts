@@ -228,18 +228,21 @@ export const list = query({
 
 /**
  * Get showcase projects - public query for projects with fragments
- * Returns up to 12 projects that have at least one message with a fragment
+ * Returns up to 12 PUBLIC projects that have at least one message with a fragment
+ * SECURITY: Only shows projects where user has opted in via isPublic flag
  */
 export const listShowcase = query({
   args: {},
   handler: async (ctx) => {
-    const allProjects = await ctx.db
+    // Only get public projects
+    const publicProjects = await ctx.db
       .query("projects")
+      .withIndex("by_isPublic", (q) => q.eq("isPublic", true))
       .order("desc")
       .collect();
 
     const projectsWithFragments = await Promise.all(
-      allProjects.map(async (project) => {
+      publicProjects.map(async (project) => {
         const messages = await ctx.db
           .query("messages")
           .withIndex("by_projectId", (q) => q.eq("projectId", project._id))
@@ -309,6 +312,7 @@ export const update = mutation({
     name: v.optional(v.string()),
     framework: v.optional(frameworkEnum),
     modelPreference: v.optional(v.string()),
+    isPublic: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -327,10 +331,42 @@ export const update = mutation({
       ...(args.name && { name: args.name }),
       ...(args.framework && { framework: args.framework }),
       ...(args.modelPreference !== undefined && { modelPreference: args.modelPreference }),
+      ...(args.isPublic !== undefined && { isPublic: args.isPublic }),
       updatedAt: Date.now(),
     });
 
     return args.projectId;
+  },
+});
+
+/**
+ * Toggle project public visibility for showcase
+ * SECURITY: Only project owner can change public status
+ */
+export const setProjectPublic = mutation({
+  args: {
+    projectId: v.id("projects"),
+    isPublic: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    // Ensure user owns the project
+    if (project.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
+    await ctx.db.patch(args.projectId, {
+      isPublic: args.isPublic,
+      updatedAt: Date.now(),
+    });
+
+    return { projectId: args.projectId, isPublic: args.isPublic };
   },
 });
 
@@ -496,13 +532,19 @@ export const createInternal = async (
 
 /**
  * System-level query to get any project by ID (for Inngest background jobs only)
- * This bypasses authentication since Inngest is a trusted system
+ * SECURITY: Requires INNGEST_SIGNING_KEY for authorization to prevent unauthorized access
  */
 export const getForSystem = query({
   args: {
     projectId: v.id("projects"),
+    systemKey: v.string(),
   },
   handler: async (ctx, args) => {
+    // Verify system key to ensure only Inngest can call this
+    if (args.systemKey !== process.env.INNGEST_SIGNING_KEY) {
+      throw new Error("Unauthorized: Invalid system key");
+    }
+
     const project = await ctx.db.get(args.projectId);
     if (!project) {
       throw new Error("Project not found");

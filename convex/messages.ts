@@ -428,23 +428,40 @@ export const getAttachments = query({
 });
 
 /**
- * Get fragment by ID (for public API access)
+ * Get fragment by ID with authorization check
+ * SECURITY: Requires authentication and verifies user owns the project
  */
 export const getFragmentById = query({
   args: {
     fragmentId: v.id("fragments"),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+
     const fragment = await ctx.db.get(args.fragmentId);
     if (!fragment) {
       throw new Error("Fragment not found");
     }
+
+    // Get message to check project ownership
+    const message = await ctx.db.get(fragment.messageId);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    const project = await ctx.db.get(message.projectId);
+    if (!project || project.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
     return fragment;
   },
 });
 
 /**
- * Get fragment by ID with authorization check
+ * Get fragment by ID with authorization check (extended version)
+ * Returns fragment along with associated message and project
+ * @deprecated Use getFragmentById for basic fragment access
  */
 export const getFragmentByIdAuth = query({
   args: {

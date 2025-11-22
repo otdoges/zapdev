@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth-server";
+import { createOAuthState } from "@/lib/oauth-state";
 
 const FIGMA_CLIENT_ID = process.env.FIGMA_CLIENT_ID;
 const FIGMA_REDIRECT_URI = process.env.NODE_ENV === "production"
@@ -22,10 +23,8 @@ export async function GET() {
     );
   }
 
-  // Generate state token for CSRF protection
-  const state = Buffer.from(
-    JSON.stringify({ userId, timestamp: Date.now() })
-  ).toString("base64");
+  // Generate HMAC-signed state token for CSRF protection
+  const state = createOAuthState(userId);
 
   const params = new URLSearchParams({
     client_id: FIGMA_CLIENT_ID,

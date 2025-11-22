@@ -22,6 +22,7 @@ import type * as sandboxSessions from "../sandboxSessions.js";
 import type * as specs from "../specs.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as usage from "../usage.js";
+import type * as webhooks from "../webhooks.js";
 
 import type {
   ApiFromModules,
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   specs: typeof specs;
   subscriptions: typeof subscriptions;
   usage: typeof usage;
+  webhooks: typeof webhooks;
 }>;
 
 /**

@@ -70,11 +70,13 @@ export default defineSchema({
     userId: v.string(), // Clerk user ID (not v.id - we'll store the Clerk ID directly)
     framework: frameworkEnum,
     modelPreference: v.optional(v.string()), // User's preferred AI model (e.g., "auto", "anthropic/claude-haiku-4.5", "openai/gpt-4o")
+    isPublic: v.optional(v.boolean()), // Whether project is shown in public showcase (defaults to false)
     createdAt: v.optional(v.number()), // timestamp
     updatedAt: v.optional(v.number()), // timestamp
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_createdAt", ["userId", "createdAt"]),
+    .index("by_userId_createdAt", ["userId", "createdAt"])
+    .index("by_isPublic", ["isPublic"]),
 
   // Messages table
   messages: defineTable({
@@ -266,4 +268,15 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_status_priority", ["status", "priority"])
     .index("by_createdAt", ["createdAt"]),
+
+  // Webhook Events - track processed webhooks to prevent replay attacks
+  webhookEvents: defineTable({
+    provider: v.string(), // "polar", "stripe", etc.
+    eventId: v.string(), // Unique event ID from provider
+    eventType: v.string(), // Event type (e.g., "subscription.created")
+    processedAt: v.number(), // Timestamp when processed
+    expiresAt: v.number(), // Auto-expire after 30 days to prevent table bloat
+  })
+    .index("by_provider_eventId", ["provider", "eventId"])
+    .index("by_expiresAt", ["expiresAt"]),
 });

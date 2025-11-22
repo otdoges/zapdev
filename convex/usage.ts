@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireAuth, hasProAccess } from "./helpers";
+import {
+  requireAuth,
+  hasProAccess,
+  getCurrentUserId,
+} from "./helpers";
 
 // Constants matching the existing system
 const FREE_POINTS = 5;
@@ -76,9 +80,27 @@ export const checkAndConsumeCredit = mutation({
 export const getUsage = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+    // Allow unauthenticated users to load the app without hard errors.
+    // If no identity is present, return a temporary free-tier snapshot
+    // instead of throwing, so the UI can prompt sign‑in gracefully.
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) {
+      const now = Date.now();
+      const expire = now + DURATION_MS;
+      const maxPoints = FREE_POINTS;
+      return {
+        points: maxPoints,
+        maxPoints,
+        expire,
+        planType: "free",
+        remainingPoints: maxPoints,
+        creditsRemaining: maxPoints,
+        msBeforeNext: DURATION_MS,
+        requiresAuth: true,
+      };
+    }
 
-    const isPro = await hasProAccess(ctx);
+    const isPro = await hasProAccess(ctx, userId);
     const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
     const usage = await ctx.db
@@ -118,14 +140,21 @@ export const getUsage = query({
 });
 
 /**
- * Admin function to reset usage for a user
+ * System-level function to reset usage (for webhooks/background jobs)
+ * SECURITY: Requires system key to prevent unauthorized access
+ * NOTE: For admin operations, use Convex dashboard to delete usage records directly
  */
-export const resetUsage = mutation({
+export const resetUsageSystem = mutation({
   args: {
     userId: v.string(),
+    systemKey: v.string(),
   },
   handler: async (ctx, args) => {
-    // In production, add admin authorization check here
+    // Verify system key
+    if (args.systemKey !== process.env.INNGEST_SIGNING_KEY) {
+      throw new Error("Unauthorized: Invalid system key");
+    }
+
     const usage = await ctx.db
       .query("usage")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))

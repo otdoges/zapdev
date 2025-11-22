@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth-server";
 import { fetchQuery, fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { validateOAuthState } from "@/lib/oauth-state";
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
@@ -42,11 +43,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Verify state token
-    const decodedState = JSON.parse(Buffer.from(state, "base64").toString());
-    if (decodedState.userId !== userId) {
-      throw new Error("State token mismatch");
-    }
+    // Verify state token (HMAC-signed)
+    validateOAuthState(state, userId);
 
     // Exchange code for access token
     const tokenResponse = await fetch(
