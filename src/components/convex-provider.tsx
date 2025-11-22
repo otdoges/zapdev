@@ -12,7 +12,19 @@ function useWorkOSConvexAuth() {
     isLoading: loading,
     isAuthenticated: !!user,
     // Always ask AuthKit for a fresh token so Convex receives a valid JWT
-    fetchAccessToken: async () => (await getAccessToken()) ?? null,
+    fetchAccessToken: async () => {
+      try {
+        const token = await getAccessToken();
+        console.log("ConvexProvider: Fetched token", { 
+          hasToken: !!token,
+          tokenPreview: token ? `${token.substring(0, 20)}...` : null 
+        });
+        return token ?? null;
+      } catch (err) {
+        console.error("ConvexProvider: Failed to fetch token", err);
+        return null;
+      }
+    },
   }), [user, loading, getAccessToken]);
 }
 

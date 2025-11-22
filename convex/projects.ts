@@ -39,9 +39,16 @@ export const createWithMessage = action({
   },
   handler: async (ctx, args) => {
     // Get the authenticated user
-    const userId = await ctx.runQuery(api.users.getAuthUserId);
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = identity?.subject;
+
     if (!userId) {
-      throw new Error("Unauthorized");
+      console.error("Unauthorized: No user identity found in createWithMessage", {
+        hasIdentity: !!identity,
+        identityKeys: identity ? Object.keys(identity) : [],
+        authContext: ctx.auth ? 'present' : 'missing'
+      });
+      throw new Error("Unauthorized - No valid authentication token");
     }
 
     // Check and consume credit first
@@ -106,9 +113,22 @@ export const createWithMessageAndAttachments = action({
   },
   handler: async (ctx, args) => {
     // Get the authenticated user
-    const userId = await ctx.runQuery(api.users.getAuthUserId);
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = identity?.subject;
+
     if (!userId) {
-      throw new Error("Unauthorized");
+      console.error("Unauthorized: No user identity found in createWithMessageAndAttachments", {
+        hasIdentity: !!identity,
+        identityKeys: identity ? Object.keys(identity) : [],
+        authContext: ctx.auth ? 'present' : 'missing',
+        envVars: {
+          WORKOS_CLIENT_ID: process.env.WORKOS_CLIENT_ID ? "Set" : "Not Set",
+          NEXT_WORKOS_CLIENT_ID: process.env.NEXT_WORKOS_CLIENT_ID ? "Set" : "Not Set",
+          WORKOS_ISSUER_URL: process.env.WORKOS_ISSUER_URL,
+          NODE_ENV: process.env.NODE_ENV,
+        }
+      });
+      throw new Error("Unauthorized - No valid authentication token");
     }
 
     // Check and consume credit first
