@@ -1,16 +1,12 @@
 import { ConvexHttpClient } from "convex/browser";
-import { StackServerApp } from "@stackframe/stack";
-
-const stackServerApp = new StackServerApp({
-  tokenStore: "nextjs-cookie",
-});
+import { withAuth } from "@workos-inc/authkit-nextjs";
 
 /**
- * Get the authenticated user from Stack Auth
+ * Get the authenticated user from WorkOS AuthKit
  */
 export async function getUser() {
   try {
-    const user = await stackServerApp.getUser();
+    const { user } = await withAuth();
     return user;
   } catch (error) {
     console.error("Failed to get user:", error);
@@ -20,14 +16,11 @@ export async function getUser() {
 
 /**
  * Get the authentication token for Convex
- * Stack Auth handles token management automatically for Convex through setAuth
  */
 export async function getToken() {
   try {
-    const user = await stackServerApp.getUser();
-    // When user exists, they are authenticated
-    // For Convex, use stackServerApp's built-in auth integration
-    return user ? "authenticated" : null;
+    const { accessToken } = await withAuth();
+    return accessToken || null;
   } catch (error) {
     console.error("Failed to get token:", error);
     return null;
@@ -36,16 +29,17 @@ export async function getToken() {
 
 /**
  * Get auth headers for API calls
- * Stack Auth handles this automatically, this is for manual use if needed
  */
 export async function getAuthHeaders() {
-  const user = await getUser();
-  if (!user) return {};
-  return {};
+  const token = await getToken();
+  if (!token) return {};
+  return {
+    Authorization: `Bearer ${token}`,
+  };
 }
 
 /**
- * Create a Convex HTTP client with Stack Auth authentication
+ * Create a Convex HTTP client with WorkOS authentication
  * Use this in API routes that need to call Convex
  */
 export async function getConvexClientWithAuth() {
@@ -56,12 +50,11 @@ export async function getConvexClientWithAuth() {
 
   const httpClient = new ConvexHttpClient(convexUrl);
   
-  // Set up Stack Auth for the Convex client
-  const authInfo = await stackServerApp.getConvexHttpClientAuth({
-    tokenStore: "nextjs-cookie",
-  });
+  const { accessToken } = await withAuth();
   
-  httpClient.setAuth(authInfo);
+  if (accessToken) {
+    httpClient.setAuth(accessToken);
+  }
   
   return httpClient;
 }

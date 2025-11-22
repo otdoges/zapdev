@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
 import { AuthModal } from "@/components/auth-modal";
-import { useUser } from "@stackframe/stack";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -27,7 +27,7 @@ import { CalendarCheckIcon, MailIcon } from "lucide-react";
 
 export const Navbar = () => {
   const isScrolled = useScroll();
-  const user = useUser();
+  const { user } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
 

@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useUser } from "@stackframe/stack";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import { format } from "date-fns";
 import {
   Card,
@@ -19,7 +19,7 @@ import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 import Link from "next/link";
 
 export default function SubscriptionPage() {
-  const user = useUser();
+  const { user } = useAuth();
   const subscription = useQuery(api.subscriptions.getSubscription);
   const usage = useQuery(api.usage.getUsage);
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import Script from "next/script";
-import { StackProvider, StackTheme, StackServerApp } from "@stackframe/stack";
+import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
 
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
@@ -35,12 +35,12 @@ export const metadata: Metadata = {
     title: "Zapdev - Build Fast, Scale Smart",
     description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
     siteName: "Zapdev",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Zapdev - Build Fast, Scale Smart",
-    description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-    creator: "@zapdev",
+    twitter: {
+      card: "summary_large_image",
+      title: "Zapdev - Build Fast, Scale Smart",
+      description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
+      creator: "@zapdev",
+    },
   },
   robots: {
     index: true,
@@ -57,17 +57,6 @@ export const metadata: Metadata = {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "",
   },
 };
-
-const stackServerApp = new StackServerApp({
-  tokenStore: "nextjs-cookie",
-  urls: {
-    // Keep handler routes as fallback for direct URL access
-    signIn: "/handler/sign-in",
-    signUp: "/handler/sign-up",
-    afterSignIn: "/",
-    afterSignUp: "/",
-  },
-});
 
 export default function RootLayout({
   children,
@@ -103,22 +92,20 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <StackProvider app={stackServerApp}>
-          <StackTheme>
-            <ConvexClientProvider>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
-                <Toaster />
-                <WebVitalsReporter />
-                {children}
-              </ThemeProvider>
-            </ConvexClientProvider>
-          </StackTheme>
-        </StackProvider>
+        <AuthKitProvider>
+          <ConvexClientProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <Toaster />
+              <WebVitalsReporter />
+              {children}
+            </ThemeProvider>
+          </ConvexClientProvider>
+        </AuthKitProvider>
       </body>
       <SpeedInsights />
     </html>

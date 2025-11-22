@@ -1,8 +1,19 @@
 "use client";
 
-import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { ReactNode, useMemo } from "react";
-import { stackClientApp } from "@/stack/client";
+import { useAuth, useAccessToken } from "@workos-inc/authkit-nextjs/components";
+
+function useWorkOSConvexAuth() {
+  const { user, isLoading } = useAuth();
+  const { accessToken } = useAccessToken();
+  
+  return useMemo(() => ({
+    isLoading,
+    isAuthenticated: !!user,
+    fetchAccessToken: async () => accessToken || null,
+  }), [user, isLoading, accessToken]);
+}
 
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
   const convex = useMemo(() => {
@@ -16,15 +27,12 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
       throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
     }
     
-    const client = new ConvexReactClient(convexUrl);
-    
-    // Set up authentication using the stackClientApp
-    client.setAuth(
-      stackClientApp.getConvexClientAuth({ tokenStore: "nextjs-cookie" })
-    );
-    
-    return client;
+    return new ConvexReactClient(convexUrl);
   }, []);
 
-  return <ConvexProvider client={convex}>{children}</ConvexProvider>;
+  return (
+    <ConvexProviderWithAuth client={convex} useAuth={useWorkOSConvexAuth}>
+      {children}
+    </ConvexProviderWithAuth>
+  );
 }

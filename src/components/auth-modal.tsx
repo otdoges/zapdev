@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SignIn, SignUp } from "@stackframe/stack";
-import { useUser } from "@stackframe/stack";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { getSignInUrlAction, getSignUpUrlAction } from "@/app/actions";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -19,20 +20,32 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
-  const user = useUser();
+  const { user } = useAuth();
   const [previousUser, setPreviousUser] = useState(user);
+  const [loading, setLoading] = useState(false);
 
-  // Auto-close modal when user successfully signs in
   useEffect(() => {
     if (!previousUser && user) {
-      // User just signed in
+      const name = user.firstName ? `${user.firstName} ${user.lastName}` : user.email;
       toast.success("Welcome back!", {
-        description: `Signed in as ${user.displayName || user.primaryEmail}`,
+        description: `Signed in as ${name}`,
       });
       onClose();
     }
     setPreviousUser(user);
   }, [user, previousUser, onClose]);
+
+  const handleAuth = async () => {
+    try {
+      setLoading(true);
+      const url = mode === "signin" ? await getSignInUrlAction() : await getSignUpUrlAction();
+      window.location.href = url;
+    } catch (error) {
+      console.error("Failed to get auth URL", error);
+      toast.error("Failed to start authentication");
+      setLoading(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -47,8 +60,10 @@ export function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
               : "Create an account to start building web applications with AI"}
           </DialogDescription>
         </DialogHeader>
-        <div className="mt-4">
-          {mode === "signin" ? <SignIn /> : <SignUp />}
+        <div className="mt-4 flex justify-center">
+          <Button onClick={handleAuth} disabled={loading} className="w-full">
+            {loading ? "Redirecting..." : (mode === "signin" ? "Continue to Sign In" : "Continue to Sign Up")}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

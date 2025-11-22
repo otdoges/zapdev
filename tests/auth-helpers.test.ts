@@ -55,7 +55,7 @@ async function hasProAccess(ctx: MockCtx): Promise<boolean> {
   return usage?.planType === "pro";
 }
 
-describe('Authentication Helpers - Stack Auth', () => {
+describe('Authentication Helpers - WorkOS Auth', () => {
   describe('getCurrentUserId', () => {
     it('should return user ID when authenticated', async () => {
       const mockCtx: MockCtx = {
@@ -234,20 +234,20 @@ describe('Authentication Helpers - Stack Auth', () => {
     });
   });
 
-  describe('Stack Auth Integration', () => {
-    it('should handle Stack Auth JWT structure', async () => {
+  describe('WorkOS Integration', () => {
+    it('should handle WorkOS JWT structure', async () => {
       const mockCtx: MockCtx = {
         auth: {
           getUserIdentity: async () => ({
-            subject: 'stack_auth_user_12345',
-            tokenIdentifier: 'https://api.stack-auth.com/api/v1/projects/test-project:stack_auth_user_12345'
+            subject: 'authkit_user_12345',
+            tokenIdentifier: 'https://api.workos.com/sso/user_management_123:authkit_user_12345'
           })
         },
         db: {} as MockDb
       };
 
       const userId = await getCurrentUserId(mockCtx);
-      expect(userId).toBe('stack_auth_user_12345');
+      expect(userId).toBe('authkit_user_12345');
     });
 
     it('should work with various user ID formats', async () => {

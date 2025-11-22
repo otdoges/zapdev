@@ -51,12 +51,13 @@ export async function POST(request: NextRequest) {
     // Create checkout session with Polar
     const polar = createPolarClient(targetServer);
     
-    // Ensure Polar customer exists with external_id linked to Stack Auth user
-    // This enables querying customer state by Stack Auth user ID
+    // Ensure Polar customer exists with external_id linked to WorkOS Auth user
+    // This enables querying customer state by WorkOS Auth user ID
+    const userName = [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined;
     const customerId = await getOrCreatePolarCustomer(polar, {
       externalId: user.id,
-      email: user.primaryEmail || undefined,
-      name: user.displayName || undefined,
+      email: user.email || undefined,
+      name: userName,
     });
     
     const checkout = await polar.checkouts.create({
@@ -67,9 +68,9 @@ export async function POST(request: NextRequest) {
       // Pass user ID in metadata as backup for webhook processing
       metadata: {
         userId: user.id,
-        userEmail: user.primaryEmail || "",
+        userEmail: user.email || "",
       },
-      customerEmail: user.primaryEmail || undefined,
+      customerEmail: user.email || undefined,
       successUrl: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/?subscription=success`,
       // Allow customer to return to pricing page if they cancel
       // Polar will handle the redirect automatically

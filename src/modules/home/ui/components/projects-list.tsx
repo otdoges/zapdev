@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useUser } from "@stackframe/stack";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -16,12 +16,12 @@ type ProjectWithPreview = Doc<"projects"> & {
 };
 
 export const ProjectsList = () => {
-  const user = useUser();
+  const { user } = useAuth();
   const projects = useQuery(api.projects.list) as ProjectWithPreview[] | undefined;
 
   if (!user) return null;
 
-  const userName = user.displayName?.split(" ")[0] || "";
+  const userName = user.firstName || "";
 
   if (projects === undefined) {
     return (
