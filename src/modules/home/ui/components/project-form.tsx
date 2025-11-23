@@ -13,7 +13,7 @@ import { UploadButton } from "@uploadthing/react";
 import { useAction, useQuery } from "convex/react";
 import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import { api } from "@/lib/convex-api";
-import type { ModelId } from "@/inngest/functions";
+import type { ModelId } from "@/agents/types";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";

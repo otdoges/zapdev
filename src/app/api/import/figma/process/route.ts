@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth-server";
 import { fetchQuery, fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
-import { inngest } from "@/inngest/client";
+import { processFigmaImport } from "@/agents/imports/figma";
+import { captureTelemetry } from "@/lib/telemetry/posthog";
 
 export async function POST(request: Request) {
   const stackUser = await getUser();
@@ -74,22 +75,28 @@ export async function POST(request: Request) {
       },
     });
 
-    await inngest.send({
-      name: "code-agent/process-figma-import",
-      data: {
-        importId: importRecord,
-        projectId,
-        fileKey,
-        accessToken: connection.accessToken,
-      },
+    await captureTelemetry("figma_import_start", {
+      projectId,
+      importId: importRecord,
+      fileKey,
+    });
+
+    await processFigmaImport({
+      importId: importRecord,
+      projectId,
+      fileKey,
+      accessToken: connection.accessToken,
     });
 
     return NextResponse.json({
       success: true,
       importId: importRecord,
-      message: "Figma file import started",
+      message: "Figma file import completed",
     });
   } catch (error) {
+    await captureTelemetry("figma_import_error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     console.error("Error processing Figma import:", error);
     return NextResponse.json(
       { error: "Failed to process Figma import" },

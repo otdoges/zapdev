@@ -261,6 +261,31 @@ export const updateMessage = mutation({
 });
 
 /**
+ * Update message content with system key (server-side jobs)
+ */
+export const updateForSystem = mutation({
+  args: {
+    systemKey: v.string(),
+    messageId: v.id("messages"),
+    content: v.string(),
+    status: v.optional(messageStatusEnum),
+  },
+  handler: async (ctx, args) => {
+    if (args.systemKey !== process.env.INNGEST_SIGNING_KEY) {
+      throw new Error("Unauthorized");
+    }
+
+    await ctx.db.patch(args.messageId, {
+      content: args.content,
+      ...(args.status && { status: args.status }),
+      updatedAt: Date.now(),
+    });
+
+    return args.messageId;
+  },
+});
+
+/**
  * Create or update a fragment for a message
  */
 export const createFragment = mutation({

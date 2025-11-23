@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth-server";
 import { fetchQuery, fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { runCodeAgent } from "@/agents/ai-sdk/code-agent";
+import type { Id } from "@/convex/_generated/dataModel";
+import { captureTelemetry } from "@/lib/telemetry/posthog";
 
 export async function POST(request: Request) {
   const stackUser = await getUser();
@@ -76,16 +79,57 @@ export async function POST(request: Request) {
       },
     });
 
-    // TODO: Trigger Inngest job to process GitHub import
-    // await inngest.send({
-    //   name: "code-agent/process-github-import",
-    //   data: { importId, projectId, repoFullName, repoUrl }
-    // });
+    const repoSummary = [
+      `Repository: ${repoData.full_name}`,
+      `Description: ${repoData.description || "N/A"}`,
+      `Language: ${repoData.language || "Unknown"}`,
+      `Default Branch: ${repoData.default_branch || "main"}`,
+      `Private: ${repoData.private ? "Yes" : "No"}`,
+      `Topics: ${(repoData.topics || []).join(", ") || "None"}`,
+    ].join("\n");
+
+    await captureTelemetry("github_import_start", {
+      projectId,
+      repoFullName,
+      repoId,
+    });
+
+    // Create a message to kick off import context
+    const message = await fetchMutation(api.messages.createWithAttachments, {
+      value: `Analyze this GitHub repository and prepare a plan:\n\n${repoSummary}`,
+      projectId,
+      attachments: [
+        {
+          url: repoUrl || repoData.html_url,
+          size: 0,
+          type: "GITHUB_REPO",
+          sourceMetadata: {
+            repoId,
+            repoFullName,
+            repoUrl: repoUrl || repoData.html_url,
+          },
+        },
+      ],
+    });
+
+    // Optionally trigger code agent with repo context
+    await runCodeAgent({
+      projectId: projectId as Id<"projects">,
+      messageId: message.messageId as Id<"messages">,
+      value: `Generate code based on the GitHub repo ${repoFullName}. Use the repository URL as reference: ${repoUrl || repoData.html_url}`,
+      model: "anthropic/claude-haiku-4.5",
+    });
+
+    await captureTelemetry("github_import_complete", {
+      projectId,
+      repoFullName,
+      messageId: message.messageId,
+    });
 
     return NextResponse.json({
       success: true,
       importId: importRecord,
-      message: "GitHub repository import started",
+      message: "GitHub repository import processed",
     });
   } catch (error) {
     console.error("Error processing GitHub import:", error);

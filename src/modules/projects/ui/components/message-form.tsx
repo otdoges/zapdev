@@ -10,7 +10,7 @@ import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, GitBranchIcon
 import { UploadButton } from "@uploadthing/react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/lib/convex-api";
-import type { ModelId } from "@/inngest/functions";
+import type { ModelId } from "@/agents/types";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";

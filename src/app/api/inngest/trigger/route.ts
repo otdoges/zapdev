@@ -1,24 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
-import { inngest } from "@/inngest/client";
-import { getAgentEventName } from "@/lib/agent-mode";
+import { runCodeAgent } from "@/agents/ai-sdk/code-agent";
+import { generateText } from "ai";
+import { createGateway } from "@ai-sdk/gateway";
+import { fetchMutation } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import {
+  FRAMEWORK_SELECTOR_PROMPT,
+  SPEC_MODE_PROMPT,
+  NEXTJS_PROMPT,
+  ANGULAR_PROMPT,
+  REACT_PROMPT,
+  VUE_PROMPT,
+  SVELTE_PROMPT,
+} from "@/prompt";
+import { captureTelemetry } from "@/lib/telemetry/posthog";
+
+const gateway = createGateway({
+  apiKey: process.env.AI_GATEWAY_API_KEY,
+  baseURL:
+    process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1/ai",
+});
+
+const getFrameworkPrompt = (framework: string) => {
+  switch (framework) {
+    case "nextjs":
+      return NEXTJS_PROMPT;
+    case "angular":
+      return ANGULAR_PROMPT;
+    case "react":
+      return REACT_PROMPT;
+    case "vue":
+      return VUE_PROMPT;
+    case "svelte":
+      return SVELTE_PROMPT;
+    default:
+      return NEXTJS_PROMPT;
+  }
+};
+
+const extractSpecContent = (value: string): string => {
+  const match = /<spec>([\s\S]*?)<\/spec>/i.exec(value);
+  if (match && typeof match[1] === "string") {
+    return match[1].trim();
+  }
+  return value.trim();
+};
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { projectId, value, model, messageId, specMode, isSpecRevision, isFromApprovedSpec } = body;
-
-    console.log("[Inngest Trigger] Received request:", {
+    const {
       projectId,
-      valueLength: value?.length || 0,
+      value,
       model,
+      messageId,
       specMode,
       isSpecRevision,
       isFromApprovedSpec,
+      specContent,
+    } = body;
+
+    console.log("[Agent Trigger] Received request:", {
+      projectId,
+      valueLength: value?.length || 0,
+      model,
       timestamp: new Date().toISOString(),
     });
 
     if (!projectId || !value) {
-      console.error("[Inngest Trigger] Missing required fields:", {
+      console.error("[Agent Trigger] Missing required fields:", {
         hasProjectId: !!projectId,
         hasValue: !!value,
       });
@@ -28,46 +78,94 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine which event to trigger
-    let eventName: string;
-    
-    // If spec mode is enabled and not from an approved spec, trigger spec planning
-    if (specMode && !isFromApprovedSpec) {
-      eventName = "spec-agent/run";
-      console.log("[Inngest Trigger] Triggering spec planning mode");
-    } else {
-      // Normal code generation flow
-      eventName = getAgentEventName();
-    }
+    // Spec planning flow (no code generation yet)
+    const planningRequested = specMode || isSpecRevision;
 
-    console.log("[Inngest Trigger] Sending event:", {
-      eventName,
-      projectId,
-      model: model || "auto",
-    });
-
-    await inngest.send({
-      name: eventName,
-      data: {
-        value,
+    if (planningRequested && !isFromApprovedSpec) {
+      await captureTelemetry("spec_planning_start", {
         projectId,
         messageId,
-        model: model || "auto", // Default to "auto" if not specified
-        isSpecRevision: isSpecRevision || false,
-      },
+        model: model || "auto",
+      });
+
+      await fetchMutation(api.specs.updateSpec, {
+        messageId,
+        specContent: "",
+        status: "PLANNING",
+      });
+
+      const detected = await generateText({
+        model: gateway("google/gemini-2.5-flash-lite"),
+        system: FRAMEWORK_SELECTOR_PROMPT,
+        prompt: value,
+        temperature: 0.3,
+      });
+
+      const framework =
+        (detected.text || "").trim().toLowerCase() || "nextjs";
+
+      const specPrompt = `${SPEC_MODE_PROMPT}\n\n## Framework Context\nYou are creating a specification for a ${framework.toUpperCase()} application.\n\n${getFrameworkPrompt(framework)}\n\nRemember to wrap your complete specification in <spec>...</spec> tags.`;
+
+      const specResult = await generateText({
+        model: gateway("openai/gpt-5.1-codex"),
+        system: specPrompt,
+        prompt: value,
+        temperature: 0.7,
+      });
+
+      const specText = extractSpecContent(specResult.text || "");
+
+      await fetchMutation(api.specs.updateSpec, {
+        messageId,
+        specContent: specText,
+        status: "AWAITING_APPROVAL",
+      });
+
+      await captureTelemetry("spec_planning_complete", {
+        projectId,
+        messageId,
+        model: model || "auto",
+        framework,
+        specLength: specText.length,
+      });
+
+      return NextResponse.json({
+        success: true,
+        specContent: specText,
+        specMode: "AWAITING_APPROVAL",
+      });
+    }
+
+    // Normal code generation (or from approved spec)
+    await runCodeAgent({
+      projectId,
+      messageId,
+      value,
+      model: model || "auto",
+      specContent: specContent || (isFromApprovedSpec ? value : undefined),
     });
 
-    console.log("[Inngest Trigger] Event sent successfully");
+    await captureTelemetry("agent_request_complete", {
+      projectId,
+      messageId,
+      model: model || "auto",
+      specMode: Boolean(specContent || isFromApprovedSpec),
+    });
+
+    console.log("[Agent Trigger] Request processed successfully");
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[Inngest Trigger] Failed to trigger event:", {
+    await captureTelemetry("agent_request_error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    console.error("[Agent Trigger] Failed:", {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString(),
     });
     return NextResponse.json(
       { 
-        error: "Failed to trigger event",
+        error: "Failed to run agent",
         details: error instanceof Error ? error.message : "Unknown error"
       },
       { status: 500 }
