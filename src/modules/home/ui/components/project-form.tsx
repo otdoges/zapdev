@@ -11,6 +11,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, FigmaIcon, GitBranchIcon } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
 import { useAction, useQuery } from "convex/react";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import { api } from "@/lib/convex-api";
 import type { ModelId } from "@/inngest/functions";
 
@@ -42,6 +43,7 @@ interface AttachmentData {
 
 export const ProjectForm = () => {
   const router = useRouter();
+  const { user } = useAuth();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -72,7 +74,16 @@ export const ProjectForm = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsCreating(true);
+
+      // Ensure user is authenticated
+      if (!user?.id) {
+        toast.error("You must be signed in to create a project");
+        router.push("/sign-in");
+        return;
+      }
+
       const result = await createProjectWithMessageAndAttachments({
+        userId: user.id,
         value: values.value,
         attachments: attachments.length > 0 ? attachments : undefined,
       });

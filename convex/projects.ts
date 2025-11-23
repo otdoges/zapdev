@@ -31,25 +31,20 @@ export const create = mutation({
 
 /**
  * Create a project with initial message (for new project flow)
- * This replaces the tRPC create procedure
+ * Now accepts userId explicitly from the client for better reliability in actions
  */
 export const createWithMessage = action({
   args: {
+    userId: v.string(),
     value: v.string(),
   },
   handler: async (ctx, args) => {
-    // Get the authenticated user
-    const identity = await ctx.auth.getUserIdentity();
-    const userId = identity?.subject;
-
-    if (!userId) {
-      console.error("Unauthorized: No user identity found in createWithMessage", {
-        hasIdentity: !!identity,
-        identityKeys: identity ? Object.keys(identity) : [],
-        authContext: ctx.auth ? 'present' : 'missing'
-      });
-      throw new Error("Unauthorized - No valid authentication token");
+    // Validate that userId is provided and non-empty
+    if (!args.userId || args.userId.trim().length === 0) {
+      throw new Error("Unauthorized - No valid user ID provided");
     }
+
+    const userId = args.userId;
 
     // Check and consume credit first
     const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
@@ -96,9 +91,11 @@ export const createWithMessage = action({
 
 /**
  * Create a project with initial message and attachments (for new project flow from home page)
+ * Now accepts userId explicitly from the client for better reliability in actions
  */
 export const createWithMessageAndAttachments = action({
   args: {
+    userId: v.string(),
     value: v.string(),
     attachments: v.optional(
       v.array(
@@ -112,24 +109,12 @@ export const createWithMessageAndAttachments = action({
     ),
   },
   handler: async (ctx, args) => {
-    // Get the authenticated user
-    const identity = await ctx.auth.getUserIdentity();
-    const userId = identity?.subject;
-
-    if (!userId) {
-      console.error("Unauthorized: No user identity found in createWithMessageAndAttachments", {
-        hasIdentity: !!identity,
-        identityKeys: identity ? Object.keys(identity) : [],
-        authContext: ctx.auth ? 'present' : 'missing',
-        envVars: {
-          WORKOS_CLIENT_ID: process.env.WORKOS_CLIENT_ID ? "Set" : "Not Set",
-          NEXT_WORKOS_CLIENT_ID: process.env.NEXT_WORKOS_CLIENT_ID ? "Set" : "Not Set",
-          WORKOS_ISSUER_URL: process.env.WORKOS_ISSUER_URL,
-          NODE_ENV: process.env.NODE_ENV,
-        }
-      });
-      throw new Error("Unauthorized - No valid authentication token");
+    // Validate that userId is provided and non-empty
+    if (!args.userId || args.userId.trim().length === 0) {
+      throw new Error("Unauthorized - No valid user ID provided");
     }
+
+    const userId = args.userId;
 
     // Check and consume credit first
     const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
