@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
+import { mutation, query, action, internalMutation } from "./_generated/server";
 import { requireAuth, getCurrentUserId } from "./helpers";
 import {
   messageRoleEnum,
@@ -250,6 +250,11 @@ export const updateMessage = mutation({
       throw new Error("Unauthorized");
     }
 
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
     await ctx.db.patch(args.messageId, {
       content: args.content,
       ...(args.status && { status: args.status }),
@@ -263,7 +268,7 @@ export const updateMessage = mutation({
 /**
  * Update message content with system key (server-side jobs)
  */
-export const updateForSystem = mutation({
+export const updateForSystem = internalMutation({
   args: {
     systemKey: v.string(),
     messageId: v.id("messages"),

@@ -10,12 +10,26 @@ export async function createSandboxWithRetry(
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    let sandbox: Sandbox | null = null;
     try {
-      const sandbox = await Sandbox.create(template, {
+      sandbox = await Sandbox.create(template, {
         apiKey: process.env.E2B_API_KEY,
         timeoutMs: SANDBOX_TIMEOUT,
       });
-      await sandbox.setTimeout(SANDBOX_TIMEOUT);
+
+      // Wrap setTimeout in separate try/catch to ensure cleanup on failure
+      try {
+        await sandbox.setTimeout(SANDBOX_TIMEOUT);
+      } catch (setTimeoutError) {
+        // Clean up sandbox if setTimeout fails
+        try {
+          await sandbox.close();
+        } catch (closeError) {
+          console.error("[E2B] Failed to close sandbox during setTimeout error:", closeError);
+        }
+        throw setTimeoutError;
+      }
+
       return sandbox;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));

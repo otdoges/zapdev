@@ -21,9 +21,9 @@ export async function POST(request: Request) {
       { fragmentId: fragmentId as Id<"fragments"> },
     );
 
-    if (!fragmentData?.fragment?.sandboxId) {
+    if (!fragmentData?.fragment?.sandboxId || !fragmentData?.project?.userId) {
       return NextResponse.json(
-        { error: "Fragment has no sandbox" },
+        { error: "Fragment has no sandbox or invalid project data" },
         { status: 400 },
       );
     }

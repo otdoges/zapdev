@@ -59,7 +59,7 @@
     "@vercel/speed-insights": "^1.2.0",
     "@workos-inc/authkit-nextjs": "^2.11.1",
     "@workos-inc/node": "^7.74.1",
-    "ai": "^5.0.100",
+    "ai": "6.0.0-beta.109",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "claude": "^0.1.2",

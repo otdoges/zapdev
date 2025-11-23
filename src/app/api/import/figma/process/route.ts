@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       importId: importRecord,
-      message: "Figma file import completed",
+      message: "Figma file import started",
     });
   } catch (error) {
     await captureTelemetry("figma_import_error", {

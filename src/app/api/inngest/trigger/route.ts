@@ -15,6 +15,10 @@ import {
 } from "@/prompt";
 import { captureTelemetry } from "@/lib/telemetry/posthog";
 
+if (!process.env.AI_GATEWAY_API_KEY) {
+  throw new Error("AI_GATEWAY_API_KEY environment variable is required");
+}
+
 const gateway = createGateway({
   apiKey: process.env.AI_GATEWAY_API_KEY,
   baseURL:

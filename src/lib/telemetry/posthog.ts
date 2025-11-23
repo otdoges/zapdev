@@ -24,10 +24,10 @@ function getClient(): PostHog | null {
   return client;
 }
 
-export async function captureTelemetry(
+export function captureTelemetry(
   event: string,
   properties: TelemetryProps = {},
-): Promise<void> {
+): void {
   const ph = getClient();
   if (!ph) return;
 
@@ -37,7 +37,9 @@ export async function captureTelemetry(
       (properties.projectId as string | undefined) ||
       "anonymous";
 
-    await ph.capture({
+    // Fire-and-forget: PostHog queues events asynchronously
+    // For serverless/short-lived processes, call flushTelemetry() at shutdown
+    ph.capture({
       distinctId,
       event,
       properties,
@@ -53,6 +55,7 @@ export async function flushTelemetry(): Promise<void> {
 
   try {
     await ph.shutdownAsync();
+    client = null;
   } catch (error) {
     console.error("[Telemetry] Failed to flush", error);
   }

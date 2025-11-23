@@ -248,6 +248,9 @@ export async function runCodeAgent(request: CodeAgentRequest) {
   if (!process.env.AI_GATEWAY_API_KEY) {
     throw new Error("AI_GATEWAY_API_KEY is required to run the AI SDK agent");
   }
+  if (!process.env.INNGEST_SIGNING_KEY) {
+    throw new Error("INNGEST_SIGNING_KEY is required to run the AI SDK agent");
+  }
 
   const project = await convex.query(api.projects.getForSystem, {
     projectId: request.projectId,
@@ -269,6 +272,8 @@ export async function runCodeAgent(request: CodeAgentRequest) {
     messageId: request.messageId,
     requestedModel: request.model || "auto",
   };
+
+  let validation: ValidationResult | undefined = undefined;
 
   try {
     if (!project.framework && !request.frameworkOverride) {
@@ -482,9 +487,9 @@ export async function runCodeAgent(request: CodeAgentRequest) {
       ...telemetryBase,
       framework: selectedFramework,
       validationHasErrors:
-        Boolean(validation.lintErrors) || Boolean(validation.buildErrors),
-      lintErrorLength: validation.lintErrors?.length || 0,
-      buildErrorLength: validation.buildErrors?.length || 0,
+        Boolean(validation?.lintErrors) || Boolean(validation?.buildErrors),
+      lintErrorLength: validation?.lintErrors?.length || 0,
+      buildErrorLength: validation?.buildErrors?.length || 0,
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;

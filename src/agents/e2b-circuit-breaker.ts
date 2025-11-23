@@ -10,6 +10,7 @@ export class CircuitBreaker {
   private failures = 0;
   private lastFailureTime = 0;
   private state: CircuitBreakerState = "CLOSED";
+  private testingRequestInFlight = false;
   private readonly threshold: number;
   private readonly timeout: number;
   private readonly name: string;
@@ -23,6 +24,12 @@ export class CircuitBreaker {
   async execute<T>(fn: () => Promise<T>): Promise<T> {
     if (this.state === "OPEN") {
       if (Date.now() - this.lastFailureTime > this.timeout) {
+        if (this.testingRequestInFlight) {
+          throw new Error(
+            `Circuit breaker HALF_OPEN test already in progress for ${this.name}.`,
+          );
+        }
+        this.testingRequestInFlight = true;
         this.state = "HALF_OPEN";
         console.log(`[${this.name}] HALF_OPEN - testing service recovery`);
       } else {
@@ -33,6 +40,13 @@ export class CircuitBreaker {
           )}s.`,
         );
       }
+    } else if (this.state === "HALF_OPEN") {
+      if (this.testingRequestInFlight) {
+        throw new Error(
+          `Circuit breaker HALF_OPEN test already in progress for ${this.name}.`,
+        );
+      }
+      this.testingRequestInFlight = true;
     }
 
     try {
@@ -46,6 +60,10 @@ export class CircuitBreaker {
   }
 
   private onSuccess() {
+    if (this.testingRequestInFlight) {
+      this.testingRequestInFlight = false;
+    }
+
     if (this.state === "HALF_OPEN") {
       this.reset();
     } else if (this.failures > 0) {
@@ -54,6 +72,9 @@ export class CircuitBreaker {
   }
 
   private onFailure() {
+    if (this.testingRequestInFlight) {
+      this.testingRequestInFlight = false;
+    }
     this.failures += 1;
     this.lastFailureTime = Date.now();
 
@@ -70,6 +91,7 @@ export class CircuitBreaker {
   private reset() {
     this.failures = 0;
     this.state = "CLOSED";
+    this.testingRequestInFlight = false;
   }
 
   getState(): CircuitBreakerState {

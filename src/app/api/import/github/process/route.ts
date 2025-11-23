@@ -112,13 +112,13 @@ export async function POST(request: Request) {
       ],
     });
 
-    // Optionally trigger code agent with repo context
-    await runCodeAgent({
+    // Trigger code agent with repo context (non-blocking)
+    runCodeAgent({
       projectId: projectId as Id<"projects">,
       messageId: message.messageId as Id<"messages">,
       value: `Generate code based on the GitHub repo ${repoFullName}. Use the repository URL as reference: ${repoUrl || repoData.html_url}`,
       model: "anthropic/claude-haiku-4.5",
-    });
+    }).catch(error => console.error("Code agent error:", error));
 
     await captureTelemetry("github_import_complete", {
       projectId,

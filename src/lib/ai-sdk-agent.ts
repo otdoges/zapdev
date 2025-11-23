@@ -61,85 +61,138 @@ export async function runAiSdkAgent(
     apiKey: process.env.E2B_API_KEY,
   });
 
-  await sandbox.setTimeout(SANDBOX_TIMEOUT);
+  try {
+    await sandbox.setTimeout(SANDBOX_TIMEOUT);
 
-  const trackedFiles: Record<string, string> = {};
+    const trackedFiles: Record<string, string> = {};
 
-  const tools = {
-    terminal: tool({
-      description: "Run shell commands in the E2B sandbox",
-      parameters: z.object({ command: z.string() }),
-      execute: async ({ command }) => {
-        const result = await sandbox.commands.run(command, {
-          timeoutMs: 120_000,
-        });
+    const tools = {
+      terminal: tool({
+        description: "Run shell commands in the E2B sandbox",
+        parameters: z.object({ command: z.string() }),
+        execute: async ({ command }) => {
+          const result = await sandbox.commands.run(command, {
+            timeoutMs: 120_000,
+          });
 
-        return {
-          exitCode: result.exitCode,
-          stdout: result.stdout,
-          stderr: result.stderr,
-        };
-      },
-    }),
-    createOrUpdateFiles: tool({
-      description: "Create or update files in the sandbox",
-      parameters: z.object({
-        files: z.array(
-          z.object({
-            path: z.string(),
-            content: z.string(),
-          }),
-        ),
+          return {
+            exitCode: result.exitCode,
+            stdout: result.stdout,
+            stderr: result.stderr,
+          };
+        },
       }),
-      execute: async ({ files }) => {
-        for (const file of files) {
-          await sandbox.files.write(file.path, file.content);
-          trackedFiles[file.path] = file.content;
-        }
+      createOrUpdateFiles: tool({
+        description: "Create or update files in the sandbox",
+        parameters: z.object({
+          files: z.array(
+            z.object({
+              path: z.string(),
+              content: z.string(),
+            }),
+          ),
+        }),
+        execute: async ({ files }) => {
+          // Perform all file writes in parallel
+          const results = await Promise.allSettled(
+            files.map(async (file) => {
+              await sandbox.files.write(file.path, file.content);
+              return { path: file.path, status: "success" as const };
+            }),
+          );
 
-        return `Updated ${files.length} file(s)`;
-      },
-    }),
-    readFiles: tool({
-      description: "Read files from the sandbox",
-      parameters: z.object({
-        files: z.array(z.string()),
+          // Separate successful and failed writes
+          const successful: Array<{ path: string }> = [];
+          const failed: Array<{ path: string; error: string }> = [];
+
+          results.forEach((result, index) => {
+            const filePath = files[index].path;
+            const fileContent = files[index].content;
+
+            if (result.status === "fulfilled") {
+              successful.push({ path: filePath });
+              // Only update trackedFiles for successful writes
+              trackedFiles[filePath] = fileContent;
+            } else {
+              const errorMessage =
+                result.reason instanceof Error ? result.reason.message : String(result.reason);
+              failed.push({ path: filePath, error: errorMessage });
+            }
+          });
+
+          // Build summary
+          const summary = {
+            total: files.length,
+            succeeded: successful.length,
+            failed: failed.length,
+            successful: successful.map((s) => s.path),
+            failures: failed,
+          };
+
+          // Throw error with detailed per-file failures if any writes failed
+          if (failed.length > 0) {
+            const errorDetails = failed
+              .map((f) => `  • ${f.path}: ${f.error}`)
+              .join("\n");
+            const errorMessage =
+              `Failed to write ${failed.length}/${files.length} file(s):\n${errorDetails}`;
+            const error = new Error(errorMessage);
+            (error as any).summary = summary;
+            throw error;
+          }
+
+          // Return success message with summary
+          const message =
+            successful.length === 1
+              ? `Updated 1 file: ${successful[0].path}`
+              : `Updated ${successful.length} file(s): ${successful.map((s) => s.path).join(", ")}`;
+
+          return message;
+        },
       }),
-      execute: async ({ files }) => {
-        const contents = await Promise.all(
-          files.map(async (path) => ({
-            path,
-            content: await sandbox.files.read(path),
-          })),
-        );
+      readFiles: tool({
+        description: "Read files from the sandbox",
+        parameters: z.object({
+          files: z.array(z.string()),
+        }),
+        execute: async ({ files }) => {
+          const contents = await Promise.all(
+            files.map(async (path) => ({
+              path,
+              content: await sandbox.files.read(path),
+            })),
+          );
 
-        return contents;
-      },
-    }),
-  };
+          return contents;
+        },
+      }),
+    };
 
-  const result = await streamText({
-    model: gateway(options.model),
-    system: options.systemPrompt,
-    messages: options.messages,
-    tools,
-    maxSteps: options.maxSteps ?? 10,
-    onStepFinish: options.onStepFinish,
-    onChunk: options.onChunk,
-  });
+    const result = await streamText({
+      model: gateway(options.model),
+      system: options.systemPrompt,
+      messages: options.messages,
+      tools,
+      maxSteps: options.maxSteps ?? 10,
+      onStepFinish: options.onStepFinish,
+      onChunk: options.onChunk,
+    });
 
-  const [text, usage, finishReason, toolResults] = await Promise.all([
-    result.text,
-    result.totalUsage,
-    result.finishReason,
-    result.toolResults,
-  ]);
+    const [text, usage, finishReason, toolResults] = await Promise.all([
+      result.text,
+      result.totalUsage,
+      result.finishReason,
+      result.toolResults,
+    ]);
 
-  return {
-    text,
-    files: trackedFiles,
-    finishReason,
-    usage,
-    toolResults,
-  };
+    return {
+      text,
+      files: trackedFiles,
+      finishReason,
+      usage,
+      toolResults,
+    };
+  } finally {
+    await sandbox.close();
+  }
 }
