@@ -7,6 +7,8 @@ export interface AgentState {
   files: Record<string, string>;
   selectedFramework?: Framework;
   summaryRetryCount: number;
+  thoughtSignatures?: Record<string, unknown>;
+  geminiErrorDetected?: boolean;
 }
 
 export interface ClientState {

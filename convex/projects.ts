@@ -4,6 +4,7 @@ import { requireAuth, getCurrentUserClerkId, getCurrentUserId } from "./helpers"
 import { frameworkEnum } from "./schema";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { generateSlug } from "random-word-slugs";
 
 /**
  * Create a new project
@@ -55,10 +56,14 @@ export const createWithMessage = action({
     // Consume the credit
     await ctx.runMutation(api.usage.checkAndConsumeCreditForUser, { userId });
 
-    // Generate a random project name (mimicking generateSlug from random-word-slugs)
-    const adjectives = ["happy", "sunny", "clever", "bright", "swift", "bold", "calm", "eager"];
-    const nouns = ["project", "app", "site", "tool", "platform", "system", "portal", "hub"];
-    const randomName = `${adjectives[Math.floor(Math.random() * adjectives.length)]}-${nouns[Math.floor(Math.random() * nouns.length)]}`;
+    // Generate a unique random project name
+    const randomName = generateSlug(3, { 
+      format: "kebab",
+      categories: {
+        adjective: ["appearance", "personality", "color"],
+        noun: ["technology", "business"]
+      }
+    });
 
     // Create the project (we'll default to nextjs, framework detection can be added later)
     const projectId = await ctx.runMutation(api.projects.createForUser, {
@@ -97,6 +102,7 @@ export const createWithMessageAndAttachments = action({
   args: {
     userId: v.string(),
     value: v.string(),
+    selectedModel: v.optional(v.string()),
     attachments: v.optional(
       v.array(
         v.object({
@@ -116,19 +122,28 @@ export const createWithMessageAndAttachments = action({
 
     const userId = args.userId;
 
-    // Check and consume credit first
-    const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
-    if (creditResult.creditsRemaining <= 0) {
-      throw new Error("You have run out of credits");
+    // Skip credit charging for grok-4.1-fast-reasoning model
+    const isFreeModel = args.selectedModel === "xai/grok-4.1-fast-reasoning";
+    
+    if (!isFreeModel) {
+      // Check and consume credit first
+      const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
+      if (creditResult.creditsRemaining <= 0) {
+        throw new Error("You have run out of credits");
+      }
+
+      // Consume the credit
+      await ctx.runMutation(api.usage.checkAndConsumeCreditForUser, { userId });
     }
 
-    // Consume the credit
-    await ctx.runMutation(api.usage.checkAndConsumeCreditForUser, { userId });
-
-    // Generate a random project name (mimicking generateSlug from random-word-slugs)
-    const adjectives = ["happy", "sunny", "clever", "bright", "swift", "bold", "calm", "eager"];
-    const nouns = ["project", "app", "site", "tool", "platform", "system", "portal", "hub"];
-    const randomName = `${adjectives[Math.floor(Math.random() * adjectives.length)]}-${nouns[Math.floor(Math.random() * nouns.length)]}`;
+    // Generate a unique random project name
+    const randomName = generateSlug(3, { 
+      format: "kebab",
+      categories: {
+        adjective: ["appearance", "personality", "color"],
+        noun: ["technology", "business"]
+      }
+    });
 
     // Create the project (we'll default to nextjs, framework detection can be added later)
     const projectId = await ctx.runMutation(api.projects.createForUser, {
@@ -291,6 +306,12 @@ export const get = query({
   },
   handler: async (ctx, args) => {
     const userId = await getCurrentUserId(ctx);
+
+    // If no userId, user is not authenticated yet (loading state)
+    // Return undefined so React components show loading state
+    if (!userId) {
+      return undefined;
+    }
 
     const project = await ctx.db.get(args.projectId);
     if (!project) {

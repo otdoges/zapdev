@@ -111,8 +111,8 @@ export const MODEL_CONFIGS = {
     description: "Specialized for coding tasks",
     temperature: 0.7,
   },
-  "xai/grok-4-fast-reasoning": {
-    name: "Grok 4 Fast",
+  "xai/grok-4.1-fast-reasoning": {
+    name: "Grok 4.1 Fast Reasoning",
     provider: "xai",
     description: "Good at nothing",
     temperature: 0.7,
@@ -120,6 +120,57 @@ export const MODEL_CONFIGS = {
 } as const;
 
 export type ModelId = keyof typeof MODEL_CONFIGS | "auto";
+
+function isGeminiModel(modelId: string): boolean {
+  return modelId.includes("google/gemini") || modelId.includes("gemini");
+}
+
+function extractThoughtSignatures(result: unknown): Record<string, unknown> | undefined {
+  try {
+    if (!result || typeof result !== "object") {
+      return undefined;
+    }
+
+    const resultObj = result as Record<string, unknown>;
+    
+    if (resultObj.output && Array.isArray(resultObj.output)) {
+      const signatures: Record<string, unknown> = {};
+      
+      resultObj.output.forEach((message: unknown, index: number) => {
+        if (message && typeof message === "object") {
+          const msgObj = message as Record<string, unknown>;
+          
+          if (msgObj.toolCalls && Array.isArray(msgObj.toolCalls)) {
+            msgObj.toolCalls.forEach((toolCall: unknown, toolIndex: number) => {
+              if (toolCall && typeof toolCall === "object") {
+                const tc = toolCall as Record<string, unknown>;
+                if (tc.thoughtSignature) {
+                  signatures[`${index}_${toolIndex}`] = tc.thoughtSignature;
+                  console.log(`[GEMINI] Extracted thought_signature from message ${index}, tool call ${toolIndex}`);
+                }
+              }
+            });
+          }
+        }
+      });
+      
+      return Object.keys(signatures).length > 0 ? signatures : undefined;
+    }
+  } catch (error) {
+    console.error("[GEMINI] Error extracting thought_signatures:", error);
+  }
+  
+  return undefined;
+}
+
+function detectGeminiThoughtSignatureError(error: unknown): boolean {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  return (
+    errorMessage.includes("thought_signature") ||
+    errorMessage.includes("thoughtSignature") ||
+    (errorMessage.includes("function call") && errorMessage.includes("missing"))
+  );
+}
 
 // Auto-selection logic to choose the best model based on task complexity
 export function selectModelForTask(
@@ -1317,6 +1368,22 @@ Generate code that matches the approved specification.`;
             }
           }
 
+          if (isGeminiModel(selectedModel)) {
+            console.log("[GEMINI] Response received from Gemini model, checking for thought_signature");
+            const signatures = extractThoughtSignatures(result);
+            if (signatures && network) {
+              console.log("[GEMINI] Found thought_signatures, storing in state:", Object.keys(signatures).length);
+              network.state.data.thoughtSignatures = {
+                ...(network.state.data.thoughtSignatures || {}),
+                ...signatures,
+              };
+            } else {
+              console.log("[GEMINI] No thought_signatures found in response");
+            }
+            
+            console.log("[GEMINI] Note: The Agent Kit's openai() wrapper may not fully support Gemini's thought_signature requirement for function calling. If errors occur, consider using a different model.");
+          }
+
           return result;
         },
       },
@@ -1362,7 +1429,33 @@ Generate code that matches the approved specification.`;
     });
 
     console.log("[DEBUG] Running network with input:", event.data.value);
-    let result = await network.run(event.data.value, { state });
+    
+    let result;
+    try {
+      result = await network.run(event.data.value, { state });
+    } catch (error) {
+      if (isGeminiModel(selectedModel) && detectGeminiThoughtSignatureError(error)) {
+        console.error("[GEMINI] Detected thought_signature error with Gemini model:", error);
+        console.warn("[GEMINI] The Agent Kit's openai() wrapper does not fully support Gemini's thought_signature requirement for function calling.");
+        console.warn("[GEMINI] This is a known limitation. The error has been logged.");
+        
+        const errorDetails = {
+          model: selectedModel,
+          framework: selectedFramework,
+          error: error instanceof Error ? error.message : String(error),
+          projectId: event.data.projectId,
+          userId: project.userId,
+        };
+        
+        console.error("[GEMINI_ERROR]", JSON.stringify(errorDetails, null, 2));
+        
+        throw new Error(
+          `Gemini model encountered a thought_signature error when using function calling. This is a known limitation with the current Agent Kit implementation. Error: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+      
+      throw error;
+    }
 
     // Post-network fallback: If no summary but files exist, make one more explicit request
     let summaryText = extractSummaryText(result.state.data.summary ?? "");
@@ -2289,6 +2382,23 @@ export const errorFixFunction = inngest.createFunction(
               network.state.data.summaryRetryCount = 0;
             }
           }
+
+          if (isGeminiModel(fragmentModel)) {
+            console.log("[GEMINI] Response received from Gemini model in error-fix, checking for thought_signature");
+            const signatures = extractThoughtSignatures(result);
+            if (signatures && network) {
+              console.log("[GEMINI] Found thought_signatures, storing in state:", Object.keys(signatures).length);
+              network.state.data.thoughtSignatures = {
+                ...(network.state.data.thoughtSignatures || {}),
+                ...signatures,
+              };
+            } else {
+              console.log("[GEMINI] No thought_signatures found in response");
+            }
+            
+            console.log("[GEMINI] Note: The Agent Kit's openai() wrapper may not fully support Gemini's thought_signature requirement for function calling. If errors occur, consider using a different model.");
+          }
+
           return result;
         },
       },
@@ -2354,7 +2464,32 @@ REQUIRED ACTIONS:
 DO NOT proceed until all errors are completely resolved. Focus on fixing the root cause, not just masking symptoms.`;
 
     try {
-      let result = await network.run(fixPrompt, { state });
+      let result;
+      try {
+        result = await network.run(fixPrompt, { state });
+      } catch (error) {
+        if (isGeminiModel(fragmentModel) && detectGeminiThoughtSignatureError(error)) {
+          console.error("[GEMINI] Detected thought_signature error with Gemini model in error-fix:", error);
+          console.warn("[GEMINI] The Agent Kit's openai() wrapper does not fully support Gemini's thought_signature requirement for function calling.");
+          console.warn("[GEMINI] This is a known limitation. The error has been logged.");
+          
+          const errorDetails = {
+            model: fragmentModel,
+            framework: fragmentFramework,
+            error: error instanceof Error ? error.message : String(error),
+            fragmentId: event.data.fragmentId,
+            messageId: fragment.messageId,
+          };
+          
+          console.error("[GEMINI_ERROR]", JSON.stringify(errorDetails, null, 2));
+          
+          throw new Error(
+            `Gemini model encountered a thought_signature error when using function calling. This is a known limitation with the current Agent Kit implementation. Error: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+        
+        throw error;
+      }
 
       // Post-network fallback: If no summary but files were modified, make one more explicit request
       let summaryText = extractSummaryText(result.state.data.summary ?? "");

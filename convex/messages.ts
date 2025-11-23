@@ -76,14 +76,19 @@ export const createWithAttachments = action({
     // Validate project ID format (Convex ID)
     const projectId = args.projectId as Id<"projects">;
 
-    // Check and consume credit first
-    const creditResult = await ctx.runQuery(api.usage.getUsage);
-    if (creditResult.creditsRemaining <= 0) {
-      throw new Error("You have run out of credits");
-    }
+    // Skip credit charging for grok-4.1-fast-reasoning model
+    const isFreeModel = args.selectedModel === "xai/grok-4.1-fast-reasoning";
+    
+    if (!isFreeModel) {
+      // Check and consume credit first
+      const creditResult = await ctx.runQuery(api.usage.getUsage);
+      if (creditResult.creditsRemaining <= 0) {
+        throw new Error("You have run out of credits");
+      }
 
-    // Consume the credit
-    await ctx.runMutation(api.usage.checkAndConsumeCredit);
+      // Consume the credit
+      await ctx.runMutation(api.usage.checkAndConsumeCredit);
+    }
 
     // Create the message
     const messageId = await ctx.runMutation(api.messages.create, {

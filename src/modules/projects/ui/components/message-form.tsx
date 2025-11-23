@@ -65,7 +65,7 @@ export const MessageForm = ({ projectId }: Props) => {
     { id: "openai/gpt-5.1-codex" as ModelId, name: "GPT-5.1 Codex", image: "/openai.svg", description: "OpenAI's flagship model for complex tasks" },
     { id: "moonshotai/kimi-k2-thinking" as ModelId, name: "Kimi K2 Thinking", image: "/kimi.svg", description: "Fast and efficient for speed-critical tasks" },
     { id: "google/gemini-3-pro-preview" as ModelId, name: "Gemini 3 Pro", image: "/gemini.svg", description: "Specialized for coding tasks", isProOnly: true },
-    { id: "xai/grok-4-fast-reasoning" as ModelId, name: "Grok 4 Fast", image: "/grok.svg", description: "Experimental model from xAI" },
+    { id: "xai/grok-4.1-fast-reasoning" as ModelId, name: "Grok 4.1 Fast Reasoning", image: "/grok.svg", description: "Experimental model from xAI" },
   ];
 
   const form = useForm<z.infer<typeof formSchema>>({
