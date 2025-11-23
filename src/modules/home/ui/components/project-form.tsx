@@ -43,7 +43,7 @@ interface AttachmentData {
 
 export const ProjectForm = () => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -75,13 +75,21 @@ export const ProjectForm = () => {
     try {
       setIsCreating(true);
 
-      // Ensure user is authenticated
-      if (!user?.id) {
+      // Wait for auth to load if it's still loading
+      if (authLoading) {
+        toast.error("Authentication is loading, please wait...");
+        return;
+      }
+
+      // Ensure user is authenticated and has an ID
+      if (!user || !user.id) {
         toast.error("You must be signed in to create a project");
         router.push("/sign-in");
         return;
       }
 
+      console.log("Creating project with user ID:", user.id);
+      
       const result = await createProjectWithMessageAndAttachments({
         userId: user.id,
         value: values.value,
@@ -155,7 +163,7 @@ export const ProjectForm = () => {
 
   const [isFocused, setIsFocused] = useState(false);
   const isPending = isCreating;
-  const isButtonDisabled = isPending || !form.formState.isValid || isUploading;
+  const isButtonDisabled = isPending || !form.formState.isValid || isUploading || authLoading || !user;
 
   return (
     <Form {...form}>
