@@ -66,7 +66,6 @@ export async function runAiSdkAgent(
   const gateway = createGatewayClient();
   const sandbox = await Sandbox.connect(options.sandboxId, {
     apiKey: process.env.E2B_API_KEY,
-    timeoutMs: options.timeoutMs ?? 30000,
   });
 
   try {
