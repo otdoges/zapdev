@@ -2,16 +2,16 @@
  * Secure OAuth state token generation and validation
  * Uses HMAC-SHA256 to prevent tampering
  *
- * SECURITY: Uses existing INNGEST_SIGNING_KEY environment variable
+ * SECURITY: Uses existing SYSTEM_API_KEY environment variable
  */
 
 import { createHmac, randomBytes } from "crypto";
 
-const STATE_SECRET = process.env.INNGEST_SIGNING_KEY;
+const STATE_SECRET = process.env.SYSTEM_API_KEY;
 const STATE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 if (!STATE_SECRET) {
-  throw new Error("INNGEST_SIGNING_KEY environment variable is required for OAuth security");
+  throw new Error("SYSTEM_API_KEY environment variable is required for OAuth security");
 }
 // Safe, non-null secret for downstream helpers
 const STATE_SECRET_KEY: string = STATE_SECRET;

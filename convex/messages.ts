@@ -268,7 +268,7 @@ export const updateMessage = mutation({
 /**
  * Update message content with system key (server-side jobs)
  */
-export const updateForSystem = internalMutation({
+export const updateForSystem = mutation({
   args: {
     systemKey: v.string(),
     messageId: v.id("messages"),
@@ -276,7 +276,7 @@ export const updateForSystem = internalMutation({
     status: v.optional(messageStatusEnum),
   },
   handler: async (ctx, args) => {
-    if (args.systemKey !== process.env.INNGEST_SIGNING_KEY) {
+    if (args.systemKey !== process.env.SYSTEM_API_KEY) {
       throw new Error("Unauthorized");
     }
 

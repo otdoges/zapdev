@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       provider: "polar",
       eventId: eventId,
       eventType: event.type,
-      systemKey: process.env.INNGEST_SIGNING_KEY!,
+      systemKey: process.env.SYSTEM_API_KEY!,
     });
 
     if (!isNewEvent) {
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
           // Grant Pro credits (100/day)
           await convex.mutation(api.usage.resetUsageSystem, {
             userId,
-            systemKey: process.env.INNGEST_SIGNING_KEY!,
+            systemKey: process.env.SYSTEM_API_KEY!,
           });
         }
 
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
         if (userId) {
           await convex.mutation(api.usage.resetUsageSystem, {
             userId,
-            systemKey: process.env.INNGEST_SIGNING_KEY!,
+            systemKey: process.env.SYSTEM_API_KEY!,
           });
         }
 
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
         // Reset usage credits based on new subscription state
         await convex.mutation(api.usage.resetUsageSystem, {
           userId: externalId,
-          systemKey: process.env.INNGEST_SIGNING_KEY!,
+          systemKey: process.env.SYSTEM_API_KEY!,
         });
         
         console.log(`Customer state updated for user ${externalId}: ${activeSubscriptions.length} active subscriptions, ${grantedBenefits.length} benefits`);

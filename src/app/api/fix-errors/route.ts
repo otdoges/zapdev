@@ -19,8 +19,8 @@ const runValidation = async (sandboxId: string) => {
     buffers.stderr = "";
     const result = await sandbox.commands.run(cmd, {
       timeoutMs,
-      onStdout: (d) => (buffers.stdout += d),
-      onStderr: (d) => (buffers.stderr += d),
+      onStdout: (d) => { buffers.stdout += d; },
+      onStderr: (d) => { buffers.stderr += d; },
     });
     const output = `${buffers.stdout}${buffers.stderr}`;
     return result.exitCode === 0 ? null : output;
@@ -62,15 +62,15 @@ export async function POST(request: Request) {
       { fragmentId: body.fragmentId as Id<"fragments"> },
     );
 
-    if (!fragmentData?.fragment?.sandboxId) {
+    const fragment = fragmentData.fragment;
+    const message = fragmentData.message;
+
+    if (!fragment?.sandboxId) {
       return NextResponse.json(
         { error: "Fragment has no active sandbox" },
         { status: 400 },
       );
     }
-
-    const fragment = fragmentData.fragment;
-    const message = fragmentData.message;
     const framework =
       (fragment.framework?.toLowerCase() as any) || "nextjs";
 

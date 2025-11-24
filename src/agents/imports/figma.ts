@@ -38,17 +38,40 @@ export async function processFigmaImport(params: FigmaImportParams) {
   try {
     await convex.mutation(api.imports.markProcessing, { importId });
 
-    const fileResponse = await fetch(`https://api.figma.com/v1/files/${fileKey}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!fileResponse.ok) {
-      await convex.mutation(api.imports.markFailed, {
-        importId,
-        error: `Failed to fetch Figma file: ${fileResponse.statusText}`,
+    // Wrap fetch in AbortController with 15s timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    let figmaData;
+    try {
+      const fileResponse = await fetch(`https://api.figma.com/v1/files/${fileKey}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: controller.signal,
       });
-      throw new Error(`Failed to fetch Figma file: ${fileResponse.statusText}`);
+      clearTimeout(timeoutId);
+
+      if (!fileResponse.ok) {
+        await convex.mutation(api.imports.markFailed, {
+          importId,
+          error: `Failed to fetch Figma file: ${fileResponse.statusText}`,
+        });
+        throw new Error(`Failed to fetch Figma file: ${fileResponse.statusText}`);
+      }
+      figmaData = await fileResponse.json();
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+
+      // Handle timeout explicitly
+      if (fetchError instanceof DOMException && fetchError.name === 'AbortError') {
+        await convex.mutation(api.imports.markFailed, {
+          importId,
+          error: 'Figma fetch timed out after 15 seconds',
+        });
+        throw new Error('Figma fetch timed out after 15 seconds');
+      }
+
+      throw fetchError;
     }
-    const figmaData = await fileResponse.json();
 
     const designSystem = extractDesignSystem(figmaData);
     const aiPrompt = generateFigmaCodePrompt(figmaData, designSystem);
@@ -90,10 +113,13 @@ export async function processFigmaImport(params: FigmaImportParams) {
 
     return { messageId: message.messageId, designSystem };
   } catch (error) {
-    await convex.mutation(api.imports.markFailed, {
-      importId,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    // Skip marking failed if it's a timeout error (already handled in fetch handler)
+    if (!(error instanceof Error && error.message === 'Figma fetch timed out after 15 seconds')) {
+      await convex.mutation(api.imports.markFailed, {
+        importId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
     throw error;
   }
 }

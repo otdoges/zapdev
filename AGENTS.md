@@ -125,13 +125,12 @@ Required for development:
 - `E2B_API_KEY`: E2B sandbox API key
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk auth
 - `CLERK_SECRET_KEY`: Clerk secret
-- `INNGEST_EVENT_KEY`: Inngest event key
-- `INNGEST_SIGNING_KEY`: Inngest signing key
+- `SYSTEM_API_KEY`: System-level API key for backend service authentication
 
 ### E2B Templates
 Before running AI code generation:
 1. Build E2B templates with Docker
-2. Update template name in `src/inngest/functions.ts` (line ~22)
+2. Update template name in `src/agents/ai-sdk/code-agent.ts` if needed
 3. Templates available: nextjs, angular, react, vue, svelte
 
 ### Convex Development

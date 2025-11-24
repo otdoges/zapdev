@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth-server";
-import { fetchQuery, fetchMutation } from "convex/nextjs";
+import { fetchQuery, fetchMutation, fetchAction } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { runCodeAgent } from "@/agents/ai-sdk/code-agent";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     });
 
     // Create a message to kick off import context
-    const message = await fetchMutation(api.messages.createWithAttachments, {
+    const message = await fetchAction(api.messages.createWithAttachments, {
       value: `Analyze this GitHub repository and prepare a plan:\n\n${repoSummary}`,
       projectId,
       attachments: [

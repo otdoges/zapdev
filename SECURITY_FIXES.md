@@ -40,7 +40,7 @@ This document details critical security fixes implemented to address data leaks,
 // Only webhooks/background jobs can call this
 await convex.mutation(api.usage.resetUsageSystem, {
   userId: "...",
-  systemKey: process.env.INNGEST_SIGNING_KEY
+  systemKey: process.env.SYSTEM_API_KEY
 });
 ```
 
@@ -57,7 +57,7 @@ await convex.mutation(api.usage.resetUsageSystem, {
 
 **Fix**:
 - Added `systemKey` parameter to `getForSystem` query
-- Validates `INNGEST_SIGNING_KEY` before allowing access
+- Validates `SYSTEM_API_KEY` before allowing access
 - Updated all Inngest function calls to include system key (4 locations in `src/inngest/functions.ts`)
 
 **Files Changed**:
@@ -75,7 +75,7 @@ await convex.query(api.projects.getForSystem, {
 // With valid system key - SUCCEEDS
 await convex.query(api.projects.getForSystem, {
   projectId: "...",
-  systemKey: process.env.INNGEST_SIGNING_KEY
+  systemKey: process.env.SYSTEM_API_KEY
 });
 ```
 
@@ -172,7 +172,7 @@ const showcase = await ctx.runQuery(api.projects.listShowcase, {});
 - HMAC-SHA256 signature prevents tampering
 - Nonce prevents token reuse
 - 10-minute expiry window limits attack window
-- Uses existing `INNGEST_SIGNING_KEY` (no new environment variables needed!)
+- Uses existing `SYSTEM_API_KEY` (no new environment variables needed!)
 
 **Testing**:
 ```typescript
@@ -240,7 +240,7 @@ POST /api/webhooks/polar
 **Good news: NO new environment variables needed!** 🎉
 
 All security fixes use existing environment variables:
-- `INNGEST_SIGNING_KEY` - Already configured (used for OAuth state signing, system key validation, webhook protection)
+- `SYSTEM_API_KEY` - Already configured (used for OAuth state signing, system key validation, webhook protection)
 - `NEXT_PUBLIC_CONVEX_URL` - Already configured
 
 Admins are managed via Convex dashboard (see "How to Add First Admin" above).
@@ -379,6 +379,6 @@ This security audit was designed to avoid configuration complexity:
 - ✅ That's it!
 
 All security improvements leverage:
-- Existing `INNGEST_SIGNING_KEY` environment variable
+- Existing `SYSTEM_API_KEY` environment variable
 - Convex dashboard for admin operations (delete usage records, view data)
 - WorkOS for authentication

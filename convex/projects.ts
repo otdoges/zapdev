@@ -555,8 +555,8 @@ export const createInternal = async (
 };
 
 /**
- * System-level query to get any project by ID (for Inngest background jobs only)
- * SECURITY: Requires INNGEST_SIGNING_KEY for authorization to prevent unauthorized access
+ * System-level query to get any project by ID (for background jobs only)
+ * SECURITY: Requires SYSTEM_API_KEY for authorization to prevent unauthorized access
  */
 export const getForSystem = query({
   args: {
@@ -564,8 +564,8 @@ export const getForSystem = query({
     systemKey: v.string(),
   },
   handler: async (ctx, args) => {
-    // Verify system key to ensure only Inngest can call this
-    if (args.systemKey !== process.env.INNGEST_SIGNING_KEY) {
+    // Verify system key to ensure only backend services can call this
+    if (args.systemKey !== process.env.SYSTEM_API_KEY) {
       throw new Error("Unauthorized: Invalid system key");
     }
 

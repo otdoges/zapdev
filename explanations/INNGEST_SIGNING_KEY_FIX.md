@@ -1,4 +1,4 @@
-# Inngest Signing Key Configuration Fix
+# System API Key Configuration
 
 ## Problem
 
@@ -11,13 +11,13 @@ The application was experiencing `Unauthorized: Invalid system key` errors when 
 
 ## Root Cause
 
-The `INNGEST_SIGNING_KEY` environment variable was missing from:
+The `SYSTEM_API_KEY` environment variable was missing from:
 1. Convex environment (required for Convex functions to validate system requests)
-2. `.env.local` (required for Next.js API routes that use Inngest)
+2. `.env.local` (required for Next.js API routes)
 
 ### Affected Functions
 
-Four Convex functions require `INNGEST_SIGNING_KEY` for authentication:
+Four Convex functions require `SYSTEM_API_KEY` for authentication:
 - `convex/projects.ts:getForSystem` - System-level project queries
 - `convex/usage.ts:resetUsageSystem` - Usage reset operations
 - `convex/webhooks.ts:recordPolarWebhook` - Polar webhook processing
@@ -28,23 +28,22 @@ Four Convex functions require `INNGEST_SIGNING_KEY` for authentication:
 ### 1. Set Environment Variable in Convex
 
 ```bash
-bun run convex env set INNGEST_SIGNING_KEY signkey-prod-99a63a2b68d58aee9ca1acf64ebec8c817589bc684dcb47f4bb3e49c2dca760c
+bun run convex env set SYSTEM_API_KEY signkey-prod-99a63a2b68d58aee9ca1acf64ebec8c817589bc684dcb47f4bb3e49c2dca760c
 ```
 
 Verification:
 ```bash
-bun run convex env list | grep INNGEST_SIGNING_KEY
-# Output: INNGEST_SIGNING_KEY=signkey-prod-99a63a2b68d58aee9ca1acf64ebec8c817589bc684dcb47f4bb3e49c2dca760c
+bun run convex env list | grep SYSTEM_API_KEY
+# Output: SYSTEM_API_KEY=signkey-prod-99a63a2b68d58aee9ca1acf64ebec8c817589bc684dcb47f4bb3e49c2dca760c
 ```
 
 ### 2. Updated `.env.local`
 
-Added both Inngest environment variables for local development:
+Added SYSTEM_API_KEY environment variable for local development:
 
 ```env
-# Inngest (for background job processing)
-INNGEST_EVENT_KEY=ac9_RAhqmT1_H1DIr65lEaxZbo9QpyrLAVtB0G5xldFOdDt9LiFoSHkduRIJIV_K8hcXnyGh5-17La4mI4MrSw
-INNGEST_SIGNING_KEY=signkey-prod-99a63a2b68d58aee9ca1acf64ebec8c817589bc684dcb47f4bb3e49c2dca760c
+# System API Key (for backend service authentication)
+SYSTEM_API_KEY=signkey-prod-99a63a2b68d58aee9ca1acf64ebec8c817589bc684dcb47f4bb3e49c2dca760c
 ```
 
 ## Testing
@@ -72,29 +71,29 @@ To verify the fix is working:
 
 ### Security Flow
 
-1. **Inngest functions** call Convex system-level queries with the signing key:
+1. **Backend services** call Convex system-level queries with the API key:
    ```typescript
    await convex.query(api.projects.getForSystem, {
      projectId: "...",
-     systemKey: process.env.INNGEST_SIGNING_KEY!
+     systemKey: process.env.SYSTEM_API_KEY!
    });
    ```
 
 2. **Convex functions** validate the key before processing:
    ```typescript
-   if (args.systemKey !== process.env.INNGEST_SIGNING_KEY) {
+   if (args.systemKey !== process.env.SYSTEM_API_KEY) {
      throw new Error("Unauthorized: Invalid system key");
    }
    ```
 
-3. **Authentication succeeds** - Convex now has access to the signing key and can validate system requests
+3. **Authentication succeeds** - Convex now has access to the API key and can validate system requests
 
 ## Important Notes
 
 ### Environment Variable Scope
 
 - **Convex environment**: Set via `bun run convex env set` - used by Convex functions
-- **Next.js environment**: Set via `.env.local` - used by API routes and Inngest client
+- **Next.js environment**: Set via `.env.local` - used by API routes and backend services
 - **Production**: Already configured in `.env.vercel` and Vercel dashboard
 
 ### Why Two Environments?
@@ -103,8 +102,8 @@ Convex functions run in Convex's cloud infrastructure, not in your Next.js proce
 
 ### Security Best Practices
 
-The signing key serves as a shared secret between:
-- Inngest background jobs (callers)
+The API key serves as a shared secret between:
+- Backend services (callers)
 - Convex system-level functions (validators)
 
 This prevents unauthorized access to privileged operations like:
@@ -117,8 +116,9 @@ This prevents unauthorized access to privileged operations like:
 - `convex/projects.ts` - System-level project queries
 - `convex/usage.ts` - Usage management
 - `convex/webhooks.ts` - Webhook processing
-- `src/inngest/functions.ts` - Background job functions that call Convex
-- `src/inngest/client.ts` - Inngest client configuration
+- `src/agents/ai-sdk/code-agent.ts` - Code generation that calls Convex
+- `src/app/api/webhooks/polar/route.ts` - Webhook handler that uses system key
+- `src/lib/oauth-state.ts` - OAuth state validation using the API key
 - `.env.local` - Local environment configuration
 - `.env.vercel` - Production environment reference
 
@@ -128,12 +128,12 @@ If you still see authentication errors:
 
 1. **Check Convex environment**:
    ```bash
-   bun run convex env list | grep INNGEST
+   bun run convex env list | grep SYSTEM_API_KEY
    ```
 
 2. **Check local environment**:
    ```bash
-   grep INNGEST .env.local
+   grep SYSTEM_API_KEY .env.local
    ```
 
 3. **Verify both servers are restarted** after environment changes
@@ -142,4 +142,4 @@ If you still see authentication errors:
 
 ## Additional Context
 
-This fix addresses the second set of errors from the original issue. The first error about `userId` missing from `createWithMessageAndAttachments` is a separate issue related to API request validation.
+This fix ensures that system-level operations (backend services calling Convex) are properly authenticated using the SYSTEM_API_KEY environment variable.

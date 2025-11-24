@@ -5,8 +5,6 @@ import {
   type CoreMessage,
   type FinishReason,
   type LanguageModelUsage,
-  type StreamTextOnStepFinishCallback,
-  type StreamTextOnChunkCallback,
 } from "ai";
 import { Sandbox } from "@e2b/code-interpreter";
 import { z } from "zod";
@@ -20,10 +18,8 @@ export interface AiSdkAgentOptions {
   systemPrompt: string;
   model: string;
   maxSteps?: number;
-  onStepFinish?: StreamTextOnStepFinishCallback<
-    Record<string, ReturnType<typeof tool>>
-  >;
-  onChunk?: StreamTextOnChunkCallback<Record<string, unknown>>;
+  onStepFinish?: (params: any) => void;
+  onChunk?: (event: any) => void;
 }
 
 export interface AiSdkAgentResult {
@@ -70,7 +66,7 @@ export async function runAiSdkAgent(
       terminal: tool({
         description: "Run shell commands in the E2B sandbox",
         parameters: z.object({ command: z.string() }),
-        execute: async ({ command }) => {
+        execute: async ({ command }: { command: string }) => {
           const result = await sandbox.commands.run(command, {
             timeoutMs: 120_000,
           });
@@ -95,7 +91,7 @@ export async function runAiSdkAgent(
         execute: async ({ files }) => {
           // Perform all file writes in parallel
           const results = await Promise.allSettled(
-            files.map(async (file) => {
+            files.map(async (file: { path: string; content: string }) => {
               await sandbox.files.write(file.path, file.content);
               return { path: file.path, status: "success" as const };
             }),
@@ -155,7 +151,7 @@ export async function runAiSdkAgent(
         parameters: z.object({
           files: z.array(z.string()),
         }),
-        execute: async ({ files }) => {
+        execute: async ({ files }: { files: string[] }) => {
           const contents = await Promise.all(
             files.map(async (path) => ({
               path,
@@ -168,14 +164,17 @@ export async function runAiSdkAgent(
       }),
     };
 
+    // TODO: Remove `as any` casts once AI SDK streamText generic signatures are fixed
+    // to properly accept concrete ToolSet types instead of requiring Record<string, ...>.
+    // This is a temporary workaround for type mismatch between callbacks typed as
+    // Record<string, ...> vs actual tools object passed to streamText.
     const result = await streamText({
       model: gateway(options.model),
       system: options.systemPrompt,
       messages: options.messages,
-      tools,
-      maxSteps: options.maxSteps ?? 10,
-      onStepFinish: options.onStepFinish,
-      onChunk: options.onChunk,
+      tools: tools as any,
+      onStepFinish: options.onStepFinish as any,
+      onChunk: options.onChunk as any,
     });
 
     const [text, usage, finishReason, toolResults] = await Promise.all([
@@ -193,6 +192,6 @@ export async function runAiSdkAgent(
       toolResults,
     };
   } finally {
-    await sandbox.close();
+    await sandbox.kill();
   }
 }

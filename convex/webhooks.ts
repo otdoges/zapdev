@@ -19,7 +19,7 @@ export const checkAndRecordWebhookEvent = mutation({
   },
   handler: async (ctx, args) => {
     // Verify system key
-    if (args.systemKey !== process.env.INNGEST_SIGNING_KEY) {
+    if (args.systemKey !== process.env.SYSTEM_API_KEY) {
       throw new Error("Unauthorized: Invalid system key");
     }
 
@@ -65,7 +65,7 @@ export const cleanupExpiredWebhookEvents = mutation({
   },
   handler: async (ctx, args) => {
     // Verify system key
-    if (args.systemKey !== process.env.INNGEST_SIGNING_KEY) {
+    if (args.systemKey !== process.env.SYSTEM_API_KEY) {
       throw new Error("Unauthorized: Invalid system key");
     }
 

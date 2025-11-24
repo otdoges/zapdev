@@ -68,9 +68,8 @@ In your Vercel project settings, add the following environment variables:
 - `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL`: `/`
 - `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL`: `/`
 
-### Inngest
-- `INNGEST_EVENT_KEY`: Your Inngest Event Key (from Step 1)
-- `INNGEST_SIGNING_KEY`: Your Inngest Signing Key (from Step 1)
+### System Authentication
+- `SYSTEM_API_KEY`: Your System API Key for backend service authentication
 
 ## Step 4: Deploy
 
@@ -138,12 +137,13 @@ npx prisma migrate deploy
    - Re-sync if necessary
 
 2. **Verify Environment Variables**
-   - Ensure `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` are set in Vercel
+   - Ensure `SYSTEM_API_KEY` is set in Vercel
+   - Ensure `SYSTEM_API_KEY` is set in Convex environment via `bun run convex env set`
    - Redeploy after adding/changing environment variables
 
 3. **Check Function Logs**
-   - View logs in Inngest dashboard
    - Check Vercel function logs for API route errors
+   - Check Convex dashboard logs for mutation/query errors
 
 ### AI Generation Not Working
 

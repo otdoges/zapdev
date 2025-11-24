@@ -23,9 +23,9 @@ export async function createSandboxWithRetry(
       } catch (setTimeoutError) {
         // Clean up sandbox if setTimeout fails
         try {
-          await sandbox.close();
-        } catch (closeError) {
-          console.error("[E2B] Failed to close sandbox during setTimeout error:", closeError);
+          await sandbox.kill();
+        } catch (killError) {
+          console.error("[E2B] Failed to kill sandbox during setTimeout error:", killError);
         }
         throw setTimeoutError;
       }
@@ -66,6 +66,7 @@ export async function getSandbox(sandboxId: string) {
 
   const sandbox = await Sandbox.connect(sandboxId, {
     apiKey: process.env.E2B_API_KEY,
+    timeoutMs: SANDBOX_TIMEOUT,
   });
   await sandbox.setTimeout(SANDBOX_TIMEOUT);
   SANDBOX_CACHE.set(sandboxId, sandbox);

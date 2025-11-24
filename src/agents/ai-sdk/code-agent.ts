@@ -2,7 +2,6 @@ import { createGateway } from "@ai-sdk/gateway";
 import {
   generateText,
   type CoreMessage,
-  type StreamTextOnChunkCallback,
 } from "ai";
 import { ConvexHttpClient } from "convex/browser";
 
@@ -248,13 +247,13 @@ export async function runCodeAgent(request: CodeAgentRequest) {
   if (!process.env.AI_GATEWAY_API_KEY) {
     throw new Error("AI_GATEWAY_API_KEY is required to run the AI SDK agent");
   }
-  if (!process.env.INNGEST_SIGNING_KEY) {
-    throw new Error("INNGEST_SIGNING_KEY is required to run the AI SDK agent");
+  if (!process.env.SYSTEM_API_KEY) {
+    throw new Error("SYSTEM_API_KEY is required to run the AI SDK agent");
   }
 
   const project = await convex.query(api.projects.getForSystem, {
     projectId: request.projectId,
-    systemKey: process.env.INNGEST_SIGNING_KEY!,
+    systemKey: process.env.SYSTEM_API_KEY!,
   });
 
   if (!project) {
@@ -370,16 +369,14 @@ export async function runCodeAgent(request: CodeAgentRequest) {
       { role: "user", content: userContent },
     ];
 
-    const onChunk: StreamTextOnChunkCallback<Record<string, unknown>> = async ({
-      delta,
-      text,
-    }) => {
-      if (delta && "text" in delta) {
-        streamedText = text;
-        const now = Date.now();
-        if (now - lastSent > 200) {
-          await sendUpdate();
-        }
+    const onChunk = async ({ chunk }: { chunk: { type: string; textDelta?: string } }) => {
+      if (chunk.type !== "text-delta") {
+        return;
+      }
+      streamedText = chunk.textDelta || "";
+      const now = Date.now();
+      if (now - lastSent > 200) {
+        await sendUpdate();
       }
     };
 

@@ -31,9 +31,8 @@ Before deploying to Vercel, verify all required environment variables are set:
 - [ ] `NEXT_PUBLIC_CONVEX_URL` - Convex deployment URL
 - [ ] `CONVEX_DEPLOYMENT` - Convex deployment name
 
-#### Background Jobs
-- [ ] `INNGEST_EVENT_KEY` - Inngest event key
-- [ ] `INNGEST_SIGNING_KEY` - Inngest signing key
+#### System Authentication
+- [ ] `SYSTEM_API_KEY` - System-level API key for backend service authentication
 
 #### Optional Services
 - [ ] `FIRECRAWL_API_KEY` - For web scraping (optional)
@@ -299,9 +298,8 @@ E2B_API_KEY="your_e2b_key"
 NEXT_PUBLIC_CONVEX_URL="https://your-deployment.convex.cloud"
 CONVEX_DEPLOYMENT="your_deployment_name"
 
-# Inngest Background Jobs
-INNGEST_EVENT_KEY="your_event_key"
-INNGEST_SIGNING_KEY="your_signing_key"
+# System Authentication
+SYSTEM_API_KEY="your_system_api_key"
 ```
 
 ### Optional (Enable as Needed)

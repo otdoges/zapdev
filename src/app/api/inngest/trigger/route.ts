@@ -86,6 +86,20 @@ export async function POST(request: NextRequest) {
     const planningRequested = specMode || isSpecRevision;
 
     if (planningRequested && !isFromApprovedSpec) {
+      // Validate messageId is present and non-empty for spec planning flows
+      if (!messageId || typeof messageId !== "string" || messageId.trim() === "") {
+        console.error("[Agent Trigger] Missing or invalid messageId for spec planning:", {
+          hasMessageId: !!messageId,
+          messageIdType: typeof messageId,
+          specMode,
+          isSpecRevision,
+        });
+        return NextResponse.json(
+          { error: "messageId is required for spec planning operations" },
+          { status: 400 }
+        );
+      }
+
       await captureTelemetry("spec_planning_start", {
         projectId,
         messageId,
@@ -118,6 +132,18 @@ export async function POST(request: NextRequest) {
       });
 
       const specText = extractSpecContent(specResult.text || "");
+
+      // Revalidate messageId before second spec update (defensive check)
+      if (!messageId || typeof messageId !== "string" || messageId.trim() === "") {
+        console.error("[Agent Trigger] messageId lost before spec update:", {
+          hasMessageId: !!messageId,
+          messageIdType: typeof messageId,
+        });
+        return NextResponse.json(
+          { error: "messageId is required for spec update operations" },
+          { status: 400 }
+        );
+      }
 
       await fetchMutation(api.specs.updateSpec, {
         messageId,

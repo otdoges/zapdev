@@ -177,7 +177,7 @@ Subscriptions enable real-time UI updates when data changes.
 
 ## Configuration
 
-### Environment Variables (17 required)
+### Environment Variables (Required for local development and production)
 
 ```bash
 # AI Gateway
@@ -201,9 +201,8 @@ WORKOS_ISSUER_URL
 # File Upload (UploadThing)
 UPLOADTHING_TOKEN  # Get from https://uploadthing.com/dashboard
 
-# Background Jobs (Inngest)
-INNGEST_EVENT_KEY
-INNGEST_SIGNING_KEY
+# System Authentication
+SYSTEM_API_KEY  # System-level API key for backend service authentication
 
 # OAuth (Optional)
 FIGMA_CLIENT_ID, FIGMA_CLIENT_SECRET
