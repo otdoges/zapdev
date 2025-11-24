@@ -28,13 +28,13 @@ Four Convex functions require `SYSTEM_API_KEY` for authentication:
 ### 1. Set Environment Variable in Convex
 
 ```bash
-bun run convex env set SYSTEM_API_KEY signkey-prod-99a63a2b68d58aee9ca1acf64ebec8c817589bc684dcb47f4bb3e49c2dca760c
+bun run convex env set SYSTEM_API_KEY your-system-api-key-here
 ```
 
 Verification:
 ```bash
 bun run convex env list | grep SYSTEM_API_KEY
-# Output: SYSTEM_API_KEY=signkey-prod-99a63a2b68d58aee9ca1acf64ebec8c817589bc684dcb47f4bb3e49c2dca760c
+# Output: SYSTEM_API_KEY=your-system-api-key-here
 ```
 
 ### 2. Updated `.env.local`
@@ -43,7 +43,7 @@ Added SYSTEM_API_KEY environment variable for local development:
 
 ```env
 # System API Key (for backend service authentication)
-SYSTEM_API_KEY=signkey-prod-99a63a2b68d58aee9ca1acf64ebec8c817589bc684dcb47f4bb3e49c2dca760c
+SYSTEM_API_KEY=your-system-api-key-here
 ```
 
 ## Testing

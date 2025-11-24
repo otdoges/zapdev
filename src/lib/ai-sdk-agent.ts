@@ -9,7 +9,17 @@ import {
 import { Sandbox } from "@e2b/code-interpreter";
 import { z } from "zod";
 
-import { SANDBOX_TIMEOUT, type Framework } from "@/agents/types";
+import { type Framework } from "@/agents/types";
+import { validateRequiredEnvVars } from "@/lib/env-validation";
+import {
+  SANDBOX_TIMEOUT,
+  SANDBOX_KILL_TIMEOUT,
+  SANDBOX_KILL_RETRY_DELAY,
+  TERMINAL_COMMAND_TIMEOUT,
+} from "@/agents/constants";
+
+// Validate environment variables at module initialization
+validateRequiredEnvVars();
 
 export interface AiSdkAgentOptions {
   sandboxId: string;
@@ -18,6 +28,7 @@ export interface AiSdkAgentOptions {
   systemPrompt: string;
   model: string;
   maxSteps?: number;
+  timeoutMs?: number;
   onStepFinish?: (params: any) => void;
   onChunk?: (event: any) => void;
 }
@@ -55,6 +66,7 @@ export async function runAiSdkAgent(
   const gateway = createGatewayClient();
   const sandbox = await Sandbox.connect(options.sandboxId, {
     apiKey: process.env.E2B_API_KEY,
+    timeoutMs: options.timeoutMs ?? 30000,
   });
 
   try {
@@ -62,13 +74,48 @@ export async function runAiSdkAgent(
 
     const trackedFiles: Record<string, string> = {};
 
+    // SECURITY: Disallowed command patterns for defense in depth
+    // Even though sandboxes are isolated, we filter dangerous patterns
+    const DISALLOWED_PATTERNS = [
+      /rm\s+-rf\s+\//,           // Recursive delete from root
+      /curl.*\|.*bash/i,         // Download and execute
+      /wget.*\|.*sh/i,           // Download and execute
+      /sudo/,                    // Privilege escalation (shouldn't work in sandbox anyway)
+      /mkfs/,                    // Format filesystem
+      /dd\s+if=/,                // Disk operations
+    ];
+
+    /**
+     * Checks if a command contains disallowed patterns.
+     * Returns the matched pattern description if blocked, null if allowed.
+     */
+    const checkCommandSafety = (command: string): string | null => {
+      for (const pattern of DISALLOWED_PATTERNS) {
+        if (pattern.test(command)) {
+          return `Command blocked: matches disallowed pattern ${pattern.source}`;
+        }
+      }
+      return null;
+    };
+
     const tools = {
       terminal: tool({
         description: "Run shell commands in the E2B sandbox",
         parameters: z.object({ command: z.string() }),
         execute: async ({ command }: { command: string }) => {
+          // Check command safety
+          const blockReason = checkCommandSafety(command);
+          if (blockReason) {
+            console.warn(`[Terminal] ${blockReason}: ${command}`);
+            return {
+              exitCode: 1,
+              stdout: '',
+              stderr: `Command blocked for security reasons: ${blockReason}`,
+            };
+          }
+
           const result = await sandbox.commands.run(command, {
-            timeoutMs: 120_000,
+            timeoutMs: TERMINAL_COMMAND_TIMEOUT,
           });
 
           return {
@@ -198,12 +245,43 @@ export async function runAiSdkAgent(
       toolResults,
     };
   } finally {
-    const killResult = await Promise.race([
+    await killSandboxWithForce(sandbox);
+  }
+}
+
+/**
+ * Kills a sandbox with timeout and background cleanup fallback.
+ * If the kill operation times out, schedules a background cleanup attempt.
+ */
+async function killSandboxWithForce(
+  sandbox: Sandbox,
+  timeoutMs = SANDBOX_KILL_TIMEOUT,
+): Promise<void> {
+  try {
+    await Promise.race([
       sandbox.kill(),
-      new Promise((resolve) => setTimeout(() => resolve("timeout"), 5000)),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Kill timeout")), timeoutMs)
+      ),
     ]);
-    if (killResult === "timeout") {
-      console.warn("[E2B] sandbox.kill() timed out after 5s");
-    }
+  } catch (error) {
+    console.error(
+      "[E2B] Force-kill failed, scheduling background cleanup:",
+      error instanceof Error ? error.message : String(error)
+    );
+    
+    // Schedule background cleanup attempt
+    setTimeout(async () => {
+      try {
+        await sandbox.kill();
+        console.log("[E2B] Background cleanup succeeded");
+      } catch (retryError) {
+        console.error(
+          "[E2B] Background cleanup failed:",
+          retryError instanceof Error ? retryError.message : String(retryError)
+        );
+        // At this point, the sandbox will eventually timeout on E2B's side
+      }
+    }, SANDBOX_KILL_RETRY_DELAY);
   }
 }

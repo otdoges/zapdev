@@ -1,3 +1,6 @@
+import { Mutex } from 'async-mutex';
+import { CIRCUIT_BREAKER_THRESHOLD, CIRCUIT_BREAKER_TIMEOUT } from './constants';
+
 export type CircuitBreakerState = "CLOSED" | "OPEN" | "HALF_OPEN";
 
 export interface CircuitBreakerOptions {
@@ -10,28 +13,34 @@ export class CircuitBreaker {
   private failures = 0;
   private lastFailureTime = 0;
   private state: CircuitBreakerState = "CLOSED";
-  private testingRequestInFlight = false;
+  private readonly testMutex = new Mutex();
   private readonly threshold: number;
   private readonly timeout: number;
   private readonly name: string;
 
   constructor(options: CircuitBreakerOptions = {}) {
-    this.threshold = options.threshold ?? 5;
-    this.timeout = options.timeout ?? 60000;
+    this.threshold = options.threshold ?? CIRCUIT_BREAKER_THRESHOLD;
+    this.timeout = options.timeout ?? CIRCUIT_BREAKER_TIMEOUT;
     this.name = options.name ?? "CircuitBreaker";
   }
 
   async execute<T>(fn: () => Promise<T>): Promise<T> {
     if (this.state === "OPEN") {
       if (Date.now() - this.lastFailureTime > this.timeout) {
-        if (this.testingRequestInFlight) {
-          throw new Error(
-            `Circuit breaker HALF_OPEN test already in progress for ${this.name}.`,
-          );
-        }
-        this.testingRequestInFlight = true;
-        this.state = "HALF_OPEN";
-        console.log(`[${this.name}] HALF_OPEN - testing service recovery`);
+        // Use mutex to prevent race condition when transitioning to HALF_OPEN
+        return this.testMutex.runExclusive(async () => {
+          // Double-check state after acquiring lock (another request might have recovered)
+          if (this.state !== "OPEN") {
+            // State changed while waiting for lock, just execute
+            return this.executeWithTracking(fn);
+          }
+          
+          // Transition to HALF_OPEN and test recovery
+          this.state = "HALF_OPEN";
+          console.log(`[${this.name}] HALF_OPEN - testing service recovery`);
+          
+          return this.executeWithTracking(fn);
+        });
       } else {
         const remaining = this.timeout - (Date.now() - this.lastFailureTime);
         throw new Error(
@@ -40,15 +49,12 @@ export class CircuitBreaker {
           )}s.`,
         );
       }
-    } else if (this.state === "HALF_OPEN") {
-      if (this.testingRequestInFlight) {
-        throw new Error(
-          `Circuit breaker HALF_OPEN test already in progress for ${this.name}.`,
-        );
-      }
-      this.testingRequestInFlight = true;
     }
 
+    return this.executeWithTracking(fn);
+  }
+
+  private async executeWithTracking<T>(fn: () => Promise<T>): Promise<T> {
     try {
       const result = await fn();
       this.onSuccess();
@@ -60,11 +66,8 @@ export class CircuitBreaker {
   }
 
   private onSuccess() {
-    if (this.testingRequestInFlight) {
-      this.testingRequestInFlight = false;
-    }
-
     if (this.state === "HALF_OPEN") {
+      console.log(`[${this.name}] HALF_OPEN test succeeded, resetting to CLOSED`);
       this.reset();
     } else if (this.failures > 0) {
       this.failures = Math.max(0, this.failures - 1);
@@ -72,9 +75,6 @@ export class CircuitBreaker {
   }
 
   private onFailure() {
-    if (this.testingRequestInFlight) {
-      this.testingRequestInFlight = false;
-    }
     this.failures += 1;
     this.lastFailureTime = Date.now();
 
@@ -97,7 +97,6 @@ export class CircuitBreaker {
   private reset() {
     this.failures = 0;
     this.state = "CLOSED";
-    this.testingRequestInFlight = false;
   }
 
   getState(): CircuitBreakerState {
@@ -106,7 +105,7 @@ export class CircuitBreaker {
 }
 
 export const e2bCircuitBreaker = new CircuitBreaker({
-  threshold: 5,
-  timeout: 60000,
+  threshold: CIRCUIT_BREAKER_THRESHOLD,
+  timeout: CIRCUIT_BREAKER_TIMEOUT,
   name: "E2B",
 });

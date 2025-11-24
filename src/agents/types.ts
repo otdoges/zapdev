@@ -1,5 +1,3 @@
-export const SANDBOX_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-
 export type Framework = "nextjs" | "angular" | "react" | "vue" | "svelte";
 
 export type ModelId =

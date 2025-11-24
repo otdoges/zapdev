@@ -54,6 +54,18 @@ const extractSpecContent = (value: string): string => {
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Validate bearer token authentication
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token || token !== process.env.SYSTEM_API_KEY) {
+      console.error("[Agent Trigger] Unauthorized request attempt:", {
+        hasToken: !!token,
+        timestamp: new Date().toISOString(),
+      });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       projectId,

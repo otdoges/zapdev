@@ -19,6 +19,7 @@ import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
 import { runAiSdkAgent } from "@/lib/ai-sdk-agent";
 import { sanitizeTextForDatabase } from "@/lib/utils";
 import { captureTelemetry } from "@/lib/telemetry/posthog";
+import { validateRequiredEnvVars } from "@/lib/env-validation";
 
 import { e2bCircuitBreaker } from "@/agents/e2b-circuit-breaker";
 import {
@@ -26,7 +27,17 @@ import {
   getSandbox,
   validateSandboxHealth,
 } from "@/agents/e2b-utils";
-import { SANDBOX_TIMEOUT, type Framework, type ModelId } from "@/agents/types";
+import { type Framework, type ModelId } from "@/agents/types";
+import {
+  SANDBOX_TIMEOUT,
+  VALIDATION_TIMEOUT,
+  AUTO_FIX_MAX_ATTEMPTS,
+  AUTO_FIX_MAX_STEPS,
+  MESSAGE_STREAM_THROTTLE,
+} from "@/agents/constants";
+
+// Validate environment variables at module initialization
+validateRequiredEnvVars();
 
 type ValidationResult = {
   lintErrors: string | null;
@@ -388,7 +399,7 @@ export async function runCodeAgent(request: CodeAgentRequest) {
       }
       streamedText = chunk.textDelta || "";
       const now = Date.now();
-      if (now - lastSent > 200) {
+      if (now - lastSent > MESSAGE_STREAM_THROTTLE) {
         await sendUpdate();
       }
     };
@@ -418,13 +429,36 @@ export async function runCodeAgent(request: CodeAgentRequest) {
     validation = await validateSandbox(sandboxDetails.sandboxId);
 
     let attempts = 0;
-    const MAX_ATTEMPTS = 2;
+    
+    /**
+     * Counts total error lines from validation result.
+     * Used to detect if errors are improving between auto-fix iterations.
+     */
+    const countErrors = (val: ValidationResult): number => {
+      const lintCount = (val?.lintErrors || '').split('\n').filter(line => line.trim()).length;
+      const buildCount = (val?.buildErrors || '').split('\n').filter(line => line.trim()).length;
+      return lintCount + buildCount;
+    };
+
+    let previousErrorCount = Infinity;
 
     while (
-      attempts < MAX_ATTEMPTS &&
+      attempts < AUTO_FIX_MAX_ATTEMPTS &&
       (validation?.lintErrors || validation?.buildErrors)
     ) {
+      const currentErrorCount = countErrors(validation);
+      
+      // Break if errors aren't improving (same or worse)
+      if (currentErrorCount >= previousErrorCount) {
+        console.warn(
+          `[Auto-fix] Errors not improving (previous: ${previousErrorCount}, current: ${currentErrorCount}), breaking retry loop`
+        );
+        break;
+      }
+      
       attempts += 1;
+      previousErrorCount = currentErrorCount;
+      
       const errorContext = [validation?.lintErrors, validation?.buildErrors]
         .filter(Boolean)
         .join("\n\n");
@@ -435,7 +469,7 @@ export async function runCodeAgent(request: CodeAgentRequest) {
         { role: "user", content: `Fix these errors:\n${errorContext}` },
       ];
 
-      agentResult = await runAgent(retryMessages, 6);
+      agentResult = await runAgent(retryMessages, AUTO_FIX_MAX_STEPS);
       files = { ...files, ...agentResult.files };
       summaryText = extractSummaryText(agentResult.text) || summaryText;
       validation = await validateSandbox(sandboxDetails.sandboxId);

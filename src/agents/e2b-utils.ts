@@ -1,11 +1,21 @@
 import { Sandbox } from "@e2b/code-interpreter";
 import { inspect } from "util";
 
-import { SANDBOX_TIMEOUT } from "./types";
+import { validateRequiredEnvVars } from "@/lib/env-validation";
+import {
+  SANDBOX_TIMEOUT,
+  SANDBOX_CREATE_RETRIES,
+  SANDBOX_HEALTH_CHECK_TIMEOUT,
+  SANDBOX_CACHE_EXPIRY,
+  SANDBOX_CACHE_MAX_SIZE,
+} from "./constants";
+
+// Validate environment variables at module initialization
+validateRequiredEnvVars();
 
 export async function createSandboxWithRetry(
   template: string,
-  maxRetries = 3,
+  maxRetries = SANDBOX_CREATE_RETRIES,
 ): Promise<Sandbox> {
   let lastError: Error | null = null;
 
@@ -44,7 +54,7 @@ export async function createSandboxWithRetry(
 export async function validateSandboxHealth(sandbox: Sandbox): Promise<boolean> {
   try {
     const result = await sandbox.commands.run("echo 'health_check'", {
-      timeoutMs: 5000,
+      timeoutMs: SANDBOX_HEALTH_CHECK_TIMEOUT,
     });
     return result.exitCode === 0 && result.stdout.includes("health_check");
   } catch (error) {
@@ -53,31 +63,76 @@ export async function validateSandboxHealth(sandbox: Sandbox): Promise<boolean> 
   }
 }
 
-const SANDBOX_CACHE = new Map<string, Sandbox>();
-const CACHE_EXPIRY = 5 * 60 * 1000;
+// Sandbox cache with LRU eviction and proper timeout management
+interface CacheEntry {
+  sandbox: Sandbox;
+  timeout: NodeJS.Timeout;
+}
 
-const clearCacheEntry = (sandboxId: string) => {
-  setTimeout(() => SANDBOX_CACHE.delete(sandboxId), CACHE_EXPIRY);
+const SANDBOX_CACHE = new Map<string, CacheEntry>();
+
+/**
+ * Clears a cache entry and its associated timeout.
+ */
+const clearCacheEntry = (sandboxId: string): void => {
+  const entry = SANDBOX_CACHE.get(sandboxId);
+  if (entry) {
+    clearTimeout(entry.timeout);
+    SANDBOX_CACHE.delete(sandboxId);
+  }
+};
+
+/**
+ * Evicts the oldest cache entry if cache size exceeds maximum.
+ * Uses Map's insertion order (oldest = first key).
+ */
+const evictOldestIfNeeded = (): void => {
+  if (SANDBOX_CACHE.size >= SANDBOX_CACHE_MAX_SIZE) {
+    const oldestKey = SANDBOX_CACHE.keys().next().value;
+    if (oldestKey) {
+      console.warn(`[E2B Cache] Evicting oldest entry: ${oldestKey}`);
+      clearCacheEntry(oldestKey);
+    }
+  }
+};
+
+/**
+ * Sets a cache entry with automatic expiration.
+ */
+const setCacheEntry = (sandboxId: string, sandbox: Sandbox): void => {
+  // Clear existing entry if present (prevents duplicate timeouts)
+  clearCacheEntry(sandboxId);
+  
+  // Evict oldest if needed
+  evictOldestIfNeeded();
+  
+  // Create new entry with timeout
+  const timeout = setTimeout(() => {
+    console.log(`[E2B Cache] Expiring entry: ${sandboxId}`);
+    SANDBOX_CACHE.delete(sandboxId);
+  }, SANDBOX_CACHE_EXPIRY);
+  
+  SANDBOX_CACHE.set(sandboxId, { sandbox, timeout });
 };
 
 export async function getSandbox(sandboxId: string) {
   const cached = SANDBOX_CACHE.get(sandboxId);
   if (cached) {
     try {
-      const healthy = await validateSandboxHealth(cached);
+      const healthy = await validateSandboxHealth(cached.sandbox);
       if (healthy) {
-        return cached;
+        return cached.sandbox;
       }
       console.warn(`[E2B] Cached sandbox ${sandboxId} unhealthy, reconnecting`);
-      SANDBOX_CACHE.delete(sandboxId);
+      clearCacheEntry(sandboxId);
       try {
-        await cached.kill();
+        await cached.sandbox.kill();
       } catch (killError) {
         console.error("[E2B] Failed to kill unhealthy cached sandbox:", killError);
       }
     } catch (error) {
       console.warn("[E2B] Cached sandbox check failed, reconnecting", error);
-      SANDBOX_CACHE.delete(sandboxId);
+      clearCacheEntry(sandboxId);
     }
   }
 
@@ -97,8 +152,7 @@ export async function getSandbox(sandboxId: string) {
     throw error;
   }
 
-  SANDBOX_CACHE.set(sandboxId, sandbox);
-  clearCacheEntry(sandboxId);
+  setCacheEntry(sandboxId, sandbox);
   return sandbox;
 }
 

@@ -4,6 +4,41 @@ type TelemetryProps = Record<string, unknown> & {
   userId?: string;
 };
 
+// SECURITY: Allowlist of safe properties to prevent leaking sensitive data
+const SAFE_PROPERTIES = [
+  'userId',
+  'projectId',
+  'messageId',
+  'framework',
+  'sandboxId',
+  'filesCount',
+  'model',
+  'requestedModel',
+  'validationHasErrors',
+  'lintErrorLength',
+  'buildErrorLength',
+  'specMode',
+  'specLength',
+  'error',
+  'timestamp',
+];
+
+/**
+ * Sanitizes telemetry properties to prevent leaking user prompts, API keys, or file contents.
+ * Only allowlisted properties are included in the sanitized output.
+ */
+function sanitizeProperties(properties: TelemetryProps): TelemetryProps {
+  const sanitized: TelemetryProps = {};
+  
+  for (const key of SAFE_PROPERTIES) {
+    if (key in properties) {
+      sanitized[key] = properties[key];
+    }
+  }
+  
+  return sanitized;
+}
+
 let client: PostHog | null = null;
 
 function getClient(): PostHog | null {
@@ -37,12 +72,15 @@ export function captureTelemetry(
       (properties.projectId as string | undefined) ||
       "anonymous";
 
+    // SECURITY: Sanitize properties before sending to prevent data leaks
+    const sanitizedProperties = sanitizeProperties(properties);
+
     // Fire-and-forget: PostHog queues events asynchronously
     // For serverless/short-lived processes, call flushTelemetry() at shutdown
     ph.capture({
       distinctId,
       event,
-      properties,
+      properties: sanitizedProperties,
     });
   } catch (error) {
     console.error("[Telemetry] Failed to capture event", event, error);

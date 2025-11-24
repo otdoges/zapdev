@@ -1,169 +1,74 @@
 /**
- * Environment variable validation utilities
- * Provides runtime validation and helpful error messages for missing/invalid environment variables
- */
-
-interface EnvValidationError {
-  variable: string;
-  issue: string;
-  setupInstructions?: string;
-}
-
-/**
- * Validate Polar.sh environment variables
- * Throws descriptive errors if variables are missing or malformed
+ * Environment variable validation module.
  * 
- * @param throwOnError - If false, only logs warnings instead of throwing (useful for build time)
+ * Validates required environment variables at module initialization to fail fast
+ * rather than during runtime when creating sandboxes or making API calls.
  */
-export function validatePolarEnv(throwOnError = true): void {
-  const errors: EnvValidationError[] = [];
 
-  // Validate POLAR_ACCESS_TOKEN
-  const accessToken = process.env.POLAR_ACCESS_TOKEN;
-  if (!accessToken) {
-    errors.push({
-      variable: 'POLAR_ACCESS_TOKEN',
-      issue: 'Environment variable is not set',
-      setupInstructions: 
-        '1. Login to https://polar.sh\n' +
-        '2. Go to Settings → API Keys\n' +
-        '3. Create an Organization Access Token\n' +
-        '4. Add to Vercel: Project Settings → Environment Variables → Add\n' +
-        '5. Redeploy your application'
-    });
-  } else if (accessToken.trim() !== accessToken) {
-    errors.push({
-      variable: 'POLAR_ACCESS_TOKEN',
-      issue: 'Contains leading or trailing whitespace',
-      setupInstructions: 'Remove whitespace from the token value'
-    });
-  } else if (accessToken.trim().length === 0) {
-    errors.push({
-      variable: 'POLAR_ACCESS_TOKEN',
-      issue: 'Is empty or contains only whitespace',
-      setupInstructions: 'Provide a valid Organization Access Token from Polar.sh'
-    });
-  } else if (process.env.NODE_ENV === 'production' && !accessToken.startsWith('polar_oat_')) {
-    // Only warn, don't fail, as custom tokens or future formats might vary
-    console.warn(
-      '⚠️ POLAR_ACCESS_TOKEN format notice: Typically starts with "polar_oat_" (Organization Access Token). ' +
-      'If authentication fails, please verify your Organization Access Token at https://polar.sh/settings/api-keys'
-    );
-  }
+interface EnvVarConfig {
+  name: string;
+  required: boolean;
+  description: string;
+}
 
-  // Validate NEXT_PUBLIC_POLAR_ORGANIZATION_ID
-  const orgId = process.env.NEXT_PUBLIC_POLAR_ORGANIZATION_ID;
-  if (!orgId) {
-    errors.push({
-      variable: 'NEXT_PUBLIC_POLAR_ORGANIZATION_ID',
-      issue: 'Environment variable is not set',
-      setupInstructions: 
-        'Find your Organization ID in Polar.sh dashboard and add to environment variables'
-    });
-  } else if (orgId.trim() !== orgId || orgId.trim().length === 0) {
-    errors.push({
-      variable: 'NEXT_PUBLIC_POLAR_ORGANIZATION_ID',
-      issue: 'Contains whitespace or is empty',
-      setupInstructions: 'Provide a valid Organization ID without whitespace'
-    });
-  }
+const ENV_VARS: EnvVarConfig[] = [
+  {
+    name: 'E2B_API_KEY',
+    required: true,
+    description: 'E2B Code Interpreter API key for sandbox execution',
+  },
+  {
+    name: 'AI_GATEWAY_API_KEY',
+    required: true,
+    description: 'Vercel AI Gateway API key for AI model access',
+  },
+  {
+    name: 'SYSTEM_API_KEY',
+    required: true,
+    description: 'System-level API key for backend service authentication',
+  },
+];
 
-  // Validate POLAR_WEBHOOK_SECRET
-  const webhookSecret = process.env.POLAR_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    errors.push({
-      variable: 'POLAR_WEBHOOK_SECRET',
-      issue: 'Environment variable is not set',
-      setupInstructions: 
-        '1. Go to https://polar.sh → Settings → Webhooks\n' +
-        '2. Add endpoint: https://your-domain.com/api/webhooks/polar\n' +
-        '3. Copy the webhook secret\n' +
-        '4. Add to Vercel environment variables'
-    });
-  } else if (webhookSecret.trim() !== webhookSecret || webhookSecret.trim().length === 0) {
-    errors.push({
-      variable: 'POLAR_WEBHOOK_SECRET',
-      issue: 'Contains whitespace or is empty',
-      setupInstructions: 'Provide a valid webhook secret without whitespace'
-    });
-  }
+/**
+ * Validates that all required environment variables are set.
+ * 
+ * @throws {Error} If any required environment variables are missing
+ */
+export function validateRequiredEnvVars(): void {
+  const missing: string[] = [];
+  const details: string[] = [];
 
-  // Validate NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID (optional, but warn if missing)
-  const productId = process.env.NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID;
-  if (!productId) {
-    console.warn(
-      '⚠️  NEXT_PUBLIC_POLAR_PRO_PRODUCT_ID is not set. ' +
-      'Create a Pro product in Polar.sh dashboard and add the product ID to environment variables.'
-    );
-  }
-
-  // Handle errors based on throwOnError flag
-  if (errors.length > 0) {
-    const errorMessage = formatEnvErrors(errors);
-    
-    if (throwOnError) {
-      throw new Error(errorMessage);
-    } else {
-      // Just log warning during build
-      console.warn(errorMessage);
+  for (const config of ENV_VARS) {
+    if (config.required && !process.env[config.name]) {
+      missing.push(config.name);
+      details.push(`  - ${config.name}: ${config.description}`);
     }
+  }
+
+  if (missing.length > 0) {
+    const errorMessage = [
+      `Missing ${missing.length} required environment variable(s):`,
+      ...details,
+      '',
+      'Please set these variables in your .env.local file or deployment environment.',
+    ].join('\n');
+
+    throw new Error(errorMessage);
   }
 }
 
 /**
- * Format environment validation errors into a readable message
+ * Validates environment variables with detailed logging.
+ * Returns true if all required variables are present, false otherwise.
+ * 
+ * Useful for non-critical paths where you want to log warnings instead of throwing.
  */
-function formatEnvErrors(errors: EnvValidationError[]): string {
-  let message = '\n\n🚨 Polar.sh Configuration Error\n\n';
-  message += 'The following environment variables have issues:\n\n';
-
-  errors.forEach((error, index) => {
-    message += `${index + 1}. ${error.variable}\n`;
-    message += `   Issue: ${error.issue}\n`;
-    if (error.setupInstructions) {
-      message += `   Setup:\n`;
-      error.setupInstructions.split('\n').forEach(line => {
-        message += `   ${line}\n`;
-      });
-    }
-    message += '\n';
-  });
-
-  message += '📚 For detailed setup instructions, see:\n';
-  message += '   - explanations/POLAR_INTEGRATION.md\n';
-  message += '   - explanations/DEPLOYMENT_VERIFICATION.md\n\n';
-
-  return message;
-}
-
-/**
- * Check if environment variable exists and is non-empty
- */
-export function hasEnvVar(name: string): boolean {
-  const value = process.env[name];
-  return Boolean(value && value.trim().length > 0);
-}
-
-/**
- * Get sanitized error details for logging (without exposing secrets)
- */
-export function getSanitizedErrorDetails(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message;
-    
-    // Check for common Polar API error patterns
-    if (message.includes('401') || message.includes('invalid_token')) {
-      return 'Authentication failed: Token is invalid, expired, or revoked';
-    }
-    if (message.includes('403') || message.includes('forbidden')) {
-      return 'Access forbidden: Check organization permissions';
-    }
-    if (message.includes('404')) {
-      return 'Resource not found: Check product ID or organization ID';
-    }
-    
-    return message;
+export function checkEnvVars(): boolean {
+  try {
+    validateRequiredEnvVars();
+    return true;
+  } catch (error) {
+    console.error('[Env Validation]', error instanceof Error ? error.message : String(error));
+    return false;
   }
-  
-  return 'Unknown error occurred';
 }
