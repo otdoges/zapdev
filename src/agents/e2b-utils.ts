@@ -66,7 +66,6 @@ export async function getSandbox(sandboxId: string) {
 
   const sandbox = await Sandbox.connect(sandboxId, {
     apiKey: process.env.E2B_API_KEY,
-    timeoutMs: SANDBOX_TIMEOUT,
   });
   await sandbox.setTimeout(SANDBOX_TIMEOUT);
   SANDBOX_CACHE.set(sandboxId, sandbox);

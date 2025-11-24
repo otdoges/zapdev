@@ -401,17 +401,17 @@ export async function runCodeAgent(request: CodeAgentRequest) {
     let files = { ...agentResult.files };
     let summaryText = extractSummaryText(agentResult.text);
 
-    let validation = await validateSandbox(sandboxDetails.sandboxId);
+    validation = await validateSandbox(sandboxDetails.sandboxId);
 
     let attempts = 0;
     const MAX_ATTEMPTS = 2;
 
     while (
       attempts < MAX_ATTEMPTS &&
-      (validation.lintErrors || validation.buildErrors)
+      (validation?.lintErrors || validation?.buildErrors)
     ) {
       attempts += 1;
-      const errorContext = [validation.lintErrors, validation.buildErrors]
+      const errorContext = [validation?.lintErrors, validation?.buildErrors]
         .filter(Boolean)
         .join("\n\n");
 
@@ -466,9 +466,9 @@ export async function runCodeAgent(request: CodeAgentRequest) {
       sandboxId: sandboxDetails.sandboxId,
       filesCount: Object.keys(filteredFiles).length,
       validationHasErrors:
-        Boolean(validation.lintErrors) || Boolean(validation.buildErrors),
-      lintErrorLength: validation.lintErrors?.length || 0,
-      buildErrorLength: validation.buildErrors?.length || 0,
+        Boolean(validation?.lintErrors) || Boolean(validation?.buildErrors),
+      lintErrorLength: validation?.lintErrors?.length || 0,
+      buildErrorLength: validation?.buildErrors?.length || 0,
     });
 
     return {

@@ -54,7 +54,7 @@ export async function flushTelemetry(): Promise<void> {
   if (!ph) return;
 
   try {
-    await ph.shutdownAsync();
+    await ph.shutdown();
     client = null;
   } catch (error) {
     console.error("[Telemetry] Failed to flush", error);

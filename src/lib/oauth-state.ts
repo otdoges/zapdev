@@ -10,11 +10,13 @@ import { createHmac, randomBytes } from "crypto";
 const STATE_SECRET = process.env.SYSTEM_API_KEY;
 const STATE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
-if (!STATE_SECRET) {
-  throw new Error("SYSTEM_API_KEY environment variable is required for OAuth security");
+// Helper to get secret or throw
+function getSecret(): string {
+  if (!STATE_SECRET) {
+    throw new Error("SYSTEM_API_KEY environment variable is required for OAuth security");
+  }
+  return STATE_SECRET;
 }
-// Safe, non-null secret for downstream helpers
-const STATE_SECRET_KEY: string = STATE_SECRET;
 
 interface StateData {
   userId: string;
@@ -30,6 +32,7 @@ interface StateData {
  * @returns Signed state token
  */
 export function createOAuthState(userId: string): string {
+  const secret = getSecret();
   const nonce = randomBytes(16).toString("hex");
   const timestamp = Date.now();
 
@@ -40,7 +43,7 @@ export function createOAuthState(userId: string): string {
   };
 
   const payloadJson = JSON.stringify(payload);
-  const signature = createHmac("sha256", STATE_SECRET_KEY)
+  const signature = createHmac("sha256", secret)
     .update(payloadJson)
     .digest("hex");
 
@@ -70,7 +73,8 @@ export function validateOAuthState(state: string, expectedUserId: string): boole
     const providedSignature = decoded.substring(lastColonIndex + 1);
 
     // Verify signature
-    const expectedSignature = createHmac("sha256", STATE_SECRET_KEY)
+    const secret = getSecret();
+    const expectedSignature = createHmac("sha256", secret)
       .update(payloadJson)
       .digest("hex");
 

@@ -250,11 +250,6 @@ export const updateMessage = mutation({
       throw new Error("Unauthorized");
     }
 
-    const message = await ctx.db.get(args.messageId);
-    if (!message) {
-      throw new Error("Message not found");
-    }
-
     await ctx.db.patch(args.messageId, {
       content: args.content,
       ...(args.status && { status: args.status }),

@@ -4,6 +4,7 @@ import { generateText } from "ai";
 import { createGateway } from "@ai-sdk/gateway";
 import { fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import {
   FRAMEWORK_SELECTOR_PROMPT,
   SPEC_MODE_PROMPT,
@@ -15,15 +16,16 @@ import {
 } from "@/prompt";
 import { captureTelemetry } from "@/lib/telemetry/posthog";
 
-if (!process.env.AI_GATEWAY_API_KEY) {
-  throw new Error("AI_GATEWAY_API_KEY environment variable is required");
-}
-
-const gateway = createGateway({
-  apiKey: process.env.AI_GATEWAY_API_KEY,
-  baseURL:
-    process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1/ai",
-});
+const getGateway = () => {
+  if (!process.env.AI_GATEWAY_API_KEY) {
+    throw new Error("AI_GATEWAY_API_KEY environment variable is required");
+  }
+  return createGateway({
+    apiKey: process.env.AI_GATEWAY_API_KEY,
+    baseURL:
+      process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1/ai",
+  });
+};
 
 const getFrameworkPrompt = (framework: string) => {
   switch (framework) {
@@ -107,13 +109,13 @@ export async function POST(request: NextRequest) {
       });
 
       await fetchMutation(api.specs.updateSpec, {
-        messageId,
+        messageId: messageId as Id<"messages">,
         specContent: "",
         status: "PLANNING",
       });
 
       const detected = await generateText({
-        model: gateway("google/gemini-2.5-flash-lite"),
+        model: getGateway()("google/gemini-2.5-flash-lite"),
         system: FRAMEWORK_SELECTOR_PROMPT,
         prompt: value,
         temperature: 0.3,
@@ -125,7 +127,7 @@ export async function POST(request: NextRequest) {
       const specPrompt = `${SPEC_MODE_PROMPT}\n\n## Framework Context\nYou are creating a specification for a ${framework.toUpperCase()} application.\n\n${getFrameworkPrompt(framework)}\n\nRemember to wrap your complete specification in <spec>...</spec> tags.`;
 
       const specResult = await generateText({
-        model: gateway("openai/gpt-5.1-codex"),
+        model: getGateway()("openai/gpt-5.1-codex"),
         system: specPrompt,
         prompt: value,
         temperature: 0.7,
@@ -146,7 +148,7 @@ export async function POST(request: NextRequest) {
       }
 
       await fetchMutation(api.specs.updateSpec, {
-        messageId,
+        messageId: messageId as Id<"messages">,
         specContent: specText,
         status: "AWAITING_APPROVAL",
       });
@@ -168,8 +170,8 @@ export async function POST(request: NextRequest) {
 
     // Normal code generation (or from approved spec)
     await runCodeAgent({
-      projectId,
-      messageId,
+      projectId: projectId as Id<"projects">,
+      messageId: messageId as Id<"messages">,
       value,
       model: model || "auto",
       specContent: specContent || (isFromApprovedSpec ? value : undefined),

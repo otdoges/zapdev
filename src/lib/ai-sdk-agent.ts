@@ -77,7 +77,7 @@ export async function runAiSdkAgent(
             stderr: result.stderr,
           };
         },
-      }),
+      } as any),
       createOrUpdateFiles: tool({
         description: "Create or update files in the sandbox",
         parameters: z.object({
@@ -88,7 +88,7 @@ export async function runAiSdkAgent(
             }),
           ),
         }),
-        execute: async ({ files }) => {
+        execute: async ({ files }: { files: Array<{ path: string; content: string }> }) => {
           // Perform all file writes in parallel
           const results = await Promise.allSettled(
             files.map(async (file: { path: string; content: string }) => {
@@ -145,7 +145,7 @@ export async function runAiSdkAgent(
 
           return message;
         },
-      }),
+      } as any),
       readFiles: tool({
         description: "Read files from the sandbox",
         parameters: z.object({
@@ -161,7 +161,7 @@ export async function runAiSdkAgent(
 
           return contents;
         },
-      }),
+      } as any),
     };
 
     // TODO: Remove `as any` casts once AI SDK streamText generic signatures are fixed

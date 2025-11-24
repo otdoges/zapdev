@@ -204,7 +204,9 @@ const nextConfig = {
   // Optimize production builds
   productionBrowserSourceMaps: false,
   // Empty turbopack config to silence warning (Next.js 16)
-  turbopack: {},
+  turbopack: {
+    root: __dirname,
+  },
 };
 
 // Sentry disabled temporarily - uncomment to re-enable
