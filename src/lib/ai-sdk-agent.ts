@@ -77,7 +77,7 @@ export async function runAiSdkAgent(
             stderr: result.stderr,
           };
         },
-      } as any),
+      } as any), // TODO: Replace with proper tool typing when AI SDK accepts typed tool definitions.
       createOrUpdateFiles: tool({
         description: "Create or update files in the sandbox",
         parameters: z.object({
@@ -127,11 +127,17 @@ export async function runAiSdkAgent(
 
           // Throw error with detailed per-file failures if any writes failed
           if (failed.length > 0) {
-            const errorDetails = failed
+            const MAX_FAILURE_DETAILS = 10;
+            const displayedFailures = failed.slice(0, MAX_FAILURE_DETAILS);
+            const errorDetails = displayedFailures
               .map((f) => `  • ${f.path}: ${f.error}`)
               .join("\n");
             const errorMessage =
-              `Failed to write ${failed.length}/${files.length} file(s):\n${errorDetails}`;
+              `Failed to write ${failed.length}/${files.length} file(s):\n${errorDetails}${
+                failed.length > MAX_FAILURE_DETAILS
+                  ? `\n  • ...and ${failed.length - MAX_FAILURE_DETAILS} more`
+                  : ""
+              }`;
             const error = new Error(errorMessage);
             (error as any).summary = summary;
             throw error;
@@ -161,7 +167,7 @@ export async function runAiSdkAgent(
 
           return contents;
         },
-      } as any),
+      } as any), // TODO: Remove cast once tool generics are updated to match streamText requirements.
     };
 
     // TODO: Remove `as any` casts once AI SDK streamText generic signatures are fixed
@@ -192,6 +198,12 @@ export async function runAiSdkAgent(
       toolResults,
     };
   } finally {
-    await sandbox.kill();
+    const killResult = await Promise.race([
+      sandbox.kill(),
+      new Promise((resolve) => setTimeout(() => resolve("timeout"), 5000)),
+    ]);
+    if (killResult === "timeout") {
+      console.warn("[E2B] sandbox.kill() timed out after 5s");
+    }
   }
 }

@@ -107,15 +107,28 @@ const getE2BTemplate = (framework: Framework): string => {
 };
 
 const getFrameworkPort = (framework: Framework): number => {
+  const parsePort = (value?: string) => {
+    const parsed = value ? Number(value) : NaN;
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const envPorts: Partial<Record<Framework, number>> = {
+    nextjs: parsePort(process.env.FRAMEWORK_PORT_NEXTJS),
+    angular: parsePort(process.env.FRAMEWORK_PORT_ANGULAR),
+    react: parsePort(process.env.FRAMEWORK_PORT_REACT),
+    vue: parsePort(process.env.FRAMEWORK_PORT_VUE),
+    svelte: parsePort(process.env.FRAMEWORK_PORT_SVELTE),
+  };
+
   switch (framework) {
     case "nextjs":
-      return 3000;
+      return envPorts.nextjs ?? 3000;
     case "angular":
-      return 4200;
+      return envPorts.angular ?? 4200;
     case "react":
     case "vue":
     case "svelte":
-      return 5173;
+      return envPorts[framework] ?? 5173;
     default:
       return 3000;
   }
@@ -346,7 +359,7 @@ export async function runCodeAgent(request: CodeAgentRequest) {
     const sendUpdate = async () => {
       lastSent = Date.now();
       await convex.mutation(api.messages.updateForSystem, {
-        systemKey: process.env.INNGEST_SIGNING_KEY!,
+        systemKey: process.env.SYSTEM_API_KEY!,
         messageId: assistantMessageId as Id<"messages">,
         content: streamedText,
         status: "STREAMING",
@@ -380,9 +393,10 @@ export async function runCodeAgent(request: CodeAgentRequest) {
       }
     };
 
-    const model = request.model === "auto" || !request.model
-      ? ("anthropic/claude-haiku-4.5" as ModelId)
-      : request.model;
+    // Default to Haiku for "auto" or absent model selections to prioritize speed and cost.
+    const defaultModel: ModelId = "anthropic/claude-haiku-4.5";
+    const model =
+      request.model && request.model !== "auto" ? request.model : defaultModel;
 
     const runAgent = (messages: CoreMessage[], maxSteps = 10) =>
       runAiSdkAgent({
@@ -454,7 +468,7 @@ export async function runCodeAgent(request: CodeAgentRequest) {
     });
 
     await convex.mutation(api.messages.updateForSystem, {
-      systemKey: process.env.INNGEST_SIGNING_KEY!,
+      systemKey: process.env.SYSTEM_API_KEY!,
       messageId: assistantMessageId as Id<"messages">,
       content: summaryText || agentResult.text,
       status: "COMPLETE",

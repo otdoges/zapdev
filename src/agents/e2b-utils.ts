@@ -62,12 +62,41 @@ const clearCacheEntry = (sandboxId: string) => {
 
 export async function getSandbox(sandboxId: string) {
   const cached = SANDBOX_CACHE.get(sandboxId);
-  if (cached) return cached;
+  if (cached) {
+    try {
+      const healthy = await validateSandboxHealth(cached);
+      if (healthy) {
+        return cached;
+      }
+      console.warn(`[E2B] Cached sandbox ${sandboxId} unhealthy, reconnecting`);
+      SANDBOX_CACHE.delete(sandboxId);
+      try {
+        await cached.kill();
+      } catch (killError) {
+        console.error("[E2B] Failed to kill unhealthy cached sandbox:", killError);
+      }
+    } catch (error) {
+      console.warn("[E2B] Cached sandbox check failed, reconnecting", error);
+      SANDBOX_CACHE.delete(sandboxId);
+    }
+  }
 
   const sandbox = await Sandbox.connect(sandboxId, {
     apiKey: process.env.E2B_API_KEY,
   });
-  await sandbox.setTimeout(SANDBOX_TIMEOUT);
+
+  try {
+    await sandbox.setTimeout(SANDBOX_TIMEOUT);
+  } catch (error) {
+    console.error("[E2B] Failed to set timeout on sandbox connect:", error);
+    try {
+      await sandbox.kill();
+    } catch (killError) {
+      console.error("[E2B] Failed to kill sandbox after timeout error:", killError);
+    }
+    throw error;
+  }
+
   SANDBOX_CACHE.set(sandboxId, sandbox);
   clearCacheEntry(sandboxId);
   return sandbox;

@@ -80,11 +80,17 @@ export class CircuitBreaker {
 
     if (this.state === "HALF_OPEN") {
       this.state = "OPEN";
+      console.error(
+        `[${this.name}] Circuit breaker OPEN after HALF_OPEN failure (failures=${this.failures})`,
+      );
       return;
     }
 
     if (this.failures >= this.threshold) {
       this.state = "OPEN";
+      console.error(
+        `[${this.name}] Circuit breaker OPEN after ${this.failures} failures`,
+      );
     }
   }
 

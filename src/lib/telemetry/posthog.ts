@@ -50,7 +50,8 @@ export function captureTelemetry(
 }
 
 export async function flushTelemetry(): Promise<void> {
-  const ph = getClient();
+  // Avoid initializing a new client during shutdown; only flush if one exists.
+  const ph = client;
   if (!ph) return;
 
   try {
