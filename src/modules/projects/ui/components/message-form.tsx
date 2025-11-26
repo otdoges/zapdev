@@ -49,7 +49,7 @@ export const MessageForm = ({ projectId }: Props) => {
   const router = useRouter();
   const { user } = useAuth();
 
-  const usage = useQuery(user ? api.usage.getUsage : undefined);
+  const usage = useQuery(api.usage.getUsage, user ? {} : "skip");
   const createMessageWithAttachments = useAction(api.messages.createWithAttachments);
 
   const [attachments, setAttachments] = useState<AttachmentData[]>([]);

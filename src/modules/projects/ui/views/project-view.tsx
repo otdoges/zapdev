@@ -40,7 +40,7 @@ interface Props {
 
 export const ProjectView = ({ projectId }: Props) => {
   const { user } = useAuth();
-  const usage = useQuery(user ? api.usage.getUsage : undefined);
+  const usage = useQuery(api.usage.getUsage, user ? {} : "skip");
   const hasProAccess = usage?.planType === "pro";
 
   const [activeFragment, setActiveFragment] = useState<Doc<"fragments"> | null>(null);
