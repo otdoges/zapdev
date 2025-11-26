@@ -1,30 +1,63 @@
 import { ConvexHttpClient } from "convex/browser";
 import { withAuth } from "@workos-inc/authkit-nextjs";
 
+const WORKOS_ENV_KEYS = [
+  "WORKOS_API_KEY",
+  "WORKOS_CLIENT_ID",
+  "WORKOS_COOKIE_PASSWORD",
+  "NEXT_PUBLIC_WORKOS_REDIRECT_URI",
+] as const;
+
+function getAuthkitStatus() {
+  const missingEnv = WORKOS_ENV_KEYS.filter((key) => !process.env[key]);
+  const cookiePassword = process.env.WORKOS_COOKIE_PASSWORD || "";
+  const hasValidCookiePassword = cookiePassword.length >= 32;
+
+  return {
+    enabled: missingEnv.length === 0 && hasValidCookiePassword,
+    missingEnv,
+    hasValidCookiePassword,
+  };
+}
+
+async function getAuthContext() {
+  const status = getAuthkitStatus();
+
+  if (!status.enabled) {
+    console.error(
+      "[workos] AuthKit is not configured. Missing env:",
+      status.missingEnv,
+      "validCookiePassword:",
+      status.hasValidCookiePassword,
+    );
+    return null;
+  }
+
+  try {
+    return await withAuth();
+  } catch (error) {
+    console.error(
+      "[workos] AuthKit middleware not detected for this request. Verify middleware matcher and deployment config.",
+      error,
+    );
+    return null;
+  }
+}
+
 /**
  * Get the authenticated user from WorkOS AuthKit
  */
 export async function getUser() {
-  try {
-    const { user } = await withAuth();
-    return user;
-  } catch (error) {
-    console.error("Failed to get user:", error);
-    return null;
-  }
+  const authContext = await getAuthContext();
+  return authContext?.user ?? null;
 }
 
 /**
  * Get the authentication token for Convex
  */
 export async function getToken() {
-  try {
-    const { accessToken } = await withAuth();
-    return accessToken || null;
-  } catch (error) {
-    console.error("Failed to get token:", error);
-    return null;
-  }
+  const authContext = await getAuthContext();
+  return authContext?.accessToken || null;
 }
 
 /**
@@ -49,12 +82,16 @@ export async function getConvexClientWithAuth() {
   }
 
   const httpClient = new ConvexHttpClient(convexUrl);
-  
-  const { accessToken } = await withAuth();
-  
-  if (accessToken) {
-    httpClient.setAuth(accessToken);
+
+  const accessToken = await getToken();
+
+  if (!accessToken) {
+    console.error(
+      "[workos] Missing access token for Convex client. Middleware may be skipped or user is unauthenticated.",
+    );
+    return httpClient;
   }
-  
+
+  httpClient.setAuth(accessToken);
   return httpClient;
 }
