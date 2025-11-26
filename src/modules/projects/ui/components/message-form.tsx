@@ -11,6 +11,7 @@ import { UploadButton } from "@uploadthing/react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/lib/convex-api";
 import type { ModelId } from "@/inngest/functions";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,8 +47,9 @@ interface AttachmentData {
 
 export const MessageForm = ({ projectId }: Props) => {
   const router = useRouter();
+  const { user } = useAuth();
 
-  const usage = useQuery(api.usage.getUsage);
+  const usage = useQuery(user ? api.usage.getUsage : undefined);
   const createMessageWithAttachments = useAction(api.messages.createWithAttachments);
 
   const [attachments, setAttachments] = useState<AttachmentData[]>([]);
@@ -77,6 +79,12 @@ export const MessageForm = ({ projectId }: Props) => {
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!user) {
+      toast.error("Please sign in to send a request");
+      router.push("/sign-in");
+      return;
+    }
+
     try {
       setIsCreating(true);
       const result = await createMessageWithAttachments({

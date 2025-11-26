@@ -20,8 +20,8 @@ import Link from "next/link";
 
 export default function SubscriptionPage() {
   const { user } = useAuth();
-  const subscription = useQuery(api.subscriptions.getSubscription);
-  const usage = useQuery(api.usage.getUsage);
+  const subscription = useQuery(user ? api.subscriptions.getSubscription : undefined);
+  const usage = useQuery(user ? api.usage.getUsage : undefined);
 
   if (!user) {
     return (

@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, FigmaIcon, GitBranchIcon } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "@/lib/convex-api";
 import type { ModelId } from "@/inngest/functions";
 
@@ -51,7 +51,6 @@ export const ProjectForm = () => {
   });
 
   const createProjectWithMessageAndAttachments = useAction(api.projects.createWithMessageAndAttachments);
-  const usage = useQuery(api.usage.getUsage);
   const [isCreating, setIsCreating] = useState(false);
   const [attachments, setAttachments] = useState<AttachmentData[]>([]);
   const [isUploading, setIsUploading] = useState(false);

@@ -6,6 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
@@ -38,7 +39,8 @@ interface Props {
 };
 
 export const ProjectView = ({ projectId }: Props) => {
-  const usage = useQuery(api.usage.getUsage);
+  const { user } = useAuth();
+  const usage = useQuery(user ? api.usage.getUsage : undefined);
   const hasProAccess = usage?.planType === "pro";
 
   const [activeFragment, setActiveFragment] = useState<Doc<"fragments"> | null>(null);
