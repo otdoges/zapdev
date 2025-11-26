@@ -16,20 +16,18 @@ const isWorkOSConfigured =
 
 // If WorkOS env is misconfigured, skip AuthKit middleware so the site still renders
 // and surface a clear warning instead of a 500 "MIDDLEWARE_INVOCATION_FAILED".
-const shouldForceAuthMiddleware = process.env.NODE_ENV === "production";
-
 const middleware =
-  isWorkOSConfigured || shouldForceAuthMiddleware
+  isWorkOSConfigured
     ? authkitMiddleware()
     : () => {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn(
-            "[workos] skipping auth middleware. Missing env:",
-            missingWorkOSEnv,
-            "validCookiePassword:",
-            hasValidCookiePassword,
-          );
-        }
+        // Log a noisy warning once per cold start so we notice missing secrets without
+        // breaking the marketing site.
+        console.warn(
+          "[workos] skipping auth middleware. Missing env:",
+          missingWorkOSEnv,
+          "validCookiePassword:",
+          hasValidCookiePassword,
+        );
         return NextResponse.next();
       };
 
