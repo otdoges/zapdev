@@ -34,10 +34,13 @@ async function getAuthContext() {
   }
 
   try {
-    return await withAuth();
+    // Ensure we don't throw if AuthKit is not fully initialized or if called outside of request context
+    const context = await withAuth();
+    return context;
   } catch (error) {
+    // Log error but don't crash the app
     console.error(
-      "[workos] AuthKit middleware not detected for this request. Verify middleware matcher and deployment config.",
+      "[workos] AuthKit middleware not detected or failed. Verify middleware matcher and deployment config.",
       error,
     );
     return null;

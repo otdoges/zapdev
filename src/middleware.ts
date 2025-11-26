@@ -20,16 +20,18 @@ const middleware =
   isWorkOSConfigured
     ? authkitMiddleware()
     : () => {
-        // Log a noisy warning once per cold start so we notice missing secrets without
-        // breaking the marketing site.
+      // Log a noisy warning once per cold start so we notice missing secrets without
+      // breaking the marketing site.
+      if (process.env.NODE_ENV === "development") {
         console.warn(
           "[workos] skipping auth middleware. Missing env:",
           missingWorkOSEnv,
           "validCookiePassword:",
           hasValidCookiePassword,
         );
-        return NextResponse.next();
-      };
+      }
+      return NextResponse.next();
+    };
 
 export default middleware;
 

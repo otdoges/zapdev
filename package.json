@@ -100,7 +100,7 @@
     "uploadthing": "^7.7.4",
     "vaul": "^1.1.2",
     "web-vitals": "^5.1.0",
-    "zod": "^4.1.12"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
