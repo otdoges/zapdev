@@ -5,7 +5,6 @@ const WORKOS_ENV_KEYS = [
   "WORKOS_API_KEY",
   "WORKOS_CLIENT_ID",
   "WORKOS_COOKIE_PASSWORD",
-  "NEXT_PUBLIC_WORKOS_REDIRECT_URI",
 ] as const;
 
 function getAuthkitStatus() {
