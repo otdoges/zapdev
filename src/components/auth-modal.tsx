@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useClerk, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -10,36 +10,21 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
-  const { openSignIn, openSignUp } = useClerk();
   const { user } = useUser();
 
   useEffect(() => {
     if (isOpen && !user) {
-      if (mode === "signin") {
-        openSignIn({
-          afterSignInUrl: "/",
-          afterSignUpUrl: "/",
-          appearance: {
-            elements: {
-              modalBackdrop: "z-[100]",
-            }
-          }
-        });
-      } else {
-        openSignUp({
-          afterSignInUrl: "/",
-          afterSignUpUrl: "/",
-          appearance: {
-            elements: {
-              modalBackdrop: "z-[100]",
-            }
-          }
-        });
-      }
-      // We close our controlled state because Clerk handles the modal now
+      const redirectUrl = `${window.location.origin}/`;
+      const hostedPage =
+        mode === "signin"
+          ? `https://clerk.zapdev.link/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`
+          : `https://clerk.zapdev.link/sign-up?redirect_url=${encodeURIComponent(redirectUrl)}`;
+
+      // Use hosted Clerk pages instead of the in-app modal to avoid popup/cors issues
+      window.location.assign(hostedPage);
       onClose();
     }
-  }, [isOpen, mode, openSignIn, openSignUp, onClose, user]);
+  }, [isOpen, mode, onClose, user]);
 
   return null;
 }
