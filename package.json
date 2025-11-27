@@ -12,6 +12,7 @@
     "convex:deploy": "bunx convex deploy"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.35.5",
     "@databuddy/sdk": "^2.2.1",
     "@e2b/code-interpreter": "^1.5.1",
     "@hookform/resolvers": "^3.3.4",
@@ -58,8 +59,6 @@
     "@typescript/native-preview": "^7.0.0-dev.20251104.1",
     "@uploadthing/react": "^7.3.3",
     "@vercel/speed-insights": "^1.2.0",
-    "@workos-inc/authkit-nextjs": "^2.11.1",
-    "@workos-inc/node": "^7.74.1",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "claude": "^0.1.2",

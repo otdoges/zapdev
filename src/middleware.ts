@@ -1,11 +1,11 @@
-import { authkitMiddleware } from "@workos-inc/authkit-nextjs";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export default authkitMiddleware({
-  debug: process.env.NODE_ENV === "development",
-  middlewareAuth: {
-    enabled: true,
-    unauthenticatedPaths: ["/", "/api/inngest"],
-  },
+const isPublicRoute = createRouteMatcher(["/", "/api/inngest"]);
+
+export default clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+    await auth.protect();
+  }
 });
 
 export const config = {

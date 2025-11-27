@@ -11,7 +11,7 @@ import { UploadButton } from "@uploadthing/react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/lib/convex-api";
 import type { ModelId } from "@/inngest/functions";
-import { useAuth } from "@workos-inc/authkit-nextjs/components";
+import { useUser } from "@clerk/nextjs";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ interface AttachmentData {
 
 export const MessageForm = ({ projectId }: Props) => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useUser();
 
   const usage = useQuery(api.usage.getUsage, user ? {} : "skip");
   const createMessageWithAttachments = useAction(api.messages.createWithAttachments);

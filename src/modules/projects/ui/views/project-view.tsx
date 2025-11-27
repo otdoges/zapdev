@@ -6,7 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useAuth } from "@workos-inc/authkit-nextjs/components";
+import { useUser } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
@@ -39,7 +39,7 @@ interface Props {
 };
 
 export const ProjectView = ({ projectId }: Props) => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const usage = useQuery(api.usage.getUsage, user ? {} : "skip");
   const hasProAccess = usage?.planType === "pro";
 

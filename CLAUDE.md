@@ -9,7 +9,8 @@ ZapDev is an AI-powered development platform that enables users to create web ap
 ## Technology Stack
 
 **Frontend**: Next.js 15 (Turbopack), React 19, TypeScript 5.9, Tailwind CSS v4, Shadcn/ui, React Query
-**Backend**: Convex (real-time database), tRPC (type-safe APIs), Clerk (authentication)
+**Backend**: Convex (real-time database), tRPC (type-safe APIs)
+**Authentication**: Clerk (user auth & JWT)
 **AI & Execution**: Vercel AI Gateway, Inngest 3.44 (job orchestration), E2B Code Interpreter (sandboxes)
 **Monitoring**: Sentry, OpenTelemetry
 
@@ -177,7 +178,7 @@ Subscriptions enable real-time UI updates when data changes.
 
 ## Configuration
 
-### Environment Variables (17 required)
+### Environment Variables
 
 ```bash
 # AI Gateway
@@ -191,10 +192,10 @@ CONVEX_DEPLOYMENT
 # Code Execution
 E2B_API_KEY
 
-# Authentication (Stack Auth)
-NEXT_PUBLIC_STACK_PROJECT_ID
-NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY
-STACK_SECRET_SERVER_KEY
+# Authentication (Clerk)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+CLERK_SECRET_KEY
+CLERK_JWT_ISSUER_DOMAIN  # From Clerk Dashboard → JWT Templates
 
 # File Upload (UploadThing)
 UPLOADTHING_TOKEN  # Get from https://uploadthing.com/dashboard

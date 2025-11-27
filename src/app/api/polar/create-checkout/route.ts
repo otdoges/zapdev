@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Authenticate user via Stack Auth
+    // Authenticate user via Clerk
     const user = await getUser();
     if (!user) {
       return NextResponse.json(
@@ -51,12 +51,12 @@ export async function POST(request: NextRequest) {
     // Create checkout session with Polar
     const polar = createPolarClient(targetServer);
     
-    // Ensure Polar customer exists with external_id linked to WorkOS Auth user
-    // This enables querying customer state by WorkOS Auth user ID
-    const userName = [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined;
+    // Ensure Polar customer exists with external_id linked to Clerk user
+    // This enables querying customer state by Clerk user ID
+    const userName = user.fullName || undefined;
     const customerId = await getOrCreatePolarCustomer(polar, {
       externalId: user.id,
-      email: user.email || undefined,
+      email: user.primaryEmailAddress?.emailAddress || undefined,
       name: userName,
     });
     
@@ -68,9 +68,9 @@ export async function POST(request: NextRequest) {
       // Pass user ID in metadata as backup for webhook processing
       metadata: {
         userId: user.id,
-        userEmail: user.email || "",
+        userEmail: user.primaryEmailAddress?.emailAddress || "",
       },
-      customerEmail: user.email || undefined,
+      customerEmail: user.primaryEmailAddress?.emailAddress || undefined,
       successUrl: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/?subscription=success`,
       // Allow customer to return to pricing page if they cancel
       // Polar will handle the redirect automatically
