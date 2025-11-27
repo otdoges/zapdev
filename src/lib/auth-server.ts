@@ -38,11 +38,19 @@ async function getAuthContext() {
     const context = await withAuth();
     return context;
   } catch (error) {
-    // Log error but don't crash the app
-    console.error(
-      "[workos] AuthKit middleware not detected or failed. Verify middleware matcher and deployment config.",
-      error,
-    );
+    // Check if this is the specific "withAuth on uncovered route" error
+    if (error instanceof Error && error.message.includes("isn't covered by the AuthKit middleware")) {
+      console.error(
+        "[workos] CRITICAL: Route called withAuth() but middleware didn't run.",
+        "Check middleware matcher config in middleware.ts",
+        error,
+      );
+    } else {
+      console.error(
+        "[workos] AuthKit middleware error:",
+        error,
+      );
+    }
     return null;
   }
 }

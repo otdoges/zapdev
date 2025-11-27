@@ -16,15 +16,14 @@ const isWorkOSConfigured =
 
 // If WorkOS env is misconfigured, skip AuthKit middleware so the site still renders
 // and surface a clear warning instead of a 500 "MIDDLEWARE_INVOCATION_FAILED".
-const middleware =
-  isWorkOSConfigured
-    ? authkitMiddleware()
-    : () => {
+const middleware = isWorkOSConfigured
+  ? authkitMiddleware({ debug: process.env.NODE_ENV === "development" })
+  : () => {
       // Log a noisy warning once per cold start so we notice missing secrets without
       // breaking the marketing site.
       if (process.env.NODE_ENV === "development") {
         console.warn(
-          "[workos] skipping auth middleware. Missing env:",
+          "[workos] Auth middleware skipped. Missing env:",
           missingWorkOSEnv,
           "validCookiePassword:",
           hasValidCookiePassword,
@@ -37,7 +36,13 @@ export default middleware;
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
-    "/(api|trpc)(.*)",
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, sitemap.xml, robots.txt (specific files)
+     * - public files (images, etc)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)).*)",
   ],
 };
