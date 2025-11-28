@@ -272,13 +272,13 @@ export default defineSchema({
     userId: v.string(), // Stack Auth user ID
     email: v.optional(v.string()),
     name: v.optional(v.string()),
-    preferredMode: v.union(v.literal("web"), v.literal("background")),
+    preferredMode: v.optional(v.union(v.literal("web"), v.literal("background"))),
     quizAnswers: v.optional(
       v.object({
-        reason: v.string(),
+        reason: v.optional(v.string()),
       })
     ),
-    backgroundAgentEnabled: v.boolean(),
+    backgroundAgentEnabled: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -327,7 +327,9 @@ export default defineSchema({
     agents: v.array(v.string()), // participating agents
     verdict: v.string(),
     reasoning: v.string(),
-    metadata: v.optional(v.object({})),
+    metadata: v.optional(v.object({
+      summary: v.optional(v.string()),
+    })),
     createdAt: v.number(),
   })
     .index("by_jobId", ["jobId"]),

@@ -2,8 +2,29 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { requireAuth } from "./helpers";
 
+const backgroundJobSchema = v.object({
+  _id: v.id("backgroundJobs"),
+  _creationTime: v.number(),
+  userId: v.string(),
+  projectId: v.optional(v.id("projects")),
+  title: v.string(),
+  status: v.union(
+    v.literal("pending"),
+    v.literal("running"),
+    v.literal("completed"),
+    v.literal("failed"),
+    v.literal("cancelled")
+  ),
+  sandboxId: v.optional(v.string()),
+  logs: v.optional(v.array(v.string())),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  completedAt: v.optional(v.number()),
+});
+
 export const list = query({
   args: {},
+  returns: v.array(backgroundJobSchema),
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
     return await ctx.db
@@ -16,28 +37,7 @@ export const list = query({
 
 export const get = query({
   args: { jobId: v.id("backgroundJobs") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      _id: v.id("backgroundJobs"),
-      _creationTime: v.number(),
-      userId: v.string(),
-      projectId: v.optional(v.id("projects")),
-      title: v.string(),
-      status: v.union(
-        v.literal("pending"),
-        v.literal("running"),
-        v.literal("completed"),
-        v.literal("failed"),
-        v.literal("cancelled")
-      ),
-      sandboxId: v.optional(v.string()),
-      logs: v.optional(v.array(v.string())),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-      completedAt: v.optional(v.number()),
-    })
-  ),
+  returns: v.union(v.null(), backgroundJobSchema),
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     const job = await ctx.db.get(args.jobId);
@@ -61,7 +61,6 @@ export const create = mutation({
     });
   },
 });
-});
 
 export const updateStatus = mutation({
   args: {
@@ -81,7 +80,21 @@ export const updateStatus = mutation({
     if (!job || job.userId !== userId) {
       throw new Error("Unauthorized");
     }
-    await ctx.db.patch(args.jobId, { status: args.status, updatedAt: Date.now() });
+
+    const updates: {
+      status: "pending" | "running" | "completed" | "failed" | "cancelled";
+      updatedAt: number;
+      completedAt?: number;
+    } = {
+      status: args.status,
+      updatedAt: Date.now(),
+    };
+
+    if (args.status === "completed" || args.status === "failed" || args.status === "cancelled") {
+      updates.completedAt = Date.now();
+    }
+
+    await ctx.db.patch(args.jobId, updates);
     return null;
   },
 });
@@ -91,8 +104,15 @@ export const updateSandbox = mutation({
     jobId: v.id("backgroundJobs"),
     sandboxId: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const job = await ctx.db.get(args.jobId);
+    if (!job || job.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
     await ctx.db.patch(args.jobId, { sandboxId: args.sandboxId, updatedAt: Date.now() });
+    return null;
   },
 });
 
@@ -103,12 +123,17 @@ export const addDecision = mutation({
     agents: v.array(v.string()),
     verdict: v.string(),
     reasoning: v.string(),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(v.object({
+      summary: v.optional(v.string()),
+    })),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     const job = await ctx.db.get(args.jobId);
-    if (!job || job.userId !== userId) return;
+    if (!job || job.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
 
     await ctx.db.insert("councilDecisions", {
       jobId: args.jobId,
@@ -119,5 +144,6 @@ export const addDecision = mutation({
       metadata: args.metadata,
       createdAt: Date.now(),
     });
+    return null;
   },
 });

@@ -13,9 +13,13 @@ export const getProfile = query({
       userId: v.string(),
       email: v.optional(v.string()),
       name: v.optional(v.string()),
-      preferredMode: v.union(v.literal("web"), v.literal("background")),
-      quizAnswers: v.optional(v.any()),
-      backgroundAgentEnabled: v.boolean(),
+      preferredMode: v.optional(v.union(v.literal("web"), v.literal("background"))),
+      quizAnswers: v.optional(
+        v.object({
+          reason: v.optional(v.string()),
+        })
+      ),
+      backgroundAgentEnabled: v.optional(v.boolean()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
@@ -35,10 +39,51 @@ export const setPreferredMode = mutation({
   args: {
     mode: v.union(v.literal("web"), v.literal("background")),
     quizAnswers: v.optional(
-export const setPreferredMode = mutation({
-  args: {
-    mode: v.union(v.literal("web"), v.literal("background")),
-    quizAnswers: v.optional(v.any()),
+      v.object({
+        reason: v.optional(v.string()),
+      })
+    ),
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const now = Date.now();
+
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    const quizAnswers =
+      args.quizAnswers !== undefined
+        ? args.quizAnswers
+        : existingUser?.quizAnswers;
+
+    const preferences: {
+      preferredMode: "web" | "background";
+      backgroundAgentEnabled: boolean;
+      updatedAt: number;
+      quizAnswers?: { reason?: string } | undefined;
+    } = {
+      preferredMode: args.mode,
+      backgroundAgentEnabled: args.mode === "background",
+      updatedAt: now,
+    };
+
+    if (quizAnswers !== undefined) {
+      preferences.quizAnswers = quizAnswers;
+    }
+
+    if (existingUser) {
+      await ctx.db.patch(existingUser._id, preferences);
+      return existingUser._id;
+    }
+
+    const newUser = {
+      userId,
+      createdAt: now,
+      ...preferences,
+    };
+    return ctx.db.insert("users", newUser);
+  },
+});

@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function AgentDetailPage() {
   const params = useParams();
-  const jobId = params.jobId as Id<"backgroundJobs">;
+  const jobId = getValidatedBackgroundJobId(params?.jobId);
   const job = useQuery(api.backgroundJobs.get, { jobId });
   const decisions = useQuery(api.councilDecisions.listByJob, { jobId });
 
@@ -90,4 +90,12 @@ export default function AgentDetailPage() {
       </div>
     </div>
   );
+}
+
+// Only accept a single job ID string from the route before using it in queries.
+function getValidatedBackgroundJobId(jobIdParam: string | string[] | undefined): Id<"backgroundJobs"> {
+  if (typeof jobIdParam !== "string") {
+    throw new Error("Missing or invalid background job ID.");
+  }
+  return jobIdParam as Id<"backgroundJobs">;
 }

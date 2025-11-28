@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export function SignupQuiz() {
   const user = useUser();
@@ -40,18 +41,23 @@ export function SignupQuiz() {
 
   const handleComplete = async () => {
     if (!mode) return;
-    
-    await setPreferredMode({
-      mode,
-      quizAnswers: { reason },
-    });
-    
-    setIsOpen(false);
-    
-    if (mode === "background") {
-      router.push("/agents");
-    } else {
-      router.push("/projects");
+
+    try {
+      await setPreferredMode({
+        mode,
+        quizAnswers: { reason },
+      });
+
+      setIsOpen(false);
+
+      if (mode === "background") {
+        router.push("/agents");
+      } else {
+        router.push("/projects");
+      }
+    } catch (error) {
+      console.error("Failed to set preferred mode", error);
+      toast.error("Could not save your preference. Please try again.");
     }
   };
 

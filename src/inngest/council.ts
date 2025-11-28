@@ -3,7 +3,6 @@ import {
   createNetwork,
   openai,
   createState,
-  type AgentState,
 } from "@inngest/agent-kit";
 import { inngest } from "./client";
 import { cuaClient } from "@/lib/cua-client";
@@ -12,7 +11,11 @@ import { ConvexHttpClient } from "convex/browser";
 import { Id } from "@/convex/_generated/dataModel";
 
 // Convex client
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
+if (!CONVEX_URL) {
+  throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is required");
+}
+const convex = new ConvexHttpClient(CONVEX_URL);
 
 const MODEL = "openai/gpt-5.1-codex"; // Use powerful model for council
 
@@ -74,22 +77,22 @@ export const backgroundAgentFunction = inngest.createFunction(
     const finalState = await step.run("run-council", async () => {
         // Dynamic tools closing over sandboxId
         // In real implementation we would bind tools here
-        
-        const network = createNetwork({
-            agents: [plannerAgent, implementerAgent, reviewerAgent],
-            defaultState: createState({
-                messages: [{ role: "user", content: instruction }]
-            }),
-        });
+
+        // const network = createNetwork({
+        //     agents: [plannerAgent, implementerAgent, reviewerAgent],
+        //     defaultState: createState({
+        //         messages: [{ role: "user", content: instruction }]
+        //     }),
+        // });
 
         // Mocking activity since we don't have real execution environment connected yet
         console.log(`Running council for job ${jobId} with sandbox ${sandboxId}`);
-        
+        console.log(`Agents: ${[plannerAgent.name, implementerAgent.name, reviewerAgent.name].join(", ")}`);
+
         // Simulate agents thinking
         await cuaClient.runCommand(sandboxId, "echo 'Analyzing request...'");
-        await new Promise(resolve => setTimeout(resolve, 1000));
         await cuaClient.runCommand(sandboxId, "echo 'Implementing changes...'");
-        
+
         return {
             summary: "Task processed successfully by council (mock).",
         };
