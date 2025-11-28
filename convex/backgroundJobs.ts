@@ -4,6 +4,25 @@ import { requireAuth } from "./helpers";
 
 export const list = query({
   args: {},
+  returns: v.array(v.object({
+    _id: v.id("backgroundJobs"),
+    _creationTime: v.number(),
+    userId: v.string(),
+    projectId: v.optional(v.id("projects")),
+    title: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled")
+    ),
+    sandboxId: v.optional(v.string()),
+    logs: v.optional(v.array(v.string())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })),
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
     return await ctx.db
@@ -12,6 +31,7 @@ export const list = query({
       .order("desc")
       .collect();
   },
+});
 });
 
 export const get = query({
