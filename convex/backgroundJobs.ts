@@ -74,8 +74,15 @@ export const updateStatus = mutation({
       v.literal("cancelled")
     ),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const job = await ctx.db.get(args.jobId);
+    if (!job || job.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
     await ctx.db.patch(args.jobId, { status: args.status, updatedAt: Date.now() });
+    return null;
   },
 });
 
