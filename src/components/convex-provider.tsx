@@ -3,7 +3,7 @@
 import { ReactNode, useMemo } from "react";
 import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithAuth } from "convex/react";
-import { useSession } from "@workos-inc/authkit-nextjs";
+import { useAccessToken } from "@workos-inc/authkit-nextjs/components";
 
 if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
   throw new Error("Missing NEXT_PUBLIC_CONVEX_URL in your .env file");
@@ -20,17 +20,22 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
 }
 
 function useWorkOSAuth() {
-  const { session } = useSession();
-  
+  const { accessToken, loading, refresh } = useAccessToken();
+
   return useMemo(
     () => ({
-      isLoading: false,
-      isAuthenticated: session !== null,
-      fetchAccessToken: async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
-        if (!session) return null;
-        return session.accessToken;
+      isLoading: loading,
+      isAuthenticated: !!accessToken,
+      fetchAccessToken: async ({
+        forceRefreshToken,
+      }: {
+        forceRefreshToken: boolean;
+      }) => {
+        if (!accessToken && !forceRefreshToken) return null;
+        if (forceRefreshToken) await refresh();
+        return accessToken ?? null;
       },
     }),
-    [session]
+    [accessToken, loading]
   );
 }

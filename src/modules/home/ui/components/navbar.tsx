@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
-import { useUser } from "@workos-inc/authkit-nextjs";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -25,7 +25,13 @@ import { CalendarCheckIcon, MailIcon } from "lucide-react";
 
 export const Navbar = () => {
   const isScrolled = useScroll();
-  const { user } = useUser();
+  const { user, loading, organizationId, refreshAuth } = useAuth();
+
+  // Keep organization context and refresh handler available when needed.
+  void organizationId;
+  void refreshAuth;
+
+  if (loading) return null;
 
   return (
     <>

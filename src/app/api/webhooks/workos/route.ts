@@ -1,6 +1,23 @@
+import { WorkOS } from "@workos-inc/node";
 import { headers } from "next/headers";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
+
+let workos: WorkOS | null = null;
+
+const getWorkOSClient = () => {
+  if (!workos) {
+    const WORKOS_API_KEY = process.env.WORKOS_API_KEY;
+
+    if (!WORKOS_API_KEY) {
+      throw new Error(
+        "Please add WORKOS_API_KEY from WorkOS Dashboard to .env or .env.local"
+      );
+    }
+
+    workos = new WorkOS(WORKOS_API_KEY);
+  }
+
+  return workos;
+};
 
 export async function POST(req: Request) {
   // Get WorkOS webhook secret
@@ -13,7 +30,7 @@ export async function POST(req: Request) {
   }
 
   // Get the headers
-  const headerPayload = await headers();
+  const headerPayload = headers();
   const signature = headerPayload.get("workos-signature");
 
   if (!signature) {
@@ -22,26 +39,34 @@ export async function POST(req: Request) {
     });
   }
 
-  // Get the body
-  const payload = await req.json();
+  const rawBody = await req.text();
 
-  // TODO: Verify webhook signature using WorkOS SDK
-  // For now, we'll process the event without verification
-  // In production, you should verify the signature:
-  // const isValid = await verifyWorkOSWebhook(payload, signature, WEBHOOK_SECRET);
-  // if (!isValid) {
-  //   return new Response("Invalid signature", { status: 400 });
-  // }
+  let event;
 
-  const eventType = payload.event;
+  try {
+    const payload = JSON.parse(rawBody);
 
-  // Initialize Convex client
-  const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+    event = await getWorkOSClient().webhooks.constructEvent({
+      payload,
+      sigHeader: signature,
+      secret: WEBHOOK_SECRET,
+    });
+  } catch (error) {
+    console.error("Error verifying WorkOS webhook:", error);
+
+    return new Response("Invalid signature", { status: 400 });
+  }
+
+  const { event: eventType, data } = event;
 
   if (eventType === "user.created") {
-    const { id, email, first_name, last_name, profile_picture_url } = payload.data;
+    const { id, email, firstName, lastName, profilePictureUrl } = data;
 
-    console.log(`User created: ${id} (${email})`);
+    console.log(`User created: ${id} (${email})`, {
+      firstName,
+      lastName,
+      profilePictureUrl,
+    });
 
     // Initialize usage for the new user
     try {
@@ -53,13 +78,13 @@ export async function POST(req: Request) {
   }
 
   if (eventType === "user.updated") {
-    const { id, email } = payload.data;
+    const { id, email } = data;
     console.log(`User updated: ${id} (${email})`);
     // Handle user updates if needed
   }
 
   if (eventType === "user.deleted") {
-    const { id } = payload.data;
+    const { id } = data;
     console.log(`User deleted: ${id}`);
     // Handle user deletion if needed (cleanup projects, messages, etc.)
   }
