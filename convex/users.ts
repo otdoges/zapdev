@@ -5,6 +5,21 @@ import { requireAuth } from "./helpers";
 // Get user profile or create if not exists
 export const getProfile = query({
   args: { userId: v.optional(v.string()) },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("users"),
+      _creationTime: v.number(),
+      userId: v.string(),
+      email: v.optional(v.string()),
+      name: v.optional(v.string()),
+      preferredMode: v.union(v.literal("web"), v.literal("background")),
+      quizAnswers: v.optional(v.any()),
+      backgroundAgentEnabled: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+  ),
   handler: async (ctx, args) => {
     const userId = args.userId || (await requireAuth(ctx));
     const user = await ctx.db
