@@ -117,6 +117,12 @@ export const MODEL_CONFIGS = {
     description: "Good at nothing",
     temperature: 0.7,
   },
+  "prime-intellect/intellect-3": {
+    name: "Intellect 3",
+    provider: "prime-intellect",
+    description: "Advanced reasoning model from Prime Intellect",
+    temperature: 0.7,
+  },
 } as const;
 
 export type ModelId = keyof typeof MODEL_CONFIGS | "auto";

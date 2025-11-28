@@ -67,6 +67,7 @@ export const ProjectForm = () => {
     { id: "moonshotai/kimi-k2-thinking" as ModelId, name: "Kimi K2 Thinking", image: "/kimi.svg", description: "Fast and efficient for speed-critical tasks" },
     { id: "google/gemini-3-pro-preview" as ModelId, name: "Gemini 3 Pro", image: "/gemini.svg", description: "Specialized for coding tasks", isProOnly: true },
     { id: "xai/grok-4-fast-reasoning" as ModelId, name: "Grok 4 Fast", image: "/grok.svg", description: "Experimental model from xAI" },
+    { id: "prime-intellect/intellect-3" as ModelId, name: "Intellect 3", image: "/intellect.svg", description: "Advanced reasoning model from Prime Intellect" },
   ];
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {

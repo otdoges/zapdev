@@ -12,6 +12,12 @@ describe('Model Selection Logic', () => {
     expect(MODEL_CONFIGS[result]).toBeDefined();
   });
 
+  it('includes prime-intellect/intellect-3 in MODEL_CONFIGS', () => {
+    expect(MODEL_CONFIGS['prime-intellect/intellect-3']).toBeDefined();
+    expect(MODEL_CONFIGS['prime-intellect/intellect-3'].name).toBe('Intellect 3');
+    expect(MODEL_CONFIGS['prime-intellect/intellect-3'].provider).toBe('prime-intellect');
+  });
+
   it('prefers Gemini for coding-focused refinements', () => {
     const prompt = 'Please refactor this component to improve readability.';
     const result = selectModelForTask(prompt);
