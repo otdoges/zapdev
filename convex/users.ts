@@ -35,6 +35,7 @@ export const getProfile = query({
 });
 
 // Update or create user preference
+// SECURITY: Always uses authenticated userId - cannot modify other users' preferences
 export const setPreferredMode = mutation({
   args: {
     mode: v.union(v.literal("web"), v.literal("background")),
@@ -46,6 +47,8 @@ export const setPreferredMode = mutation({
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
+    // SECURITY FIX: Always derive userId from authentication context
+    // This prevents users from modifying other users' preferences
     const userId = await requireAuth(ctx);
     const now = Date.now();
 

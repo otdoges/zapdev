@@ -2,6 +2,14 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { requireAuth } from "./helpers";
 import { backgroundJobStatusSchema, BackgroundJobStatus } from "./constants";
+import { api } from "./_generated/api";
+
+// Constants for validation
+const MAX_TITLE_LENGTH = 200;
+const MAX_STEP_LENGTH = 200;
+const MAX_VERDICT_LENGTH = 200;
+const MAX_REASONING_LENGTH = 1000;
+const MAX_LOGS_ENTRIES = 100; // Keep only last 100 log entries to prevent document size issues
 
 const backgroundJobSchema = v.object({
   _id: v.id("backgroundJobs"),
@@ -46,15 +54,32 @@ export const create = mutation({
   returns: v.id("backgroundJobs"),
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    if (!args.title || args.title.length === 0) {
+    
+    // SECURITY: Rate limiting - prevent job creation spam
+    // Allow 10 jobs per hour per user
+    const rateLimitKey = `user_${userId}_create-job`;
+    const rateLimitCheck = await ctx.runMutation(api.rateLimit.checkRateLimit, {
+      key: rateLimitKey,
+      limit: 10,
+      windowMs: 60 * 60 * 1000, // 1 hour
+    });
+    
+    if (!rateLimitCheck.success) {
+      throw new Error(rateLimitCheck.message || "Rate limit exceeded. Please try again later.");
+    }
+    
+    // Validate title
+    const trimmedTitle = args.title.trim();
+    if (trimmedTitle.length === 0) {
       throw new Error("Title cannot be empty");
     }
-    if (args.title.length > 200) {
-      throw new Error("Title too long");
+    if (trimmedTitle.length > MAX_TITLE_LENGTH) {
+      throw new Error(`Title too long (max ${MAX_TITLE_LENGTH} characters)`);
     }
+    
     return await ctx.db.insert("backgroundJobs", {
       userId,
-      title: args.title,
+      title: trimmedTitle,
       status: "pending",
       logs: [],
       createdAt: Date.now(),
@@ -111,6 +136,43 @@ export const updateSandbox = mutation({
   },
 });
 
+// Helper function to rotate logs (keep only last MAX_LOGS_ENTRIES)
+function rotateLogs(logs: string[], newLog: string): string[] {
+  const updatedLogs = [...logs, newLog];
+  
+  // If we exceed the limit, keep only the most recent entries
+  if (updatedLogs.length > MAX_LOGS_ENTRIES) {
+    return updatedLogs.slice(-MAX_LOGS_ENTRIES);
+  }
+  
+  return updatedLogs;
+}
+
+export const addLog = mutation({
+  args: {
+    jobId: v.id("backgroundJobs"),
+    log: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
+    const job = await ctx.db.get(args.jobId);
+    if (!job || job.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+    
+    // Rotate logs to prevent document size overflow
+    const currentLogs = job.logs || [];
+    const updatedLogs = rotateLogs(currentLogs, args.log);
+    
+    await ctx.db.patch(args.jobId, { 
+      logs: updatedLogs, 
+      updatedAt: Date.now() 
+    });
+    return null;
+  },
+});
+
 export const addDecision = mutation({
   args: {
     jobId: v.id("backgroundJobs"),
@@ -126,15 +188,21 @@ export const addDecision = mutation({
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
 
-    if (!args.step || args.step.length === 0 || args.step.length > 200) {
-      throw new Error("Step must be between 1 and 200 characters");
+    // Validate input lengths using constants
+    const trimmedStep = args.step.trim();
+    const trimmedVerdict = args.verdict.trim();
+    const trimmedReasoning = args.reasoning.trim();
+    
+    if (trimmedStep.length === 0 || trimmedStep.length > MAX_STEP_LENGTH) {
+      throw new Error(`Step must be between 1 and ${MAX_STEP_LENGTH} characters`);
     }
-    if (!args.verdict || args.verdict.length === 0 || args.verdict.length > 200) {
-      throw new Error("Verdict must be between 1 and 200 characters");
+    if (trimmedVerdict.length === 0 || trimmedVerdict.length > MAX_VERDICT_LENGTH) {
+      throw new Error(`Verdict must be between 1 and ${MAX_VERDICT_LENGTH} characters`);
     }
-    if (!args.reasoning || args.reasoning.length === 0 || args.reasoning.length > 1000) {
-      throw new Error("Reasoning must be between 1 and 1000 characters");
+    if (trimmedReasoning.length === 0 || trimmedReasoning.length > MAX_REASONING_LENGTH) {
+      throw new Error(`Reasoning must be between 1 and ${MAX_REASONING_LENGTH} characters`);
     }
+    
     const job = await ctx.db.get(args.jobId);
     if (!job || job.userId !== userId) {
       throw new Error("Unauthorized");
@@ -142,10 +210,10 @@ export const addDecision = mutation({
 
     await ctx.db.insert("councilDecisions", {
       jobId: args.jobId,
-      step: args.step,
+      step: trimmedStep,
       agents: args.agents,
-      verdict: args.verdict,
-      reasoning: args.reasoning,
+      verdict: trimmedVerdict,
+      reasoning: trimmedReasoning,
       metadata: args.metadata,
       createdAt: Date.now(),
     });

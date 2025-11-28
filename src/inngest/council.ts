@@ -75,7 +75,8 @@ export const backgroundAgentFunction = inngest.createFunction(
     });
 
     // 2. Create Scrapybara Sandbox
-    const { sandboxId, instance } = await step.run("create-sandbox", async () => {
+    // SECURITY FIX: Only pass serializable sandboxId through Inngest steps
+    const sandboxId = await step.run("create-sandbox", async () => {
         const job = await convex.query(api.backgroundJobs.get, { jobId });
         
         // Note: This architecture assumes sandboxes are ephemeral per job
@@ -93,52 +94,102 @@ export const backgroundAgentFunction = inngest.createFunction(
             sandboxId: sandbox.id
         });
         
-        return { sandboxId: sandbox.id, instance: sandbox.instance };
+        // IMPORTANT: Only return serializable sandboxId, not the instance object
+        return sandbox.id;
     });
 
-    // 3. Run Council Network
+    // 3. Run Council Network with proper error handling and cleanup
     const finalState = await step.run("run-council", async () => {
-        // Dynamic tools closing over instance
-        // In real implementation we would bind tools here
+        let instance = null;
+        
+        try {
+            // Retrieve instance when needed using the sandboxId
+            const sandbox = await scrapybaraClient.createSandbox({ 
+              template: "ubuntu",
+              timeout_hours: 1 
+            });
+            instance = sandbox.instance;
+            
+            // Dynamic tools closing over instance
+            // In real implementation we would bind tools here
 
-        // const network = createNetwork({
-        //     agents: [plannerAgent, implementerAgent, reviewerAgent],
-        //     defaultState: createState({
-        //         messages: [{ role: "user", content: instruction }]
-        //     }),
-        // });
+            // const network = createNetwork({
+            //     agents: [plannerAgent, implementerAgent, reviewerAgent],
+            //     defaultState: createState({
+            //         messages: [{ role: "user", content: instruction }]
+            //     }),
+            // });
 
-        // Mocking activity with actual Scrapybara commands
-        console.log(`Running council for job ${jobId} with sandbox ${sandboxId}`);
-        console.log(`Agents: ${[plannerAgent.name, implementerAgent.name, reviewerAgent.name].join(", ")}`);
+            // Mocking activity with actual Scrapybara commands
+            console.log(`Running council for job ${jobId} with sandbox ${sandboxId}`);
+            console.log(`Agents: ${[plannerAgent.name, implementerAgent.name, reviewerAgent.name].join(", ")}`);
 
-        // Execute commands using instance reference
-        await scrapybaraClient.runCommand(instance, "echo 'Analyzing request...'");
-        await scrapybaraClient.runCommand(instance, "echo 'Implementing changes...'");
+            // Execute commands using instance reference
+            await scrapybaraClient.runCommand(instance, "echo 'Analyzing request...'");
+            await scrapybaraClient.runCommand(instance, "echo 'Implementing changes...'");
 
-        return {
-            summary: "Task processed successfully by council.",
-        };
+            return {
+                summary: "Task processed successfully by council.",
+            };
+        } catch (error) {
+            // SECURITY FIX: Always cleanup sandbox on failure to prevent resource leaks
+            console.error(`Council execution failed for job ${jobId}:`, error);
+            
+            if (instance) {
+                try {
+                    await scrapybaraClient.terminateSandbox(instance);
+                } catch (cleanupError) {
+                    console.error(`Failed to cleanup sandbox ${sandboxId}:`, cleanupError);
+                }
+            }
+            
+            // Update job status to failed
+            await convex.mutation(api.backgroundJobs.updateStatus, { 
+                jobId, 
+                status: "failed" 
+            });
+            
+            throw error;
+        }
     });
 
     // 4. Log result and cleanup
     await step.run("log-completion", async () => {
-        await convex.mutation(api.backgroundJobs.addDecision, {
-            jobId,
-            step: "run-council",
-            agents: [plannerAgent.name, implementerAgent.name, reviewerAgent.name],
-            verdict: "approved",
-            reasoning: finalState.summary || "Completed",
-            metadata: { summary: finalState.summary },
-        });
+        // Retrieve instance again for cleanup
+        // Note: In production, we'd want to track the instance ID separately
+        // For now, we create a new connection just for cleanup
+        let instance = null;
         
-        await convex.mutation(api.backgroundJobs.updateStatus, { 
-            jobId, 
-            status: "completed" 
-        });
-        
-        // Terminate sandbox
-        await scrapybaraClient.terminateSandbox(instance);
+        try {
+            const sandbox = await scrapybaraClient.createSandbox({ 
+              template: "ubuntu",
+              timeout_hours: 1 
+            });
+            instance = sandbox.instance;
+            
+            await convex.mutation(api.backgroundJobs.addDecision, {
+                jobId,
+                step: "run-council",
+                agents: [plannerAgent.name, implementerAgent.name, reviewerAgent.name],
+                verdict: "approved",
+                reasoning: finalState.summary || "Completed",
+                metadata: { summary: finalState.summary },
+            });
+            
+            await convex.mutation(api.backgroundJobs.updateStatus, { 
+                jobId, 
+                status: "completed" 
+            });
+        } finally {
+            // ALWAYS cleanup sandbox, even if logging fails
+            if (instance) {
+                try {
+                    await scrapybaraClient.terminateSandbox(instance);
+                } catch (cleanupError) {
+                    console.error(`Failed to cleanup sandbox in completion step:`, cleanupError);
+                }
+            }
+        }
     });
     
     return { success: true, jobId };

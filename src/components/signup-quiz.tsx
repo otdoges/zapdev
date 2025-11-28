@@ -63,9 +63,15 @@ export function SignupQuiz() {
 
   if (!user) return null;
 
+  const handleSkip = () => {
+    // Default to "web" mode when skipping
+    setMode("web");
+    handleComplete();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if(!open && mode) setIsOpen(false); }}>
-      <DialogContent className="sm:max-w-[500px]" onInteractOutside={(e) => e.preventDefault()}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Welcome to ZapDev</DialogTitle>
           <DialogDescription>
@@ -105,15 +111,27 @@ export function SignupQuiz() {
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex flex-row justify-between items-center">
+          <Button 
+            variant="ghost" 
+            onClick={handleSkip}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Skip for now
+          </Button>
           {step === 1 ? (
             <Button onClick={() => mode === "background" ? setStep(2) : handleComplete()} disabled={!mode}>
               {mode === "background" ? "Next" : "Get Started"}
             </Button>
           ) : (
-             <Button onClick={handleComplete} disabled={!reason}>
-              Finish
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setStep(1)}>
+                Back
+              </Button>
+              <Button onClick={handleComplete} disabled={!reason}>
+                Finish
+              </Button>
+            </div>
           )}
         </DialogFooter>
       </DialogContent>

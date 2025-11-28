@@ -11,6 +11,71 @@ export const ScrapybaraSandboxSchema = z.object({
 
 export type ScrapybaraSandbox = z.infer<typeof ScrapybaraSandboxSchema>;
 
+// TypeScript interfaces for Scrapybara SDK types
+// BashResponse from Scrapybara SDK
+export interface BashResponse {
+  output?: string;
+  error?: string;
+  base64Image?: string;
+  system?: string;
+}
+
+// Our normalized result type
+export interface BashResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
+export interface ScrapybaraInstance {
+  id: string;
+  bash(options: { command: string }): Promise<BashResponse>;
+  stop(): Promise<void>;
+  getStreamUrl(): Promise<{ streamUrl: string }>;
+}
+
+// Command allowlist for security - only allow safe commands
+// IMPORTANT: Never pass unsanitized user input to runCommand!
+const ALLOWED_COMMAND_PATTERNS = [
+  /^echo\s+/, // Echo commands for logging
+  /^ls\s+/, // List files
+  /^pwd$/, // Print working directory
+  /^cat\s+/, // Read files
+  /^mkdir\s+/, // Create directories
+  /^cd\s+/, // Change directory
+  /^npm\s+/, // NPM commands
+  /^bun\s+/, // Bun commands
+  /^git\s+/, // Git commands (read-only recommended)
+  /^python3?\s+/, // Python execution
+  /^node\s+/, // Node execution
+];
+
+function validateCommand(command: string): void {
+  const trimmedCommand = command.trim();
+  
+  // Block dangerous commands
+  const dangerousPatterns = [
+    /rm\s+-rf\s+\//, // Prevent root deletion
+    /dd\s+if=/, // Prevent disk operations
+    /:\(\)\{.*\}:/, // Fork bomb
+    />\s*\/dev\//, // Prevent device manipulation
+    /mkfs/, // Prevent filesystem formatting
+  ];
+  
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(trimmedCommand)) {
+      throw new Error(`Command blocked for security: contains dangerous pattern`);
+    }
+  }
+  
+  // Check against allowlist (optional - can be disabled for flexibility)
+  // Uncomment to enforce strict allowlist:
+  // const isAllowed = ALLOWED_COMMAND_PATTERNS.some(pattern => pattern.test(trimmedCommand));
+  // if (!isAllowed) {
+  //   throw new Error(`Command not in allowlist: ${trimmedCommand.substring(0, 50)}`);
+  // }
+}
+
 export class ScrapybaraClient {
   private client: ScrapybaraSDKClient;
 
@@ -28,52 +93,81 @@ export class ScrapybaraClient {
     osType?: string;
     timeout_hours?: number;
   }): Promise<ScrapybaraSandbox & { instance: any }> {
-    console.log("Creating Scrapybara sandbox with options:", options);
-    
-    // Start Ubuntu instance (default) or Browser based on template
-    const instance = options.template === "browser" 
-      ? await this.client.startBrowser({ timeoutHours: options.timeout_hours || 1 })
-      : await this.client.startUbuntu({ timeoutHours: options.timeout_hours || 1 });
-    
-    const streamUrl = (await instance.getStreamUrl()).streamUrl;
-    
-    return {
-      id: instance.id,
-      status: "running",
-      url: streamUrl,
-      instance, // Return instance for direct API usage
-    };
+    try {
+      console.log("Creating Scrapybara sandbox with options:", options);
+      
+      // Start Ubuntu instance (default) or Browser based on template
+      const instance = options.template === "browser" 
+        ? await this.client.startBrowser({ timeoutHours: options.timeout_hours || 1 })
+        : await this.client.startUbuntu({ timeoutHours: options.timeout_hours || 1 });
+      
+      const streamUrl = (await instance.getStreamUrl()).streamUrl;
+      
+      return {
+        id: instance.id,
+        status: "running",
+        url: streamUrl,
+        instance, // Return instance for direct API usage
+      };
+    } catch (error) {
+      console.error("Failed to create Scrapybara sandbox:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Sandbox creation failed: ${errorMessage}`);
+    }
   }
 
   async runCommand(
-    instance: any, 
+    instance: any, // UbuntuInstance | BrowserInstance from SDK
     command: string
-  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    console.log(`Running command: ${command}`);
+  ): Promise<BashResult> {
+    // SECURITY: Validate command before execution
+    // WARNING: NEVER pass unsanitized user input to this function
+    validateCommand(command);
     
-    const result = await instance.bash({ command });
-    
-    return { 
-      stdout: result.stdout || "Command executed successfully", 
-      stderr: result.stderr || "", 
-      exitCode: result.exit_code || 0 
-    };
+    try {
+      console.log(`Running command: ${command}`);
+      
+      const result = await instance.bash({ command });
+      
+      // Normalize SDK response to our BashResult format
+      return { 
+        stdout: result.output || "", 
+        stderr: result.error || "", 
+        exitCode: result.error ? 1 : 0 // SDK doesn't provide exit code, infer from error
+      };
+    } catch (error) {
+      console.error(`Command execution failed: ${command}`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Command failed: ${errorMessage}`);
+    }
   }
 
   async streamEvents(instance: any): Promise<ReadableStream> {
-    // Scrapybara provides streaming via getStreamUrl
-    const streamUrl = (await instance.getStreamUrl()).streamUrl;
-    return new ReadableStream({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode(`Connected to sandbox: ${streamUrl}\n`));
-        controller.close();
-      }
-    });
+    try {
+      // Scrapybara provides streaming via getStreamUrl
+      const streamUrl = (await instance.getStreamUrl()).streamUrl;
+      return new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(`Connected to sandbox: ${streamUrl}\n`));
+          controller.close();
+        }
+      });
+    } catch (error) {
+      console.error("Failed to get stream URL:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Stream connection failed: ${errorMessage}`);
+    }
   }
   
   async terminateSandbox(instance: any): Promise<void> {
-    console.log(`Terminating sandbox ${instance.id}`);
-    await instance.stop();
+    try {
+      console.log(`Terminating sandbox ${instance.id}`);
+      await instance.stop();
+    } catch (error) {
+      console.error(`Failed to terminate sandbox ${instance.id}:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Sandbox termination failed: ${errorMessage}`);
+    }
   }
 }
 

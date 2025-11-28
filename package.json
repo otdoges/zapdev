@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "migrate:convex": "bun run scripts/migrate-to-convex.ts",
     "convex:dev": "bunx convex dev",
     "convex:deploy": "bunx convex deploy"

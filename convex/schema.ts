@@ -291,8 +291,8 @@ export default defineSchema({
     projectId: v.optional(v.id("projects")),
     title: v.string(),
     status: backgroundJobStatusSchema,
-    sandboxId: v.optional(v.string()), // Link to cuaSandbox
-    logs: v.optional(v.array(v.string())), 
+    sandboxId: v.optional(v.string()), // Scrapybara sandbox ID
+    logs: v.optional(v.array(v.string())), // Auto-rotated to last 100 entries
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
@@ -300,22 +300,7 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_status", ["status"]),
 
-  // Cua Sandboxes
-  cuaSandboxes: defineTable({
-    sandboxId: v.string(), // cua instance ID
-    jobId: v.id("backgroundJobs"),
-    userId: v.string(),
-    template: v.string(),
-    osType: v.optional(v.string()),
-    status: v.string(), // e.g., "running", "stopped"
-    lastHeartbeat: v.number(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_sandboxId", ["sandboxId"])
-    .index("by_jobId", ["jobId"])
-    .index("by_userId", ["userId"])
-    .index("by_status", ["status"]),
+  // REMOVED: cuaSandboxes table (unused - sandboxId stored directly in backgroundJobs)
 
   // Council Decisions
   councilDecisions: defineTable({
