@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { ConvexClientProvider } from "@/components/convex-provider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { SignupQuiz } from "@/components/signup-quiz";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -114,6 +115,7 @@ export default function RootLayout({
               >
                 <Toaster />
                 <WebVitalsReporter />
+                <SignupQuiz />
                 {children}
               </ThemeProvider>
             </ConvexClientProvider>

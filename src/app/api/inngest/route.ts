@@ -7,6 +7,7 @@ import {
   errorFixFunction, 
   sandboxCleanupFunction 
 } from "@/inngest/functions";
+import { backgroundAgentFunction } from "@/inngest/council";
 import { autoPauseSandboxes } from "@/inngest/functions/auto-pause";
 import { e2bHealthCheck, cleanupRateLimits } from "@/inngest/functions/health-check";
 import { processQueuedJobs, cleanupCompletedJobs } from "@/inngest/functions/job-processor";
@@ -23,6 +24,7 @@ export const { GET, POST, PUT } = serve({
     cleanupRateLimits,
     processQueuedJobs,
     cleanupCompletedJobs,
+    backgroundAgentFunction,
   ],
   signingKey: process.env.INNGEST_SIGNING_KEY,
 });

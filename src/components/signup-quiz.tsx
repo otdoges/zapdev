@@ -1,0 +1,116 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useUser } from "@stackframe/stack";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
+
+export function SignupQuiz() {
+  const user = useUser();
+  const router = useRouter();
+  const profile = useQuery(api.users.getProfile, user ? {} : "skip");
+  const setPreferredMode = useMutation(api.users.setPreferredMode);
+  
+  const [isOpen, setIsOpen] = useState(false);
+  const [step, setStep] = useState(1);
+  const [mode, setMode] = useState<"web" | "background" | null>(null);
+  const [reason, setReason] = useState<string>("");
+
+  useEffect(() => {
+    if (user && profile !== undefined) {
+      // If profile exists but preferredMode is not set (or undefined/null if new schema field), show quiz
+      // Note: "undefined" means loading for Convex, so we check strict non-undefined
+      if (profile === null || !profile.preferredMode) {
+        setIsOpen(true);
+      }
+    }
+  }, [user, profile]);
+
+  const handleComplete = async () => {
+    if (!mode) return;
+    
+    await setPreferredMode({
+      mode,
+      quizAnswers: { reason },
+    });
+    
+    setIsOpen(false);
+    
+    if (mode === "background") {
+      router.push("/agents");
+    } else {
+      router.push("/projects");
+    }
+  };
+
+  if (!user) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => { if(!open && mode) setIsOpen(false); }}>
+      <DialogContent className="sm:max-w-[500px]" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle>Welcome to ZapDev</DialogTitle>
+          <DialogDescription>
+            Let's customize your experience. What are you here to do?
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-6">
+          {step === 1 && (
+            <RadioGroup value={mode || ""} onValueChange={(v) => setMode(v as "web" | "background")}>
+              <div className="flex items-center space-x-2 mb-4 p-4 border rounded-lg cursor-pointer hover:bg-accent" onClick={() => setMode("web")}>
+                <RadioGroupItem value="web" id="web" />
+                <div className="flex flex-col">
+                  <Label htmlFor="web" className="font-bold cursor-pointer">Web Generation</Label>
+                  <span className="text-sm text-muted-foreground">Build and deploy web apps with AI</span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-accent" onClick={() => setMode("background")}>
+                <RadioGroupItem value="background" id="background" />
+                <div className="flex flex-col">
+                  <Label htmlFor="background" className="font-bold cursor-pointer">Background Agents (10x SWE)</Label>
+                  <span className="text-sm text-muted-foreground">Run long-lived autonomous coding tasks</span>
+                </div>
+              </div>
+            </RadioGroup>
+          )}
+
+          {step === 2 && mode === "background" && (
+            <div className="space-y-4">
+              <Label>What kind of tasks do you want to automate?</Label>
+              <RadioGroup value={reason} onValueChange={setReason}>
+                 <div className="flex items-center space-x-2"><RadioGroupItem value="migrations" id="r1"/><Label htmlFor="r1">Large-scale migrations</Label></div>
+                 <div className="flex items-center space-x-2"><RadioGroupItem value="maintenance" id="r2"/><Label htmlFor="r2">Maintenance & bug fixes</Label></div>
+                 <div className="flex items-center space-x-2"><RadioGroupItem value="features" id="r3"/><Label htmlFor="r3">Complex feature implementation</Label></div>
+              </RadioGroup>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          {step === 1 ? (
+            <Button onClick={() => mode === "background" ? setStep(2) : handleComplete()} disabled={!mode}>
+              {mode === "background" ? "Next" : "Get Started"}
+            </Button>
+          ) : (
+             <Button onClick={handleComplete} disabled={!reason}>
+              Finish
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

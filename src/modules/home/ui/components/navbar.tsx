@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
 import { AuthModal } from "@/components/auth-modal";
 import { useUser } from "@stackframe/stack";
+import { useQuery } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -30,6 +32,7 @@ export const Navbar = () => {
   const user = useUser();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const profile = useQuery(api.users.getProfile, user ? {} : "skip");
 
   const openAuthModal = (mode: "signin" | "signup") => {
     setAuthMode(mode);
@@ -110,7 +113,14 @@ export const Navbar = () => {
                 </Button>
               </div>
             ) : (
-              <UserControl showName />
+              <div className="flex items-center gap-2">
+                <Link href={profile?.preferredMode === "background" ? "/agents" : "/projects"}>
+                  <Button size="sm" className="hidden sm:inline-flex">
+                     {profile?.preferredMode === "background" ? "Launch Background Agents" : "Start Web App"}
+                  </Button>
+                </Link>
+                <UserControl showName />
+              </div>
             )}
           </div>
         </div>

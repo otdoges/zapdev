@@ -266,4 +266,65 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_status_priority", ["status", "priority"])
     .index("by_createdAt", ["createdAt"]),
+
+  // Users metadata for ZapDev
+  users: defineTable({
+    userId: v.string(), // Stack Auth user ID
+    email: v.optional(v.string()),
+    name: v.optional(v.string()),
+    preferredMode: v.union(v.literal("web"), v.literal("background")),
+    quizAnswers: v.optional(v.any()),
+    backgroundAgentEnabled: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"]),
+
+  // Background Jobs for Agents
+  backgroundJobs: defineTable({
+    userId: v.string(),
+    projectId: v.optional(v.id("projects")),
+    title: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled")
+    ),
+    sandboxId: v.optional(v.string()), // Link to cuaSandbox
+    logs: v.optional(v.array(v.string())), 
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_status", ["status"]),
+
+  // Cua Sandboxes
+  cuaSandboxes: defineTable({
+    sandboxId: v.string(), // cua instance ID
+    jobId: v.id("backgroundJobs"),
+    userId: v.string(),
+    template: v.string(),
+    osType: v.optional(v.string()),
+    status: v.string(), // e.g., "running", "stopped"
+    lastHeartbeat: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_sandboxId", ["sandboxId"])
+    .index("by_jobId", ["jobId"]),
+
+  // Council Decisions
+  councilDecisions: defineTable({
+    jobId: v.id("backgroundJobs"),
+    step: v.string(), // e.g., "planning", "implementation", "review"
+    agents: v.array(v.string()), // participating agents
+    verdict: v.string(),
+    reasoning: v.string(),
+    metadata: v.optional(v.any()),
+    createdAt: v.number(),
+  })
+    .index("by_jobId", ["jobId"]),
 });
