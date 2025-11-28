@@ -28,6 +28,12 @@ const nextConfig = {
         source: '/api/auth/:path*',
         headers: [
           {
+            key: 'Access-Control-Allow-Origin',
+            value: process.env.NODE_ENV === 'production' 
+              ? 'https://zapdev.link' 
+              : '*'
+          },
+          {
             key: 'Access-Control-Allow-Credentials',
             value: 'true'
           },

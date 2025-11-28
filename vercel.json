@@ -1,4 +1,28 @@
 {
   "buildCommand": "bun run build",
-  "installCommand": "bun install"
+  "installCommand": "bun install",
+  "redirects": [
+    {
+      "source": "/:path((?!api).*)*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.zapdev.link"
+        }
+      ],
+      "destination": "https://zapdev.link/:path*",
+      "permanent": true
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://zapdev.link"
+        }
+      ]
+    }
+  ]
 }
