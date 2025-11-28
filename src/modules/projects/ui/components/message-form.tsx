@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, GitBranchIcon, FigmaIcon, SparklesIcon } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useAction, useConvexAuth } from "convex/react";
 import { api } from "@/lib/convex-api";
 import type { ModelId } from "@/inngest/functions";
 
@@ -47,7 +47,8 @@ interface AttachmentData {
 export const MessageForm = ({ projectId }: Props) => {
   const router = useRouter();
 
-  const usage = useQuery(api.usage.getUsage);
+  const { isAuthenticated } = useConvexAuth();
+  const usage = useQuery(api.usage.getUsage, isAuthenticated ? {} : "skip");
   const createMessageWithAttachments = useAction(api.messages.createWithAttachments);
 
   const [attachments, setAttachments] = useState<AttachmentData[]>([]);
@@ -147,7 +148,7 @@ export const MessageForm = ({ projectId }: Props) => {
   const [isFocused, setIsFocused] = useState(false);
   const isPending = isCreating;
   const isButtonDisabled = isPending || !form.formState.isValid || isUploading;
-  const showUsage = !!usage;
+  const showUsage = isAuthenticated && !!usage;
 
   return (
     <Form {...form}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@stackframe/stack";
 import { format } from "date-fns";
@@ -20,10 +20,11 @@ import Link from "next/link";
 
 export default function SubscriptionPage() {
   const user = useUser();
-  const subscription = useQuery(api.subscriptions.getSubscription);
-  const usage = useQuery(api.usage.getUsage);
+  const { isAuthenticated } = useConvexAuth();
+  const subscription = useQuery(api.subscriptions.getSubscription, isAuthenticated ? {} : "skip");
+  const usage = useQuery(api.usage.getUsage, isAuthenticated ? {} : "skip");
 
-  if (!user) {
+  if (!user || !isAuthenticated) {
     return (
       <div className="container mx-auto p-6 max-w-4xl">
         <div className="text-center py-12">

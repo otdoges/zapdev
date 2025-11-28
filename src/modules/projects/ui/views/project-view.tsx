@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Suspense, useMemo, useState } from "react";
 import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 import { Button } from "@/components/ui/button";
@@ -38,8 +38,9 @@ interface Props {
 };
 
 export const ProjectView = ({ projectId }: Props) => {
-  const usage = useQuery(api.usage.getUsage);
-  const hasProAccess = usage?.planType === "pro";
+  const { isAuthenticated } = useConvexAuth();
+  const usage = useQuery(api.usage.getUsage, isAuthenticated ? {} : "skip");
+  const hasProAccess = isAuthenticated && usage?.planType === "pro";
 
   const [activeFragment, setActiveFragment] = useState<Doc<"fragments"> | null>(null);
   const [tabState, setTabState] = useState<"preview" | "code">("preview");
