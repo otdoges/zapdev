@@ -18,9 +18,7 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
   return (
     <ClerkProvider
       publishableKey={clerkConfig.publishableKey}
-      frontendApi={
-        clerkConfig.publishableKey ? undefined : clerkConfig.frontendApi
-      }
+
       proxyUrl={clerkConfig.proxyUrl}
       signInUrl={clerkConfig.signInUrl}
       signUpUrl={clerkConfig.signUpUrl}
