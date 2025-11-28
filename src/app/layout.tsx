@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import Script from "next/script";
+import { Suspense } from "react";
 import { StackProvider, StackTheme, StackServerApp } from "@stackframe/stack";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -115,7 +116,9 @@ export default function RootLayout({
               >
                 <Toaster />
                 <WebVitalsReporter />
-                <SignupQuiz />
+                <Suspense fallback={null}>
+                  <SignupQuiz />
+                </Suspense>
                 {children}
               </ThemeProvider>
             </ConvexClientProvider>

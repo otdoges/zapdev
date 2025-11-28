@@ -8,7 +8,7 @@ const backgroundJobSchema = v.object({
   _creationTime: v.number(),
   userId: v.string(),
   projectId: v.optional(v.id("projects")),
-  title: v.string().min(1).max(200),
+  title: v.string(),
   status: backgroundJobStatusSchema,
   sandboxId: v.optional(v.string()),
   logs: v.optional(v.array(v.string())),
@@ -26,8 +26,7 @@ export const list = query({
       .query("backgroundJobs")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(50)
-      .collect();
+      .take(50);
   },
 });
 
@@ -43,10 +42,13 @@ export const get = query({
 });
 
 export const create = mutation({
-  args: { title: v.string().min(1).max(200) },
+  args: { title: v.string() },
   returns: v.id("backgroundJobs"),
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    if (!args.title || args.title.length === 0) {
+      throw new Error("Title cannot be empty");
+    }
     if (args.title.length > 200) {
       throw new Error("Title too long");
     }
@@ -112,10 +114,10 @@ export const updateSandbox = mutation({
 export const addDecision = mutation({
   args: {
     jobId: v.id("backgroundJobs"),
-    step: v.string().min(1).max(200),
+    step: v.string(),
     agents: v.array(v.string()),
-    verdict: v.string().min(1).max(200),
-    reasoning: v.string().min(1).max(1000),
+    verdict: v.string(),
+    reasoning: v.string(),
     metadata: v.optional(v.object({
       summary: v.optional(v.string()),
     })),
@@ -123,6 +125,16 @@ export const addDecision = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+
+    if (!args.step || args.step.length === 0 || args.step.length > 200) {
+      throw new Error("Step must be between 1 and 200 characters");
+    }
+    if (!args.verdict || args.verdict.length === 0 || args.verdict.length > 200) {
+      throw new Error("Verdict must be between 1 and 200 characters");
+    }
+    if (!args.reasoning || args.reasoning.length === 0 || args.reasoning.length > 1000) {
+      throw new Error("Reasoning must be between 1 and 1000 characters");
+    }
     const job = await ctx.db.get(args.jobId);
     if (!job || job.userId !== userId) {
       throw new Error("Unauthorized");

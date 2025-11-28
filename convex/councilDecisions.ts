@@ -4,9 +4,10 @@ import { requireAuth } from "./helpers";
 
 export const listByJob = query({
   args: { jobId: v.id("backgroundJobs") },
-  returns: v.list(
+  returns: v.array(
     v.object({
-      id: v.id("councilDecisions"),
+      _id: v.id("councilDecisions"),
+      _creationTime: v.number(),
       jobId: v.id("backgroundJobs"),
       step: v.string(),
       agents: v.array(v.string()),
