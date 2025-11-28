@@ -65,11 +65,14 @@ const VALID_CLERK_DOMAINS = [
   ".clerk.dev",
   ".clerkstage.dev",
   ".lclclerk.com",
+  "clerk.zapdev.link",
 ];
 
 function isValidClerkDomain(hostname: string): boolean {
   const lower = hostname.toLowerCase();
-  return VALID_CLERK_DOMAINS.some(domain => lower.endsWith(domain));
+  return VALID_CLERK_DOMAINS.some(domain => 
+    domain.startsWith(".") ? lower.endsWith(domain) : lower === domain
+  );
 }
 
 function validateClerkDomain(value?: string | null): string | undefined {
