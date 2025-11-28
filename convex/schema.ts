@@ -323,7 +323,7 @@ export default defineSchema({
     agents: v.array(v.string()), // participating agents
     verdict: v.string(),
     reasoning: v.string(),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(v.object({})),
     createdAt: v.number(),
   })
     .index("by_jobId", ["jobId"]),
