@@ -20,37 +20,10 @@ export const setPreferredMode = mutation({
   args: {
     mode: v.union(v.literal("web"), v.literal("background")),
     quizAnswers: v.optional(
-      v.object({
-        reason: v.string(),
-      })
-    ),
+export const setPreferredMode = mutation({
+  args: {
+    mode: v.union(v.literal("web"), v.literal("background")),
+    quizAnswers: v.optional(v.any()),
   },
+  returns: v.id("users"),
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
-    const now = Date.now();
-
-    const existingUser = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (existingUser) {
-      await ctx.db.patch(existingUser._id, {
-        preferredMode: args.mode,
-        quizAnswers: args.quizAnswers,
-        updatedAt: now,
-      });
-      return existingUser._id;
-    } else {
-      const newUserId = await ctx.db.insert("users", {
-        userId,
-        preferredMode: args.mode,
-        quizAnswers: args.quizAnswers,
-        backgroundAgentEnabled: false, // Default to false as per requirements (feature gated)
-        createdAt: now,
-        updatedAt: now,
-      });
-      return newUserId;
-    }
-  },
-});
