@@ -11,21 +11,21 @@ interface WebVitalMetric {
 export async function POST(request: NextRequest) {
   try {
     const metric: WebVitalMetric = await request.json();
-    
+
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {
       console.log('Web Vital:', metric);
     }
-    
+
     // In production, you would send this to your analytics service
     // Example: await sendToAnalytics(metric);
-    
+
     // You can also store critical metrics in a database for monitoring
     if (['CLS', 'FCP', 'LCP', 'FID', 'TTFB'].includes(metric.name)) {
       // Store in database or send to monitoring service
       console.log(`Critical metric ${metric.name}: ${metric.value} (${metric.rating})`);
     }
-    
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error processing web vital:', error);
@@ -34,4 +34,15 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
 }

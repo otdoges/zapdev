@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignIn, SignUp } from "@clerk/nextjs";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -12,19 +13,20 @@ interface AuthModalProps {
 export function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
   const { user } = useUser();
 
-  useEffect(() => {
-    if (isOpen && !user) {
-      const redirectUrl = `${window.location.origin}/`;
-      const hostedPage =
-        mode === "signin"
-          ? `https://clerk.zapdev.link/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`
-          : `https://clerk.zapdev.link/sign-up?redirect_url=${encodeURIComponent(redirectUrl)}`;
+  if (user) return null;
 
-      // Use hosted Clerk pages instead of the in-app modal to avoid popup/cors issues
-      window.location.assign(hostedPage);
-      onClose();
-    }
-  }, [isOpen, mode, onClose, user]);
-
-  return null;
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[480px] p-0 bg-transparent border-none shadow-none">
+        <VisuallyHidden>
+          <DialogTitle>Authentication</DialogTitle>
+        </VisuallyHidden>
+        {mode === "signin" ? (
+          <SignIn routing="hash" />
+        ) : (
+          <SignUp routing="hash" />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
