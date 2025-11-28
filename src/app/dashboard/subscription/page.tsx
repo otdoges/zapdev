@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useConvexAuth } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@stackframe/stack";
 import { format } from "date-fns";
@@ -20,7 +20,7 @@ import Link from "next/link";
 
 export default function SubscriptionPage() {
   const user = useUser();
-  const { isAuthenticated } = useConvexAuth();
+  const isAuthenticated = !!user;
   const subscription = useQuery(api.subscriptions.getSubscription, isAuthenticated ? {} : "skip");
   const usage = useQuery(api.usage.getUsage, isAuthenticated ? {} : "skip");
 
@@ -44,7 +44,7 @@ export default function SubscriptionPage() {
     );
   }
 
-  const isProUser = subscription?.status === "active" && 
+  const isProUser = subscription?.status === "active" &&
     /\b(pro|enterprise)\b/i.test(subscription.productName);
 
   // TODO: Replace with actual Polar product ID

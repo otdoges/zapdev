@@ -8,7 +8,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, GitBranchIcon, FigmaIcon, SparklesIcon } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
-import { useQuery, useAction, useConvexAuth } from "convex/react";
+import { useQuery, useAction } from "convex/react";
+import { useUser } from "@stackframe/stack";
 import { api } from "@/lib/convex-api";
 import type { ModelId } from "@/inngest/functions";
 
@@ -47,7 +48,8 @@ interface AttachmentData {
 export const MessageForm = ({ projectId }: Props) => {
   const router = useRouter();
 
-  const { isAuthenticated } = useConvexAuth();
+  const user = useUser();
+  const isAuthenticated = !!user;
   const usage = useQuery(api.usage.getUsage, isAuthenticated ? {} : "skip");
   const createMessageWithAttachments = useAction(api.messages.createWithAttachments);
 
@@ -348,7 +350,7 @@ export const MessageForm = ({ projectId }: Props) => {
                       </button>
                     );
                   })}
-                  
+
                   {selectedModel === "openai/gpt-5.1-codex" && (
                     <>
                       <div className="h-px bg-border my-1" />
