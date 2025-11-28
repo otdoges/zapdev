@@ -24,29 +24,7 @@ const backgroundJobSchema = v.object({
 
 export const list = query({
   args: {},
-<<<<<<< HEAD
   returns: v.array(backgroundJobSchema),
-=======
-  returns: v.array(v.object({
-    _id: v.id("backgroundJobs"),
-    _creationTime: v.number(),
-    userId: v.string(),
-    projectId: v.optional(v.id("projects")),
-    title: v.string(),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("failed"),
-      v.literal("cancelled")
-    ),
-    sandboxId: v.optional(v.string()),
-    logs: v.optional(v.array(v.string())),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    completedAt: v.optional(v.number()),
-  })),
->>>>>>> 3a76cadb44559c4812aaa1c6d1ceeaf7aec2437f
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
     return await ctx.db
