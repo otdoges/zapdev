@@ -48,6 +48,7 @@ export const get = query({
 
 export const create = mutation({
   args: { title: v.string() },
+  returns: v.id("backgroundJobs"),
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     return await ctx.db.insert("backgroundJobs", {
@@ -59,6 +60,7 @@ export const create = mutation({
       updatedAt: Date.now(),
     });
   },
+});
 });
 
 export const updateStatus = mutation({
