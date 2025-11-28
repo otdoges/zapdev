@@ -99,7 +99,11 @@ export const backgroundAgentFunction = inngest.createFunction(
     await step.run("log-completion", async () => {
         await convex.mutation(api.backgroundJobs.addDecision, {
             jobId: jobId as Id<"backgroundJobs">,
-            decision: finalState.summary || "Completed"
+            step: "run-council",
+            agents: [plannerAgent.name, implementerAgent.name, reviewerAgent.name],
+            verdict: "approved",
+            reasoning: finalState.summary || "Completed",
+            metadata: { summary: finalState.summary },
         });
         
          await convex.mutation(api.backgroundJobs.updateStatus, { 

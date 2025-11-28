@@ -12,6 +12,7 @@ export default function AgentDetailPage() {
   const params = useParams();
   const jobId = params.jobId as Id<"backgroundJobs">;
   const job = useQuery(api.backgroundJobs.get, { jobId });
+  const decisions = useQuery(api.councilDecisions.listByJob, { jobId });
 
   if (!job) return <div>Loading...</div>;
 
@@ -45,12 +46,33 @@ export default function AgentDetailPage() {
                 <CardHeader><CardTitle>Council Decisions</CardTitle></CardHeader>
                 <CardContent>
                     <div className="space-y-4">
-                        {job.councilDecisions?.map((decision, i) => (
-                            <div key={i} className="p-3 bg-muted rounded-lg text-sm">
-                                {decision}
-                            </div>
-                        ))}
-                        {!job.councilDecisions?.length && <div className="text-muted-foreground">No council decisions yet.</div>}
+                        {decisions ? (
+                            decisions.length ? (
+                                decisions.map((decision) => (
+                                    <div key={decision._id.toString()} className="space-y-3 rounded-lg border border-border bg-muted/50 p-3 text-sm">
+                                        <div className="flex items-baseline justify-between gap-2">
+                                            <span className="font-semibold">{decision.step}</span>
+                                            <Badge variant="outline" className="text-xs">
+                                                {decision.verdict}
+                                            </Badge>
+                                        </div>
+                                        <p className="text-muted-foreground text-xs leading-relaxed">{decision.reasoning}</p>
+                                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                                            <span>Agents: {decision.agents.join(", ")}</span>
+                                            <span>
+                                                {decision.createdAt
+                                                    ? new Date(decision.createdAt).toLocaleString()
+                                                    : "Unknown time"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-muted-foreground">No council decisions yet.</div>
+                            )
+                        ) : (
+                            <div className="text-muted-foreground">Loading decisions…</div>
+                        )}
                     </div>
                 </CardContent>
             </Card>

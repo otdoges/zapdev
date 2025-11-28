@@ -273,7 +273,11 @@ export default defineSchema({
     email: v.optional(v.string()),
     name: v.optional(v.string()),
     preferredMode: v.union(v.literal("web"), v.literal("background")),
-    quizAnswers: v.optional(v.any()),
+    quizAnswers: v.optional(
+      v.object({
+        reason: v.string(),
+      })
+    ),
     backgroundAgentEnabled: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),

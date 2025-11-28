@@ -19,7 +19,11 @@ export const getProfile = query({
 export const setPreferredMode = mutation({
   args: {
     mode: v.union(v.literal("web"), v.literal("background")),
-    quizAnswers: v.optional(v.any()),
+    quizAnswers: v.optional(
+      v.object({
+        reason: v.string(),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);

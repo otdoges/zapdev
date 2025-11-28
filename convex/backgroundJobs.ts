@@ -68,13 +68,25 @@ export const updateSandbox = mutation({
 export const addDecision = mutation({
   args: {
     jobId: v.id("backgroundJobs"),
-    decision: v.string(),
+    step: v.string(),
+    agents: v.array(v.string()),
+    verdict: v.string(),
+    reasoning: v.string(),
+    metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const job = await ctx.db.get(args.jobId);
-    if (!job) return;
-    const decisions = job.councilDecisions || [];
-    decisions.push(args.decision);
-    await ctx.db.patch(args.jobId, { councilDecisions: decisions, updatedAt: Date.now() });
+    if (!job || job.userId !== userId) return;
+
+    await ctx.db.insert("councilDecisions", {
+      jobId: args.jobId,
+      step: args.step,
+      agents: args.agents,
+      verdict: args.verdict,
+      reasoning: args.reasoning,
+      metadata: args.metadata,
+      createdAt: Date.now(),
+    });
   },
 });
