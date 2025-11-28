@@ -34,7 +34,6 @@ export const list = query({
       .collect();
   },
 });
-});
 
 export const get = query({
   args: { jobId: v.id("backgroundJobs") },
