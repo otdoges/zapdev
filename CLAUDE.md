@@ -10,7 +10,7 @@ ZapDev is an AI-powered development platform that enables users to create web ap
 
 **Frontend**: Next.js 15 (Turbopack), React 19, TypeScript 5.9, Tailwind CSS v4, Shadcn/ui, React Query
 **Backend**: Convex (real-time database), tRPC (type-safe APIs)
-**Authentication**: Clerk (user auth & JWT)
+**Authentication**: WorkOS AuthKit (user auth & JWT)
 **AI & Execution**: Vercel AI Gateway, Inngest 3.44 (job orchestration), E2B Code Interpreter (sandboxes)
 **Monitoring**: Sentry, OpenTelemetry
 
@@ -176,6 +176,8 @@ Subscriptions enable real-time UI updates when data changes.
 
 **Query Client**: React Query configured in `src/trpc/query-client.ts` for caching, refetching, and optimistic updates.
 
+**Authentication Flow**: WorkOS AuthKit provides hosted authentication UI with OAuth callback handling. Users are redirected to WorkOS for sign-in/sign-up, then returned to the callback route with session tokens.
+
 ## Configuration
 
 ### Environment Variables
@@ -192,10 +194,12 @@ CONVEX_DEPLOYMENT
 # Code Execution
 E2B_API_KEY
 
-# Authentication (Clerk)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-CLERK_SECRET_KEY
-CLERK_JWT_ISSUER_DOMAIN  # From Clerk Dashboard → JWT Templates
+# Authentication (WorkOS)
+WORKOS_API_KEY                    # From WorkOS Dashboard → API Keys
+WORKOS_CLIENT_ID                  # From WorkOS Dashboard → Configuration
+WORKOS_REDIRECT_URI               # Auth callback URL (e.g., http://localhost:3000/callback)
+WORKOS_WEBHOOK_SECRET             # From WorkOS Dashboard → Webhooks
+WORKOS_API_URL                    # WorkOS API endpoint (https://api.workos.com)
 
 # File Upload (UploadThing)
 UPLOADTHING_TOKEN  # Get from https://uploadthing.com/dashboard

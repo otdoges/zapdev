@@ -12,7 +12,7 @@
     "convex:deploy": "bunx convex deploy"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.35.5",
+    "@workos-inc/authkit-nextjs": "^0.14.0",
     "@databuddy/sdk": "^2.2.1",
     "@e2b/code-interpreter": "^1.5.1",
     "@hookform/resolvers": "^3.3.4",

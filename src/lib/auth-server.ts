@@ -1,19 +1,18 @@
 import { ConvexHttpClient } from "convex/browser";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { getUser as getWorkOSUser, getAccessToken, getSignInUrl, getSignUpUrl, signOut } from "@workos-inc/authkit-nextjs";
 
 /**
- * Get the authenticated user from Clerk
+ * Get the authenticated user from WorkOS
  */
 export async function getUser() {
-  return await currentUser();
+  return await getWorkOSUser();
 }
 
 /**
  * Get the authentication token for Convex
  */
 export async function getToken() {
-  const { getToken } = await auth();
-  return await getToken({ template: "convex" });
+  return await getAccessToken();
 }
 
 /**
@@ -28,7 +27,7 @@ export async function getAuthHeaders() {
 }
 
 /**
- * Create a Convex HTTP client with Clerk authentication
+ * Create a Convex HTTP client with WorkOS authentication
  * Use this in API routes that need to call Convex
  */
 export async function getConvexClientWithAuth() {
@@ -47,3 +46,8 @@ export async function getConvexClientWithAuth() {
 
   return httpClient;
 }
+
+/**
+ * Get WorkOS sign in URL
+ */
+export { getSignInUrl, getSignUpUrl, signOut };

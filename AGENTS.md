@@ -39,7 +39,7 @@ e2b template build --name your-template-name --cmd "/compile_page.sh"
 ### Tech Stack
 - **Frontend**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4, Shadcn/ui
 - **Backend**: Convex (real-time database), tRPC (type-safe APIs)
-- **Auth**: Clerk with JWT authentication
+- **Auth**: WorkOS AuthKit with JWT authentication
 - **AI**: Vercel AI Gateway (Claude via Anthropic), Inngest Agent Kit
 - **Code Execution**: E2B Code Interpreter (isolated sandboxes)
 - **Background Jobs**: Inngest
@@ -123,9 +123,10 @@ Required for development:
 - `AI_GATEWAY_API_KEY`: Vercel AI Gateway key
 - `AI_GATEWAY_BASE_URL`: https://ai-gateway.vercel.sh/v1/
 - `E2B_API_KEY`: E2B sandbox API key
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk publishable key
-- `CLERK_SECRET_KEY`: Clerk secret key
-- `CLERK_JWT_ISSUER_DOMAIN`: Clerk JWT issuer domain (from dashboard)
+- `WORKOS_API_KEY`: WorkOS API key (from dashboard)
+- `WORKOS_CLIENT_ID`: WorkOS client ID (from dashboard)
+- `WORKOS_REDIRECT_URI`: Auth callback URL (e.g., http://localhost:3000/callback)
+- `WORKOS_WEBHOOK_SECRET`: WorkOS webhook secret (from dashboard)
 - `INNGEST_EVENT_KEY`: Inngest event key
 - `INNGEST_SIGNING_KEY`: Inngest signing key
 

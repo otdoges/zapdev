@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
-import { useUser, SignInButton, SignUpButton } from "@clerk/nextjs";
+import { useUser } from "@workos-inc/authkit-nextjs";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -86,16 +86,12 @@ export const Navbar = () => {
             </DropdownMenu>
             {!user ? (
               <div className="flex gap-2">
-                <SignUpButton mode="modal">
-                  <Button variant="outline" size="sm">
-                    Sign up
-                  </Button>
-                </SignUpButton>
-                <SignInButton mode="modal">
-                  <Button size="sm">
-                    Sign in
-                  </Button>
-                </SignInButton>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/sign-up">Sign up</Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link href="/sign-in">Sign in</Link>
+                </Button>
               </div>
             ) : (
               <UserControl showName />

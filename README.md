@@ -11,7 +11,7 @@ AI-powered development platform that lets you create web applications by chattin
 - 💬 Conversational project development with message history
 - 🎯 Smart usage tracking and rate limiting
 - 💳 Subscription management with pro features
-- 🔐 Authentication with Clerk
+- 🔐 Authentication with WorkOS AuthKit
 - ⚙️ Background job processing with Inngest
 - 🗃️ Project management and persistence
 
@@ -23,11 +23,11 @@ AI-powered development platform that lets you create web applications by chattin
 - Tailwind CSS v4
 - Shadcn/ui
 - tRPC
-- Prisma ORM
-- PostgreSQL
+- Convex (real-time database)
+- tRPC (type-safe APIs)
 - Vercel AI Gateway (supports OpenAI, Anthropic, Grok, and more)
 - E2B Code Interpreter
-- Clerk Authentication
+- WorkOS AuthKit
 - Inngest
 - Prisma
 - Radix UI
@@ -142,13 +142,12 @@ AI_GATEWAY_BASE_URL="https://ai-gateway.vercel.sh/v1/"
 # E2B
 E2B_API_KEY=""
 
-# Clerk
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=""
-CLERK_SECRET_KEY=""
-NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
-NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
-NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL="/"
-NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL="/"
+# WorkOS Authentication
+WORKOS_API_KEY=""                    # From WorkOS Dashboard → API Keys
+WORKOS_CLIENT_ID=""                  # From WorkOS Dashboard → Configuration
+WORKOS_REDIRECT_URI="http://localhost:3000/callback"  # Auth callback URL
+WORKOS_WEBHOOK_SECRET=""             # From WorkOS Dashboard → Webhooks
+WORKOS_API_URL="https://api.workos.com"
 
 # Inngest (for background job processing)
 INNGEST_EVENT_KEY=""

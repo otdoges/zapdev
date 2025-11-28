@@ -1,9 +1,7 @@
-import { SignUp } from "@clerk/nextjs";
+import { getSignUpUrl } from "@workos-inc/authkit-nextjs";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-    return (
-        <div className="flex h-screen w-full items-center justify-center">
-            <SignUp />
-        </div>
-    );
+export default async function SignUpPage() {
+  const signUpUrl = await getSignUpUrl();
+  redirect(signUpUrl);
 }

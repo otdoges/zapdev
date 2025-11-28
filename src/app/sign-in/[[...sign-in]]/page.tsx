@@ -1,9 +1,7 @@
-import { SignIn } from "@clerk/nextjs";
+import { getSignInUrl } from "@workos-inc/authkit-nextjs";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-    return (
-        <div className="flex h-screen w-full items-center justify-center">
-            <SignIn />
-        </div>
-    );
+export default async function SignInPage() {
+  const signInUrl = await getSignInUrl();
+  redirect(signInUrl);
 }

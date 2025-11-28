@@ -1,6 +1,6 @@
 "use client";
 
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useUser } from "@workos-inc/authkit-nextjs";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -20,16 +20,15 @@ interface Props {
 export const UserControl = ({ showName }: Props) => {
   const router = useRouter();
   const { user } = useUser();
-  const { signOut } = useClerk();
 
   if (!user) return null;
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push("/");
+    // WorkOS sign out - redirect to sign out endpoint
+    window.location.href = "/sign-out";
   };
 
-  const displayName = user.fullName || user.primaryEmailAddress?.emailAddress || "User";
+  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "User";
   const initials = displayName
     ?.split(" ")
     .map((n) => n[0])
@@ -37,7 +36,7 @@ export const UserControl = ({ showName }: Props) => {
     .toUpperCase()
     .slice(0, 2) || "U";
 
-  const avatarSrc = user.imageUrl || undefined;
+  const avatarSrc = user.profilePictureUrl || undefined;
 
   return (
     <DropdownMenu>
@@ -57,7 +56,7 @@ export const UserControl = ({ showName }: Props) => {
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {user.primaryEmailAddress?.emailAddress}
+              {user.email}
             </p>
           </div>
         </DropdownMenuLabel>
