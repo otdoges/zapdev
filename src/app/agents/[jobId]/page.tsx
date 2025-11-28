@@ -82,7 +82,8 @@ export default function AgentDetailPage() {
                     <CardHeader><CardTitle>Environment</CardTitle></CardHeader>
                     <CardContent>
                         <p>Sandbox ID: {job.sandboxId}</p>
-                        {/* Link to cua session would go here */}
+                        {/* Link to scrapybara session would go here */}
+                        {/* Example: <a href={job.sandboxUrl} target="_blank">View Sandbox</a> */}
                     </CardContent>
                 </Card>
             )}

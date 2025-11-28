@@ -23,7 +23,9 @@ export const listByJob = query({
   handler: async (ctx, { jobId }) => {
     const userId = await requireAuth(ctx);
     const job = await ctx.db.get(jobId);
-    if (!job || job.userId !== userId) return [];
+    if (!job || job.userId !== userId) {
+      throw new Error("Unauthorized or job not found");
+    }
 
     return await ctx.db
       .query("councilDecisions")

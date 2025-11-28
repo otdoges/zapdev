@@ -1,20 +1,15 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { requireAuth } from "./helpers";
+import { backgroundJobStatusSchema, BackgroundJobStatus } from "./constants";
 
 const backgroundJobSchema = v.object({
   _id: v.id("backgroundJobs"),
   _creationTime: v.number(),
   userId: v.string(),
   projectId: v.optional(v.id("projects")),
-  title: v.string(),
-  status: v.union(
-    v.literal("pending"),
-    v.literal("running"),
-    v.literal("completed"),
-    v.literal("failed"),
-    v.literal("cancelled")
-  ),
+  title: v.string().min(1).max(200),
+  status: backgroundJobStatusSchema,
   sandboxId: v.optional(v.string()),
   logs: v.optional(v.array(v.string())),
   createdAt: v.number(),
@@ -31,6 +26,7 @@ export const list = query({
       .query("backgroundJobs")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .order("desc")
+      .take(50)
       .collect();
   },
 });
@@ -47,10 +43,13 @@ export const get = query({
 });
 
 export const create = mutation({
-  args: { title: v.string() },
+  args: { title: v.string().min(1).max(200) },
   returns: v.id("backgroundJobs"),
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    if (args.title.length > 200) {
+      throw new Error("Title too long");
+    }
     return await ctx.db.insert("backgroundJobs", {
       userId,
       title: args.title,
@@ -65,13 +64,7 @@ export const create = mutation({
 export const updateStatus = mutation({
   args: {
     jobId: v.id("backgroundJobs"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("failed"),
-      v.literal("cancelled")
-    ),
+    status: backgroundJobStatusSchema,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -82,7 +75,7 @@ export const updateStatus = mutation({
     }
 
     const updates: {
-      status: "pending" | "running" | "completed" | "failed" | "cancelled";
+      status: BackgroundJobStatus;
       updatedAt: number;
       completedAt?: number;
     } = {
@@ -119,10 +112,10 @@ export const updateSandbox = mutation({
 export const addDecision = mutation({
   args: {
     jobId: v.id("backgroundJobs"),
-    step: v.string(),
+    step: v.string().min(1).max(200),
     agents: v.array(v.string()),
-    verdict: v.string(),
-    reasoning: v.string(),
+    verdict: v.string().min(1).max(200),
+    reasoning: v.string().min(1).max(1000),
     metadata: v.optional(v.object({
       summary: v.optional(v.string()),
     })),

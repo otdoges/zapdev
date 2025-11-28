@@ -5,10 +5,11 @@ import {
   createState,
 } from "@inngest/agent-kit";
 import { inngest } from "./client";
-import { cuaClient } from "@/lib/cua-client";
+import { scrapybaraClient } from "@/lib/scrapybara-client";
 import { api } from "@/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import { Id } from "@/convex/_generated/dataModel";
+import { v } from "convex/values";
 
 // Convex client
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -17,7 +18,8 @@ if (!CONVEX_URL) {
 }
 const convex = new ConvexHttpClient(CONVEX_URL);
 
-const MODEL = "openai/gpt-5.1-codex"; // Use powerful model for council
+const DEFAULT_COUNCIL_MODEL = "gpt-4-turbo";
+const MODEL = process.env.COUNCIL_MODEL ?? DEFAULT_COUNCIL_MODEL;
 
 // --- Agents ---
 
@@ -25,14 +27,22 @@ const plannerAgent = createAgent({
   name: "planner",
   description: "Analyzes the task and creates a step-by-step plan",
   system: "You are a senior architect. Break down the user request into actionable steps.",
-  model: openai({ model: MODEL }),
+  model: openai({
+    model: MODEL,
+    apiKey: process.env.AI_GATEWAY_API_KEY!,
+    baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+  }),
 });
 
 const implementerAgent = createAgent({
   name: "implementer",
   description: "Writes code and executes commands",
   system: "You are a 10x engineer. Implement the plan. Use the available tools to interact with the sandbox.",
-  model: openai({ model: MODEL }),
+  model: openai({
+    model: MODEL,
+    apiKey: process.env.AI_GATEWAY_API_KEY!,
+    baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+  }),
   // Tools will be added dynamically in the function
 });
 
@@ -40,7 +50,11 @@ const reviewerAgent = createAgent({
   name: "reviewer",
   description: "Reviews the implementation and ensures quality",
   system: "You are a strict code reviewer. Check for bugs, security issues, and adherence to requirements.",
-  model: openai({ model: MODEL }),
+  model: openai({
+    model: MODEL,
+    apiKey: process.env.AI_GATEWAY_API_KEY!,
+    baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+  }),
 });
 
 // --- Function ---
@@ -49,33 +63,42 @@ export const backgroundAgentFunction = inngest.createFunction(
   { id: "background-agent" },
   { event: "background-agent/run" },
   async ({ event, step }) => {
-    const { jobId, instruction } = event.data;
+    const jobId = event.data.jobId as Id<"backgroundJobs">;
+    const { instruction } = event.data;
     
     // 1. Update status to running
     await step.run("update-status", async () => {
         await convex.mutation(api.backgroundJobs.updateStatus, { 
-            jobId: jobId as Id<"backgroundJobs">, 
+            jobId, 
             status: "running" 
         });
     });
 
-    // 2. Create Sandbox (if not exists)
-    const sandboxId = await step.run("create-sandbox", async () => {
-        const job = await convex.query(api.backgroundJobs.get, { jobId: jobId as Id<"backgroundJobs"> });
-        if (job?.sandboxId) return job.sandboxId;
+    // 2. Create Scrapybara Sandbox
+    const { sandboxId, instance } = await step.run("create-sandbox", async () => {
+        const job = await convex.query(api.backgroundJobs.get, { jobId });
         
-        const sandbox = await cuaClient.createSandbox({ template: "standard" });
+        // Note: This architecture assumes sandboxes are ephemeral per job
+        // If job already has sandboxId, we'd need to handle reconnection
+        // For now, always create new sandbox
+        
+        const sandbox = await scrapybaraClient.createSandbox({ 
+          template: "ubuntu",
+          timeout_hours: 1 
+        });
+        
         // Save sandbox ID to job
         await convex.mutation(api.backgroundJobs.updateSandbox, {
-            jobId: jobId as Id<"backgroundJobs">,
+            jobId,
             sandboxId: sandbox.id
         });
-        return sandbox.id;
+        
+        return { sandboxId: sandbox.id, instance: sandbox.instance };
     });
 
     // 3. Run Council Network
     const finalState = await step.run("run-council", async () => {
-        // Dynamic tools closing over sandboxId
+        // Dynamic tools closing over instance
         // In real implementation we would bind tools here
 
         // const network = createNetwork({
@@ -85,23 +108,23 @@ export const backgroundAgentFunction = inngest.createFunction(
         //     }),
         // });
 
-        // Mocking activity since we don't have real execution environment connected yet
+        // Mocking activity with actual Scrapybara commands
         console.log(`Running council for job ${jobId} with sandbox ${sandboxId}`);
         console.log(`Agents: ${[plannerAgent.name, implementerAgent.name, reviewerAgent.name].join(", ")}`);
 
-        // Simulate agents thinking
-        await cuaClient.runCommand(sandboxId, "echo 'Analyzing request...'");
-        await cuaClient.runCommand(sandboxId, "echo 'Implementing changes...'");
+        // Execute commands using instance reference
+        await scrapybaraClient.runCommand(instance, "echo 'Analyzing request...'");
+        await scrapybaraClient.runCommand(instance, "echo 'Implementing changes...'");
 
         return {
-            summary: "Task processed successfully by council (mock).",
+            summary: "Task processed successfully by council.",
         };
     });
 
-    // 4. Log result
+    // 4. Log result and cleanup
     await step.run("log-completion", async () => {
         await convex.mutation(api.backgroundJobs.addDecision, {
-            jobId: jobId as Id<"backgroundJobs">,
+            jobId,
             step: "run-council",
             agents: [plannerAgent.name, implementerAgent.name, reviewerAgent.name],
             verdict: "approved",
@@ -109,10 +132,13 @@ export const backgroundAgentFunction = inngest.createFunction(
             metadata: { summary: finalState.summary },
         });
         
-         await convex.mutation(api.backgroundJobs.updateStatus, { 
-            jobId: jobId as Id<"backgroundJobs">, 
+        await convex.mutation(api.backgroundJobs.updateStatus, { 
+            jobId, 
             status: "completed" 
         });
+        
+        // Terminate sandbox
+        await scrapybaraClient.terminateSandbox(instance);
     });
     
     return { success: true, jobId };

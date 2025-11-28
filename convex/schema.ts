@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { backgroundJobStatusSchema } from "./constants";
 
 // Enum type definitions using unions of literals
 export const frameworkEnum = v.union(
@@ -289,13 +290,7 @@ export default defineSchema({
     userId: v.string(),
     projectId: v.optional(v.id("projects")),
     title: v.string(),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("failed"),
-      v.literal("cancelled")
-    ),
+    status: backgroundJobStatusSchema,
     sandboxId: v.optional(v.string()), // Link to cuaSandbox
     logs: v.optional(v.array(v.string())), 
     createdAt: v.number(),
@@ -318,7 +313,9 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_sandboxId", ["sandboxId"])
-    .index("by_jobId", ["jobId"]),
+    .index("by_jobId", ["jobId"])
+    .index("by_userId", ["userId"])
+    .index("by_status", ["status"]),
 
   // Council Decisions
   councilDecisions: defineTable({

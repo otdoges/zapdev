@@ -123,6 +123,7 @@ Required for development:
 - `AI_GATEWAY_API_KEY`: Vercel AI Gateway key
 - `AI_GATEWAY_BASE_URL`: https://ai-gateway.vercel.sh/v1/
 - `E2B_API_KEY`: E2B sandbox API key
+- `SCRAPYBARA_API_KEY`: Scrapybara API key for sandbox instances
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk auth
 - `CLERK_SECRET_KEY`: Clerk secret
 - `INNGEST_EVENT_KEY`: Inngest event key

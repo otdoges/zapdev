@@ -127,6 +127,21 @@ Run the included test script to verify your Vercel AI Gateway setup:
 node test-vercel-ai-gateway.js
 ```
 
+## Setting Up Scrapybara (for Background Agents)
+
+Scrapybara provides virtual desktop infrastructure for computer use agents used in background job processing.
+
+1. Sign up at [Scrapybara Dashboard](https://scrapybara.com/dashboard)
+2. Your API key is auto-generated on signup
+3. Add to `.env`:
+   ```bash
+   SCRAPYBARA_API_KEY="your-api-key"
+   ```
+
+The application uses the official Scrapybara TypeScript SDK for Ubuntu/Browser instance management.
+
+Learn more: [Scrapybara Documentation](https://docs.scrapybara.com)
+
 ## Environment Variables
 
 Create a `.env` file with the following variables:
@@ -141,6 +156,9 @@ AI_GATEWAY_BASE_URL="https://ai-gateway.vercel.sh/v1/"
 
 # E2B
 E2B_API_KEY=""
+
+# Scrapybara (for background agents)
+SCRAPYBARA_API_KEY=""
 
 # Clerk
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=""
