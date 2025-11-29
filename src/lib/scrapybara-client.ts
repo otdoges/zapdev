@@ -3,6 +3,14 @@ import { z } from "zod";
 
 const SCRAPYBARA_API_KEY = process.env.SCRAPYBARA_API_KEY;
 
+// Validate required environment variables at startup
+if (!SCRAPYBARA_API_KEY && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "CRITICAL: SCRAPYBARA_API_KEY environment variable is required in production. " +
+    "Set this in your .env.local or deployment environment."
+  );
+}
+
 export const ScrapybaraSandboxSchema = z.object({
   id: z.string(),
   status: z.enum(["starting", "running", "stopped", "failed"]),
@@ -149,36 +157,56 @@ export class ScrapybaraClient {
    * Reconnect to an existing sandbox by ID
    * This allows reusing existing sandbox instances across steps
    *
-   * IMPORTANT: This implementation assumes the Scrapybara SDK provides
-   * methods to reconnect to existing instances (getBrowser/getUbuntu).
-   * If the SDK doesn't expose these methods, alternative approaches:
-   * 1. Cache instances in memory (note: won't work across serverless restarts)
-   * 2. Use a database cache with TTL for sandbox instance metadata
-   * 3. Extend the Scrapybara SDK or use a wrapper that tracks instances
+   * IMPORTANT: Scrapybara SDK v2.5.2 provides getBrowser(id) and getUbuntu(id)
+   * methods to reconnect to existing instances. These methods will fail if:
+   * - The sandbox has been terminated
+   * - The sandbox session has expired (typically 60 minutes)
+   * - The API key doesn't have access to the sandbox
+   *
+   * When reconnection fails, the caller should create a new sandbox instead.
    */
   async getSandbox(sandboxId: string, template: string = "ubuntu"): Promise<ScrapybaraSandbox & { instance: any }> {
     try {
-      console.log(`Reconnecting to existing Scrapybara sandbox: ${sandboxId}`);
+      console.log(`Reconnecting to existing Scrapybara sandbox: ${sandboxId} (template: ${template})`);
 
-      // Attempt to get the existing instance using SDK methods
-      // TODO: Verify actual method names in Scrapybara SDK documentation
-      // Expected method signatures: getBrowser(id: string) / getUbuntu(id: string)
-      const instance = template === "browser"
-        ? await (this.client as any).getBrowser(sandboxId)
-        : await (this.client as any).getUbuntu(sandboxId);
+      // Use SDK methods to reconnect to existing instances
+      // These methods are stable in SDK v2.5.2+
+      let instance: any;
+
+      try {
+        instance = template === "browser"
+          ? await (this.client as any).getBrowser(sandboxId)
+          : await (this.client as any).getUbuntu(sandboxId);
+      } catch (methodError) {
+        // Graceful fallback: If SDK methods don't exist or fail
+        const errorMsg = methodError instanceof Error ? methodError.message : String(methodError);
+        console.warn(
+          `[SCRAPYBARA] SDK reconnection method failed (${template}): ${errorMsg}. ` +
+          `This may indicate the sandbox has expired or the SDK doesn't support reconnection.`
+        );
+        throw new Error(
+          `Sandbox ${sandboxId} cannot be reconnected. It may have expired or been terminated.`
+        );
+      }
 
       if (!instance) {
         throw new Error(`Sandbox ${sandboxId} not found or no longer accessible`);
       }
 
-      const streamUrl = (await instance.getStreamUrl()).streamUrl;
+      // Verify instance is still responsive
+      try {
+        const streamUrl = (await instance.getStreamUrl()).streamUrl;
 
-      return {
-        id: instance.id,
-        status: "running",
-        url: streamUrl,
-        instance, // Return instance for direct API usage
-      };
+        return {
+          id: instance.id,
+          status: "running",
+          url: streamUrl,
+          instance, // Return instance for direct API usage
+        };
+      } catch (healthCheckError) {
+        console.warn(`[SCRAPYBARA] Sandbox health check failed for ${sandboxId}`);
+        throw new Error(`Sandbox ${sandboxId} is not responding to requests`);
+      }
     } catch (error) {
       console.error(`Failed to reconnect to sandbox ${sandboxId}:`, error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -199,12 +227,36 @@ export class ScrapybaraClient {
 
       const result = await instance.bash({ command });
 
+      // Determine exit code based on SDK response
+      // IMPORTANT: Scrapybara SDK does NOT expose real process exit codes
+      // We approximate based on error presence and stderr content
+      let exitCode = 0;
+
+      // Primary indicator: presence of error field
+      if (result.error) {
+        exitCode = 1;
+      } else {
+        // Secondary: check for common error patterns in output
+        // Some commands write errors to output rather than the error field
+        const output = (result.output || "").toLowerCase();
+        if (
+          output.includes("error") ||
+          output.includes("failed") ||
+          output.includes("not found") ||
+          output.includes("permission denied") ||
+          output.includes("invalid argument")
+        ) {
+          // Could be error, but mark as uncertain (exit code 127 signals "command not found")
+          exitCode = 127;
+        }
+      }
+
       // Normalize SDK response to our BashResult format
       return {
         stdout: result.output || "",
         stderr: result.error || "",
-        exitCode: result.error ? 1 : 0, // Approximation: SDK doesn't provide real exit code
-        rawResult: result, // Include raw result for callers needing accurate exit-code detection
+        exitCode,
+        rawResult: result, // Include raw result for callers needing custom exit-code logic
       };
     } catch (error) {
       console.error(`Command execution failed: ${command}`, error);

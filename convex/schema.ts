@@ -305,13 +305,21 @@ export default defineSchema({
   // Council Decisions
   councilDecisions: defineTable({
     jobId: v.id("backgroundJobs"),
-    step: v.string(), // e.g., "planning", "implementation", "review"
+    step: v.string(), // e.g., "council-vote-planner", "council-consensus"
     agents: v.array(v.string()), // participating agents
-    verdict: v.string(),
+    verdict: v.string(), // "approve", "reject", "revise"
     reasoning: v.string(),
-    metadata: v.optional(v.object({
-      summary: v.optional(v.string()),
-    })),
+    // Metadata can contain agent votes (confidence, agentName) or consensus info (totalVotes, approvalRate)
+    metadata: v.optional(
+      v.object({
+        summary: v.optional(v.string()), // For planning/review steps
+        confidence: v.optional(v.number()), // For agent votes (0-1)
+        agentName: v.optional(v.string()), // For agent votes
+        consensus: v.optional(v.any()), // For consensus decision
+        totalVotes: v.optional(v.number()), // For consensus
+        approvalRate: v.optional(v.number()), // For consensus (percentage)
+      })
+    ),
     createdAt: v.number(),
   })
     .index("by_jobId", ["jobId"]),

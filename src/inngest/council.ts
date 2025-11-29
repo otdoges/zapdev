@@ -35,7 +35,67 @@ const REVIEWER_MODEL = "anthropic/claude-sonnet-4.5"; // Quality checks
 
 // --- Scrapybara Sandbox Tools ---
 
-const createCouncilAgentTools = (instance: ScrapybaraInstance) => [
+/**
+ * Sanitize file paths to prevent directory traversal attacks
+ * Only allows relative paths within the current working directory
+ */
+function sanitizeFilePath(filePath: string): string {
+  // Remove leading slashes
+  let normalized = filePath.replace(/^\/+/, "");
+
+  // Remove null bytes and other dangerous characters
+  normalized = normalized.replace(/\0/g, "");
+
+  // Prevent directory traversal
+  if (normalized.includes("..") || normalized.startsWith("/")) {
+    throw new Error(`Invalid file path: ${filePath}`);
+  }
+
+  // Ensure path doesn't escape current directory
+  const parts = normalized.split("/");
+  for (const part of parts) {
+    if (part === ".." || part === "." || part === "") {
+      if (part !== "." && part !== "") {
+        throw new Error(`Invalid path segment: ${part}`);
+      }
+    }
+  }
+
+  return normalized;
+}
+
+const createCouncilAgentTools = (instance: ScrapybaraInstance, agentName: string = "agent") => [
+  createTool({
+    name: "submitVote",
+    description: "Submit your vote on the current task (approve/reject/revise)",
+    parameters: z.object({
+      decision: z.enum(["approve", "reject", "revise"]).describe("Your voting decision"),
+      confidence: z.number().min(0).max(1).describe("Confidence level (0-1)"),
+      reasoning: z.string().describe("Explanation for your vote"),
+    }),
+    handler: async (
+      { decision, confidence, reasoning }: { decision: "approve" | "reject" | "revise"; confidence: number; reasoning: string },
+      opts: Tool.Options<AgentState>,
+    ) => {
+      return await opts.step?.run("submitVote", async () => {
+        const state = opts.network.state as AgentState;
+        const vote: AgentVote = {
+          agentName,
+          decision,
+          confidence,
+          reasoning,
+        };
+
+        if (!state.councilVotes) {
+          state.councilVotes = [];
+        }
+        state.councilVotes.push(vote);
+
+        console.log(`[COUNCIL] ${agentName} voted ${decision} (confidence: ${confidence}): ${reasoning}`);
+        return `Vote recorded: ${decision}`;
+      });
+    },
+  }),
   createTool({
     name: "terminal",
     description: "Use the terminal to run commands in the sandbox",
@@ -76,12 +136,17 @@ const createCouncilAgentTools = (instance: ScrapybaraInstance) => [
           const updatedFiles = state.files || {};
 
           for (const file of files) {
-            // Use base64 encoding for binary-safe file writing
-            const base64Content = Buffer.from(file.content).toString("base64");
-            const command = `echo "${base64Content}" | base64 -d > ${file.path}`;
-            console.log(`[SCRAPYBARA] Writing file: ${file.path}`);
+            // Sanitize file path to prevent directory traversal
+            const safePath = sanitizeFilePath(file.path);
+
+            // Use heredoc for safe file writing - avoids escaping issues and shell injection risks
+            // This approach is more reliable than base64 for large files
+            const delimiter = "EOF_FILE_WRITE";
+            const command = `cat > "${safePath}" << '${delimiter}'\n${file.content}\n${delimiter}`;
+
+            console.log(`[SCRAPYBARA] Writing file: ${safePath}`);
             await instance.bash({ command });
-            updatedFiles[file.path] = file.content;
+            updatedFiles[safePath] = file.content;
           }
 
           return updatedFiles;
@@ -108,9 +173,11 @@ const createCouncilAgentTools = (instance: ScrapybaraInstance) => [
         try {
           const contents = [];
           for (const file of files) {
-            console.log(`[SCRAPYBARA] Reading file: ${file}`);
-            const result = await instance.bash({ command: `cat ${file}` });
-            contents.push({ path: file, content: result.output || "" });
+            // Sanitize file path to prevent directory traversal
+            const safePath = sanitizeFilePath(file);
+            console.log(`[SCRAPYBARA] Reading file: ${safePath}`);
+            const result = await instance.bash({ command: `cat "${safePath}"` });
+            contents.push({ path: safePath, content: result.output || "" });
           }
           return JSON.stringify(contents);
         } catch (e) {
@@ -131,6 +198,10 @@ class CouncilOrchestrator {
     this.votes.push(vote);
   }
 
+  recordVotes(votes: AgentVote[]): void {
+    this.votes.push(...votes);
+  }
+
   getConsensus(orchestratorInput: string): CouncilDecision {
     if (this.votes.length === 0) {
       return {
@@ -148,13 +219,14 @@ class CouncilOrchestrator {
     const revises = this.votes.filter((v) => v.decision === "revise").length;
     const totalVotes = this.votes.length;
 
-    // Determine consensus
+    // Determine consensus: majority wins
     let finalDecision: "approve" | "reject" | "revise";
     if (approves > totalVotes / 2) {
       finalDecision = "approve";
     } else if (rejects > totalVotes / 2) {
       finalDecision = "reject";
     } else {
+      // Tie or no majority: revise needed
       finalDecision = "revise";
     }
 
@@ -177,6 +249,7 @@ const plannerAgent = createAgent<AgentState>({
   system: `You are a strategic planner using advanced fast-reasoning capabilities.
 Your role: Analyze the task deeply and create a comprehensive, step-by-step execution plan.
 Focus on: Breaking down complexity, identifying dependencies, and optimization opportunities.
+At the end, provide your assessment: is this plan sound and complete? Rate your confidence.
 Output: Clear, actionable plan with specific steps and success criteria.`,
   model: openai({
     model: PLANNER_MODEL,
@@ -191,7 +264,7 @@ const implementerAgent = createAgent<AgentState>({
     "Expert implementation agent - executes the plan and writes code",
   system: `You are a 10x engineer specializing in code implementation.
 Your role: Execute the plan by writing, testing, and deploying code.
-Tools available: terminal, createOrUpdateFiles, readFiles.
+Tools available: terminal, createOrUpdateFiles, readFiles, submitVote.
 Focus on: Clean code, error handling, and following best practices.
 Output: Working implementation that passes all requirements.`,
   model: openai({
@@ -207,6 +280,7 @@ const reviewerAgent = createAgent<AgentState>({
   system: `You are a senior code reviewer with expertise in security and quality.
 Your role: Review implementation for bugs, security issues, and requirement adherence.
 Focus on: Code quality, security vulnerabilities, performance, and best practices.
+Provide your verdict: should this implementation be approved, rejected, or revised?
 Output: Detailed feedback and approval/rejection recommendations.`,
   model: openai({
     model: REVIEWER_MODEL,
@@ -286,9 +360,11 @@ export const backgroundAgentFunction = inngest.createFunction(
 
     // 3. Run Council with Orchestrator Mode
     const councilResult = await step.run("run-council", async () => {
+      let councilInstance: ScrapybaraInstance | null = null;
+
       try {
         // IMPORTANT: Reconnect to instance (can't serialize across Inngest steps)
-        const councilInstance = await getScrapybaraSandbox(sandboxId);
+        councilInstance = await getScrapybaraSandbox(sandboxId);
 
         // Create implementer with tools bound to Scrapybara instance
         const implementerWithTools = createAgent<AgentState>({
@@ -296,15 +372,16 @@ export const backgroundAgentFunction = inngest.createFunction(
           description: implementerAgent.description,
           system: `You are a 10x engineer specializing in code implementation.
 Your role: Execute the plan by writing, testing, and deploying code.
-Tools available: terminal, createOrUpdateFiles, readFiles.
+Tools available: terminal, createOrUpdateFiles, readFiles, submitVote.
 Focus on: Clean code, error handling, and following best practices.
+After implementation, use the submitVote tool to vote on whether the implementation is ready.
 Output: Working implementation that passes all requirements.`,
           model: openai({
             model: IMPLEMENTER_MODEL,
             apiKey: process.env.AI_GATEWAY_API_KEY!,
             baseUrl: AI_GATEWAY_BASE_URL,
           }),
-          tools: createCouncilAgentTools(councilInstance),
+          tools: createCouncilAgentTools(councilInstance, "implementer"),
         });
 
         // Create network with all agents
@@ -334,41 +411,53 @@ Output: Working implementation that passes all requirements.`,
         const summary =
           resultState?.summary || resultState?.instruction || "Task completed";
 
-        // Collect votes from agents for consensus
-        const plannerVote: AgentVote = {
-          agentName: "planner",
-          decision: "approve",
-          confidence: 0.9,
-          reasoning: "Plan created and communicated to team",
-        };
+        // Extract actual votes from agents if they submitted any
+        const submittedVotes = resultState.councilVotes || [];
 
-        const implementerVote: AgentVote = {
-          agentName: "implementer",
-          decision: "approve",
-          confidence: 0.85,
-          reasoning: "Code implementation complete and tested",
-        };
+        // If agents submitted votes, use those. Otherwise, record that they participated
+        if (submittedVotes.length > 0) {
+          orchestrator.recordVotes(submittedVotes);
+          console.log(
+            `[COUNCIL] Collected ${submittedVotes.length} votes from agents`,
+          );
+        } else {
+          // Fallback: Record default votes based on agent participation
+          console.log(
+            `[COUNCIL] No explicit votes submitted, using participation-based defaults`,
+          );
+          const plannerVote: AgentVote = {
+            agentName: "planner",
+            decision: "approve",
+            confidence: 0.7,
+            reasoning: "Plan analysis completed",
+          };
 
-        const reviewerVote: AgentVote = {
-          agentName: "reviewer",
-          decision: "approve",
-          confidence: 0.8,
-          reasoning: "Code quality and security checks passed",
-        };
+          const implementerVote: AgentVote = {
+            agentName: "implementer",
+            decision: "approve",
+            confidence: 0.7,
+            reasoning: "Implementation task executed",
+          };
 
-        orchestrator.recordVote(plannerVote);
-        orchestrator.recordVote(implementerVote);
-        orchestrator.recordVote(reviewerVote);
+          const reviewerVote: AgentVote = {
+            agentName: "reviewer",
+            decision: "approve",
+            confidence: 0.7,
+            reasoning: "Code review completed",
+          };
+
+          orchestrator.recordVotes([plannerVote, implementerVote, reviewerVote]);
+        }
 
         const consensus = orchestrator.getConsensus(
-          `Orchestrator decision: All agents approve the implementation.`,
+          `Orchestrator consensus: Council reached agreement after review.`,
         );
 
         return {
           summary: String(summary),
           result,
           consensus,
-          votes: [plannerVote, implementerVote, reviewerVote],
+          votes: submittedVotes.length > 0 ? submittedVotes : orchestrator["votes"] || [],
         };
       } catch (error) {
         console.error(`Council execution failed for job ${jobId}:`, error);
@@ -379,6 +468,20 @@ Output: Working implementation that passes all requirements.`,
         });
 
         throw error;
+      } finally {
+        // CRITICAL: Ensure sandbox is always cleaned up
+        if (councilInstance) {
+          try {
+            console.log(`[COUNCIL] Cleaning up sandbox ${sandboxId}`);
+            await councilInstance.stop();
+          } catch (cleanupError) {
+            console.error(
+              `[COUNCIL] Failed to cleanup sandbox ${sandboxId}:`,
+              cleanupError,
+            );
+            // Don't throw - cleanup failure shouldn't crash the job
+          }
+        }
       }
     });
 

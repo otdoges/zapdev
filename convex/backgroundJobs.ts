@@ -54,20 +54,55 @@ export const create = mutation({
   returns: v.id("backgroundJobs"),
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
-    
+
     // SECURITY: Rate limiting - prevent job creation spam
     // Allow 10 jobs per hour per user
     const rateLimitKey = `user_${userId}_create-job`;
-    const rateLimitCheck = await ctx.runMutation(api.rateLimit.checkRateLimit, {
-      key: rateLimitKey,
-      limit: 10,
-      windowMs: 60 * 60 * 1000, // 1 hour
-    });
-    
-    if (!rateLimitCheck.success) {
-      throw new Error(rateLimitCheck.message || "Rate limit exceeded. Please try again later.");
+    const now = Date.now();
+    const windowMs = 60 * 60 * 1000; // 1 hour
+
+    // Find existing rate limit record
+    const existing = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_key", (q) => q.eq("key", rateLimitKey))
+      .first();
+
+    if (existing) {
+      // Check if window has expired
+      if (now - existing.windowStart < existing.windowMs) {
+        // Window still active, check if limit exceeded
+        if (existing.count >= existing.limit) {
+          const resetTime = existing.windowStart + existing.windowMs;
+          const secondsUntilReset = Math.ceil((resetTime - now) / 1000);
+          throw new Error(
+            `Rate limit exceeded. You can create ${existing.limit} jobs per hour. Try again in ${secondsUntilReset} seconds.`
+          );
+        }
+
+        // Increment count
+        await ctx.db.patch(existing._id, {
+          count: existing.count + 1,
+        });
+      } else {
+        // Window expired, reset
+        await ctx.db.patch(existing._id, {
+          count: 1,
+          windowStart: now,
+          limit: 10,
+          windowMs,
+        });
+      }
+    } else {
+      // Create new rate limit record
+      await ctx.db.insert("rateLimits", {
+        key: rateLimitKey,
+        count: 1,
+        windowStart: now,
+        limit: 10,
+        windowMs,
+      });
     }
-    
+
     // Validate title
     const trimmedTitle = args.title.trim();
     if (trimmedTitle.length === 0) {
@@ -76,7 +111,7 @@ export const create = mutation({
     if (trimmedTitle.length > MAX_TITLE_LENGTH) {
       throw new Error(`Title too long (max ${MAX_TITLE_LENGTH} characters)`);
     }
-    
+
     return await ctx.db.insert("backgroundJobs", {
       userId,
       title: trimmedTitle,

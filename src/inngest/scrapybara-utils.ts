@@ -1,11 +1,26 @@
 import { scrapybaraClient, type ScrapybaraInstance } from "@/lib/scrapybara-client";
 
-// In-memory cache for Scrapybara instances with TTL
+/**
+ * IMPORTANT: In-memory instance caching in serverless environments
+ *
+ * In-memory caches in serverless functions (Inngest/AWS Lambda) are ephemeral:
+ * - They persist ONLY within a single function invocation
+ * - They do NOT persist across:
+ *   - Function cold starts (common in Inngest)
+ *   - Different execution environments
+ *   - Invocations spaced more than seconds apart
+ *
+ * We keep a minimal in-memory cache for within-invocation reuse only.
+ * For persistence across function invocations, use Convex storage.
+ */
+
+// In-memory cache for instances within a single invocation
+// NOTE: This cache does NOT persist across cold starts
 const INSTANCE_CACHE = new Map<
   string,
   { instance: ScrapybaraInstance; timestamp: number }
 >();
-const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes (within single invocation)
 
 /**
  * Categorize errors as transient or permanent
