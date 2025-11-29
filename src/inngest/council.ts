@@ -76,9 +76,16 @@ const createCouncilAgentTools = (instance: ScrapybaraInstance) => [
           const updatedFiles = state.files || {};
 
           for (const file of files) {
-            // Use base64 encoding for binary-safe file writing
+            // Use printf for safer file writing (avoids some echo -e issues)
+            // We create the directory first
+            const dir = file.path.substring(0, file.path.lastIndexOf("/"));
+            if (dir) {
+              await instance.bash({ command: `mkdir -p ${dir}` });
+            }
+            
+            // Use base64 decoding to write file content
             const base64Content = Buffer.from(file.content).toString("base64");
-            const command = `echo "${base64Content}" | base64 -d > ${file.path}`;
+            const command = `printf "${base64Content}" | base64 -d > ${file.path}`;
             console.log(`[SCRAPYBARA] Writing file: ${file.path}`);
             await instance.bash({ command });
             updatedFiles[file.path] = file.content;
@@ -320,10 +327,10 @@ Output: Working implementation that passes all requirements.`,
           }),
         });
 
-        console.log(
+        console.info(
           `[COUNCIL] Starting orchestrator mode for job ${jobId} with sandbox ${sandboxId}`,
         );
-        console.log(
+        console.info(
           `[COUNCIL] Agents: Planner (grok-4), Implementer, Reviewer`,
         );
 
@@ -334,7 +341,8 @@ Output: Working implementation that passes all requirements.`,
         const summary =
           resultState?.summary || resultState?.instruction || "Task completed";
 
-        // Collect votes from agents for consensus
+        // TODO: In V2, extract actual votes from agent conversation history/result
+        // Currently hardcoded to simulate successful consensus for infrastructure testing
         const plannerVote: AgentVote = {
           agentName: "planner",
           decision: "approve",
