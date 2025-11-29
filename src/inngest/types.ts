@@ -8,6 +8,22 @@ export interface AgentState {
   files?: Record<string, string>;
   selectedFramework?: Framework;
   summaryRetryCount?: number;
+  councilVotes?: AgentVote[];
+}
+
+export interface AgentVote {
+  agentName: string;
+  decision: "approve" | "reject" | "revise";
+  confidence: number;
+  reasoning: string;
+}
+
+export interface CouncilDecision {
+  finalDecision: "approve" | "reject" | "revise";
+  agreeCount: number;
+  totalVotes: number;
+  votes: AgentVote[];
+  orchestratorDecision: string;
 }
 
 export interface ClientState {

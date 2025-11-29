@@ -180,9 +180,7 @@ export const addDecision = mutation({
     agents: v.array(v.string()),
     verdict: v.string(),
     reasoning: v.string(),
-    metadata: v.optional(v.object({
-      summary: v.optional(v.string()),
-    })),
+    metadata: v.optional(v.any()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

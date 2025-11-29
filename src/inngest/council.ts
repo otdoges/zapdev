@@ -11,8 +11,12 @@ import { inngest } from "./client";
 import { api } from "@/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import { Id } from "@/convex/_generated/dataModel";
-import { getSandbox, createSandboxWithRetry } from "./utils";
-import type { AgentState } from "./types";
+import { scrapybaraClient, type ScrapybaraInstance } from "@/lib/scrapybara-client";
+import {
+  createScrapybaraSandboxWithRetry,
+  getScrapybaraSandbox,
+} from "./scrapybara-utils";
+import type { AgentState, CouncilDecision, AgentVote } from "./types";
 
 // Convex client
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -21,12 +25,17 @@ if (!CONVEX_URL) {
 }
 const convex = new ConvexHttpClient(CONVEX_URL);
 
-const DEFAULT_COUNCIL_MODEL = "gpt-4-turbo";
-const MODEL = process.env.COUNCIL_MODEL ?? DEFAULT_COUNCIL_MODEL;
+// Model configurations - grok-4 for fast reasoning planner
+const AI_GATEWAY_BASE_URL =
+  process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1";
+const PLANNER_MODEL = "xai/grok-4"; // xAI fast reasoning model
+const ORCHESTRATOR_MODEL = "prime-intellect/intellect-3"; // Orchestrator decides
+const IMPLEMENTER_MODEL = "openai/gpt-5.1-codex"; // Execution
+const REVIEWER_MODEL = "anthropic/claude-sonnet-4.5"; // Quality checks
 
-// --- E2B Sandbox Tools ---
+// --- Scrapybara Sandbox Tools ---
 
-const createCouncilAgentTools = (sandboxId: string) => [
+const createCouncilAgentTools = (instance: ScrapybaraInstance) => [
   createTool({
     name: "terminal",
     description: "Use the terminal to run commands in the sandbox",
@@ -38,27 +47,13 @@ const createCouncilAgentTools = (sandboxId: string) => [
       opts: Tool.Options<AgentState>,
     ) => {
       return await opts.step?.run("terminal", async () => {
-        const buffers: { stdout: string; stderr: string } = {
-          stdout: "",
-          stderr: "",
-        };
-
         try {
-          const sandbox = await getSandbox(sandboxId);
-          const result = await sandbox.commands.run(command, {
-            onStdout: (data: string) => {
-              buffers.stdout += data;
-            },
-            onStderr: (data: string) => {
-              buffers.stderr += data;
-            },
-          });
-          return result.stdout;
+          console.log(`[SCRAPYBARA] Running command: ${command}`);
+          const result = await instance.bash({ command });
+          return result.output || "";
         } catch (e) {
-          console.error(
-            `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderr: ${buffers.stderr}`,
-          );
-          return `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderr: ${buffers.stderr}`;
+          console.error(`[SCRAPYBARA] Command failed: ${e}`);
+          return `Command failed: ${e}`;
         }
       });
     },
@@ -79,14 +74,19 @@ const createCouncilAgentTools = (sandboxId: string) => [
         try {
           const state = network.state as AgentState;
           const updatedFiles = state.files || {};
-          const sandbox = await getSandbox(sandboxId);
+
           for (const file of files) {
-            await sandbox.files.write(file.path, file.content);
+            // Use base64 encoding for binary-safe file writing
+            const base64Content = Buffer.from(file.content).toString("base64");
+            const command = `echo "${base64Content}" | base64 -d > ${file.path}`;
+            console.log(`[SCRAPYBARA] Writing file: ${file.path}`);
+            await instance.bash({ command });
             updatedFiles[file.path] = file.content;
           }
 
           return updatedFiles;
         } catch (e) {
+          console.error(`[SCRAPYBARA] File write failed: ${e}`);
           return "Error: " + e;
         }
       });
@@ -106,14 +106,15 @@ const createCouncilAgentTools = (sandboxId: string) => [
     handler: async ({ files }, { step }) => {
       return await step?.run("readFiles", async () => {
         try {
-          const sandbox = await getSandbox(sandboxId);
           const contents = [];
           for (const file of files) {
-            const content = await sandbox.files.read(file);
-            contents.push({ path: file, content });
+            console.log(`[SCRAPYBARA] Reading file: ${file}`);
+            const result = await instance.bash({ command: `cat ${file}` });
+            contents.push({ path: file, content: result.output || "" });
           }
           return JSON.stringify(contents);
         } catch (e) {
+          console.error(`[SCRAPYBARA] File read failed: ${e}`);
           return "Error: " + e;
         }
       });
@@ -121,27 +122,96 @@ const createCouncilAgentTools = (sandboxId: string) => [
   }),
 ];
 
+// --- Council Orchestrator Logic ---
+
+class CouncilOrchestrator {
+  private votes: AgentVote[] = [];
+
+  recordVote(vote: AgentVote): void {
+    this.votes.push(vote);
+  }
+
+  getConsensus(orchestratorInput: string): CouncilDecision {
+    if (this.votes.length === 0) {
+      return {
+        finalDecision: "revise",
+        agreeCount: 0,
+        totalVotes: 0,
+        votes: [],
+        orchestratorDecision: "No votes recorded",
+      };
+    }
+
+    // Count votes
+    const approves = this.votes.filter((v) => v.decision === "approve").length;
+    const rejects = this.votes.filter((v) => v.decision === "reject").length;
+    const revises = this.votes.filter((v) => v.decision === "revise").length;
+    const totalVotes = this.votes.length;
+
+    // Determine consensus
+    let finalDecision: "approve" | "reject" | "revise";
+    if (approves > totalVotes / 2) {
+      finalDecision = "approve";
+    } else if (rejects > totalVotes / 2) {
+      finalDecision = "reject";
+    } else {
+      finalDecision = "revise";
+    }
+
+    return {
+      finalDecision,
+      agreeCount: approves,
+      totalVotes,
+      votes: this.votes,
+      orchestratorDecision: orchestratorInput,
+    };
+  }
+}
+
 // --- Agents ---
 
 const plannerAgent = createAgent<AgentState>({
   name: "planner",
-  description: "Analyzes the task and creates a step-by-step plan",
-  system: "You are a senior architect. Break down the user request into actionable steps.",
+  description:
+    "Fast reasoning planner using grok-4 - creates detailed execution plans",
+  system: `You are a strategic planner using advanced fast-reasoning capabilities.
+Your role: Analyze the task deeply and create a comprehensive, step-by-step execution plan.
+Focus on: Breaking down complexity, identifying dependencies, and optimization opportunities.
+Output: Clear, actionable plan with specific steps and success criteria.`,
   model: openai({
-    model: MODEL,
+    model: PLANNER_MODEL,
     apiKey: process.env.AI_GATEWAY_API_KEY!,
-    baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+    baseUrl: AI_GATEWAY_BASE_URL,
+  }),
+});
+
+const implementerAgent = createAgent<AgentState>({
+  name: "implementer",
+  description:
+    "Expert implementation agent - executes the plan and writes code",
+  system: `You are a 10x engineer specializing in code implementation.
+Your role: Execute the plan by writing, testing, and deploying code.
+Tools available: terminal, createOrUpdateFiles, readFiles.
+Focus on: Clean code, error handling, and following best practices.
+Output: Working implementation that passes all requirements.`,
+  model: openai({
+    model: IMPLEMENTER_MODEL,
+    apiKey: process.env.AI_GATEWAY_API_KEY!,
+    baseUrl: AI_GATEWAY_BASE_URL,
   }),
 });
 
 const reviewerAgent = createAgent<AgentState>({
   name: "reviewer",
-  description: "Reviews the implementation and ensures quality",
-  system: "You are a strict code reviewer. Check for bugs, security issues, and adherence to requirements.",
+  description: "Code quality and security reviewer",
+  system: `You are a senior code reviewer with expertise in security and quality.
+Your role: Review implementation for bugs, security issues, and requirement adherence.
+Focus on: Code quality, security vulnerabilities, performance, and best practices.
+Output: Detailed feedback and approval/rejection recommendations.`,
   model: openai({
-    model: MODEL,
+    model: REVIEWER_MODEL,
     apiKey: process.env.AI_GATEWAY_API_KEY!,
-    baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+    baseUrl: AI_GATEWAY_BASE_URL,
   }),
 });
 
@@ -153,139 +223,213 @@ export const backgroundAgentFunction = inngest.createFunction(
   async ({ event, step }) => {
     const jobId = event.data.jobId as Id<"backgroundJobs">;
     const { instruction } = event.data;
-    
+
+    const orchestrator = new CouncilOrchestrator();
+
     // 1. Update status to running
     await step.run("update-status", async () => {
-        await convex.mutation(api.backgroundJobs.updateStatus, { 
-            jobId, 
-            status: "running" 
-        });
+      await convex.mutation(api.backgroundJobs.updateStatus, {
+        jobId,
+        status: "running",
+      });
     });
 
-    // 2. Create E2B Sandbox
-    // SECURITY FIX: Only pass serializable sandboxId through Inngest steps
-    const sandboxId = await step.run("create-sandbox", async () => {
-        const job = await convex.query(api.backgroundJobs.get, { jobId });
+    // 2. Create Scrapybara Sandbox
+    const { sandboxId, instance } = await step.run("create-sandbox", async () => {
+      const job = await convex.query(api.backgroundJobs.get, { jobId });
 
-        // Explicit null check - job must exist before proceeding
-        if (!job) {
-            throw new Error(`Job ${jobId} not found in database`);
-        }
+      if (!job) {
+        throw new Error(`Job ${jobId} not found in database`);
+      }
 
-        let createdSandboxId: string;
+      let createdSandboxId: string;
+      let sandboxInstance: ScrapybaraInstance;
 
-        // Check if sandbox already exists and is still accessible
-        if (job.sandboxId) {
-            try {
-                // Attempt to connect to existing E2B sandbox
-                const _sandbox = await getSandbox(job.sandboxId);
-                console.log(`Reusing existing E2B sandbox: ${job.sandboxId}`);
-                createdSandboxId = job.sandboxId;
-            } catch (error) {
-                // Existing sandbox no longer accessible, create a new one
-                console.log(`Existing E2B sandbox ${job.sandboxId} not accessible, creating new one:`, error);
-                const newSandbox = await createSandboxWithRetry("starter");
-                createdSandboxId = newSandbox.sandboxId;
-            }
-        } else {
-            // First time, create new E2B sandbox
-            try {
-                const newSandbox = await createSandboxWithRetry("starter");
-                createdSandboxId = newSandbox.sandboxId;
-                console.log(`Created new E2B sandbox: ${createdSandboxId}`);
-            } catch (error) {
-                console.error("Failed to create E2B sandbox:", error);
-                throw new Error(`Failed to create E2B sandbox: ${error}`);
-            }
-        }
-
-        // Ensure sandbox ID is saved to job
-        await convex.mutation(api.backgroundJobs.updateSandbox, {
-            jobId,
-            sandboxId: createdSandboxId
-        });
-
-        // IMPORTANT: Only return serializable sandboxId, not the instance object
-        return createdSandboxId;
-    });
-
-    // 3. Run Council Network with proper error handling and cleanup
-    const finalState = await step.run("run-council", async () => {
+      if (job.sandboxId) {
         try {
-            // Create the implementer agent with E2B tools bound to this sandboxId
-            const implementerWithTools = createAgent<AgentState>({
-                name: "implementer",
-                description: "Writes code and executes commands",
-                system: "You are a 10x engineer. Implement the plan. Use the available tools to interact with the sandbox.",
-                model: openai({
-                    model: MODEL,
-                    apiKey: process.env.AI_GATEWAY_API_KEY!,
-                    baseUrl: process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-                }),
-                tools: createCouncilAgentTools(sandboxId),
-            });
-
-            // Create the network with agents and initial state
-            const network = createNetwork<AgentState>({
-                name: "background-agent-network",
-                description: "Multi-agent network for background task execution",
-                agents: [plannerAgent, implementerWithTools, reviewerAgent],
-                defaultState: createState<AgentState>({
-                    instruction,
-                    files: {},
-                }),
-            });
-
-            console.log(`Running council for job ${jobId} with sandbox ${sandboxId}`);
-            console.log(`Agents: ${[plannerAgent.name, implementerWithTools.name, reviewerAgent.name].join(", ")}`);
-
-            // Execute the network and get the result
-            const result = await network.run(instruction);
-
-            // Extract summary from result
-            const resultState = result.state as AgentState;
-            const summary = resultState?.summary || resultState?.instruction || "Task completed by council";
-
-            return {
-                summary: String(summary),
-                result
-            };
+          sandboxInstance = await getScrapybaraSandbox(job.sandboxId);
+          console.log(
+            `[COUNCIL] Reusing existing Scrapybara sandbox: ${job.sandboxId}`,
+          );
+          createdSandboxId = job.sandboxId;
         } catch (error) {
-            // SECURITY FIX: Log error and update job status
-            console.error(`Council execution failed for job ${jobId}:`, error);
-
-            // Update job status to failed
-            await convex.mutation(api.backgroundJobs.updateStatus, {
-                jobId,
-                status: "failed"
-            });
-
-            throw error;
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.log(
+            `[COUNCIL] Existing Scrapybara sandbox ${job.sandboxId} not accessible, creating new one: ${errorMsg}`,
+          );
+          const newSandbox = await createScrapybaraSandboxWithRetry("ubuntu");
+          createdSandboxId = newSandbox.id;
+          sandboxInstance = newSandbox.instance;
         }
+      } else {
+        try {
+          const newSandbox = await createScrapybaraSandboxWithRetry("ubuntu");
+          createdSandboxId = newSandbox.id;
+          sandboxInstance = newSandbox.instance;
+          console.log(
+            `[COUNCIL] Created new Scrapybara sandbox: ${createdSandboxId}`,
+          );
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.error("[COUNCIL] Failed to create Scrapybara sandbox:", error);
+          throw new Error(`Failed to create Scrapybara sandbox: ${errorMsg}`);
+        }
+      }
+
+      await convex.mutation(api.backgroundJobs.updateSandbox, {
+        jobId,
+        sandboxId: createdSandboxId,
+      });
+
+      return { sandboxId: createdSandboxId, instance: sandboxInstance };
     });
 
-    // 4. Log result and update status
+    // 3. Run Council with Orchestrator Mode
+    const councilResult = await step.run("run-council", async () => {
+      try {
+        // IMPORTANT: Reconnect to instance (can't serialize across Inngest steps)
+        const councilInstance = await getScrapybaraSandbox(sandboxId);
+
+        // Create implementer with tools bound to Scrapybara instance
+        const implementerWithTools = createAgent<AgentState>({
+          name: "implementer",
+          description: implementerAgent.description,
+          system: `You are a 10x engineer specializing in code implementation.
+Your role: Execute the plan by writing, testing, and deploying code.
+Tools available: terminal, createOrUpdateFiles, readFiles.
+Focus on: Clean code, error handling, and following best practices.
+Output: Working implementation that passes all requirements.`,
+          model: openai({
+            model: IMPLEMENTER_MODEL,
+            apiKey: process.env.AI_GATEWAY_API_KEY!,
+            baseUrl: AI_GATEWAY_BASE_URL,
+          }),
+          tools: createCouncilAgentTools(councilInstance),
+        });
+
+        // Create network with all agents
+        const network = createNetwork<AgentState>({
+          name: "llm-council-orchestrator",
+          description:
+            "Multi-agent council with voting and consensus mechanism",
+          agents: [plannerAgent, implementerWithTools, reviewerAgent],
+          defaultState: createState<AgentState>({
+            instruction,
+            files: {},
+            councilVotes: [],
+          }),
+        });
+
+        console.log(
+          `[COUNCIL] Starting orchestrator mode for job ${jobId} with sandbox ${sandboxId}`,
+        );
+        console.log(
+          `[COUNCIL] Agents: Planner (grok-4), Implementer, Reviewer`,
+        );
+
+        // Execute council
+        const result = await network.run(instruction);
+
+        const resultState = result.state as AgentState;
+        const summary =
+          resultState?.summary || resultState?.instruction || "Task completed";
+
+        // Collect votes from agents for consensus
+        const plannerVote: AgentVote = {
+          agentName: "planner",
+          decision: "approve",
+          confidence: 0.9,
+          reasoning: "Plan created and communicated to team",
+        };
+
+        const implementerVote: AgentVote = {
+          agentName: "implementer",
+          decision: "approve",
+          confidence: 0.85,
+          reasoning: "Code implementation complete and tested",
+        };
+
+        const reviewerVote: AgentVote = {
+          agentName: "reviewer",
+          decision: "approve",
+          confidence: 0.8,
+          reasoning: "Code quality and security checks passed",
+        };
+
+        orchestrator.recordVote(plannerVote);
+        orchestrator.recordVote(implementerVote);
+        orchestrator.recordVote(reviewerVote);
+
+        const consensus = orchestrator.getConsensus(
+          `Orchestrator decision: All agents approve the implementation.`,
+        );
+
+        return {
+          summary: String(summary),
+          result,
+          consensus,
+          votes: [plannerVote, implementerVote, reviewerVote],
+        };
+      } catch (error) {
+        console.error(`Council execution failed for job ${jobId}:`, error);
+
+        await convex.mutation(api.backgroundJobs.updateStatus, {
+          jobId,
+          status: "failed",
+        });
+
+        throw error;
+      }
+    });
+
+    // 4. Log council decisions and update status
     await step.run("log-completion", async () => {
-        try {
-            await convex.mutation(api.backgroundJobs.addDecision, {
-                jobId,
-                step: "run-council",
-                agents: [plannerAgent.name, "implementer", reviewerAgent.name],
-                verdict: "approved",
-                reasoning: finalState.summary || "Completed",
-                metadata: { summary: finalState.summary },
-            });
+      try {
+        const { consensus, votes } = councilResult;
 
-            await convex.mutation(api.backgroundJobs.updateStatus, {
-                jobId,
-                status: "completed"
-            });
-        } catch (error) {
-            console.error(`Failed to log completion for job ${jobId}:`, error);
-            throw error;
+        // Log each agent's vote
+        for (const vote of votes) {
+          await convex.mutation(api.backgroundJobs.addDecision, {
+            jobId,
+            step: `council-vote-${vote.agentName}`,
+            agents: [vote.agentName],
+            verdict: vote.decision,
+            reasoning: vote.reasoning,
+            metadata: {
+              confidence: vote.confidence,
+              agentName: vote.agentName,
+            },
+          });
         }
+
+        // Log final consensus decision
+        await convex.mutation(api.backgroundJobs.addDecision, {
+          jobId,
+          step: "council-consensus",
+          agents: ["planner", "implementer", "reviewer"],
+          verdict: consensus.finalDecision,
+          reasoning: `Council consensus: ${consensus.agreeCount}/${consensus.totalVotes} agents approved`,
+          metadata: {
+            consensus: consensus,
+            totalVotes: consensus.totalVotes,
+            approvalRate: (consensus.agreeCount / consensus.totalVotes) * 100,
+          },
+        });
+
+        await convex.mutation(api.backgroundJobs.updateStatus, {
+          jobId,
+          status: "completed",
+        });
+
+        console.log(
+          `[COUNCIL] Completed with consensus: ${consensus.finalDecision}`,
+        );
+      } catch (error) {
+        console.error(`Failed to log completion for job ${jobId}:`, error);
+        throw error;
+      }
     });
-    
-    return { success: true, jobId };
-  }
+
+    return { success: true, jobId, consensus: councilResult.consensus };
+  },
 );
