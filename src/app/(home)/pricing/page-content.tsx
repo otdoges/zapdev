@@ -182,6 +182,10 @@ export function PricingPageContent() {
                   <Check className="mr-2 h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
                   <span>Email support</span>
                 </li>
+                <li className="flex items-start">
+                  <Check className="mr-2 h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span>Flux Kontext Pro image generation</span>
+                </li>
               </ul>
             </CardContent>
             <CardFooter>

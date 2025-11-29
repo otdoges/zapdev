@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
 import {
   openai,
+  gemini,
   createAgent,
   createTool,
   createNetwork,
@@ -123,6 +124,15 @@ export const MODEL_CONFIGS = {
     description: "Advanced reasoning model from Prime Intellect",
     temperature: 0.7,
   },
+  "bfl/flux-kontext-pro": {
+    name: "Flux Kontext Pro",
+    provider: "bfl",
+    description: "Advanced image generation with context awareness for Pro users",
+    temperature: 0.7,
+    isProOnly: true,
+    isImageGeneration: true,
+    hidden: true,
+  },
 } as const;
 
 export type ModelId = keyof typeof MODEL_CONFIGS | "auto";
@@ -203,6 +213,67 @@ export function selectModelForTask(
   return chosenModel;
 }
 
+/**
+ * Returns the appropriate AI adapter based on model provider
+ */
+function getModelAdapter(
+  modelId: keyof typeof MODEL_CONFIGS | string,
+  temperature?: number,
+) {
+  const config =
+    modelId in MODEL_CONFIGS
+      ? MODEL_CONFIGS[modelId as keyof typeof MODEL_CONFIGS]
+      : null;
+
+  const commonConfig = {
+    model: modelId,
+    apiKey: process.env.AI_GATEWAY_API_KEY!,
+    baseUrl:
+      process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
+    defaultParameters: {
+      temperature: temperature ?? config?.temperature ?? 0.7,
+    },
+  };
+
+  // Use native Gemini adapter for Google models (detect by model ID or provider)
+  const isGoogleModel =
+    config?.provider === "google" ||
+    modelId.startsWith("google/") ||
+    modelId.includes("gemini");
+
+  if (isGoogleModel) {
+    return gemini(commonConfig);
+  }
+
+  // Use OpenAI adapter for all other models (OpenAI, Anthropic, Moonshot, xAI, etc.)
+  return openai(commonConfig);
+}
+
+/**
+ * Converts screenshot URLs to AI-compatible image messages
+ */
+async function createImageMessages(screenshots: string[]): Promise<Message[]> {
+  const imageMessages: Message[] = [];
+
+  for (const screenshotUrl of screenshots) {
+    try {
+      // For URL-based images (OpenAI and Gemini support this)
+      imageMessages.push({
+        type: "image",
+        role: "user",
+        content: screenshotUrl,
+      });
+    } catch (error) {
+      console.error(
+        `[ERROR] Failed to create image message for ${screenshotUrl}:`,
+        error,
+      );
+    }
+  }
+
+  return imageMessages;
+}
+
 const AUTO_FIX_ERROR_PATTERNS = [
   /Error:/i,
   /\[ERROR\]/i,
@@ -232,6 +303,10 @@ const AUTO_FIX_ERROR_PATTERNS = [
   /Turbopack build failed/i,
   /the name .* is defined multiple times/i,
   /Expected a semicolon/i,
+  // Additional error patterns
+  /CommandExitError/i,
+  /ENOENT/i,
+  /Module build failed/i,
 ];
 
 const usesShadcnComponents = (files: Record<string, string>) => {
@@ -842,16 +917,7 @@ export const codeAgentFunction = inngest.createFunction(
         name: "framework-selector",
         description: "Determines the best framework for the user's request",
         system: FRAMEWORK_SELECTOR_PROMPT,
-        model: openai({
-          model: "google/gemini-2.5-flash-lite",
-          apiKey: process.env.AI_GATEWAY_API_KEY!,
-          baseUrl:
-            process.env.AI_GATEWAY_BASE_URL ||
-            "https://ai-gateway.vercel.sh/v1",
-          defaultParameters: {
-            temperature: 0.3,
-          },
-        }),
+        model: getModelAdapter("google/gemini-2.5-flash-lite", 0.3),
       });
 
       const frameworkResult = await frameworkSelectorAgent.run(
@@ -1293,15 +1359,7 @@ Generate code that matches the approved specification.`;
       name: `${selectedFramework}-code-agent`,
       description: `An expert ${selectedFramework} coding agent powered by ${modelConfig.name}`,
       system: frameworkPrompt,
-      model: openai({
-        model: selectedModel,
-        apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl:
-          process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-        defaultParameters: {
-          temperature: modelConfig.temperature,
-        },
-      }),
+      model: getModelAdapter(selectedModel, modelConfig.temperature),
       tools: createCodeAgentTools(sandboxId),
       lifecycle: {
         onResponse: async ({ result, network }) => {
@@ -1669,16 +1727,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     if (!isError && hasSummary && hasFiles) {
       try {
-        const titleModel = openai({
-          model: "google/gemini-2.5-flash-lite",
-          apiKey: process.env.AI_GATEWAY_API_KEY!,
-          baseUrl:
-            process.env.AI_GATEWAY_BASE_URL ||
-            "https://ai-gateway.vercel.sh/v1",
-          defaultParameters: {
-            temperature: 0.3,
-          },
-        });
+        const titleModel = getModelAdapter("google/gemini-2.5-flash-lite", 0.3);
 
         const fragmentTitleGenerator = createAgent({
           name: "fragment-title-generator",
@@ -2651,16 +2700,7 @@ export const specPlanningAgentFunction = inngest.createFunction(
         name: "framework-selector",
         description: "Determines the best framework for the user's request",
         system: FRAMEWORK_SELECTOR_PROMPT,
-        model: openai({
-          model: "google/gemini-2.5-flash-lite",
-          apiKey: process.env.AI_GATEWAY_API_KEY!,
-          baseUrl:
-            process.env.AI_GATEWAY_BASE_URL ||
-            "https://ai-gateway.vercel.sh/v1",
-          defaultParameters: {
-            temperature: 0.3,
-          },
-        }),
+        model: getModelAdapter("google/gemini-2.5-flash-lite", 0.3),
       });
 
       const frameworkResult = await frameworkSelectorAgent.run(
@@ -2716,15 +2756,7 @@ Remember to wrap your complete specification in <spec>...</spec> tags.`;
       name: "spec-planning-agent",
       description: "Creates detailed implementation specifications",
       system: enhancedSpecPrompt,
-      model: openai({
-        model: "openai/gpt-5.1-codex",
-        apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl:
-          process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-        defaultParameters: {
-          temperature: 0.7,
-        },
-      }),
+      model: getModelAdapter("openai/gpt-5.1-codex", 0.7),
     });
 
     console.log("[DEBUG] Running planning agent with user request");
