@@ -242,7 +242,14 @@ function getModelAdapter(
     modelId.includes("gemini");
 
   if (isGoogleModel) {
-    return gemini(commonConfig);
+    return gemini({
+      ...commonConfig,
+      defaultParameters: {
+        generationConfig: {
+          temperature: commonConfig.defaultParameters.temperature,
+        },
+      },
+    });
   }
 
   // Use OpenAI adapter for all other models (OpenAI, Anthropic, Moonshot, xAI, etc.)
@@ -262,7 +269,7 @@ async function createImageMessages(screenshots: string[]): Promise<Message[]> {
         type: "image",
         role: "user",
         content: screenshotUrl,
-      });
+      } as any);
     } catch (error) {
       console.error(
         `[ERROR] Failed to create image message for ${screenshotUrl}:`,
@@ -1112,7 +1119,7 @@ export const codeAgentFunction = inngest.createFunction(
         });
 
         console.log("[DEBUG] Sandbox created successfully:", sandbox.sandboxId);
-        
+
         // Record rate limit usage
         try {
           await convex.mutation(api.e2bRateLimits.recordRequest, {
@@ -1121,19 +1128,19 @@ export const codeAgentFunction = inngest.createFunction(
         } catch (recordError) {
           console.warn("[WARN] Failed to record rate limit:", recordError);
         }
-        
+
         // Validate sandbox is healthy before proceeding
         const isHealthy = await validateSandboxHealth(sandbox);
         if (!isHealthy) {
           console.warn("[WARN] Sandbox health check failed, but continuing...");
         }
-        
+
         return sandbox.sandboxId;
       } catch (error) {
         console.error("[ERROR] Failed to create E2B sandbox:", error);
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        
+
         // Log failure metrics
         console.error("[E2B_METRICS]", {
           event: "sandbox_create_critical_failure",
@@ -1143,7 +1150,7 @@ export const codeAgentFunction = inngest.createFunction(
           circuitBreakerState: e2bCircuitBreaker.getState(),
           timestamp: Date.now(),
         });
-        
+
         throw new Error(`E2B sandbox creation failed: ${errorMessage}`);
       }
     });
@@ -1319,7 +1326,7 @@ export const codeAgentFunction = inngest.createFunction(
     const specContent = currentMessage?.specContent;
 
     let frameworkPrompt = getFrameworkPrompt(selectedFramework);
-    
+
     // If there's an approved spec, enhance the prompt with it
     if (hasApprovedSpec && specContent) {
       console.log("[DEBUG] Using approved spec for code generation");
@@ -1419,7 +1426,7 @@ Generate code that matches the approved specification.`;
         console.log(
           `[DEBUG] No <task_summary> yet; retrying agent to request summary (attempt ${nextRetry}).`,
         );
-        
+
         return codeAgent;
       },
     });
@@ -1430,17 +1437,17 @@ Generate code that matches the approved specification.`;
     // Post-network fallback: If no summary but files exist, make one more explicit request
     let summaryText = extractSummaryText(result.state.data.summary ?? "");
     const hasGeneratedFiles = Object.keys(result.state.data.files || {}).length > 0;
-    
+
     if (!summaryText && hasGeneratedFiles) {
       console.log("[DEBUG] No summary detected after network run, requesting explicitly...");
       result = await network.run(
         "IMPORTANT: You have successfully generated files, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built. This is required to complete the task.",
         { state: result.state }
       );
-      
+
       // Re-extract summary after explicit request
       summaryText = extractSummaryText(result.state.data.summary ?? "");
-      
+
       if (summaryText) {
         console.log("[DEBUG] Summary successfully extracted after explicit request");
       } else {
@@ -1451,7 +1458,7 @@ Generate code that matches the approved specification.`;
     // Post-execution validation: Check if expected entry point file was modified
     const generatedFiles = result.state.data.files || {};
     const fileKeys = Object.keys(generatedFiles);
-    
+
     // Define expected entry points by framework
     const entryPointsByFramework: Record<Framework, string[]> = {
       nextjs: ["app/page.tsx", "pages/index.tsx"],
@@ -1460,10 +1467,10 @@ Generate code that matches the approved specification.`;
       vue: ["src/App.vue", "src/main.ts"],
       svelte: ["src/routes/+page.svelte", "src/App.svelte"],
     };
-    
+
     const expectedEntryPoints = entryPointsByFramework[selectedFramework] || [];
     const modifiedEntryPoint = expectedEntryPoints.some(entry => fileKeys.includes(entry));
-    
+
     if (hasGeneratedFiles && !modifiedEntryPoint) {
       console.warn(
         `[VALIDATION_WARNING] Expected entry point file not modified for ${selectedFramework}`,
@@ -1474,7 +1481,7 @@ Generate code that matches the approved specification.`;
           userRequest: event.data.value.slice(0, 200)
         }
       );
-      
+
       // Log specific warning for OpenAI models (GPT-5.1)
       if (modelConfig.provider === "openai") {
         console.error(
@@ -1974,15 +1981,15 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     if (totalSizeMB > MAX_SIZE_MB) {
       throw new Error(
         `Merged files size (${totalSizeMB.toFixed(2)} MB) exceeds maximum limit (${MAX_SIZE_MB} MB). ` +
-          `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
-          `File count: ${fileCount}. Please review the file filtering logic.`,
+        `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
+        `File count: ${fileCount}. Please review the file filtering logic.`,
       );
     }
 
     if (totalSizeMB > WARN_SIZE_MB) {
       console.warn(
         `[WARN] Merged files size (${totalSizeMB.toFixed(2)} MB) is approaching limit (${MAX_SIZE_MB} MB). ` +
-          `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
+        `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
       );
     }
 
@@ -2019,8 +2026,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const warningsNote =
         warningReasons.length > 0
           ? sanitizeTextForDatabase(
-              `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
-            )
+            `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
+          )
           : "";
       const responseContent = sanitizeTextForDatabase(
         `${baseResponseContent}${warningsNote}`,
@@ -2380,7 +2387,7 @@ export const errorFixFunction = inngest.createFunction(
         console.log(
           `[DEBUG] Error-fix agent missing <task_summary>; retrying (attempt ${nextRetry}).`,
         );
-        
+
         return codeAgent;
       },
     });
@@ -2411,17 +2418,17 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
       // Post-network fallback: If no summary but files were modified, make one more explicit request
       let summaryText = extractSummaryText(result.state.data.summary ?? "");
       const hasModifiedFiles = Object.keys(result.state.data.files || {}).length > 0;
-      
+
       if (!summaryText && hasModifiedFiles) {
         console.log("[DEBUG] No summary detected after error-fix, requesting explicitly...");
         result = await network.run(
           "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
           { state: result.state }
         );
-        
+
         // Re-extract summary after explicit request
         summaryText = extractSummaryText(result.state.data.summary ?? "");
-        
+
         if (summaryText) {
           console.log("[DEBUG] Summary successfully extracted after explicit request");
         } else {
@@ -2516,14 +2523,14 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           backupMetadata ?? initialMetadata;
         const metadataUpdate = supportsMetadata
           ? {
-              ...baseMetadata,
-              previousFiles: originalFiles,
-              fixedAt: new Date().toISOString(),
-              lastFixSuccess: {
-                summary: result.state.data.summary,
-                occurredAt: new Date().toISOString(),
-              },
-            }
+            ...baseMetadata,
+            previousFiles: originalFiles,
+            fixedAt: new Date().toISOString(),
+            lastFixSuccess: {
+              summary: result.state.data.summary,
+              occurredAt: new Date().toISOString(),
+            },
+          }
           : undefined;
 
         return await convex.mutation(api.messages.createFragmentForUser, {

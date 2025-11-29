@@ -4,6 +4,8 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { sanitizeTextForDatabase } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 type UpdateMessageRequestBody = {
   messageId: string;
   content: string;

@@ -3,6 +3,8 @@ import { createPolarClient, getPolarOrganizationId, isPolarConfigured, getOrCrea
 import { getUser } from "@/lib/auth-server";
 import { getSanitizedErrorDetails } from "@/lib/env-validation";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Create a Polar checkout session
  * Authenticates user and creates a checkout URL for the specified product
@@ -13,7 +15,7 @@ export async function POST(request: NextRequest) {
     if (!isPolarConfigured()) {
       console.error('❌ Polar is not properly configured');
       return NextResponse.json(
-        { 
+        {
           error: "Payment system is not configured",
           details: "Please contact support. Configuration issue detected.",
           isConfigError: true
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     // Create checkout session with Polar
     const polar = createPolarClient(targetServer);
-    
+
     // Ensure Polar customer exists with external_id linked to Stack Auth user
     // This enables querying customer state by Stack Auth user ID
     const customerId = await getOrCreatePolarCustomer(polar, {
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
       email: user.primaryEmail || undefined,
       name: user.displayName || undefined,
     });
-    
+
     const checkout = await polar.checkouts.create({
       // Products array (can include multiple product IDs)
       products: [productId],
@@ -82,17 +84,17 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Checkout creation error:", error);
-    
+
     // Handle specific Polar API errors
     if (error instanceof Error) {
       const errorMessage = error.message;
       const sanitizedError = getSanitizedErrorDetails(error);
-      
+
       // Check for authentication/authorization errors
       if (errorMessage.includes('401') || errorMessage.includes('invalid_token') || errorMessage.includes('expired')) {
         console.error('❌ Polar token is invalid or expired');
         return NextResponse.json(
-          { 
+          {
             error: "Payment system authentication failed",
             details: "The payment service token has expired. Please contact support.",
             isConfigError: true,
@@ -101,11 +103,11 @@ export async function POST(request: NextRequest) {
           { status: 503 }
         );
       }
-      
+
       if (errorMessage.includes('403') || errorMessage.includes('forbidden')) {
         console.error('❌ Polar access forbidden');
         return NextResponse.json(
-          { 
+          {
             error: "Payment system access denied",
             details: "Insufficient permissions. Please contact support.",
             isConfigError: true,
@@ -114,11 +116,11 @@ export async function POST(request: NextRequest) {
           { status: 503 }
         );
       }
-      
+
       if (errorMessage.includes('404')) {
         console.error('❌ Polar resource not found');
         return NextResponse.json(
-          { 
+          {
             error: "Product not found",
             details: "The requested product is not available. Please try again or contact support.",
             isConfigError: true,
@@ -131,19 +133,19 @@ export async function POST(request: NextRequest) {
       if (errorMessage.includes('400') || errorMessage.includes('Bad Request')) {
         console.error('❌ Polar bad request');
         return NextResponse.json(
-            {
-                error: "Invalid request",
-                details: "The payment provider rejected the request.",
-                isConfigError: true,
-                adminMessage: "Check that the Product ID matches the environment (Sandbox vs Production)."
-            },
-            { status: 400 }
+          {
+            error: "Invalid request",
+            details: "The payment provider rejected the request.",
+            isConfigError: true,
+            adminMessage: "Check that the Product ID matches the environment (Sandbox vs Production)."
+          },
+          { status: 400 }
         );
       }
-      
+
       // Generic error with sanitized details
       return NextResponse.json(
-        { 
+        {
           error: "Failed to create checkout session",
           details: sanitizedError
         },

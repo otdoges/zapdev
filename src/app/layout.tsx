@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import Script from "next/script";
-import { StackProvider, StackTheme, StackServerApp } from "@stackframe/stack";
+import { StackProvider, StackTheme } from "@stackframe/stack";
+import { stackServerApp } from "@/stack";
 
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
@@ -58,16 +59,7 @@ export const metadata: Metadata = {
   },
 };
 
-const stackServerApp = new StackServerApp({
-  tokenStore: "nextjs-cookie",
-  urls: {
-    // Keep handler routes as fallback for direct URL access
-    signIn: "/handler/sign-in",
-    signUp: "/handler/sign-up",
-    afterSignIn: "/",
-    afterSignUp: "/",
-  },
-});
+
 
 export default function RootLayout({
   children,

@@ -3,6 +3,8 @@ import { getUser } from "@/lib/auth-server";
 import { fetchQuery, fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   const stackUser = await getUser();
   if (!stackUser) {

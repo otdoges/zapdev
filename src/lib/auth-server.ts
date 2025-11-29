@@ -1,9 +1,5 @@
 import { ConvexHttpClient } from "convex/browser";
-import { StackServerApp } from "@stackframe/stack";
-
-const stackServerApp = new StackServerApp({
-  tokenStore: "nextjs-cookie",
-});
+import { stackServerApp } from "@/stack";
 
 /**
  * Get the authenticated user from Stack Auth
@@ -55,13 +51,13 @@ export async function getConvexClientWithAuth() {
   }
 
   const httpClient = new ConvexHttpClient(convexUrl);
-  
+
   // Set up Stack Auth for the Convex client
   const authInfo = await stackServerApp.getConvexHttpClientAuth({
     tokenStore: "nextjs-cookie",
   });
-  
+
   httpClient.setAuth(authInfo);
-  
+
   return httpClient;
 }
