@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth-server";
 
+export const dynamic = "force-dynamic";
+
 const FIGMA_CLIENT_ID = process.env.FIGMA_CLIENT_ID;
 const FIGMA_REDIRECT_URI = process.env.NODE_ENV === "production"
   ? "https://zapdev.link/api/import/figma/callback"
@@ -8,7 +10,7 @@ const FIGMA_REDIRECT_URI = process.env.NODE_ENV === "production"
 
 export async function GET() {
   const stackUser = await getUser();
-  
+
   if (!stackUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

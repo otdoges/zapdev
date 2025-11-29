@@ -4,6 +4,8 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { getPolarWebhookSecret } from "@/lib/polar-client";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Polar.sh Webhook Handler
  * Handles subscription lifecycle events and syncs to Convex
@@ -12,7 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get the raw body for signature verification
     const body = await request.text();
-    
+
     // Convert Next.js headers to plain object for validateEvent
     const headers: Record<string, string> = {};
     request.headers.forEach((value, key) => {
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
       case "subscription.active":
       case "subscription.updated": {
         const subscription = event.data;
-        
+
         // Extract user ID from metadata (passed during checkout)
         const userId = subscription.metadata?.userId as string;
         if (!userId) {
@@ -65,11 +67,11 @@ export async function POST(request: NextRequest) {
           productId: subscription.productId,
           productName,
           status: subscription.status as any,
-          currentPeriodStart: subscription.currentPeriodStart 
-            ? new Date(subscription.currentPeriodStart).getTime() 
+          currentPeriodStart: subscription.currentPeriodStart
+            ? new Date(subscription.currentPeriodStart).getTime()
             : Date.now(),
-          currentPeriodEnd: subscription.currentPeriodEnd 
-            ? new Date(subscription.currentPeriodEnd).getTime() 
+          currentPeriodEnd: subscription.currentPeriodEnd
+            ? new Date(subscription.currentPeriodEnd).getTime()
             : Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now as fallback
           cancelAtPeriodEnd: subscription.cancelAtPeriodEnd || false,
           metadata: subscription.metadata,
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
 
       case "subscription.canceled": {
         const subscription = event.data;
-        
+
         // Mark subscription for cancellation (end of period)
         await convex.mutation(api.subscriptions.markSubscriptionForCancellation, {
           polarSubscriptionId: subscription.id,
@@ -101,7 +103,7 @@ export async function POST(request: NextRequest) {
 
       case "subscription.revoked": {
         const subscription = event.data;
-        
+
         // Immediately revoke subscription
         await convex.mutation(api.subscriptions.revokeSubscription, {
           polarSubscriptionId: subscription.id,
@@ -121,7 +123,7 @@ export async function POST(request: NextRequest) {
 
       case "subscription.uncanceled": {
         const subscription = event.data;
-        
+
         // Reactivate subscription
         await convex.mutation(api.subscriptions.reactivateSubscription, {
           polarSubscriptionId: subscription.id,
@@ -133,7 +135,7 @@ export async function POST(request: NextRequest) {
 
       case "order.created": {
         const order = event.data;
-        
+
         // Log renewal events
         if (order.billingReason === "subscription_cycle") {
           console.log(`Subscription renewal for customer ${order.customerId}`);
@@ -153,23 +155,23 @@ export async function POST(request: NextRequest) {
         // Unified handler for all customer state changes (subscriptions, benefits, etc.)
         const customerState = event.data;
         const externalId = customerState.externalId; // Stack Auth user ID
-        
+
         if (!externalId) {
           console.log("Customer state change without external ID, skipping sync");
           break;
         }
-        
+
         console.log(`Processing customer.state_changed for user ${externalId}`);
-        
+
         // Get active subscriptions from state
         const activeSubscriptions = customerState.activeSubscriptions || [];
         const grantedBenefits = customerState.grantedBenefits || [];
-        
+
         // Update/create subscription records for each active subscription
         for (const sub of activeSubscriptions) {
           // Map Polar status to our status enum (Polar uses "active" | "trialing", we need to map to our values)
           const mappedStatus = sub.status === "trialing" ? "active" : sub.status;
-          
+
           await convex.mutation(api.subscriptions.createOrUpdateSubscription, {
             userId: externalId,
             polarCustomerId: customerState.id,
@@ -179,22 +181,22 @@ export async function POST(request: NextRequest) {
             // The productId can be used to determine the plan if needed
             productName: "Pro",
             status: mappedStatus as "incomplete" | "active" | "canceled" | "past_due" | "unpaid",
-            currentPeriodStart: sub.currentPeriodStart instanceof Date 
-              ? sub.currentPeriodStart.getTime() 
+            currentPeriodStart: sub.currentPeriodStart instanceof Date
+              ? sub.currentPeriodStart.getTime()
               : Date.now(),
-            currentPeriodEnd: sub.currentPeriodEnd instanceof Date 
-              ? sub.currentPeriodEnd.getTime() 
+            currentPeriodEnd: sub.currentPeriodEnd instanceof Date
+              ? sub.currentPeriodEnd.getTime()
               : Date.now() + 30 * 24 * 60 * 60 * 1000,
             cancelAtPeriodEnd: sub.cancelAtPeriodEnd || false,
-            metadata: { 
+            metadata: {
               benefits: grantedBenefits.map((b) => ({ id: b.id, type: b.benefitType })),
               syncedAt: Date.now(),
             },
           });
-          
+
           console.log(`Synced subscription ${sub.id} for user ${externalId}`);
         }
-        
+
         // If no active subscriptions, revoke all user subscriptions
         if (activeSubscriptions.length === 0) {
           try {
@@ -206,12 +208,12 @@ export async function POST(request: NextRequest) {
             console.log(`No subscriptions to revoke for user ${externalId}`);
           }
         }
-        
+
         // Reset usage credits based on new subscription state
         await convex.mutation(api.usage.resetUsage, {
           userId: externalId,
         });
-        
+
         console.log(`Customer state updated for user ${externalId}: ${activeSubscriptions.length} active subscriptions, ${grantedBenefits.length} benefits`);
         break;
       }

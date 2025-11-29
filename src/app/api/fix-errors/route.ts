@@ -4,6 +4,8 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { inngest } from "@/inngest/client";
 
+export const dynamic = "force-dynamic";
+
 type FixErrorsRequestBody = {
   fragmentId: string;
 };

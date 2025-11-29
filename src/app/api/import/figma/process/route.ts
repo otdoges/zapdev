@@ -4,6 +4,8 @@ import { fetchQuery, fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { inngest } from "@/inngest/client";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   const stackUser = await getUser();
   if (!stackUser) {

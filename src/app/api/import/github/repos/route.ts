@@ -3,6 +3,8 @@ import { getUser } from "@/lib/auth-server";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
+export const dynamic = "force-dynamic";
+
 interface GitHubRepo {
   id: number;
   name: string;
