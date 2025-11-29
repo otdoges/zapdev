@@ -73,6 +73,13 @@ export const createWithAttachments = action({
     ),
   },
   handler: async (ctx, args) => {
+    // Get the authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || !identity.subject) {
+      throw new Error("Unauthorized");
+    }
+    const userId = identity.subject;
+
     // Validate project ID format (Convex ID)
     const projectId = args.projectId as Id<"projects">;
 
@@ -98,7 +105,8 @@ export const createWithAttachments = action({
     // Add attachments if provided
     if (args.attachments && args.attachments.length > 0) {
       for (const attachment of args.attachments) {
-        await ctx.runMutation(api.messages.addAttachment, {
+        await ctx.runMutation(api.messages.addAttachmentForUser, {
+          userId,
           messageId,
           type: attachment.type ?? "IMAGE",
           url: attachment.url,
@@ -394,6 +402,79 @@ export const addAttachment = mutation({
     });
 
     return attachmentId;
+  },
+});
+
+/**
+ * Internal: Add attachment for a specific user (for use from actions/background jobs)
+ */
+export const addAttachmentInternal = async (
+  ctx: any,
+  userId: string,
+  messageId: string,
+  attachmentData: {
+    type: string;
+    url: string;
+    size: number;
+    width?: number;
+    height?: number;
+    importId?: any;
+    sourceMetadata?: any;
+  }
+): Promise<string> => {
+  // Verify message ownership
+  const message = await ctx.db.get(messageId as any);
+  if (!message) {
+    throw new Error("Message not found");
+  }
+
+  const project = await ctx.db.get(message.projectId);
+  if (!project || project.userId !== userId) {
+    throw new Error("Unauthorized");
+  }
+
+  const now = Date.now();
+  const attachmentId = await ctx.db.insert("attachments", {
+    messageId: messageId as any,
+    type: attachmentData.type,
+    url: attachmentData.url,
+    width: attachmentData.width,
+    height: attachmentData.height,
+    size: attachmentData.size,
+    importId: attachmentData.importId,
+    sourceMetadata: attachmentData.sourceMetadata,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return attachmentId;
+};
+
+/**
+ * Wrapper mutation for adding attachment with explicit user ID (for use from actions)
+ */
+export const addAttachmentForUser = mutation({
+  args: {
+    userId: v.string(),
+    messageId: v.id("messages"),
+    type: attachmentTypeEnum,
+    url: v.string(),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    size: v.number(),
+    importId: v.optional(v.id("imports")),
+    sourceMetadata: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    return addAttachmentInternal(ctx, args.userId, args.messageId, {
+      type: args.type,
+      url: args.url,
+      size: args.size,
+      width: args.width,
+      height: args.height,
+      importId: args.importId,
+      sourceMetadata: args.sourceMetadata,
+    });
   },
 });
 

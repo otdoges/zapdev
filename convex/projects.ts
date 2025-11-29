@@ -147,7 +147,8 @@ export const createWithMessageAndAttachments = action({
     // Add attachments if provided
     if (args.attachments && args.attachments.length > 0) {
       for (const attachment of args.attachments) {
-        await ctx.runMutation(api.messages.addAttachment, {
+        await ctx.runMutation(api.messages.addAttachmentForUser, {
+          userId,
           messageId,
           type: "IMAGE",
           url: attachment.url,
