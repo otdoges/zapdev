@@ -220,40 +220,70 @@ function getModelAdapter(
   modelId: keyof typeof MODEL_CONFIGS | string,
   temperature?: number,
 ) {
+  // Validate environment variables early
+  const apiKey = process.env.AI_GATEWAY_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "AI_GATEWAY_API_KEY environment variable is not set. Cannot initialize AI models."
+    );
+  }
+
+  const baseUrl =
+    process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1";
+
   const config =
     modelId in MODEL_CONFIGS
       ? MODEL_CONFIGS[modelId as keyof typeof MODEL_CONFIGS]
       : null;
 
-  const commonConfig = {
-    model: modelId,
-    apiKey: process.env.AI_GATEWAY_API_KEY!,
-    baseUrl:
-      process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-    defaultParameters: {
-      temperature: temperature ?? config?.temperature ?? 0.7,
-    },
-  };
+  const temp = temperature ?? config?.temperature ?? 0.7;
 
-  // Use native Gemini adapter for Google models (detect by model ID or provider)
+  // Detect Google models to use native Gemini adapter
   const isGoogleModel =
     config?.provider === "google" ||
     modelId.startsWith("google/") ||
     modelId.includes("gemini");
 
   if (isGoogleModel) {
-    return gemini({
-      ...commonConfig,
-      defaultParameters: {
-        generationConfig: {
-          temperature: commonConfig.defaultParameters.temperature,
+    console.log("[DEBUG] Initializing Gemini adapter for model:", modelId);
+    try {
+      return gemini({
+        apiKey,
+        baseUrl,
+        model: modelId,
+        defaultParameters: {
+          generationConfig: {
+            temperature: temp,
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to initialize Gemini adapter for model "${modelId}": ${errorMessage}`
+      );
+    }
   }
 
   // Use OpenAI adapter for all other models (OpenAI, Anthropic, Moonshot, xAI, etc.)
-  return openai(commonConfig);
+  console.log("[DEBUG] Initializing OpenAI-compatible adapter for model:", modelId);
+  try {
+    return openai({
+      apiKey,
+      baseUrl,
+      model: modelId,
+      defaultParameters: {
+        temperature: temp,
+      },
+    });
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Failed to initialize OpenAI adapter for model "${modelId}": ${errorMessage}`
+    );
+  }
 }
 
 /**
@@ -920,48 +950,60 @@ export const codeAgentFunction = inngest.createFunction(
     if (!project?.framework) {
       console.log("[DEBUG] No framework set, running framework selector...");
 
-      const frameworkSelectorAgent = createAgent({
-        name: "framework-selector",
-        description: "Determines the best framework for the user's request",
-        system: FRAMEWORK_SELECTOR_PROMPT,
-        model: getModelAdapter("google/gemini-2.5-flash-lite", 0.3),
-      });
-
-      const frameworkResult = await frameworkSelectorAgent.run(
-        event.data.value,
-      );
-      const frameworkOutput = frameworkResult.output[0];
-
-      if (frameworkOutput.type === "text") {
-        const detectedFramework = (
-          typeof frameworkOutput.content === "string"
-            ? frameworkOutput.content
-            : frameworkOutput.content.map((c) => c.text).join("")
-        )
-          .trim()
-          .toLowerCase();
-
-        console.log("[DEBUG] Framework selector output:", detectedFramework);
-
-        if (
-          ["nextjs", "angular", "react", "vue", "svelte"].includes(
-            detectedFramework,
-          )
-        ) {
-          selectedFramework = detectedFramework as Framework;
-        }
-      }
-
-      console.log("[DEBUG] Selected framework:", selectedFramework);
-
-      // Update project with selected framework
-      await step.run("update-project-framework", async () => {
-        return await convex.mutation(api.projects.updateForUser, {
-          userId: project.userId,
-          projectId: event.data.projectId as Id<"projects">,
-          framework: frameworkToConvexEnum(selectedFramework),
+      try {
+        const frameworkSelectorAgent = createAgent({
+          name: "framework-selector",
+          description: "Determines the best framework for the user's request",
+          system: FRAMEWORK_SELECTOR_PROMPT,
+          model: getModelAdapter("google/gemini-2.5-flash-lite", 0.3),
         });
-      });
+
+        const frameworkResult = await frameworkSelectorAgent.run(
+          event.data.value,
+        );
+        const frameworkOutput = frameworkResult.output[0];
+
+        if (frameworkOutput.type === "text") {
+          const detectedFramework = (
+            typeof frameworkOutput.content === "string"
+              ? frameworkOutput.content
+              : frameworkOutput.content.map((c) => c.text).join("")
+          )
+            .trim()
+            .toLowerCase();
+
+          console.log("[DEBUG] Framework selector output:", detectedFramework);
+
+          if (
+            ["nextjs", "angular", "react", "vue", "svelte"].includes(
+              detectedFramework,
+            )
+          ) {
+            selectedFramework = detectedFramework as Framework;
+          }
+        }
+
+        console.log("[DEBUG] Selected framework:", selectedFramework);
+
+        // Update project with selected framework
+        await step.run("update-project-framework", async () => {
+          return await convex.mutation(api.projects.updateForUser, {
+            userId: project.userId,
+            projectId: event.data.projectId as Id<"projects">,
+            framework: frameworkToConvexEnum(selectedFramework),
+          });
+        });
+      } catch (frameworkError) {
+        const errorMessage =
+          frameworkError instanceof Error
+            ? frameworkError.message
+            : String(frameworkError);
+        console.error("[ERROR] Framework selection failed:", errorMessage);
+        console.warn(
+          "[WARN] Falling back to default framework (Next.js) due to framework selector error"
+        );
+        selectedFramework = "nextjs";
+      }
     } else {
       console.log("[DEBUG] Using existing framework:", selectedFramework);
     }
@@ -1432,7 +1474,20 @@ Generate code that matches the approved specification.`;
     });
 
     console.log("[DEBUG] Running network with input:", event.data.value);
-    let result = await network.run(event.data.value, { state });
+    let result;
+    try {
+      result = await network.run(event.data.value, { state });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error("[ERROR] Network run failed with error:", errorMessage);
+      if (error instanceof Error && error.stack) {
+        console.error("[ERROR] Stack trace:", error.stack);
+      }
+      throw new Error(
+        `Code generation failed: ${errorMessage}. Please ensure API credentials are valid and try again.`
+      );
+    }
 
     // Post-network fallback: If no summary but files exist, make one more explicit request
     let summaryText = extractSummaryText(result.state.data.summary ?? "");
@@ -1440,10 +1495,19 @@ Generate code that matches the approved specification.`;
 
     if (!summaryText && hasGeneratedFiles) {
       console.log("[DEBUG] No summary detected after network run, requesting explicitly...");
-      result = await network.run(
-        "IMPORTANT: You have successfully generated files, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built. This is required to complete the task.",
-        { state: result.state }
-      );
+      try {
+        result = await network.run(
+          "IMPORTANT: You have successfully generated files, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built. This is required to complete the task.",
+          { state: result.state }
+        );
+      } catch (summaryError) {
+        const errorMessage =
+          summaryError instanceof Error
+            ? summaryError.message
+            : String(summaryError);
+        console.error("[ERROR] Failed to generate summary:", errorMessage);
+        // Don't throw - continue with fallback
+      }
 
       // Re-extract summary after explicit request
       summaryText = extractSummaryText(result.state.data.summary ?? "");
@@ -1571,8 +1635,9 @@ Generate code that matches the approved specification.`;
         `\n[DEBUG] Auto-fix triggered (attempt ${autoFixAttempts}). Errors detected.\n${errorDetails}\n`,
       );
 
-      result = await network.run(
-        `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
+      try {
+        result = await network.run(
+          `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
 
 The previous attempt encountered an error that must be corrected before proceeding.
 
@@ -1595,8 +1660,20 @@ REQUIRED ACTIONS:
 7. Provide an updated <task_summary> only after the error is fully resolved
 
 DO NOT proceed until the error is completely fixed. The fix must be thorough and address the root cause, not just mask the symptoms.`,
-        { state: result.state },
-      );
+          { state: result.state },
+        );
+      } catch (autoFixError) {
+        const fixErrorMessage =
+          autoFixError instanceof Error
+            ? autoFixError.message
+            : String(autoFixError);
+        console.error(
+          `[ERROR] Auto-fix attempt ${autoFixAttempts} failed:`,
+          fixErrorMessage
+        );
+        // Break out of auto-fix loop on network error
+        break;
+      }
 
       lastAssistantMessage = getLastAssistantMessage(result);
 
@@ -1734,7 +1811,20 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     if (!isError && hasSummary && hasFiles) {
       try {
-        const titleModel = getModelAdapter("google/gemini-2.5-flash-lite", 0.3);
+        let titleModel;
+        try {
+          titleModel = getModelAdapter("google/gemini-2.5-flash-lite", 0.3);
+        } catch (adapterError) {
+          const errorMessage =
+            adapterError instanceof Error
+              ? adapterError.message
+              : String(adapterError);
+          console.error(
+            "[ERROR] Failed to initialize model adapter for metadata generation:",
+            errorMessage
+          );
+          throw adapterError;
+        }
 
         const fragmentTitleGenerator = createAgent({
           name: "fragment-title-generator",
@@ -1758,10 +1848,17 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         fragmentTitleOutput = titleResult.output;
         responseOutput = responseResult.output;
       } catch (gatewayError) {
+        const errorMessage =
+          gatewayError instanceof Error
+            ? gatewayError.message
+            : String(gatewayError);
         console.error(
           "[ERROR] Failed to generate fragment metadata:",
-          gatewayError,
+          errorMessage
         );
+        if (gatewayError instanceof Error && gatewayError.stack) {
+          console.error("[ERROR] Stack trace:", gatewayError.stack);
+        }
         fragmentTitleOutput = undefined;
         responseOutput = undefined;
       }
