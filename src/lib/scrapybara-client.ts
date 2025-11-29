@@ -21,10 +21,37 @@ export interface BashResponse {
 }
 
 // Our normalized result type
+/**
+ * Result from bash command execution in Scrapybara sandbox.
+ *
+ * IMPORTANT: The Scrapybara SDK does not expose real process exit codes.
+ * The `exitCode` field is an approximation derived solely from the presence
+ * of an `error` field in the SDK response:
+ * - exitCode = 1 if result.error is present
+ * - exitCode = 0 if result.error is absent
+ *
+ * This is inaccurate because:
+ * - Commands may fail with exit codes other than 1
+ * - Commands may write to stderr without failing
+ * - Commands may succeed (exit 0) but still populate the error field
+ *
+ * For more accurate exit-code handling, use the `rawResult` field to
+ * access the original SDK response and implement custom logic based on
+ * your specific command requirements.
+ */
 export interface BashResult {
   stdout: string;
   stderr: string;
+  /**
+   * Approximated exit code. Only reliable for success (0) vs failure (1).
+   * See interface JSDoc for limitations.
+   */
   exitCode: number;
+  /**
+   * Raw Scrapybara SDK response for advanced exit-code handling.
+   * Contains: { output?: string; error?: string; base64Image?: string; system?: string }
+   */
+  rawResult: BashResponse;
 }
 
 export interface ScrapybaraInstance {
@@ -164,17 +191,18 @@ export class ScrapybaraClient {
     // SECURITY: Validate command before execution
     // WARNING: NEVER pass unsanitized user input to this function
     validateCommand(command);
-    
+
     try {
       console.log(`Running command: ${command}`);
-      
+
       const result = await instance.bash({ command });
-      
+
       // Normalize SDK response to our BashResult format
-      return { 
-        stdout: result.output || "", 
-        stderr: result.error || "", 
-        exitCode: result.error ? 1 : 0 // SDK doesn't provide exit code, infer from error
+      return {
+        stdout: result.output || "",
+        stderr: result.error || "",
+        exitCode: result.error ? 1 : 0, // Approximation: SDK doesn't provide real exit code
+        rawResult: result, // Include raw result for callers needing accurate exit-code detection
       };
     } catch (error) {
       console.error(`Command execution failed: ${command}`, error);
