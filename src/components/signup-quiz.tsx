@@ -39,18 +39,19 @@ export function SignupQuiz() {
     }
   }, [user, profile]);
 
-  const handleComplete = async () => {
-    if (!mode) return;
+  const handleComplete = async (explicitMode?: "web" | "background") => {
+    const finalMode = explicitMode || mode;
+    if (!finalMode) return;
 
     try {
       await setPreferredMode({
-        mode,
+        mode: finalMode,
         quizAnswers: { reason },
       });
 
       setIsOpen(false);
 
-      if (mode === "background") {
+      if (finalMode === "background") {
         router.push("/agents");
       } else {
         router.push("/projects");
@@ -65,8 +66,7 @@ export function SignupQuiz() {
 
   const handleSkip = () => {
     // Default to "web" mode when skipping
-    setMode("web");
-    handleComplete();
+    handleComplete("web");
   };
 
   return (

@@ -9,7 +9,6 @@ import { scrapybaraClient } from "@/lib/scrapybara-client";
 import { api } from "@/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import { Id } from "@/convex/_generated/dataModel";
-import { v } from "convex/values";
 
 // Convex client
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -78,22 +77,36 @@ export const backgroundAgentFunction = inngest.createFunction(
     // SECURITY FIX: Only pass serializable sandboxId through Inngest steps
     const sandboxId = await step.run("create-sandbox", async () => {
         const job = await convex.query(api.backgroundJobs.get, { jobId });
-        
-        // Note: This architecture assumes sandboxes are ephemeral per job
-        // If job already has sandboxId, we'd need to handle reconnection
-        // For now, always create new sandbox
-        
-        const sandbox = await scrapybaraClient.createSandbox({ 
-          template: "ubuntu",
-          timeout_hours: 1 
-        });
-        
-        // Save sandbox ID to job
+
+        // Check if sandbox already exists and is still accessible
+        let sandbox;
+        if (job.sandboxId) {
+            try {
+                // Attempt to reconnect to existing sandbox
+                sandbox = await scrapybaraClient.getSandbox(job.sandboxId, "ubuntu");
+                console.log(`Reusing existing sandbox: ${job.sandboxId}`);
+            } catch (error) {
+                // Existing sandbox no longer accessible, create a new one
+                console.log(`Existing sandbox ${job.sandboxId} not accessible, creating new one:`, error);
+                sandbox = await scrapybaraClient.createSandbox({
+                    template: "ubuntu",
+                    timeout_hours: 1
+                });
+            }
+        } else {
+            // First time, create new sandbox
+            sandbox = await scrapybaraClient.createSandbox({
+                template: "ubuntu",
+                timeout_hours: 1
+            });
+        }
+
+        // Ensure sandbox ID is saved to job
         await convex.mutation(api.backgroundJobs.updateSandbox, {
             jobId,
             sandboxId: sandbox.id
         });
-        
+
         // IMPORTANT: Only return serializable sandboxId, not the instance object
         return sandbox.id;
     });
@@ -101,15 +114,12 @@ export const backgroundAgentFunction = inngest.createFunction(
     // 3. Run Council Network with proper error handling and cleanup
     const finalState = await step.run("run-council", async () => {
         let instance = null;
-        
+
         try {
-            // Retrieve instance when needed using the sandboxId
-            const sandbox = await scrapybaraClient.createSandbox({ 
-              template: "ubuntu",
-              timeout_hours: 1 
-            });
+            // Reconnect to existing sandbox using sandboxId from step 2
+            const sandbox = await scrapybaraClient.getSandbox(sandboxId, "ubuntu");
             instance = sandbox.instance;
-            
+
             // Dynamic tools closing over instance
             // In real implementation we would bind tools here
 
@@ -134,7 +144,7 @@ export const backgroundAgentFunction = inngest.createFunction(
         } catch (error) {
             // SECURITY FIX: Always cleanup sandbox on failure to prevent resource leaks
             console.error(`Council execution failed for job ${jobId}:`, error);
-            
+
             if (instance) {
                 try {
                     await scrapybaraClient.terminateSandbox(instance);
@@ -142,31 +152,26 @@ export const backgroundAgentFunction = inngest.createFunction(
                     console.error(`Failed to cleanup sandbox ${sandboxId}:`, cleanupError);
                 }
             }
-            
+
             // Update job status to failed
-            await convex.mutation(api.backgroundJobs.updateStatus, { 
-                jobId, 
-                status: "failed" 
+            await convex.mutation(api.backgroundJobs.updateStatus, {
+                jobId,
+                status: "failed"
             });
-            
+
             throw error;
         }
     });
 
     // 4. Log result and cleanup
     await step.run("log-completion", async () => {
-        // Retrieve instance again for cleanup
-        // Note: In production, we'd want to track the instance ID separately
-        // For now, we create a new connection just for cleanup
+        // Reconnect to existing sandbox using sandboxId for final cleanup
         let instance = null;
-        
+
         try {
-            const sandbox = await scrapybaraClient.createSandbox({ 
-              template: "ubuntu",
-              timeout_hours: 1 
-            });
+            const sandbox = await scrapybaraClient.getSandbox(sandboxId, "ubuntu");
             instance = sandbox.instance;
-            
+
             await convex.mutation(api.backgroundJobs.addDecision, {
                 jobId,
                 step: "run-council",
@@ -175,10 +180,10 @@ export const backgroundAgentFunction = inngest.createFunction(
                 reasoning: finalState.summary || "Completed",
                 metadata: { summary: finalState.summary },
             });
-            
-            await convex.mutation(api.backgroundJobs.updateStatus, { 
-                jobId, 
-                status: "completed" 
+
+            await convex.mutation(api.backgroundJobs.updateStatus, {
+                jobId,
+                status: "completed"
             });
         } finally {
             // ALWAYS cleanup sandbox, even if logging fails

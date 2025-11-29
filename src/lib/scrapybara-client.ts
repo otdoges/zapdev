@@ -88,21 +88,21 @@ export class ScrapybaraClient {
     }
   }
 
-  async createSandbox(options: { 
-    template?: string; 
+  async createSandbox(options: {
+    template?: string;
     osType?: string;
     timeout_hours?: number;
   }): Promise<ScrapybaraSandbox & { instance: any }> {
     try {
       console.log("Creating Scrapybara sandbox with options:", options);
-      
+
       // Start Ubuntu instance (default) or Browser based on template
-      const instance = options.template === "browser" 
+      const instance = options.template === "browser"
         ? await this.client.startBrowser({ timeoutHours: options.timeout_hours || 1 })
         : await this.client.startUbuntu({ timeoutHours: options.timeout_hours || 1 });
-      
+
       const streamUrl = (await instance.getStreamUrl()).streamUrl;
-      
+
       return {
         id: instance.id,
         status: "running",
@@ -113,6 +113,47 @@ export class ScrapybaraClient {
       console.error("Failed to create Scrapybara sandbox:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Sandbox creation failed: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Reconnect to an existing sandbox by ID
+   * This allows reusing existing sandbox instances across steps
+   *
+   * IMPORTANT: This implementation assumes the Scrapybara SDK provides
+   * methods to reconnect to existing instances (getBrowser/getUbuntu).
+   * If the SDK doesn't expose these methods, alternative approaches:
+   * 1. Cache instances in memory (note: won't work across serverless restarts)
+   * 2. Use a database cache with TTL for sandbox instance metadata
+   * 3. Extend the Scrapybara SDK or use a wrapper that tracks instances
+   */
+  async getSandbox(sandboxId: string, template: string = "ubuntu"): Promise<ScrapybaraSandbox & { instance: any }> {
+    try {
+      console.log(`Reconnecting to existing Scrapybara sandbox: ${sandboxId}`);
+
+      // Attempt to get the existing instance using SDK methods
+      // TODO: Verify actual method names in Scrapybara SDK documentation
+      // Expected method signatures: getBrowser(id: string) / getUbuntu(id: string)
+      const instance = template === "browser"
+        ? await (this.client as any).getBrowser(sandboxId)
+        : await (this.client as any).getUbuntu(sandboxId);
+
+      if (!instance) {
+        throw new Error(`Sandbox ${sandboxId} not found or no longer accessible`);
+      }
+
+      const streamUrl = (await instance.getStreamUrl()).streamUrl;
+
+      return {
+        id: instance.id,
+        status: "running",
+        url: streamUrl,
+        instance, // Return instance for direct API usage
+      };
+    } catch (error) {
+      console.error(`Failed to reconnect to sandbox ${sandboxId}:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Sandbox reconnection failed: ${errorMessage}`);
     }
   }
 
