@@ -136,6 +136,7 @@ const createCouncilAgentTools = (instance: ScrapybaraInstance, agentName: string
           const updatedFiles = state.files || {};
 
           for (const file of files) {
+<<<<<<< HEAD
             // Sanitize file path to prevent directory traversal
             const safePath = sanitizeFilePath(file.path);
 
@@ -145,6 +146,19 @@ const createCouncilAgentTools = (instance: ScrapybaraInstance, agentName: string
             const command = `cat > "${safePath}" << '${delimiter}'\n${file.content}\n${delimiter}`;
 
             console.log(`[SCRAPYBARA] Writing file: ${safePath}`);
+=======
+            // Use printf for safer file writing (avoids some echo -e issues)
+            // We create the directory first
+            const dir = file.path.substring(0, file.path.lastIndexOf("/"));
+            if (dir) {
+              await instance.bash({ command: `mkdir -p ${dir}` });
+            }
+            
+            // Use base64 decoding to write file content
+            const base64Content = Buffer.from(file.content).toString("base64");
+            const command = `printf "${base64Content}" | base64 -d > ${file.path}`;
+            console.log(`[SCRAPYBARA] Writing file: ${file.path}`);
+>>>>>>> 53e99e1ec272dba221343dcab2fc7c7429311211
             await instance.bash({ command });
             updatedFiles[safePath] = file.content;
           }
@@ -397,10 +411,10 @@ Output: Working implementation that passes all requirements.`,
           }),
         });
 
-        console.log(
+        console.info(
           `[COUNCIL] Starting orchestrator mode for job ${jobId} with sandbox ${sandboxId}`,
         );
-        console.log(
+        console.info(
           `[COUNCIL] Agents: Planner (grok-4), Implementer, Reviewer`,
         );
 
@@ -411,8 +425,19 @@ Output: Working implementation that passes all requirements.`,
         const summary =
           resultState?.summary || resultState?.instruction || "Task completed";
 
+<<<<<<< HEAD
         // Extract actual votes from agents if they submitted any
         const submittedVotes = resultState.councilVotes || [];
+=======
+        // TODO: In V2, extract actual votes from agent conversation history/result
+        // Currently hardcoded to simulate successful consensus for infrastructure testing
+        const plannerVote: AgentVote = {
+          agentName: "planner",
+          decision: "approve",
+          confidence: 0.9,
+          reasoning: "Plan created and communicated to team",
+        };
+>>>>>>> 53e99e1ec272dba221343dcab2fc7c7429311211
 
         // If agents submitted votes, use those. Otherwise, record that they participated
         if (submittedVotes.length > 0) {

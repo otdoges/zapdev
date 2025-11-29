@@ -121,7 +121,11 @@ export class ScrapybaraClient {
       apiKey: apiKey || SCRAPYBARA_API_KEY || "",
     });
     if (!apiKey && !SCRAPYBARA_API_KEY) {
-      console.warn("SCRAPYBARA_API_KEY is not set");
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("SCRAPYBARA_API_KEY is not set");
+      } else {
+        console.warn("SCRAPYBARA_API_KEY is not set");
+      }
     }
   }
 
@@ -166,6 +170,7 @@ export class ScrapybaraClient {
    * When reconnection fails, the caller should create a new sandbox instead.
    */
   async getSandbox(sandboxId: string, template: string = "ubuntu"): Promise<ScrapybaraSandbox & { instance: any }> {
+<<<<<<< HEAD
     try {
       console.log(`Reconnecting to existing Scrapybara sandbox: ${sandboxId} (template: ${template})`);
 
@@ -212,6 +217,14 @@ export class ScrapybaraClient {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Sandbox reconnection failed: ${errorMessage}`);
     }
+=======
+    // The Scrapybara SDK v2.5.2 does not expose a direct method to retrieve/reconnect
+    // to an existing instance by ID if the reference is lost (e.g. across Inngest steps).
+    // We throw here to allow the caller's try/catch block to handle this by creating a new sandbox.
+    // Future improvements could involve using a persistent store for instance connection details
+    // or an updated SDK methods if available.
+    throw new Error(`Reconnection to sandbox ${sandboxId} not supported by current SDK wrapper. Creating new instance.`);
+>>>>>>> 53e99e1ec272dba221343dcab2fc7c7429311211
   }
 
   async runCommand(
