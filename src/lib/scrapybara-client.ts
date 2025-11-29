@@ -87,6 +87,8 @@ function validateCommand(command: string): void {
     /:\(\)\{.*\}:/, // Fork bomb
     />\s*\/dev\//, // Prevent device manipulation
     /mkfs/, // Prevent filesystem formatting
+    /\.\.[\/\\]/, // Prevent directory traversal with ../
+    /^\/(?!tmp|home|workspace)/, // Block absolute paths outside safe dirs
   ];
   
   for (const pattern of dangerousPatterns) {
