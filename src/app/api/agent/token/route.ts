@@ -11,8 +11,8 @@ export async function POST() {
       );
     }
 
-    // Realtime token generation is not available without @inngest/realtime middleware
-    // TODO: Install @inngest/realtime if needed
+    // Realtime token generation is handled via AI SDK streaming
+    // This endpoint is a placeholder for future realtime features
     return Response.json(
       { error: "Realtime feature not configured" },
       { status: 503 }

@@ -1,21 +1,13 @@
-import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
-import {
-  openai,
-  gemini,
-  createAgent,
-  createTool,
-  createNetwork,
-  type Tool,
-  type Message,
-  createState,
-  type NetworkRun,
-} from "@inngest/agent-kit";
+import { generateText, type CoreMessage } from "ai";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { inspect } from "util";
 
+import { gateway } from "@/ai-sdk/gateway";
+import { createCodeAgentTools as createAISDKTools } from "@/ai-sdk/tools";
+import type { AgentState } from "@/ai-sdk/types";
 import { crawlUrl, type CrawledContent } from "@/lib/firecrawl";
 
 // Get Convex client lazily to avoid build-time errors
@@ -49,11 +41,9 @@ import {
 } from "@/prompt";
 
 import { inngest } from "./client";
-import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
+import { SANDBOX_TIMEOUT, type Framework } from "./types";
 import {
   getSandbox,
-  lastAssistantTextMessageContent,
-  parseAgentOutput,
   createSandboxWithRetry,
   validateSandboxHealth,
 } from "./utils";
@@ -213,67 +203,6 @@ export function selectModelForTask(
   return chosenModel;
 }
 
-/**
- * Returns the appropriate AI adapter based on model provider
- */
-function getModelAdapter(
-  modelId: keyof typeof MODEL_CONFIGS | string,
-  temperature?: number,
-) {
-  const config =
-    modelId in MODEL_CONFIGS
-      ? MODEL_CONFIGS[modelId as keyof typeof MODEL_CONFIGS]
-      : null;
-
-  const commonConfig = {
-    model: modelId,
-    apiKey: process.env.AI_GATEWAY_API_KEY!,
-    baseUrl:
-      process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-    defaultParameters: {
-      temperature: temperature ?? config?.temperature ?? 0.7,
-    },
-  };
-
-  // Use native Gemini adapter for Google models (detect by model ID or provider)
-  const isGoogleModel =
-    config?.provider === "google" ||
-    modelId.startsWith("google/") ||
-    modelId.includes("gemini");
-
-  if (isGoogleModel) {
-    return gemini(commonConfig);
-  }
-
-  // Use OpenAI adapter for all other models (OpenAI, Anthropic, Moonshot, xAI, etc.)
-  return openai(commonConfig);
-}
-
-/**
- * Converts screenshot URLs to AI-compatible image messages
- */
-async function createImageMessages(screenshots: string[]): Promise<Message[]> {
-  const imageMessages: Message[] = [];
-
-  for (const screenshotUrl of screenshots) {
-    try {
-      // For URL-based images (OpenAI and Gemini support this)
-      imageMessages.push({
-        type: "image",
-        role: "user",
-        content: screenshotUrl,
-      });
-    } catch (error) {
-      console.error(
-        `[ERROR] Failed to create image message for ${screenshotUrl}:`,
-        error,
-      );
-    }
-  }
-
-  return imageMessages;
-}
-
 const AUTO_FIX_ERROR_PATTERNS = [
   /Error:/i,
   /\[ERROR\]/i,
@@ -360,17 +289,23 @@ const extractSummaryText = (value: string): string => {
 };
 
 const getLastAssistantMessage = (
-  networkRun: NetworkRun<AgentState>,
+  messages: CoreMessage[],
 ): string | undefined => {
-  const results = networkRun.state.results;
-
-  if (results.length === 0) {
-    return undefined;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === "assistant") {
+      if (typeof msg.content === "string") {
+        return msg.content;
+      }
+      if (Array.isArray(msg.content)) {
+        return msg.content
+          .filter((part) => part.type === "text")
+          .map((part) => (part as { type: "text"; text: string }).text)
+          .join("");
+      }
+    }
   }
-
-  const latestResult = results[results.length - 1];
-
-  return lastAssistantTextMessageContent(latestResult);
+  return undefined;
 };
 
 const runLintCheck = async (sandboxId: string): Promise<string | null> => {
@@ -787,98 +722,7 @@ const validateMergeStrategy = (
   };
 };
 
-const createCodeAgentTools = (sandboxId: string) => [
-  createTool({
-    name: "terminal",
-    description: "Use the terminal to run commands",
-    parameters: z.object({
-      command: z.string(),
-    }),
-    handler: async (
-      { command }: { command: string },
-      opts: Tool.Options<AgentState>,
-    ) => {
-      return await opts.step?.run("terminal", async () => {
-        const buffers: { stdout: string; stderr: string } = {
-          stdout: "",
-          stderr: "",
-        };
-
-        try {
-          const sandbox = await getSandbox(sandboxId);
-          const result = await sandbox.commands.run(command, {
-            onStdout: (data: string) => {
-              buffers.stdout += data;
-            },
-            onStderr: (data: string) => {
-              buffers.stderr += data;
-            },
-          });
-          return result.stdout;
-        } catch (e) {
-          console.error(
-            `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderror: ${buffers.stderr}`,
-          );
-          return `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderr: ${buffers.stderr}`;
-        }
-      });
-    },
-  }),
-  createTool({
-    name: "createOrUpdateFiles",
-    description: "Create or update files in the sandbox",
-    parameters: z.object({
-      files: z.array(
-        z.object({
-          path: z.string(),
-          content: z.string(),
-        }),
-      ),
-    }),
-    handler: async ({ files }, { step, network }: Tool.Options<AgentState>) => {
-      const newFiles = await step?.run("createOrUpdateFiles", async () => {
-        try {
-          const updatedFiles = network.state.data.files || {};
-          const sandbox = await getSandbox(sandboxId);
-          for (const file of files) {
-            await sandbox.files.write(file.path, file.content);
-            updatedFiles[file.path] = file.content;
-          }
-
-          return updatedFiles;
-        } catch (e) {
-          return "Error: " + e;
-        }
-      });
-
-      if (typeof newFiles === "object") {
-        network.state.data.files = newFiles;
-      }
-    },
-  }),
-  createTool({
-    name: "readFiles",
-    description: "Read files from the sandbox",
-    parameters: z.object({
-      files: z.array(z.string()),
-    }),
-    handler: async ({ files }, { step }) => {
-      return await step?.run("readFiles", async () => {
-        try {
-          const sandbox = await getSandbox(sandboxId);
-          const contents = [];
-          for (const file of files) {
-            const content = await sandbox.files.read(file);
-            contents.push({ path: file, content });
-          }
-          return JSON.stringify(contents);
-        } catch (e) {
-          return "Error: " + e;
-        }
-      });
-    },
-  }),
-];
+// Tools are now created using @ai-sdk tools via createAISDKTools from "@/ai-sdk/tools"
 
 export const codeAgentFunction = inngest.createFunction(
   { id: "code-agent" },
@@ -913,36 +757,22 @@ export const codeAgentFunction = inngest.createFunction(
     if (!project?.framework) {
       console.log("[DEBUG] No framework set, running framework selector...");
 
-      const frameworkSelectorAgent = createAgent({
-        name: "framework-selector",
-        description: "Determines the best framework for the user's request",
+      const frameworkResult = await generateText({
+        model: gateway("google/gemini-2.5-flash-lite"),
         system: FRAMEWORK_SELECTOR_PROMPT,
-        model: getModelAdapter("google/gemini-2.5-flash-lite", 0.3),
+        messages: [{ role: "user", content: event.data.value }],
+        temperature: 0.3,
       });
 
-      const frameworkResult = await frameworkSelectorAgent.run(
-        event.data.value,
-      );
-      const frameworkOutput = frameworkResult.output[0];
+      const detectedFramework = frameworkResult.text.trim().toLowerCase();
+      console.log("[DEBUG] Framework selector output:", detectedFramework);
 
-      if (frameworkOutput.type === "text") {
-        const detectedFramework = (
-          typeof frameworkOutput.content === "string"
-            ? frameworkOutput.content
-            : frameworkOutput.content.map((c) => c.text).join("")
+      if (
+        ["nextjs", "angular", "react", "vue", "svelte"].includes(
+          detectedFramework,
         )
-          .trim()
-          .toLowerCase();
-
-        console.log("[DEBUG] Framework selector output:", detectedFramework);
-
-        if (
-          ["nextjs", "angular", "react", "vue", "svelte"].includes(
-            detectedFramework,
-          )
-        ) {
-          selectedFramework = detectedFramework as Framework;
-        }
+      ) {
+        selectedFramework = detectedFramework as Framework;
       }
 
       console.log("[DEBUG] Selected framework:", selectedFramework);
@@ -1176,7 +1006,7 @@ export const codeAgentFunction = inngest.createFunction(
           "[DEBUG] Fetching previous messages for project:",
           event.data.projectId,
         );
-        const formattedMessages: Message[] = [];
+        const formattedMessages: CoreMessage[] = [];
 
         try {
           const allMessages = await convex.query(api.messages.listForUser, {
@@ -1191,7 +1021,6 @@ export const codeAgentFunction = inngest.createFunction(
 
           for (const message of messages) {
             formattedMessages.push({
-              type: "text",
               role: message.role === "ASSISTANT" ? "assistant" : "user",
               content: message.content,
             });
@@ -1278,27 +1107,23 @@ export const codeAgentFunction = inngest.createFunction(
       }
     });
 
-    const contextMessages: Message[] = (crawledContexts ?? []).map(
+    const contextMessages: CoreMessage[] = (crawledContexts ?? []).map(
       (context) => ({
-        type: "text",
-        role: "user",
+        role: "user" as const,
         content: `Crawled context from ${context.url}:\n${context.content}`,
       }),
     );
 
-    const initialMessages = [...contextMessages, ...previousMessages];
+    const initialMessages: CoreMessage[] = [...contextMessages, ...previousMessages];
 
-    const state = createState<AgentState>(
-      {
-        summary: "",
-        files: {},
-        selectedFramework,
-        summaryRetryCount: 0,
-      },
-      {
-        messages: initialMessages,
-      },
-    );
+    // Agent state for tracking files and summary
+    const agentState: AgentState = {
+      summary: "",
+      files: {},
+      selectedFramework,
+      summaryRetryCount: 0,
+    };
+    const stateRef = { current: agentState };
 
     // Check if this message has an approved spec
     const currentMessage = await step.run("get-current-message", async () => {
@@ -1355,101 +1180,116 @@ Generate code that matches the approved specification.`;
       }
     );
 
-    const codeAgent = createAgent<AgentState>({
-      name: `${selectedFramework}-code-agent`,
-      description: `An expert ${selectedFramework} coding agent powered by ${modelConfig.name}`,
-      system: frameworkPrompt,
-      model: getModelAdapter(selectedModel, modelConfig.temperature),
-      tools: createCodeAgentTools(sandboxId),
-      lifecycle: {
-        onResponse: async ({ result, network }) => {
-          const lastAssistantMessageText =
-            lastAssistantTextMessageContent(result);
+    // Create AI SDK tools for the sandbox
+    const tools = createAISDKTools(sandboxId, stateRef);
+    const MAX_ITERATIONS = 8;
 
-          if (lastAssistantMessageText && network) {
-            const containsSummaryTag =
-              lastAssistantMessageText.includes("<task_summary>");
-            console.log(
-              `[DEBUG] Agent response received (contains summary tag: ${containsSummaryTag})`,
-            );
-            if (containsSummaryTag) {
-              network.state.data.summary = extractSummaryText(
-                lastAssistantMessageText,
-              );
-              network.state.data.summaryRetryCount = 0;
+    // Build conversation messages
+    let messages: CoreMessage[] = [
+      ...initialMessages,
+      { role: "user", content: event.data.value },
+    ];
+
+    console.log("[DEBUG] Running AI SDK agent with input:", event.data.value);
+    
+    // Main agent loop using AI SDK
+    let iteration = 0;
+    let lastOutput = "";
+    
+    while (iteration < MAX_ITERATIONS) {
+      iteration++;
+      console.log(`[AI-SDK] Running iteration ${iteration}/${MAX_ITERATIONS}`);
+
+      try {
+        const result = await generateText({
+          model: gateway(selectedModel),
+          system: frameworkPrompt,
+          messages,
+          tools,
+          maxSteps: 10,
+          temperature: modelConfig.temperature,
+          onStepFinish: async ({ text }) => {
+            if (text) {
+              lastOutput = text;
+              const summary = extractSummaryText(text);
+              if (summary) {
+                stateRef.current.summary = summary;
+                stateRef.current.summaryRetryCount = 0;
+              }
             }
+          },
+        });
+
+        if (result.text) {
+          lastOutput = result.text;
+          messages.push({ role: "assistant", content: result.text });
+
+          const summary = extractSummaryText(result.text);
+          if (summary) {
+            stateRef.current.summary = summary;
+            console.log(`[AI-SDK] Summary extracted (length: ${summary.length})`);
+            break;
+          }
+        }
+
+        const hasFiles = Object.keys(stateRef.current.files).length > 0;
+        const hasSummary = stateRef.current.summary.length > 0;
+
+        if (hasSummary) {
+          console.log("[AI-SDK] Task complete with summary");
+          break;
+        }
+
+        if (hasFiles && !hasSummary) {
+          stateRef.current.summaryRetryCount++;
+          if (stateRef.current.summaryRetryCount >= 2) {
+            console.warn("[AI-SDK] Missing summary after multiple attempts, proceeding");
+            break;
           }
 
-          return result;
-        },
-      },
-    });
-
-    const network = createNetwork<AgentState>({
-      name: "coding-agent-network",
-      agents: [codeAgent],
-      maxIter: 8,
-      defaultState: state,
-      router: async ({ network }) => {
-        const summaryText = extractSummaryText(
-          network.state.data.summary ?? "",
-        );
-        const fileEntries = network.state.data.files ?? {};
-        const fileCount = Object.keys(fileEntries).length;
-
-        if (summaryText.length > 0) {
-          return;
+          messages.push({
+            role: "user",
+            content: "IMPORTANT: You have generated files but forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built.",
+          });
         }
-
-        if (fileCount === 0) {
-          network.state.data.summaryRetryCount = 0;
-          return codeAgent;
-        }
-
-        const currentRetry = network.state.data.summaryRetryCount ?? 0;
-        if (currentRetry >= 2) {
-          console.warn(
-            "[WARN] Missing <task_summary> after multiple attempts despite generated files; proceeding with fallback handling.",
-          );
-          return;
-        }
-
-        const nextRetry = currentRetry + 1;
-        network.state.data.summaryRetryCount = nextRetry;
-        console.log(
-          `[DEBUG] No <task_summary> yet; retrying agent to request summary (attempt ${nextRetry}).`,
-        );
-        
-        return codeAgent;
-      },
-    });
-
-    console.log("[DEBUG] Running network with input:", event.data.value);
-    let result = await network.run(event.data.value, { state });
+      } catch (error) {
+        console.error(`[AI-SDK] Error in iteration ${iteration}:`, error);
+        throw error;
+      }
+    }
 
     // Post-network fallback: If no summary but files exist, make one more explicit request
-    let summaryText = extractSummaryText(result.state.data.summary ?? "");
-    const hasGeneratedFiles = Object.keys(result.state.data.files || {}).length > 0;
+    let summaryText = extractSummaryText(stateRef.current.summary ?? "");
+    const hasGeneratedFiles = Object.keys(stateRef.current.files || {}).length > 0;
     
     if (!summaryText && hasGeneratedFiles) {
-      console.log("[DEBUG] No summary detected after network run, requesting explicitly...");
-      result = await network.run(
-        "IMPORTANT: You have successfully generated files, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built. This is required to complete the task.",
-        { state: result.state }
-      );
+      console.log("[DEBUG] No summary detected after agent run, requesting explicitly...");
       
-      // Re-extract summary after explicit request
-      summaryText = extractSummaryText(result.state.data.summary ?? "");
+      messages.push({
+        role: "user",
+        content: "IMPORTANT: You have successfully generated files, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built. This is required to complete the task.",
+      });
+
+      const summaryResult = await generateText({
+        model: gateway(selectedModel),
+        system: frameworkPrompt,
+        messages,
+        temperature: modelConfig.temperature,
+      });
       
-      if (summaryText) {
-        console.log("[DEBUG] Summary successfully extracted after explicit request");
-      } else {
-        console.warn("[WARN] Summary still missing after explicit request, will use fallback");
+      if (summaryResult.text) {
+        summaryText = extractSummaryText(summaryResult.text);
+        if (summaryText) {
+          stateRef.current.summary = summaryText;
+          console.log("[DEBUG] Summary successfully extracted after explicit request");
+        } else {
+          console.warn("[WARN] Summary still missing after explicit request, will use fallback");
+        }
       }
     }
 
     // Post-execution validation: Check if expected entry point file was modified
-    const generatedFiles = result.state.data.files || {};
+    const generatedFiles = stateRef.current.files || {};
     const fileKeys = Object.keys(generatedFiles);
     
     // Define expected entry points by framework
@@ -1509,10 +1349,10 @@ Generate code that matches the approved specification.`;
     ]);
 
     let autoFixAttempts = 0;
-    let lastAssistantMessage = getLastAssistantMessage(result);
+    let lastAssistantMessage = getLastAssistantMessage(messages);
 
     if (selectedFramework === "nextjs") {
-      const currentFiles = (result.state.data.files || {}) as Record<
+      const currentFiles = (stateRef.current.files || {}) as Record<
         string,
         string
       >;
@@ -1564,8 +1404,7 @@ Generate code that matches the approved specification.`;
         `\n[DEBUG] Auto-fix triggered (attempt ${autoFixAttempts}). Errors detected.\n${errorDetails}\n`,
       );
 
-      result = await network.run(
-        `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
+      const autoFixPrompt = `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
 
 The previous attempt encountered an error that must be corrected before proceeding.
 
@@ -1587,11 +1426,32 @@ REQUIRED ACTIONS:
 6. Rerun any commands that failed and verify they now succeed
 7. Provide an updated <task_summary> only after the error is fully resolved
 
-DO NOT proceed until the error is completely fixed. The fix must be thorough and address the root cause, not just mask the symptoms.`,
-        { state: result.state },
-      );
+DO NOT proceed until the error is completely fixed. The fix must be thorough and address the root cause, not just mask the symptoms.`;
 
-      lastAssistantMessage = getLastAssistantMessage(result);
+      messages.push({ role: "user", content: autoFixPrompt });
+
+      const fixResult = await generateText({
+        model: gateway(selectedModel),
+        system: frameworkPrompt,
+        messages,
+        tools,
+        maxSteps: 10,
+        temperature: modelConfig.temperature,
+        onStepFinish: async ({ text }) => {
+          if (text) {
+            const summary = extractSummaryText(text);
+            if (summary) {
+              stateRef.current.summary = summary;
+            }
+          }
+        },
+      });
+
+      if (fixResult.text) {
+        messages.push({ role: "assistant", content: fixResult.text });
+      }
+
+      lastAssistantMessage = getLastAssistantMessage(messages);
 
       // Re-run validation checks to verify if errors are actually fixed
       console.log(
@@ -1629,15 +1489,15 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       }
     }
 
-    lastAssistantMessage = getLastAssistantMessage(result);
+    lastAssistantMessage = getLastAssistantMessage(messages);
 
-    const files = (result.state.data.files || {}) as Record<string, string>;
+    const files = (stateRef.current.files || {}) as Record<string, string>;
     const filePaths = Object.keys(files);
     const hasFiles = filePaths.length > 0;
 
     summaryText = extractSummaryText(
-      typeof result.state.data.summary === "string"
-        ? result.state.data.summary
+      typeof stateRef.current.summary === "string"
+        ? stateRef.current.summary
         : "",
     );
     const agentProvidedSummary = summaryText.length > 0;
@@ -1652,7 +1512,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       );
     }
 
-    result.state.data.summary = summaryText;
+    stateRef.current.summary = summaryText;
 
     const hasSummary = summaryText.length > 0;
 
@@ -1722,34 +1582,28 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       return fallbackHost;
     });
 
-    let fragmentTitleOutput: Message[] | undefined;
-    let responseOutput: Message[] | undefined;
+    let fragmentTitleOutput: string | undefined;
+    let responseOutput: string | undefined;
 
     if (!isError && hasSummary && hasFiles) {
       try {
-        const titleModel = getModelAdapter("google/gemini-2.5-flash-lite", 0.3);
-
-        const fragmentTitleGenerator = createAgent({
-          name: "fragment-title-generator",
-          description: "A fragment title generator",
-          system: FRAGMENT_TITLE_PROMPT,
-          model: titleModel,
-        });
-
-        const responseGenerator = createAgent({
-          name: "response-generator",
-          description: "A response generator",
-          system: RESPONSE_PROMPT,
-          model: titleModel,
-        });
-
         const [titleResult, responseResult] = await Promise.all([
-          fragmentTitleGenerator.run(summaryText),
-          responseGenerator.run(summaryText),
+          generateText({
+            model: gateway("google/gemini-2.5-flash-lite"),
+            system: FRAGMENT_TITLE_PROMPT,
+            messages: [{ role: "user", content: summaryText }],
+            temperature: 0.3,
+          }),
+          generateText({
+            model: gateway("google/gemini-2.5-flash-lite"),
+            system: RESPONSE_PROMPT,
+            messages: [{ role: "user", content: summaryText }],
+            temperature: 0.3,
+          }),
         ]);
 
-        fragmentTitleOutput = titleResult.output;
-        responseOutput = responseResult.output;
+        fragmentTitleOutput = titleResult.text;
+        responseOutput = responseResult.text;
       } catch (gatewayError) {
         console.error(
           "[ERROR] Failed to generate fragment metadata:",
@@ -2008,10 +1862,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         });
       }
 
-      const parsedResponse = parseAgentOutput(responseOutput);
-      const parsedTitle = parseAgentOutput(fragmentTitleOutput);
-
-      const sanitizedResponse = sanitizeTextForDatabase(parsedResponse ?? "");
+      const sanitizedResponse = sanitizeTextForDatabase(responseOutput ?? "");
       const baseResponseContent =
         sanitizedResponse.length > 0
           ? sanitizedResponse
@@ -2026,7 +1877,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         `${baseResponseContent}${warningsNote}`,
       );
 
-      const sanitizedTitle = sanitizeTextForDatabase(parsedTitle ?? "");
+      const sanitizedTitle = sanitizeTextForDatabase(fragmentTitleOutput ?? "");
       const fragmentTitle =
         sanitizedTitle.length > 0 ? sanitizedTitle : "Generated Fragment";
 
@@ -2074,7 +1925,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       url: sandboxUrl,
       title: "Fragment",
       files: finalFiles,
-      summary: result.state.data.summary,
+      summary: stateRef.current.summary,
     };
   },
 );
@@ -2286,20 +2137,16 @@ export const errorFixFunction = inngest.createFunction(
 
     console.log("[DEBUG] Errors detected, running fix agent...");
 
-    // Create a minimal state with existing files
-    const state = createState<AgentState>(
-      {
-        summary:
-          ((fragmentRecord.metadata as Record<string, unknown>)
-            ?.summary as string) ?? "",
-        files: fragmentFiles,
-        selectedFramework: fragmentFramework,
-        summaryRetryCount: 0,
-      },
-      {
-        messages: [],
-      },
-    );
+    // Create agent state with existing files
+    const errorFixState: AgentState = {
+      summary:
+        ((fragmentRecord.metadata as Record<string, unknown>)
+          ?.summary as string) ?? "",
+      files: fragmentFiles,
+      selectedFramework: fragmentFramework,
+      summaryRetryCount: 0,
+    };
+    const errorFixStateRef = { current: errorFixState };
 
     const frameworkPrompt = getFrameworkPrompt(fragmentFramework);
     const errorFixModelConfig = MODEL_CONFIGS[fragmentModel];
@@ -2310,80 +2157,8 @@ export const errorFixFunction = inngest.createFunction(
       errorFixModelConfig,
     );
 
-    const codeAgent = createAgent<AgentState>({
-      name: `${fragmentFramework}-error-fix-agent`,
-      description: `An expert ${fragmentFramework} coding agent for fixing errors powered by ${errorFixModelConfig.name}`,
-      system: frameworkPrompt,
-      model: openai({
-        model: fragmentModel,
-        apiKey: process.env.AI_GATEWAY_API_KEY!,
-        baseUrl:
-          process.env.AI_GATEWAY_BASE_URL || "https://ai-gateway.vercel.sh/v1",
-        defaultParameters: {
-          temperature: errorFixModelConfig.temperature,
-        },
-      }),
-      tools: createCodeAgentTools(sandboxId),
-      lifecycle: {
-        onResponse: async ({ result, network }) => {
-          const lastAssistantMessageText =
-            lastAssistantTextMessageContent(result);
-          if (lastAssistantMessageText && network) {
-            const containsSummaryTag =
-              lastAssistantMessageText.includes("<task_summary>");
-            console.log(
-              `[DEBUG] Error-fix agent response received (contains summary tag: ${containsSummaryTag})`,
-            );
-            if (containsSummaryTag) {
-              network.state.data.summary = extractSummaryText(
-                lastAssistantMessageText,
-              );
-              network.state.data.summaryRetryCount = 0;
-            }
-          }
-          return result;
-        },
-      },
-    });
-
-    const network = createNetwork<AgentState>({
-      name: "error-fix-network",
-      agents: [codeAgent],
-      maxIter: 10,
-      defaultState: state,
-      router: async ({ network }) => {
-        const summaryText = extractSummaryText(
-          network.state.data.summary ?? "",
-        );
-        const fileEntries = network.state.data.files ?? {};
-        const fileCount = Object.keys(fileEntries).length;
-
-        if (summaryText.length > 0) {
-          return;
-        }
-
-        if (fileCount === 0) {
-          network.state.data.summaryRetryCount = 0;
-          return codeAgent;
-        }
-
-        const currentRetry = network.state.data.summaryRetryCount ?? 0;
-        if (currentRetry >= 3) {
-          console.warn(
-            "[WARN] Error-fix agent missing <task_summary> after multiple retries; proceeding with collected fixes.",
-          );
-          return;
-        }
-
-        const nextRetry = currentRetry + 1;
-        network.state.data.summaryRetryCount = nextRetry;
-        console.log(
-          `[DEBUG] Error-fix agent missing <task_summary>; retrying (attempt ${nextRetry}).`,
-        );
-        
-        return codeAgent;
-      },
-    });
+    // Create AI SDK tools for the sandbox
+    const errorFixTools = createAISDKTools(sandboxId, errorFixStateRef);
 
     const fixPrompt = `CRITICAL ERROR FIX REQUEST
 
@@ -2406,26 +2181,63 @@ REQUIRED ACTIONS:
 DO NOT proceed until all errors are completely resolved. Focus on fixing the root cause, not just masking symptoms.`;
 
     try {
-      let result = await network.run(fixPrompt, { state });
+      // Run the error fix using AI SDK
+      const errorFixMessages: CoreMessage[] = [
+        { role: "user", content: fixPrompt },
+      ];
 
-      // Post-network fallback: If no summary but files were modified, make one more explicit request
-      let summaryText = extractSummaryText(result.state.data.summary ?? "");
-      const hasModifiedFiles = Object.keys(result.state.data.files || {}).length > 0;
+      const fixResult = await generateText({
+        model: gateway(fragmentModel),
+        system: frameworkPrompt,
+        messages: errorFixMessages,
+        tools: errorFixTools,
+        maxSteps: 10,
+        temperature: errorFixModelConfig.temperature,
+        onStepFinish: async ({ text }) => {
+          if (text) {
+            const summary = extractSummaryText(text);
+            if (summary) {
+              errorFixStateRef.current.summary = summary;
+            }
+          }
+        },
+      });
+
+      if (fixResult.text) {
+        errorFixMessages.push({ role: "assistant", content: fixResult.text });
+        const summary = extractSummaryText(fixResult.text);
+        if (summary) {
+          errorFixStateRef.current.summary = summary;
+        }
+      }
+
+      // Post-fix fallback: If no summary but files were modified, make one more explicit request
+      let summaryText = extractSummaryText(errorFixStateRef.current.summary ?? "");
+      const hasModifiedFiles = Object.keys(errorFixStateRef.current.files || {}).length > 0;
       
       if (!summaryText && hasModifiedFiles) {
         console.log("[DEBUG] No summary detected after error-fix, requesting explicitly...");
-        result = await network.run(
-          "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
-          { state: result.state }
-        );
         
-        // Re-extract summary after explicit request
-        summaryText = extractSummaryText(result.state.data.summary ?? "");
+        errorFixMessages.push({
+          role: "user",
+          content: "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
+        });
+
+        const summaryResult = await generateText({
+          model: gateway(fragmentModel),
+          system: frameworkPrompt,
+          messages: errorFixMessages,
+          temperature: errorFixModelConfig.temperature,
+        });
         
-        if (summaryText) {
-          console.log("[DEBUG] Summary successfully extracted after explicit request");
-        } else {
-          console.warn("[WARN] Summary still missing after explicit request, will use fallback");
+        if (summaryResult.text) {
+          summaryText = extractSummaryText(summaryResult.text);
+          if (summaryText) {
+            errorFixStateRef.current.summary = summaryText;
+            console.log("[DEBUG] Summary successfully extracted after explicit request");
+          } else {
+            console.warn("[WARN] Summary still missing after explicit request, will use fallback");
+          }
         }
       }
 
@@ -2455,7 +2267,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
 
       // Ensure all fixed files are written back to the sandbox
       await step.run("sync-fixed-files-to-sandbox", async () => {
-        const fixedFiles = result.state.data.files || {};
+        const fixedFiles = errorFixStateRef.current.files || {};
         const sandbox = await getSandbox(sandboxId);
 
         console.log(
@@ -2520,7 +2332,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
               previousFiles: originalFiles,
               fixedAt: new Date().toISOString(),
               lastFixSuccess: {
-                summary: result.state.data.summary,
+                summary: errorFixStateRef.current.summary,
                 occurredAt: new Date().toISOString(),
               },
             }
@@ -2532,7 +2344,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           sandboxId: fragment.sandboxId || undefined,
           sandboxUrl: fragment.sandboxUrl,
           title: fragment.title,
-          files: result.state.data.files,
+          files: errorFixStateRef.current.files,
           framework: frameworkToConvexEnum(fragmentFramework),
           metadata: metadataUpdate || fragment.metadata,
         });
@@ -2545,7 +2357,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         message: remainingErrors
           ? "Some errors may remain. Please check the sandbox."
           : "Errors fixed successfully",
-        summary: result.state.data.summary,
+        summary: errorFixStateRef.current.summary,
         remainingErrors: remainingErrors || undefined,
       };
     } catch (error) {
@@ -2630,32 +2442,16 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
   },
 );
 
-// Helper function to extract spec content from agent response
-const extractSpecContent = (output: Message[]): string => {
-  const textContent = output
-    .filter((msg) => msg.type === "text")
-    .map((msg) => {
-      if (typeof msg.content === "string") {
-        return msg.content;
-      }
-      if (Array.isArray(msg.content)) {
-        return msg.content
-          .filter((c) => c.type === "text")
-          .map((c) => c.text)
-          .join("\n");
-      }
-      return "";
-    })
-    .join("\n");
-
+// Helper function to extract spec content from text response
+const extractSpecContent = (text: string): string => {
   // Extract content between <spec>...</spec> tags
-  const specMatch = /<spec>([\s\S]*?)<\/spec>/i.exec(textContent);
-  if (specMatch && specMatch[1]) {
+  const specMatch = /<spec>([\s\S]*?)<\/spec>/i.exec(text);
+  if (specMatch?.[1]) {
     return specMatch[1].trim();
   }
 
   // If no tags found, return the entire response
-  return textContent.trim();
+  return text.trim();
 };
 
 // Spec Planning Agent Function
@@ -2696,34 +2492,21 @@ export const specPlanningAgentFunction = inngest.createFunction(
     if (!project?.framework) {
       console.log("[DEBUG] No framework set, running framework selector...");
 
-      const frameworkSelectorAgent = createAgent({
-        name: "framework-selector",
-        description: "Determines the best framework for the user's request",
+      const frameworkResult = await generateText({
+        model: gateway("google/gemini-2.5-flash-lite"),
         system: FRAMEWORK_SELECTOR_PROMPT,
-        model: getModelAdapter("google/gemini-2.5-flash-lite", 0.3),
+        messages: [{ role: "user", content: event.data.value }],
+        temperature: 0.3,
       });
 
-      const frameworkResult = await frameworkSelectorAgent.run(
-        event.data.value,
-      );
-      const frameworkOutput = frameworkResult.output[0];
+      const detectedFramework = frameworkResult.text.trim().toLowerCase();
 
-      if (frameworkOutput.type === "text") {
-        const detectedFramework = (
-          typeof frameworkOutput.content === "string"
-            ? frameworkOutput.content
-            : frameworkOutput.content.map((c) => c.text).join("")
+      if (
+        ["nextjs", "angular", "react", "vue", "svelte"].includes(
+          detectedFramework,
         )
-          .trim()
-          .toLowerCase();
-
-        if (
-          ["nextjs", "angular", "react", "vue", "svelte"].includes(
-            detectedFramework,
-          )
-        ) {
-          selectedFramework = detectedFramework as Framework;
-        }
+      ) {
+        selectedFramework = detectedFramework as Framework;
       }
 
       // Update project with selected framework
@@ -2751,14 +2534,6 @@ ${frameworkPrompt}
 
 Remember to wrap your complete specification in <spec>...</spec> tags.`;
 
-    // Create planning agent with GPT-5.1 Codex
-    const planningAgent = createAgent({
-      name: "spec-planning-agent",
-      description: "Creates detailed implementation specifications",
-      system: enhancedSpecPrompt,
-      model: getModelAdapter("openai/gpt-5.1-codex", 0.7),
-    });
-
     console.log("[DEBUG] Running planning agent with user request");
 
     // Get previous messages for context
@@ -2774,8 +2549,7 @@ Remember to wrap your complete specification in <spec>...</spec> tags.`;
           // Take last 3 messages for context (excluding current one)
           const messages = allMessages.slice(-4, -1);
 
-          const formattedMessages: Message[] = messages.map((msg) => ({
-            type: "text",
+          const formattedMessages: CoreMessage[] = messages.map((msg) => ({
             role: msg.role === "ASSISTANT" ? "assistant" : "user",
             content: msg.content,
           }));
@@ -2783,31 +2557,24 @@ Remember to wrap your complete specification in <spec>...</spec> tags.`;
           return formattedMessages;
         } catch (error) {
           console.error("[ERROR] Failed to fetch previous messages:", error);
-          return [];
+          return [] as CoreMessage[];
         }
       },
     );
 
-    // Run the planning agent
+    // Run the planning agent using AI SDK
     const result = await step.run("generate-spec", async () => {
-      const state = createState<AgentState>(
-        {
-          summary: "",
-          files: {},
-          selectedFramework,
-          summaryRetryCount: 0,
-        },
-        {
-          messages: previousMessages,
-        },
-      );
-
-      const planResult = await planningAgent.run(event.data.value, { state });
+      const planResult = await generateText({
+        model: gateway("openai/gpt-5.1-codex"),
+        system: enhancedSpecPrompt,
+        messages: [...previousMessages, { role: "user", content: event.data.value }],
+        temperature: 0.7,
+      });
       return planResult;
     });
 
     // Extract spec content from response
-    const specContent = extractSpecContent(result.output);
+    const specContent = extractSpecContent(result.text);
 
     console.log("[DEBUG] Spec generated, length:", specContent.length);
 
