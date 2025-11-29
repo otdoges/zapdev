@@ -128,7 +128,7 @@ export function SignupQuiz() {
               <Button variant="outline" onClick={() => setStep(1)}>
                 Back
               </Button>
-              <Button onClick={handleComplete} disabled={!reason}>
+              <Button onClick={() => handleComplete()} disabled={!reason}>
                 Finish
               </Button>
             </div>

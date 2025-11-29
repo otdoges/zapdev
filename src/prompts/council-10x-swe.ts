@@ -521,18 +521,18 @@ Cascading Failure Prevention:
    - Recovery: Alert engineering on Sentry
 
 Error Logging Best Practices:
-```typescript
+~~~typescript
 if (isE2BTransientError(error)) {
-  console.log(`[COUNCIL] E2B transient error, retrying: ${error.message}`);
+  console.log(\`[COUNCIL] E2B transient error, retrying: \${error.message}\`);
   // Auto-retry handled
 } else if (isE2BPermanentError(error)) {
-  console.error(`[COUNCIL] E2B permanent error, aborting: ${error.message}`);
+  console.error(\`[COUNCIL] E2B permanent error, aborting: \${error.message}\`);
   await updateJobStatus(jobId, "failed");
 } else {
-  console.error(`[COUNCIL] Unexpected error: ${error.message}`, error);
+  console.error(\`[COUNCIL] Unexpected error: \${error.message}\`, error);
   // Send to Sentry with context
 }
-```
+~~~
 
 ════════════════════════════════════════════════════════════════
 MONITORING & OBSERVABILITY
@@ -571,7 +571,7 @@ Every council decision logged via addDecision:
 - metadata: confidence, model used, token count
 
 Querying Council History (Convex):
-```typescript
+~~~typescript
 // Find all consensus decisions
 const decisions = await convex.query(api.backgroundJobs.getDecisions, { jobId });
 
@@ -579,7 +579,7 @@ const decisions = await convex.query(api.backgroundJobs.getDecisions, { jobId })
 const approved = decisions.filter(d => d.step === "council-consensus" && d.verdict === "approve").length;
 const total = decisions.filter(d => d.step === "council-consensus").length;
 const approvalRate = (approved / total) * 100;
-```
+~~~
 
 Sentry Integration:
 - Capture permanent failures with full context
@@ -638,7 +638,7 @@ INTEGRATION WITH EXISTING SYSTEMS
 ════════════════════════════════════════════════════════════════
 
 Convex Database Integration Example:
-```typescript
+~~~typescript
 // Record full council execution lifecycle
 await convex.mutation(api.backgroundJobs.addDecision, {
   jobId,
@@ -653,7 +653,7 @@ await convex.mutation(api.backgroundJobs.addDecision, {
 for (const vote of [plannerVote, implementerVote, reviewerVote]) {
   await convex.mutation(api.backgroundJobs.addDecision, {
     jobId,
-    step: `council-vote-${vote.agentName}`,
+    step: \`council-vote-\${vote.agentName}\`,
     agents: [vote.agentName],
     verdict: vote.decision,
     reasoning: vote.reasoning,
@@ -670,10 +670,10 @@ await convex.mutation(api.backgroundJobs.addDecision, {
   reasoning: \`Consensus achieved: \${consensus.agreeCount}/\${consensus.totalVotes}\`,
   metadata: consensus
 });
-```
+~~~
 
 E2B Sandbox Lifecycle:
-```typescript
+~~~typescript
 // Create or reuse sandbox
 const sandboxId = await step.run("create-sandbox", async () => {
   const job = await convex.query(api.backgroundJobs.get, { jobId });
@@ -691,10 +691,10 @@ const sandboxId = await step.run("create-sandbox", async () => {
   });
   return sandbox.sandboxId;
 });
-```
+~~~
 
 Inngest Event Flow:
-```typescript
+~~~typescript
 // User action triggers background job
 inngest.send({
   name: "background-agent/run",
@@ -707,7 +707,7 @@ inngest.send({
 // Inngest picks up and runs council
 // Council logs decisions to Convex
 // UI subscribes to Convex and updates in real-time
-```
+~~~
 
 ════════════════════════════════════════════════════════════════
 TROUBLESHOOTING COMMON ISSUES

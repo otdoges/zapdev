@@ -7,7 +7,7 @@ const SCRAPYBARA_API_KEY = process.env.SCRAPYBARA_API_KEY;
 if (!SCRAPYBARA_API_KEY && process.env.NODE_ENV === "production") {
   throw new Error(
     "CRITICAL: SCRAPYBARA_API_KEY environment variable is required in production. " +
-    "Set this in your .env.local or deployment environment."
+      "Set this in your .env.local or deployment environment.",
   );
 }
 
@@ -87,7 +87,7 @@ const ALLOWED_COMMAND_PATTERNS = [
 
 function validateCommand(command: string): void {
   const trimmedCommand = command.trim();
-  
+
   // Block dangerous commands
   const dangerousPatterns = [
     /rm\s+-rf\s+\//, // Prevent root deletion
@@ -98,13 +98,15 @@ function validateCommand(command: string): void {
     /\.\.[\/\\]/, // Prevent directory traversal with ../
     /^\/(?!tmp|home|workspace)/, // Block absolute paths outside safe dirs
   ];
-  
+
   for (const pattern of dangerousPatterns) {
     if (pattern.test(trimmedCommand)) {
-      throw new Error(`Command blocked for security: contains dangerous pattern`);
+      throw new Error(
+        `Command blocked for security: contains dangerous pattern`,
+      );
     }
   }
-  
+
   // Check against allowlist (optional - can be disabled for flexibility)
   // Uncomment to enforce strict allowlist:
   // const isAllowed = ALLOWED_COMMAND_PATTERNS.some(pattern => pattern.test(trimmedCommand));
@@ -138,9 +140,14 @@ export class ScrapybaraClient {
       console.log("Creating Scrapybara sandbox with options:", options);
 
       // Start Ubuntu instance (default) or Browser based on template
-      const instance = options.template === "browser"
-        ? await this.client.startBrowser({ timeoutHours: options.timeout_hours || 1 })
-        : await this.client.startUbuntu({ timeoutHours: options.timeout_hours || 1 });
+      const instance =
+        options.template === "browser"
+          ? await this.client.startBrowser({
+              timeoutHours: options.timeout_hours || 1,
+            })
+          : await this.client.startUbuntu({
+              timeoutHours: options.timeout_hours || 1,
+            });
 
       const streamUrl = (await instance.getStreamUrl()).streamUrl;
 
@@ -152,7 +159,8 @@ export class ScrapybaraClient {
       };
     } catch (error) {
       console.error("Failed to create Scrapybara sandbox:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Sandbox creation failed: ${errorMessage}`);
     }
   }
@@ -169,33 +177,43 @@ export class ScrapybaraClient {
    *
    * When reconnection fails, the caller should create a new sandbox instead.
    */
-  async getSandbox(sandboxId: string, template: string = "ubuntu"): Promise<ScrapybaraSandbox & { instance: any }> {
-<<<<<<< HEAD
+  async getSandbox(
+    sandboxId: string,
+    template: string = "ubuntu",
+  ): Promise<ScrapybaraSandbox & { instance: any }> {
     try {
-      console.log(`Reconnecting to existing Scrapybara sandbox: ${sandboxId} (template: ${template})`);
+      console.log(
+        `Reconnecting to existing Scrapybara sandbox: ${sandboxId} (template: ${template})`,
+      );
 
       // Use SDK methods to reconnect to existing instances
       // These methods are stable in SDK v2.5.2+
       let instance: any;
 
       try {
-        instance = template === "browser"
-          ? await (this.client as any).getBrowser(sandboxId)
-          : await (this.client as any).getUbuntu(sandboxId);
+        instance =
+          template === "browser"
+            ? await (this.client as any).getBrowser(sandboxId)
+            : await (this.client as any).getUbuntu(sandboxId);
       } catch (methodError) {
         // Graceful fallback: If SDK methods don't exist or fail
-        const errorMsg = methodError instanceof Error ? methodError.message : String(methodError);
+        const errorMsg =
+          methodError instanceof Error
+            ? methodError.message
+            : String(methodError);
         console.warn(
           `[SCRAPYBARA] SDK reconnection method failed (${template}): ${errorMsg}. ` +
-          `This may indicate the sandbox has expired or the SDK doesn't support reconnection.`
+            `This may indicate the sandbox has expired or the SDK doesn't support reconnection.`,
         );
         throw new Error(
-          `Sandbox ${sandboxId} cannot be reconnected. It may have expired or been terminated.`
+          `Sandbox ${sandboxId} cannot be reconnected. It may have expired or been terminated.`,
         );
       }
 
       if (!instance) {
-        throw new Error(`Sandbox ${sandboxId} not found or no longer accessible`);
+        throw new Error(
+          `Sandbox ${sandboxId} not found or no longer accessible`,
+        );
       }
 
       // Verify instance is still responsive
@@ -209,27 +227,31 @@ export class ScrapybaraClient {
           instance, // Return instance for direct API usage
         };
       } catch (healthCheckError) {
-        console.warn(`[SCRAPYBARA] Sandbox health check failed for ${sandboxId}`);
+        console.warn(
+          `[SCRAPYBARA] Sandbox health check failed for ${sandboxId}`,
+        );
         throw new Error(`Sandbox ${sandboxId} is not responding to requests`);
       }
     } catch (error) {
       console.error(`Failed to reconnect to sandbox ${sandboxId}:`, error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Sandbox reconnection failed: ${errorMessage}`);
     }
-=======
+
     // The Scrapybara SDK v2.5.2 does not expose a direct method to retrieve/reconnect
     // to an existing instance by ID if the reference is lost (e.g. across Inngest steps).
     // We throw here to allow the caller's try/catch block to handle this by creating a new sandbox.
     // Future improvements could involve using a persistent store for instance connection details
     // or an updated SDK methods if available.
-    throw new Error(`Reconnection to sandbox ${sandboxId} not supported by current SDK wrapper. Creating new instance.`);
->>>>>>> 53e99e1ec272dba221343dcab2fc7c7429311211
+    throw new Error(
+      `Reconnection to sandbox ${sandboxId} not supported by current SDK wrapper. Creating new instance.`,
+    );
   }
 
   async runCommand(
     instance: any, // UbuntuInstance | BrowserInstance from SDK
-    command: string
+    command: string,
   ): Promise<BashResult> {
     // SECURITY: Validate command before execution
     // WARNING: NEVER pass unsanitized user input to this function
@@ -273,7 +295,8 @@ export class ScrapybaraClient {
       };
     } catch (error) {
       console.error(`Command execution failed: ${command}`, error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Command failed: ${errorMessage}`);
     }
   }
@@ -284,24 +307,28 @@ export class ScrapybaraClient {
       const streamUrl = (await instance.getStreamUrl()).streamUrl;
       return new ReadableStream({
         start(controller) {
-          controller.enqueue(new TextEncoder().encode(`Connected to sandbox: ${streamUrl}\n`));
+          controller.enqueue(
+            new TextEncoder().encode(`Connected to sandbox: ${streamUrl}\n`),
+          );
           controller.close();
-        }
+        },
       });
     } catch (error) {
       console.error("Failed to get stream URL:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Stream connection failed: ${errorMessage}`);
     }
   }
-  
+
   async terminateSandbox(instance: any): Promise<void> {
     try {
       console.log(`Terminating sandbox ${instance.id}`);
       await instance.stop();
     } catch (error) {
       console.error(`Failed to terminate sandbox ${instance.id}:`, error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Sandbox termination failed: ${errorMessage}`);
     }
   }

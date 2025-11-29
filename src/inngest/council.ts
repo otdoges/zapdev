@@ -4,6 +4,7 @@ import {
   openai,
   createState,
   createTool,
+  type State,
   type Tool,
 } from "@inngest/agent-kit";
 import { z } from "zod";
@@ -11,7 +12,10 @@ import { inngest } from "./client";
 import { api } from "@/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
 import { Id } from "@/convex/_generated/dataModel";
-import { scrapybaraClient, type ScrapybaraInstance } from "@/lib/scrapybara-client";
+import {
+  scrapybaraClient,
+  type ScrapybaraInstance,
+} from "@/lib/scrapybara-client";
 import {
   createScrapybaraSandboxWithRetry,
   getScrapybaraSandbox,
@@ -64,17 +68,30 @@ function sanitizeFilePath(filePath: string): string {
   return normalized;
 }
 
-const createCouncilAgentTools = (instance: ScrapybaraInstance, agentName: string = "agent") => [
+const createCouncilAgentTools = (
+  instance: ScrapybaraInstance,
+  agentName: string = "agent",
+) => [
   createTool({
     name: "submitVote",
     description: "Submit your vote on the current task (approve/reject/revise)",
     parameters: z.object({
-      decision: z.enum(["approve", "reject", "revise"]).describe("Your voting decision"),
+      decision: z
+        .enum(["approve", "reject", "revise"])
+        .describe("Your voting decision"),
       confidence: z.number().min(0).max(1).describe("Confidence level (0-1)"),
       reasoning: z.string().describe("Explanation for your vote"),
     }),
     handler: async (
-      { decision, confidence, reasoning }: { decision: "approve" | "reject" | "revise"; confidence: number; reasoning: string },
+      {
+        decision,
+        confidence,
+        reasoning,
+      }: {
+        decision: "approve" | "reject" | "revise";
+        confidence: number;
+        reasoning: string;
+      },
       opts: Tool.Options<AgentState>,
     ) => {
       return await opts.step?.run("submitVote", async () => {
@@ -91,7 +108,9 @@ const createCouncilAgentTools = (instance: ScrapybaraInstance, agentName: string
         }
         state.councilVotes.push(vote);
 
-        console.log(`[COUNCIL] ${agentName} voted ${decision} (confidence: ${confidence}): ${reasoning}`);
+        console.log(
+          `[COUNCIL] ${agentName} voted ${decision} (confidence: ${confidence}): ${reasoning}`,
+        );
         return `Vote recorded: ${decision}`;
       });
     },
@@ -136,30 +155,21 @@ const createCouncilAgentTools = (instance: ScrapybaraInstance, agentName: string
           const updatedFiles = state.files || {};
 
           for (const file of files) {
-<<<<<<< HEAD
             // Sanitize file path to prevent directory traversal
             const safePath = sanitizeFilePath(file.path);
 
-            // Use heredoc for safe file writing - avoids escaping issues and shell injection risks
-            // This approach is more reliable than base64 for large files
-            const delimiter = "EOF_FILE_WRITE";
-            const command = `cat > "${safePath}" << '${delimiter}'\n${file.content}\n${delimiter}`;
-
-            console.log(`[SCRAPYBARA] Writing file: ${safePath}`);
-=======
-            // Use printf for safer file writing (avoids some echo -e issues)
-            // We create the directory first
+            // Create parent directory before writing file
             const dir = file.path.substring(0, file.path.lastIndexOf("/"));
             if (dir) {
               await instance.bash({ command: `mkdir -p ${dir}` });
             }
-            
-            // Use base64 decoding to write file content
+
+            // Use base64 decoding to write file content safely
             const base64Content = Buffer.from(file.content).toString("base64");
-            const command = `printf "${base64Content}" | base64 -d > ${file.path}`;
+            const writeCommand = `printf "${base64Content}" | base64 -d > ${file.path}`;
             console.log(`[SCRAPYBARA] Writing file: ${file.path}`);
->>>>>>> 53e99e1ec272dba221343dcab2fc7c7429311211
-            await instance.bash({ command });
+
+            await instance.bash({ command: writeCommand });
             updatedFiles[safePath] = file.content;
           }
 
@@ -190,7 +200,9 @@ const createCouncilAgentTools = (instance: ScrapybaraInstance, agentName: string
             // Sanitize file path to prevent directory traversal
             const safePath = sanitizeFilePath(file);
             console.log(`[SCRAPYBARA] Reading file: ${safePath}`);
-            const result = await instance.bash({ command: `cat "${safePath}"` });
+            const result = await instance.bash({
+              command: `cat "${safePath}"`,
+            });
             contents.push({ path: safePath, content: result.output || "" });
           }
           return JSON.stringify(contents);
@@ -252,6 +264,101 @@ class CouncilOrchestrator {
       orchestratorDecision: orchestratorInput,
     };
   }
+}
+
+const VOTE_TOOL_NAME = "submitVote";
+const VALID_DECISIONS = new Set<AgentVote["decision"]>([
+  "approve",
+  "reject",
+  "revise",
+]);
+const DEFAULT_CONFIDENCE = 0.5;
+
+type SubmitVoteToolInput = {
+  decision?: unknown;
+  confidence?: unknown;
+  reasoning?: unknown;
+};
+
+function normalizeConfidence(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.min(Math.max(value, 0), 1);
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (!Number.isNaN(parsed)) {
+      return Math.min(Math.max(parsed, 0), 1);
+    }
+  }
+  return DEFAULT_CONFIDENCE;
+}
+
+function parseDecision(value: unknown): AgentVote["decision"] | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase() as AgentVote["decision"];
+  return VALID_DECISIONS.has(normalized) ? normalized : null;
+}
+
+function extractVotesFromHistory(state: State<AgentState>): AgentVote[] {
+  const votesByAgent = new Map<string, AgentVote>();
+
+  for (const result of state.results) {
+    for (const toolCall of result.toolCalls) {
+      if (toolCall.tool?.name !== VOTE_TOOL_NAME) {
+        continue;
+      }
+
+      const voteInput = toolCall.tool.input as SubmitVoteToolInput | undefined;
+      if (!voteInput) {
+        continue;
+      }
+
+      const decision = parseDecision(voteInput.decision);
+      if (!decision) {
+        continue;
+      }
+
+      const reasoning =
+        typeof voteInput.reasoning === "string"
+          ? voteInput.reasoning.trim()
+          : voteInput.reasoning != null
+          ? String(voteInput.reasoning).trim()
+          : "";
+
+      const vote: AgentVote = {
+        agentName: result.agentName,
+        decision,
+        confidence: normalizeConfidence(voteInput.confidence),
+        reasoning,
+      };
+
+      if (votesByAgent.has(vote.agentName)) {
+        votesByAgent.delete(vote.agentName);
+      }
+
+      votesByAgent.set(vote.agentName, vote);
+    }
+  }
+
+  return Array.from(votesByAgent.values());
+}
+
+function mergeVoteSources(...sources: AgentVote[][]): AgentVote[] {
+  const votesByAgent = new Map<string, AgentVote>();
+
+  for (const source of sources) {
+    for (const vote of source) {
+      if (votesByAgent.has(vote.agentName)) {
+        votesByAgent.delete(vote.agentName);
+      }
+      votesByAgent.set(vote.agentName, vote);
+    }
+  }
+
+  return Array.from(votesByAgent.values());
 }
 
 // --- Agents ---
@@ -323,54 +430,62 @@ export const backgroundAgentFunction = inngest.createFunction(
     });
 
     // 2. Create Scrapybara Sandbox
-    const { sandboxId, instance } = await step.run("create-sandbox", async () => {
-      const job = await convex.query(api.backgroundJobs.get, { jobId });
+    const { sandboxId, instance } = await step.run(
+      "create-sandbox",
+      async () => {
+        const job = await convex.query(api.backgroundJobs.get, { jobId });
 
-      if (!job) {
-        throw new Error(`Job ${jobId} not found in database`);
-      }
-
-      let createdSandboxId: string;
-      let sandboxInstance: ScrapybaraInstance;
-
-      if (job.sandboxId) {
-        try {
-          sandboxInstance = await getScrapybaraSandbox(job.sandboxId);
-          console.log(
-            `[COUNCIL] Reusing existing Scrapybara sandbox: ${job.sandboxId}`,
-          );
-          createdSandboxId = job.sandboxId;
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          console.log(
-            `[COUNCIL] Existing Scrapybara sandbox ${job.sandboxId} not accessible, creating new one: ${errorMsg}`,
-          );
-          const newSandbox = await createScrapybaraSandboxWithRetry("ubuntu");
-          createdSandboxId = newSandbox.id;
-          sandboxInstance = newSandbox.instance;
+        if (!job) {
+          throw new Error(`Job ${jobId} not found in database`);
         }
-      } else {
-        try {
-          const newSandbox = await createScrapybaraSandboxWithRetry("ubuntu");
-          createdSandboxId = newSandbox.id;
-          sandboxInstance = newSandbox.instance;
-          console.log(
-            `[COUNCIL] Created new Scrapybara sandbox: ${createdSandboxId}`,
-          );
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          console.error("[COUNCIL] Failed to create Scrapybara sandbox:", error);
-          throw new Error(`Failed to create Scrapybara sandbox: ${errorMsg}`);
+
+        let createdSandboxId: string;
+        let sandboxInstance: ScrapybaraInstance;
+
+        if (job.sandboxId) {
+          try {
+            sandboxInstance = await getScrapybaraSandbox(job.sandboxId);
+            console.log(
+              `[COUNCIL] Reusing existing Scrapybara sandbox: ${job.sandboxId}`,
+            );
+            createdSandboxId = job.sandboxId;
+          } catch (error) {
+            const errorMsg =
+              error instanceof Error ? error.message : String(error);
+            console.log(
+              `[COUNCIL] Existing Scrapybara sandbox ${job.sandboxId} not accessible, creating new one: ${errorMsg}`,
+            );
+            const newSandbox = await createScrapybaraSandboxWithRetry("ubuntu");
+            createdSandboxId = newSandbox.id;
+            sandboxInstance = newSandbox.instance;
+          }
+        } else {
+          try {
+            const newSandbox = await createScrapybaraSandboxWithRetry("ubuntu");
+            createdSandboxId = newSandbox.id;
+            sandboxInstance = newSandbox.instance;
+            console.log(
+              `[COUNCIL] Created new Scrapybara sandbox: ${createdSandboxId}`,
+            );
+          } catch (error) {
+            const errorMsg =
+              error instanceof Error ? error.message : String(error);
+            console.error(
+              "[COUNCIL] Failed to create Scrapybara sandbox:",
+              error,
+            );
+            throw new Error(`Failed to create Scrapybara sandbox: ${errorMsg}`);
+          }
         }
-      }
 
-      await convex.mutation(api.backgroundJobs.updateSandbox, {
-        jobId,
-        sandboxId: createdSandboxId,
-      });
+        await convex.mutation(api.backgroundJobs.updateSandbox, {
+          jobId,
+          sandboxId: createdSandboxId,
+        });
 
-      return { sandboxId: createdSandboxId, instance: sandboxInstance };
-    });
+        return { sandboxId: createdSandboxId, instance: sandboxInstance };
+      },
+    );
 
     // 3. Run Council with Orchestrator Mode
     const councilResult = await step.run("run-council", async () => {
@@ -420,58 +535,27 @@ Output: Working implementation that passes all requirements.`,
 
         // Execute council
         const result = await network.run(instruction);
+        const runState = result.state as State<AgentState>;
+        const resultState = (runState.data ?? {}) as AgentState;
 
-        const resultState = result.state as AgentState;
         const summary =
           resultState?.summary || resultState?.instruction || "Task completed";
 
-<<<<<<< HEAD
-        // Extract actual votes from agents if they submitted any
-        const submittedVotes = resultState.councilVotes || [];
-=======
-        // TODO: In V2, extract actual votes from agent conversation history/result
-        // Currently hardcoded to simulate successful consensus for infrastructure testing
-        const plannerVote: AgentVote = {
-          agentName: "planner",
-          decision: "approve",
-          confidence: 0.9,
-          reasoning: "Plan created and communicated to team",
-        };
->>>>>>> 53e99e1ec272dba221343dcab2fc7c7429311211
+        const votesFromHistory = extractVotesFromHistory(runState);
+        const combinedVotes = mergeVoteSources(
+          resultState.councilVotes || [],
+          votesFromHistory,
+        );
 
-        // If agents submitted votes, use those. Otherwise, record that they participated
-        if (submittedVotes.length > 0) {
-          orchestrator.recordVotes(submittedVotes);
+        if (combinedVotes.length > 0) {
+          orchestrator.recordVotes(combinedVotes);
           console.log(
-            `[COUNCIL] Collected ${submittedVotes.length} votes from agents`,
+            `[COUNCIL] Collected ${combinedVotes.length} vote(s) from agents`,
           );
         } else {
-          // Fallback: Record default votes based on agent participation
-          console.log(
-            `[COUNCIL] No explicit votes submitted, using participation-based defaults`,
+          console.warn(
+            `[COUNCIL] No votes submitted; consensus will default to "revise"`,
           );
-          const plannerVote: AgentVote = {
-            agentName: "planner",
-            decision: "approve",
-            confidence: 0.7,
-            reasoning: "Plan analysis completed",
-          };
-
-          const implementerVote: AgentVote = {
-            agentName: "implementer",
-            decision: "approve",
-            confidence: 0.7,
-            reasoning: "Implementation task executed",
-          };
-
-          const reviewerVote: AgentVote = {
-            agentName: "reviewer",
-            decision: "approve",
-            confidence: 0.7,
-            reasoning: "Code review completed",
-          };
-
-          orchestrator.recordVotes([plannerVote, implementerVote, reviewerVote]);
         }
 
         const consensus = orchestrator.getConsensus(
@@ -482,7 +566,7 @@ Output: Working implementation that passes all requirements.`,
           summary: String(summary),
           result,
           consensus,
-          votes: submittedVotes.length > 0 ? submittedVotes : orchestrator["votes"] || [],
+          votes: combinedVotes,
         };
       } catch (error) {
         console.error(`Council execution failed for job ${jobId}:`, error);
@@ -531,6 +615,11 @@ Output: Working implementation that passes all requirements.`,
         }
 
         // Log final consensus decision
+        const approvalRate =
+          consensus.totalVotes > 0
+            ? (consensus.agreeCount / consensus.totalVotes) * 100
+            : 0;
+
         await convex.mutation(api.backgroundJobs.addDecision, {
           jobId,
           step: "council-consensus",
@@ -538,9 +627,9 @@ Output: Working implementation that passes all requirements.`,
           verdict: consensus.finalDecision,
           reasoning: `Council consensus: ${consensus.agreeCount}/${consensus.totalVotes} agents approved`,
           metadata: {
-            consensus: consensus,
+            consensus,
             totalVotes: consensus.totalVotes,
-            approvalRate: (consensus.agreeCount / consensus.totalVotes) * 100,
+            approvalRate,
           },
         });
 
