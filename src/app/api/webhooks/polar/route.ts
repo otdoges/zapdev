@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
     // Initialize Convex client
     const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-    console.log("Polar webhook event received:", event.type);
+    console.log("✅ Polar webhook event received:", event.type);
+    console.log("Event data preview:", JSON.stringify(event.data).substring(0, 200) + "...");
 
     // Handle different webhook events
     switch (event.type) {
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        console.log(`Subscription ${event.type} processed for user ${userId}`);
+        console.log(`✅ Subscription ${event.type} processed for user ${userId}, status: ${subscription.status}`);
         break;
       }
 
@@ -214,16 +215,17 @@ export async function POST(request: NextRequest) {
           userId: externalId,
         });
 
-        console.log(`Customer state updated for user ${externalId}: ${activeSubscriptions.length} active subscriptions, ${grantedBenefits.length} benefits`);
+        console.log(`✅ Customer state updated for user ${externalId}: ${activeSubscriptions.length} active subscriptions, ${grantedBenefits.length} benefits`);
         break;
       }
 
       default:
-        console.log(`Unhandled webhook event type: ${event.type}`);
+        console.log(`⚠️ Unhandled webhook event type: ${event.type}`);
     }
 
     // Return 200 OK to acknowledge receipt
-    return NextResponse.json({ received: true });
+    console.log(`✅ Webhook processed successfully: ${event.type}`);
+    return NextResponse.json({ received: true, eventType: event.type });
   } catch (error) {
     console.error("Webhook handler error:", error);
     return NextResponse.json(
@@ -232,6 +234,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Disable body parsing to get raw body for signature verification
-export const runtime = "nodejs";

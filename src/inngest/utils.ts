@@ -347,8 +347,8 @@ export async function ensureDevServerRunning(
 
   const port = portMap[framework];
 
-  // First check if dev server is already running
-  const isRunning = await waitForDevServer(sandbox, port, 10000, 1000);
+  // First check if dev server is already running (60 seconds timeout)
+  const isRunning = await waitForDevServer(sandbox, port, 60000, 2000);
 
   if (isRunning) {
     console.log(`[DEBUG] Dev server already running on port ${port}`);
@@ -373,8 +373,8 @@ export async function ensureDevServerRunning(
     // Start the dev server in the background
     await sandbox.commands.run(startCommands[framework], { timeoutMs: 5000 });
 
-    // Wait for it to become ready
-    const isReady = await waitForDevServer(sandbox, port, 120000, 2000);
+    // Wait for it to become ready (60 seconds timeout)
+    const isReady = await waitForDevServer(sandbox, port, 60000, 2000);
 
     if (!isReady) {
       // Try to get logs to see what went wrong

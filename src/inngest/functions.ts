@@ -2251,9 +2251,25 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     await step.run("save-result", async () => {
       if (isError) {
-        const errorContent = sanitizeTextForDatabase(
-          "Something went wrong. Please try again.",
-        );
+        // Provide more specific error messages based on the failure reasons
+        let errorMessage = "Something went wrong. ";
+        
+        if (!hasFiles && !hasSummary) {
+          errorMessage = "I wasn't able to generate any code for your request. This could be due to:\n\n" +
+            "• The request was unclear or too complex\n" +
+            "• A temporary issue with the AI model\n" +
+            "• The dev server failed to start\n\n" +
+            "Please try:\n" +
+            "• Rephrasing your request with more specific details\n" +
+            "• Breaking complex requests into smaller steps\n" +
+            "• Trying again in a moment";
+        } else if (!hasFiles) {
+          errorMessage = "I understood your request but couldn't generate the code files. Please try again or rephrase your request.";
+        } else if (agentReportedError) {
+          errorMessage = "I encountered an error while generating code. The AI agent reported issues. Please try again.";
+        }
+        
+        const errorContent = sanitizeTextForDatabase(errorMessage);
         const messageContent =
           errorContent.length > 0
             ? errorContent
