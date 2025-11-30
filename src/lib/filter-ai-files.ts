@@ -28,6 +28,27 @@ export function filterAIGeneratedFiles(
     /\.(svg|png|jpg|jpeg|gif|webp|ico)$/i, // Images
     /\.(vue|svelte)$/i,              // Framework-specific
     /\.(xml|yaml|yml)$/i,            // Config files
+    /\.(woff|woff2|ttf|eot)$/i,      // Fonts
+  ];
+
+  // Priority directories: These should ALWAYS be included if they contain source files
+  const priorityDirectories = [
+    /^components\//i,
+    /^lib\//i,
+    /^utils\//i,
+    /^hooks\//i,
+    /^app\//i,           // Next.js 13+ App Router
+    /^pages\//i,         // Next.js Pages Router
+    /^src\//i,           // React/Vue/Angular source
+    /^public\//i,        // Static assets
+    /^styles\//i,        // CSS/SCSS
+    /^assets\//i,        // Assets
+    /^context\//i,       // React Context
+    /^providers\//i,     // React Providers
+    /^layouts\//i,       // Layout components
+    /^features\//i,      // Feature modules
+    /^modules\//i,       // Modules
+    /^api\//i,           // API routes
   ];
 
   // Blacklist: Files to EXCLUDE (E2B sandbox system files and build artifacts)
@@ -85,6 +106,14 @@ export function filterAIGeneratedFiles(
     const shouldExclude = excludePatterns.some(pattern => pattern.test(path));
     if (shouldExclude) {
       excludedFiles.push(path);
+      continue;
+    }
+
+    // PRIORITY: Include if in priority directories (components, lib, etc.)
+    const isInPriorityDir = priorityDirectories.some(pattern => pattern.test(path));
+    if (isInPriorityDir) {
+      filtered[path] = content;
+      includedByWhitelist.push(path);
       continue;
     }
 

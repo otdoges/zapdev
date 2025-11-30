@@ -77,6 +77,16 @@ export async function downloadFragmentFiles(
     removedByFilter: normalizedCount - filteredCount
   });
 
+  // Log directory breakdown for transparency
+  const directoryBreakdown = fileEntries.reduce<Record<string, number>>((acc, [path]) => {
+    const parts = path.split('/');
+    const topDir = parts.length > 1 ? parts[0] : 'root';
+    acc[topDir] = (acc[topDir] || 0) + 1;
+    return acc;
+  }, {});
+
+  console.log('[downloadFragmentFiles] Directory breakdown:', directoryBreakdown);
+
   if (filteredCount === 0) {
     console.error('[downloadFragmentFiles] No files remain after filtering', {
       fragmentId,
@@ -110,6 +120,24 @@ export async function downloadFragmentFiles(
     fileEntries.forEach(([filename, content]) => {
       zip.file(filename, content);
     });
+
+    // Generate manifest showing file structure
+    const manifest = [
+      '# ZapDev Code Export',
+      `Fragment ID: ${fragmentId}`,
+      `Export Date: ${new Date().toISOString()}`,
+      `Total Files: ${filteredCount}`,
+      '',
+      '## Directory Structure:',
+      ...Object.entries(directoryBreakdown)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([dir, count]) => `  ${dir}/: ${count} file${count === 1 ? '' : 's'}`),
+      '',
+      '## Files:',
+      ...fileEntries.map(([path]) => `  - ${path}`).sort()
+    ].join('\n');
+
+    zip.file('MANIFEST.txt', manifest);
 
     // Generate ZIP blob with progress
     toast.loading(`Preparing ${filteredCount} file${filteredCount === 1 ? "" : "s"}...`, {

@@ -1290,11 +1290,37 @@ export const codeAgentFunction = inngest.createFunction(
           console.log("[DEBUG] Found", messages.length, "previous messages");
 
           for (const message of messages) {
+            // Add text message
             formattedMessages.push({
               type: "text",
               role: message.role === "ASSISTANT" ? "assistant" : "user",
               content: message.content,
             });
+
+            // Add image attachments if present
+            if (message.Attachment && Array.isArray(message.Attachment) && message.Attachment.length > 0) {
+              const imageAttachments = message.Attachment.filter(
+                (att) => att.type === "IMAGE"
+              );
+
+              if (imageAttachments.length > 0) {
+                console.log(
+                  `[DEBUG] Found ${imageAttachments.length} image attachment(s) for message ${message._id}`
+                );
+
+                const imageUrls = imageAttachments
+                  .map((att) => att.url)
+                  .filter((url): url is string => typeof url === "string" && url.length > 0);
+
+                // Convert image URLs to AI-compatible image messages
+                const imageMessages = await createImageMessages(imageUrls);
+                formattedMessages.push(...imageMessages);
+
+                console.log(
+                  `[DEBUG] Added ${imageMessages.length} image message(s) to context`
+                );
+              }
+            }
           }
 
           return formattedMessages;
