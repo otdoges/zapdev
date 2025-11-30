@@ -2096,15 +2096,15 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     if (totalSizeMB > MAX_SIZE_MB) {
       throw new Error(
         `Merged files size (${totalSizeMB.toFixed(2)} MB) exceeds maximum limit (${MAX_SIZE_MB} MB). ` +
-          `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
-          `File count: ${fileCount}. Please review the file filtering logic.`,
+        `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
+        `File count: ${fileCount}. Please review the file filtering logic.`,
       );
     }
 
     if (totalSizeMB > WARN_SIZE_MB) {
       console.warn(
         `[WARN] Merged files size (${totalSizeMB.toFixed(2)} MB) is approaching limit (${MAX_SIZE_MB} MB). ` +
-          `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
+        `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
       );
     }
 
@@ -2141,8 +2141,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const warningsNote =
         warningReasons.length > 0
           ? sanitizeTextForDatabase(
-              `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
-            )
+            `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
+          )
           : "";
       const responseContent = sanitizeTextForDatabase(
         `${baseResponseContent}${warningsNote}`,
@@ -2275,7 +2275,8 @@ export const sandboxTransferFunction = inngest.createFunction(
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       // Ensure the dev server is running before returning the URL
       try {
-        await ensureDevServerRunning(sandbox, framework);
+        const sandboxInstance = await getSandbox(sandboxId);
+        await ensureDevServerRunning(sandboxInstance, framework);
         console.log("[DEBUG] Dev server confirmed running for resumed sandbox");
       } catch (error) {
         console.warn(
@@ -2660,14 +2661,14 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           backupMetadata ?? initialMetadata;
         const metadataUpdate = supportsMetadata
           ? {
-              ...baseMetadata,
-              previousFiles: originalFiles,
-              fixedAt: new Date().toISOString(),
-              lastFixSuccess: {
-                summary: result.state.data.summary,
-                occurredAt: new Date().toISOString(),
-              },
-            }
+            ...baseMetadata,
+            previousFiles: originalFiles,
+            fixedAt: new Date().toISOString(),
+            lastFixSuccess: {
+              summary: result.state.data.summary,
+              occurredAt: new Date().toISOString(),
+            },
+          }
           : undefined;
 
         return await convex.mutation(api.messages.createFragmentForUser, {

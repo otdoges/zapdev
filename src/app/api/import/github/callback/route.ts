@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
 export const dynamic = 'force-dynamic';
-import { getUser } from "@/lib/auth-server";
-import { fetchQuery, fetchMutation } from "convex/nextjs";
+import { getUser, getConvexClientWithAuth } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
@@ -90,8 +89,10 @@ export async function GET(request: Request) {
 
     const userData = userResponse.ok ? await userResponse.json() : {};
 
+    const convex = await getConvexClientWithAuth();
+
     // Store OAuth connection in Convex
-    await fetchMutation((api as any).oauth.storeConnection, {
+    await convex.mutation((api as any).oauth.storeConnection, {
       provider: "github",
       accessToken: tokenData.access_token,
       scope: tokenData.scope || "repo,read:user,user:email",

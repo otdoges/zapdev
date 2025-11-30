@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUser } from "@/lib/auth-server";
-import { fetchQuery } from "convex/nextjs";
+import { getUser, getConvexClientWithAuth } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +19,9 @@ export async function GET() {
   }
 
   try {
+    const convex = await getConvexClientWithAuth();
     // Get OAuth connection
-    const connection = await fetchQuery((api as any).oauth.getConnection, {
+    const connection = await convex.query((api as any).oauth.getConnection, {
       provider: "figma",
     });
 

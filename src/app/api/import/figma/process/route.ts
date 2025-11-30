@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUser } from "@/lib/auth-server";
-import { fetchQuery, fetchMutation } from "convex/nextjs";
+import { getUser, getConvexClientWithAuth } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
 import { inngest } from "@/inngest/client";
 
@@ -31,8 +30,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const convex = await getConvexClientWithAuth();
+
     // Get OAuth connection
-    const connection = await fetchQuery((api as any).oauth.getConnection, {
+    const connection = await convex.query((api as any).oauth.getConnection, {
       provider: "figma",
     });
 
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     const fileData = await fileResponse.json();
 
     // Create import record in Convex
-    const importRecord = await fetchMutation((api as any).imports.createImport, {
+    const importRecord = await convex.mutation((api as any).imports.createImport, {
       projectId,
       source: "FIGMA",
       sourceId: fileKey,
