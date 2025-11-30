@@ -117,6 +117,15 @@ sandbox-templates/  # E2B sandbox templates for each framework
 - **Always use `bun`** for installing packages and running scripts
 - Do not use npm or pnpm
 
+### MCP Tools
+- A Playwright-based MCP server is available for site review:
+  - Start it with `bun run mcp:playwright`
+  - Configure your MCP-compatible AI client to connect to this server
+  - Tools provided:
+    - `open-page`: open a URL (typically the E2B sandbox URL)
+    - `snapshot-page`: return the page title, URL, and a compact HTML/text snapshot
+    - `review-page`: return a structured summary of issues and UX observations for the current page
+
 ### Environment Variables
 Required for development:
 - `NEXT_PUBLIC_CONVEX_URL`: Convex backend URL

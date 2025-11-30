@@ -1047,6 +1047,13 @@ export const codeAgentFunction = inngest.createFunction(
       console.log("[DEBUG] Using existing framework:", selectedFramework);
     }
 
+    // Run mode configuration: "fast" (default) or "safe" (full validation)
+    type RunMode = "fast" | "safe";
+
+    const requestedMode = (event.data.mode as RunMode | undefined) ?? "fast";
+    const mode: RunMode = requestedMode === "safe" ? "safe" : "fast";
+    console.log("[DEBUG] Code agent run mode:", mode);
+
     // Model selection logic
     const requestedModel =
       (event.data.model as ModelId) || project?.modelPreference || "auto";
@@ -1622,14 +1629,23 @@ Generate code that matches the approved specification.`;
 
     // Post-completion validation: Run lint and build checks to catch any errors the agent missed
     console.log("[DEBUG] Running post-completion validation checks...");
-    const [lintErrors, buildErrors] = await Promise.all([
-      step.run("post-completion-lint-check", async () => {
-        return await runLintCheck(sandboxId);
-      }),
-      step.run("post-completion-build-check", async () => {
-        return await runBuildCheck(sandboxId);
-      }),
-    ]);
+    let lintErrors: string | null = null;
+    let buildErrors: string | null = null;
+
+    if (mode === "safe") {
+      [lintErrors, buildErrors] = (await Promise.all([
+        step.run("post-completion-lint-check", async () => {
+          return await runLintCheck(sandboxId);
+        }),
+        step.run("post-completion-build-check", async () => {
+          return await runBuildCheck(sandboxId);
+        }),
+      ])) as [string | null, string | null];
+    } else {
+      console.log(
+        "[DEBUG] Fast mode: skipping lint/build validation checks and auto-fix loop",
+      );
+    }
 
     let autoFixAttempts = 0;
     let lastAssistantMessage = getLastAssistantMessage(result);
@@ -1654,42 +1670,43 @@ Generate code that matches the approved specification.`;
       }
     }
 
-    // Collect all validation errors
-    let validationErrors = [lintErrors, buildErrors]
-      .filter(Boolean)
-      .join("\n\n");
+    if (mode === "safe") {
+      // Collect all validation errors
+      let validationErrors = [lintErrors, buildErrors]
+        .filter(Boolean)
+        .join("\n\n");
 
-    // Always include validation errors in the error message if they exist
-    if (validationErrors) {
-      console.log("[DEBUG] Validation errors detected:", validationErrors);
-      if (
-        !lastAssistantMessage ||
-        !shouldTriggerAutoFix(lastAssistantMessage)
-      ) {
-        lastAssistantMessage = `Validation Errors Detected:\n${validationErrors}`;
-      } else {
-        lastAssistantMessage = `${lastAssistantMessage}\n\nValidation Errors:\n${validationErrors}`;
+      // Always include validation errors in the error message if they exist
+      if (validationErrors) {
+        console.log("[DEBUG] Validation errors detected:", validationErrors);
+        if (
+          !lastAssistantMessage ||
+          !shouldTriggerAutoFix(lastAssistantMessage)
+        ) {
+          lastAssistantMessage = `Validation Errors Detected:\n${validationErrors}`;
+        } else {
+          lastAssistantMessage = `${lastAssistantMessage}\n\nValidation Errors:\n${validationErrors}`;
+        }
       }
-    }
 
-    // Auto-fix loop: continue until errors are resolved or max attempts reached
-    while (
-      autoFixAttempts < AUTO_FIX_MAX_ATTEMPTS &&
-      (shouldTriggerAutoFix(lastAssistantMessage) || validationErrors)
-    ) {
-      autoFixAttempts += 1;
-      const errorDetails =
-        validationErrors ||
-        lastAssistantMessage ||
-        "No error details provided.";
+      // Auto-fix loop: continue until errors are resolved or max attempts reached
+      while (
+        autoFixAttempts < AUTO_FIX_MAX_ATTEMPTS &&
+        (shouldTriggerAutoFix(lastAssistantMessage) || validationErrors)
+      ) {
+        autoFixAttempts += 1;
+        const errorDetails =
+          validationErrors ||
+          lastAssistantMessage ||
+          "No error details provided.";
 
-      console.log(
-        `\n[DEBUG] Auto-fix triggered (attempt ${autoFixAttempts}). Errors detected.\n${errorDetails}\n`,
-      );
+        console.log(
+          `\n[DEBUG] Auto-fix triggered (attempt ${autoFixAttempts}). Errors detected.\n${errorDetails}\n`,
+        );
 
-      try {
-        result = await network.run(
-          `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
+        try {
+          result = await network.run(
+            `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
 
 The previous attempt encountered an error that must be corrected before proceeding.
 
@@ -1712,55 +1729,56 @@ REQUIRED ACTIONS:
 7. Provide an updated <task_summary> only after the error is fully resolved
 
 DO NOT proceed until the error is completely fixed. The fix must be thorough and address the root cause, not just mask the symptoms.`,
-          { state: result.state },
-        );
-      } catch (autoFixError) {
-        const fixErrorMessage =
-          autoFixError instanceof Error
-            ? autoFixError.message
-            : String(autoFixError);
-        console.error(
-          `[ERROR] Auto-fix attempt ${autoFixAttempts} failed:`,
-          fixErrorMessage,
-        );
-        // Break out of auto-fix loop on network error
-        break;
-      }
+            { state: result.state },
+          );
+        } catch (autoFixError) {
+          const fixErrorMessage =
+            autoFixError instanceof Error
+              ? autoFixError.message
+              : String(autoFixError);
+          console.error(
+            `[ERROR] Auto-fix attempt ${autoFixAttempts} failed:`,
+            fixErrorMessage,
+          );
+          // Break out of auto-fix loop on network error
+          break;
+        }
 
-      lastAssistantMessage = getLastAssistantMessage(result);
+        lastAssistantMessage = getLastAssistantMessage(result);
 
-      // Re-run validation checks to verify if errors are actually fixed
-      console.log(
-        "[DEBUG] Re-running validation checks after auto-fix attempt...",
-      );
-      const [newLintErrors, newBuildErrors] = await Promise.all([
-        step.run(`post-fix-lint-check-${autoFixAttempts}`, async () => {
-          return await runLintCheck(sandboxId);
-        }),
-        step.run(`post-fix-build-check-${autoFixAttempts}`, async () => {
-          return await runBuildCheck(sandboxId);
-        }),
-      ]);
-
-      validationErrors = [newLintErrors, newBuildErrors]
-        .filter(Boolean)
-        .join("\n\n");
-
-      if (validationErrors) {
+        // Re-run validation checks to verify if errors are actually fixed
         console.log(
-          "[DEBUG] Validation errors still present after fix attempt:",
-          validationErrors,
+          "[DEBUG] Re-running validation checks after auto-fix attempt...",
         );
-      } else {
-        console.log("[DEBUG] All validation errors resolved!");
-      }
+        const [newLintErrors, newBuildErrors] = await Promise.all([
+          step.run(`post-fix-lint-check-${autoFixAttempts}`, async () => {
+            return await runLintCheck(sandboxId);
+          }),
+          step.run(`post-fix-build-check-${autoFixAttempts}`, async () => {
+            return await runBuildCheck(sandboxId);
+          }),
+        ]);
 
-      // Update lastAssistantMessage with validation results if still present
-      if (validationErrors) {
-        if (!shouldTriggerAutoFix(lastAssistantMessage)) {
-          lastAssistantMessage = `Validation Errors Still Present:\n${validationErrors}`;
+        validationErrors = [newLintErrors, newBuildErrors]
+          .filter(Boolean)
+          .join("\n\n");
+
+        if (validationErrors) {
+          console.log(
+            "[DEBUG] Validation errors still present after fix attempt:",
+            validationErrors,
+          );
         } else {
-          lastAssistantMessage = `${lastAssistantMessage}\n\nValidation Errors:\n${validationErrors}`;
+          console.log("[DEBUG] All validation errors resolved!");
+        }
+
+        // Update lastAssistantMessage with validation results if still present
+        if (validationErrors) {
+          if (!shouldTriggerAutoFix(lastAssistantMessage)) {
+            lastAssistantMessage = `Validation Errors Still Present:\n${validationErrors}`;
+          } else {
+            lastAssistantMessage = `${lastAssistantMessage}\n\nValidation Errors:\n${validationErrors}`;
+          }
         }
       }
     }
@@ -1842,8 +1860,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       // Ensure the dev server is running before returning the URL
+      let sandbox;
       try {
-        const sandbox = await getSandbox(sandboxId);
+        sandbox = await getSandbox(sandboxId);
         await ensureDevServerRunning(sandbox, selectedFramework);
         console.log(
           "[DEBUG] Dev server confirmed running, returning sandbox URL",
@@ -1853,9 +1872,31 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         // Continue anyway - the sandbox URL might still work if the template starts it
       }
 
-      // E2B provides standardized sandbox domain format
-      const port = getFrameworkPort(selectedFramework);
-      // Standard E2B sandbox domain format: https://{sandboxId}.sandbox.e2b.dev
+      // Prefer E2B SDK helper when available so we follow their host format
+      try {
+        const port = getFrameworkPort(selectedFramework);
+        const maybeHost =
+          sandbox && typeof (sandbox as any).getHost === "function"
+            ? (sandbox as any).getHost(port)
+            : undefined;
+
+        if (maybeHost && typeof maybeHost === "string" && maybeHost.length > 0) {
+          const host = maybeHost.startsWith("http")
+            ? maybeHost
+            : `https://${maybeHost}`;
+          return host;
+        }
+      } catch (hostError) {
+        console.warn(
+          "[WARN] Failed to resolve sandbox host via E2B SDK, using fallback URL:",
+          hostError,
+        );
+      }
+
+      // Fallback to legacy pattern if getHost is unavailable
+      console.warn(
+        "[WARN] E2B sandbox getHost() not available; using fallback https://${sandboxId}.sandbox.e2b.dev",
+      );
       return `https://${sandboxId}.sandbox.e2b.dev`;
     });
 
@@ -1944,206 +1985,230 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       return uniqueScreenshots;
     });
 
-    const filePathsList = await step.run("find-sandbox-files", async () => {
-      if (isError) {
-        return [];
-      }
+    let filePathsList: string[] = [];
+    let sandboxFiles: Record<string, string> = {};
 
-      try {
-        const sandbox = await getSandbox(sandboxId);
-        const findCommand = getFindCommand(selectedFramework);
-        const findResult = await sandbox.commands.run(findCommand);
+    if (!isError && mode === "safe") {
+      filePathsList = await step.run("find-sandbox-files", async () => {
+        try {
+          const sandbox = await getSandbox(sandboxId);
+          const findCommand = getFindCommand(selectedFramework);
+          const findResult = await sandbox.commands.run(findCommand);
 
-        const filePaths = findResult.stdout
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(
-            (line) => line.length > 0 && !line.includes("Permission denied"),
-          )
-          .filter(isValidFilePath);
+          const filePaths = findResult.stdout
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(
+              (line) => line.length > 0 && !line.includes("Permission denied"),
+            )
+            .filter(isValidFilePath);
 
-        console.log(`[DEBUG] Found ${filePaths.length} files in sandbox`);
+          console.log(`[DEBUG] Found ${filePaths.length} files in sandbox`);
 
-        if (filePaths.length === 0) {
-          console.warn("[WARN] No files found in sandbox");
+          if (filePaths.length === 0) {
+            console.warn("[WARN] No files found in sandbox");
+            return [];
+          }
+
+          const totalFiles = Math.min(filePaths.length, MAX_FILE_COUNT);
+          if (filePaths.length > MAX_FILE_COUNT) {
+            console.warn(
+              `[WARN] File count (${filePaths.length}) exceeds limit (${MAX_FILE_COUNT}), reading first ${MAX_FILE_COUNT} files`,
+            );
+          }
+
+          return filePaths.slice(0, totalFiles);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          console.error("[ERROR] Failed to find sandbox files:", errorMessage);
           return [];
         }
+      });
 
-        const totalFiles = Math.min(filePaths.length, MAX_FILE_COUNT);
-        if (filePaths.length > MAX_FILE_COUNT) {
-          console.warn(
-            `[WARN] File count (${filePaths.length}) exceeds limit (${MAX_FILE_COUNT}), reading first ${MAX_FILE_COUNT} files`,
-          );
-        }
-
-        return filePaths.slice(0, totalFiles);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        console.error("[ERROR] Failed to find sandbox files:", errorMessage);
-        return [];
-      }
-    });
-
-    const allSandboxFiles: Record<string, string> = {};
-
-    if (filePathsList.length > 0) {
-      const numBatches = Math.ceil(filePathsList.length / FILES_PER_STEP_BATCH);
-
-      for (let batchIndex = 0; batchIndex < numBatches; batchIndex++) {
-        const batchStart = batchIndex * FILES_PER_STEP_BATCH;
-        const batchEnd = Math.min(
-          batchStart + FILES_PER_STEP_BATCH,
-          filePathsList.length,
+      if (filePathsList.length > 0) {
+        const numBatches = Math.ceil(
+          filePathsList.length / FILES_PER_STEP_BATCH,
         );
-        const batchFilePaths = filePathsList.slice(batchStart, batchEnd);
 
-        const batchFiles = await step.run(
-          `read-sandbox-files-batch-${batchIndex}`,
-          async () => {
-            const sandbox = await getSandbox(sandboxId);
-            const batchFilesMap: Record<string, string> = {};
+        for (let batchIndex = 0; batchIndex < numBatches; batchIndex++) {
+          const batchStart = batchIndex * FILES_PER_STEP_BATCH;
+          const batchEnd = Math.min(
+            batchStart + FILES_PER_STEP_BATCH,
+            filePathsList.length,
+          );
+          const batchFilePaths = filePathsList.slice(batchStart, batchEnd);
 
-            for (const filePath of batchFilePaths) {
-              const content = await readFileWithTimeout(
-                sandbox,
-                filePath,
-                FILE_READ_TIMEOUT_MS,
-              );
-              if (content !== null) {
-                batchFilesMap[filePath] = content;
-              }
-            }
+          const batchFiles = await step.run(
+            `read-sandbox-files-batch-${batchIndex}`,
+            async () => {
+              const sandbox = await getSandbox(sandboxId);
+              const batchFilesMap: Record<string, string> = {};
 
-            const batchSize = calculateFilesMapSize(batchFilesMap);
-            if (batchSize > INNGEST_STEP_OUTPUT_SIZE_LIMIT) {
-              console.warn(
-                `[WARN] Batch ${batchIndex} size (${batchSize} bytes) exceeds Inngest limit, filtering large files`,
-              );
-              const filteredBatch: Record<string, string> = {};
-              let currentSize = 0;
-
-              for (const [path, content] of Object.entries(batchFilesMap)) {
-                const fileSize = path.length + content.length;
-                if (
-                  currentSize + fileSize <=
-                  INNGEST_STEP_OUTPUT_SIZE_LIMIT * 0.9
-                ) {
-                  filteredBatch[path] = content;
-                  currentSize += fileSize;
-                } else {
-                  console.warn(
-                    `[WARN] Skipping large file in batch: ${path} (${fileSize} bytes)`,
-                  );
+              for (const filePath of batchFilePaths) {
+                const content = await readFileWithTimeout(
+                  sandbox,
+                  filePath,
+                  FILE_READ_TIMEOUT_MS,
+                );
+                if (content !== null) {
+                  batchFilesMap[filePath] = content;
                 }
               }
 
-              return filteredBatch;
-            }
+              const batchSize = calculateFilesMapSize(batchFilesMap);
+              if (batchSize > INNGEST_STEP_OUTPUT_SIZE_LIMIT) {
+                console.warn(
+                  `[WARN] Batch ${batchIndex} size (${batchSize} bytes) exceeds Inngest limit, filtering large files`,
+                );
+                const filteredBatch: Record<string, string> = {};
+                let currentSize = 0;
 
-            return batchFilesMap;
-          },
-        );
+                for (const [path, content] of Object.entries(batchFilesMap)) {
+                  const fileSize = path.length + content.length;
+                  if (
+                    currentSize + fileSize <=
+                    INNGEST_STEP_OUTPUT_SIZE_LIMIT * 0.9
+                  ) {
+                    filteredBatch[path] = content;
+                    currentSize += fileSize;
+                  } else {
+                    console.warn(
+                      `[WARN] Skipping large file in batch: ${path} (${fileSize} bytes)`,
+                    );
+                  }
+                }
 
-        Object.assign(allSandboxFiles, batchFiles);
+                return filteredBatch;
+              }
+
+              return batchFilesMap;
+            },
+          );
+
+          Object.assign(sandboxFiles, batchFiles);
+          console.log(
+            `[DEBUG] Processed batch ${batchIndex + 1}/${numBatches} (${Object.keys(batchFiles).length} files)`,
+          );
+        }
+
         console.log(
-          `[DEBUG] Processed batch ${batchIndex + 1}/${numBatches} (${Object.keys(batchFiles).length} files)`,
+          `[DEBUG] Successfully read ${Object.keys(sandboxFiles).length} files from sandbox in ${numBatches} batches`,
         );
       }
-
+    } else {
       console.log(
-        `[DEBUG] Successfully read ${Object.keys(allSandboxFiles).length} files from sandbox in ${numBatches} batches`,
+        "[DEBUG] Fast mode or error state: skipping sandbox filesystem scan; using agent files only",
       );
     }
 
     const agentFiles = result.state.data.files || {};
 
-    const mergeValidation = validateMergeStrategy(agentFiles, allSandboxFiles);
+    let finalFiles: Record<string, string>;
 
-    if (mergeValidation.warnings.length > 0) {
-      console.warn(
-        `[WARN] Merge strategy warnings: ${mergeValidation.warnings.join("; ")}`,
-      );
-    }
+    if (!isError && mode === "safe" && Object.keys(sandboxFiles).length > 0) {
+      const mergeValidation = validateMergeStrategy(agentFiles, sandboxFiles);
 
-    // Filter out E2B sandbox system files and configuration boilerplate
-    const filteredSandboxFiles = filterAIGeneratedFiles(allSandboxFiles);
-    const removedFileCount =
-      Object.keys(allSandboxFiles).length -
-      Object.keys(filteredSandboxFiles).length;
-    console.log(
-      `[DEBUG] Filtered sandbox files: ${Object.keys(allSandboxFiles).length} → ${Object.keys(filteredSandboxFiles).length} files (removed ${removedFileCount} system/config files)`,
-    );
-
-    // Merge strategy: Agent files take priority over sandbox files
-    // This ensures that any files explicitly created/modified by the agent
-    // overwrite the corresponding files from the sandbox filesystem.
-    // This is intentional as agent files represent the final state of the project.
-    // Critical files from sandbox are preserved if not in agent files.
-    const mergedFiles = { ...filteredSandboxFiles, ...agentFiles };
-
-    const overwrittenFiles = Object.keys(agentFiles).filter(
-      (path) => filteredSandboxFiles[path] !== undefined,
-    );
-    if (overwrittenFiles.length > 0) {
-      console.log(
-        `[DEBUG] Agent files overwriting ${overwrittenFiles.length} sandbox files: ${overwrittenFiles.slice(0, 5).join(", ")}${overwrittenFiles.length > 5 ? "..." : ""}`,
-      );
-    }
-
-    // Validate all file paths in merged files to prevent path traversal
-    const validatedMergedFiles: Record<string, string> = {};
-    let invalidPathCount = 0;
-
-    for (const [path, content] of Object.entries(mergedFiles)) {
-      if (isValidFilePath(path)) {
-        validatedMergedFiles[path] = content;
-      } else {
-        invalidPathCount++;
+      if (mergeValidation.warnings.length > 0) {
         console.warn(
-          `[WARN] Filtered out invalid file path from merged files: ${path}`,
+          `[WARN] Merge strategy warnings: ${mergeValidation.warnings.join("; ")}`,
+        );
+      }
+
+      // Filter out E2B sandbox system files and configuration boilerplate
+      const filteredSandboxFiles = filterAIGeneratedFiles(sandboxFiles);
+      const removedFileCount =
+        Object.keys(sandboxFiles).length -
+        Object.keys(filteredSandboxFiles).length;
+      console.log(
+        `[DEBUG] Filtered sandbox files: ${Object.keys(sandboxFiles).length} → ${Object.keys(filteredSandboxFiles).length} files (removed ${removedFileCount} system/config files)`,
+      );
+
+      // Merge strategy: Agent files take priority over sandbox files
+      const mergedFiles = { ...filteredSandboxFiles, ...agentFiles };
+
+      const overwrittenFiles = Object.keys(agentFiles).filter(
+        (path) => filteredSandboxFiles[path] !== undefined,
+      );
+      if (overwrittenFiles.length > 0) {
+        console.log(
+          `[DEBUG] Agent files overwriting ${overwrittenFiles.length} sandbox files: ${overwrittenFiles
+            .slice(0, 5)
+            .join(", ")}${
+            overwrittenFiles.length > 5 ? "..." : ""
+          }`,
+        );
+      }
+
+      // Validate all file paths in merged files to prevent path traversal
+      const validatedMergedFiles: Record<string, string> = {};
+      let invalidPathCount = 0;
+
+      for (const [path, content] of Object.entries(mergedFiles)) {
+        if (isValidFilePath(path)) {
+          validatedMergedFiles[path] = content;
+        } else {
+          invalidPathCount++;
+          console.warn(
+            `[WARN] Filtered out invalid file path from merged files: ${path}`,
+          );
+        }
+      }
+
+      if (invalidPathCount > 0) {
+        console.warn(
+          `[WARN] Filtered out ${invalidPathCount} invalid file paths from merged files`,
+        );
+      }
+
+      // Validate aggregate size to prevent exceeding Convex document limits
+      const totalSizeBytes = Object.values(validatedMergedFiles).reduce(
+        (sum, content) => sum + content.length,
+        0,
+      );
+      const totalSizeMB = totalSizeBytes / (1024 * 1024);
+      const fileCount = Object.keys(validatedMergedFiles).length;
+
+      console.log(
+        `[DEBUG] Merged files size: ${totalSizeMB.toFixed(2)} MB (${fileCount} files, ${totalSizeBytes.toLocaleString()} bytes)`,
+      );
+
+      // Convex document size limits: warn at 4MB, fail at 5MB
+      const WARN_SIZE_MB = 4;
+      const MAX_SIZE_MB = 5;
+
+      if (totalSizeMB > MAX_SIZE_MB) {
+        throw new Error(
+          `Merged files size (${totalSizeMB.toFixed(2)} MB) exceeds maximum limit (${MAX_SIZE_MB} MB). ` +
+            `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
+            `File count: ${fileCount}. Please review the file filtering logic.`,
+        );
+      }
+
+      if (totalSizeMB > WARN_SIZE_MB) {
+        console.warn(
+          `[WARN] Merged files size (${totalSizeMB.toFixed(2)} MB) is approaching limit (${MAX_SIZE_MB} MB). ` +
+            `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
+        );
+      }
+
+      finalFiles = validatedMergedFiles;
+    } else {
+      finalFiles = agentFiles;
+      if (mode === "fast") {
+        console.log(
+          "[DEBUG] Fast mode: using only agent-generated files (no sandbox merge)",
+        );
+      } else if (isError) {
+        console.log(
+          "[DEBUG] Error state: using only agent-generated files (no sandbox merge)",
+        );
+      } else {
+        console.log(
+          "[DEBUG] No sandbox files found; using only agent-generated files",
         );
       }
     }
-
-    if (invalidPathCount > 0) {
-      console.warn(
-        `[WARN] Filtered out ${invalidPathCount} invalid file paths from merged files`,
-      );
-    }
-
-    // Validate aggregate size to prevent exceeding Convex document limits
-    const totalSizeBytes = Object.values(validatedMergedFiles).reduce(
-      (sum, content) => sum + content.length,
-      0,
-    );
-    const totalSizeMB = totalSizeBytes / (1024 * 1024);
-    const fileCount = Object.keys(validatedMergedFiles).length;
-
-    console.log(
-      `[DEBUG] Merged files size: ${totalSizeMB.toFixed(2)} MB (${fileCount} files, ${totalSizeBytes.toLocaleString()} bytes)`,
-    );
-
-    // Convex document size limits: warn at 4MB, fail at 5MB
-    const WARN_SIZE_MB = 4;
-    const MAX_SIZE_MB = 5;
-
-    if (totalSizeMB > MAX_SIZE_MB) {
-      throw new Error(
-        `Merged files size (${totalSizeMB.toFixed(2)} MB) exceeds maximum limit (${MAX_SIZE_MB} MB). ` +
-        `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
-        `File count: ${fileCount}. Please review the file filtering logic.`,
-      );
-    }
-
-    if (totalSizeMB > WARN_SIZE_MB) {
-      console.warn(
-        `[WARN] Merged files size (${totalSizeMB.toFixed(2)} MB) is approaching limit (${MAX_SIZE_MB} MB). ` +
-        `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
-      );
-    }
-
-    const finalFiles = validatedMergedFiles;
 
     await step.run("save-result", async () => {
       if (isError) {
@@ -2309,8 +2374,9 @@ export const sandboxTransferFunction = inngest.createFunction(
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       // Ensure the dev server is running before returning the URL
+      let sandboxInstance;
       try {
-        const sandboxInstance = await getSandbox(sandboxId);
+        sandboxInstance = await getSandbox(sandboxId);
         await ensureDevServerRunning(sandboxInstance, framework);
         console.log("[DEBUG] Dev server confirmed running for resumed sandbox");
       } catch (error) {
@@ -2321,8 +2387,31 @@ export const sandboxTransferFunction = inngest.createFunction(
         // Continue anyway - might still work
       }
 
-      // E2B provides standardized sandbox domain format
-      // Standard E2B sandbox domain format: https://{sandboxId}.sandbox.e2b.dev
+      // Prefer E2B SDK helper when available so we follow their host format
+      try {
+        const port = getFrameworkPort(framework);
+        const maybeHost =
+          sandboxInstance && typeof (sandboxInstance as any).getHost === "function"
+            ? (sandboxInstance as any).getHost(port)
+            : undefined;
+
+        if (maybeHost && typeof maybeHost === "string" && maybeHost.length > 0) {
+          const host = maybeHost.startsWith("http")
+            ? maybeHost
+            : `https://${maybeHost}`;
+          return host;
+        }
+      } catch (hostError) {
+        console.warn(
+          "[WARN] Failed to resolve resumed sandbox host via E2B SDK, using fallback URL:",
+          hostError,
+        );
+      }
+
+      // Fallback to legacy pattern if getHost is unavailable
+      console.warn(
+        "[WARN] E2B sandbox getHost() not available for resumed sandbox; using fallback https://${sandboxId}.sandbox.e2b.dev",
+      );
       return `https://${sandboxId}.sandbox.e2b.dev`;
     });
 
