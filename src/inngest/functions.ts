@@ -56,6 +56,7 @@ import {
   parseAgentOutput,
   createSandboxWithRetry,
   validateSandboxHealth,
+  ensureDevServerRunning,
 } from "./utils";
 import { e2bCircuitBreaker } from "./circuit-breaker";
 import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
@@ -123,7 +124,8 @@ export const MODEL_CONFIGS = {
   "bfl/flux-kontext-pro": {
     name: "Flux Kontext Pro",
     provider: "bfl",
-    description: "Advanced image generation with context awareness for Pro users",
+    description:
+      "Advanced image generation with context awareness for Pro users",
     temperature: 0.7,
     isProOnly: true,
     isImageGeneration: true,
@@ -220,7 +222,7 @@ function getModelAdapter(
   const apiKey = process.env.AI_GATEWAY_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "AI_GATEWAY_API_KEY environment variable is not set. Cannot initialize AI models."
+      "AI_GATEWAY_API_KEY environment variable is not set. Cannot initialize AI models.",
     );
   }
 
@@ -257,13 +259,16 @@ function getModelAdapter(
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new Error(
-        `Failed to initialize Gemini adapter for model "${modelId}": ${errorMessage}`
+        `Failed to initialize Gemini adapter for model "${modelId}": ${errorMessage}`,
       );
     }
   }
 
   // Use OpenAI adapter for all other models (OpenAI, Anthropic, Moonshot, xAI, etc.)
-  console.log("[DEBUG] Initializing OpenAI-compatible adapter for model:", modelId);
+  console.log(
+    "[DEBUG] Initializing OpenAI-compatible adapter for model:",
+    modelId,
+  );
   try {
     return openai({
       apiKey,
@@ -274,10 +279,9 @@ function getModelAdapter(
       },
     });
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `Failed to initialize OpenAI adapter for model "${modelId}": ${errorMessage}`
+      `Failed to initialize OpenAI adapter for model "${modelId}": ${errorMessage}`,
     );
   }
 }
@@ -427,7 +431,9 @@ const runLintCheck = async (sandboxId: string): Promise<string | null> => {
 
     // Exit code 127 means command not found - gracefully skip validation
     if (result.exitCode === 127) {
-      console.warn("[WARN] Lint script not found in package.json, skipping lint check");
+      console.warn(
+        "[WARN] Lint script not found in package.json, skipping lint check",
+      );
       return null;
     }
 
@@ -480,7 +486,9 @@ const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
 
     // Exit code 127 means command not found - gracefully skip validation
     if (result.exitCode === 127) {
-      console.warn("[WARN] Build script not found in package.json, skipping build check");
+      console.warn(
+        "[WARN] Build script not found in package.json, skipping build check",
+      );
       return null;
     }
 
@@ -996,7 +1004,7 @@ export const codeAgentFunction = inngest.createFunction(
             : String(frameworkError);
         console.error("[ERROR] Framework selection failed:", errorMessage);
         console.warn(
-          "[WARN] Falling back to default framework (Next.js) due to framework selector error"
+          "[WARN] Falling back to default framework (Next.js) due to framework selector error",
         );
         selectedFramework = "nextjs";
       }
@@ -1065,10 +1073,13 @@ export const codeAgentFunction = inngest.createFunction(
 
       // Check rate limit before attempting creation
       try {
-        const rateLimitStatus = await convex.query(api.e2bRateLimits.checkRateLimit, {
-          operation: "sandbox_create",
-          maxPerHour: 100, // Adjust based on your E2B plan
-        });
+        const rateLimitStatus = await convex.query(
+          api.e2bRateLimits.checkRateLimit,
+          {
+            operation: "sandbox_create",
+            maxPerHour: 100, // Adjust based on your E2B plan
+          },
+        );
 
         if (rateLimitStatus.exceeded) {
           console.error("[E2B_METRICS]", {
@@ -1078,7 +1089,7 @@ export const codeAgentFunction = inngest.createFunction(
             timestamp: Date.now(),
           });
           throw new Error(
-            `E2B rate limit exceeded: ${rateLimitStatus.count}/${rateLimitStatus.limit} requests in last hour`
+            `E2B rate limit exceeded: ${rateLimitStatus.count}/${rateLimitStatus.limit} requests in last hour`,
           );
         }
 
@@ -1089,7 +1100,9 @@ export const codeAgentFunction = inngest.createFunction(
             count: rateLimitStatus.count,
             limit: rateLimitStatus.limit,
             remaining: rateLimitStatus.remaining,
-            percentUsed: Math.round((rateLimitStatus.count / rateLimitStatus.limit) * 100),
+            percentUsed: Math.round(
+              (rateLimitStatus.count / rateLimitStatus.limit) * 100,
+            ),
             timestamp: Date.now(),
           });
         }
@@ -1137,7 +1150,7 @@ export const codeAgentFunction = inngest.createFunction(
 
           // Throw error to stop current execution (request is queued)
           throw new Error(
-            "E2B service unavailable - request queued for later processing"
+            "E2B service unavailable - request queued for later processing",
           );
         }
 
@@ -1388,17 +1401,14 @@ Generate code that matches the approved specification.`;
     console.log("[DEBUG] Using prompt for framework:", selectedFramework);
 
     const modelConfig = MODEL_CONFIGS[selectedModel];
-    console.log(
-      "[MODEL_SELECTION] Creating agent with:",
-      {
-        model: selectedModel,
-        modelName: modelConfig.name,
-        provider: modelConfig.provider,
-        framework: selectedFramework,
-        temperature: modelConfig.temperature,
-        autoSelected: validatedModel === "auto"
-      }
-    );
+    console.log("[MODEL_SELECTION] Creating agent with:", {
+      model: selectedModel,
+      modelName: modelConfig.name,
+      provider: modelConfig.provider,
+      framework: selectedFramework,
+      temperature: modelConfig.temperature,
+      autoSelected: validatedModel === "auto",
+    });
 
     const codeAgent = createAgent<AgentState>({
       name: `${selectedFramework}-code-agent`,
@@ -1481,20 +1491,23 @@ Generate code that matches the approved specification.`;
         console.error("[ERROR] Stack trace:", error.stack);
       }
       throw new Error(
-        `Code generation failed: ${errorMessage}. Please ensure API credentials are valid and try again.`
+        `Code generation failed: ${errorMessage}. Please ensure API credentials are valid and try again.`,
       );
     }
 
     // Post-network fallback: If no summary but files exist, make one more explicit request
     let summaryText = extractSummaryText(result.state.data.summary ?? "");
-    const hasGeneratedFiles = Object.keys(result.state.data.files || {}).length > 0;
+    const hasGeneratedFiles =
+      Object.keys(result.state.data.files || {}).length > 0;
 
     if (!summaryText && hasGeneratedFiles) {
-      console.log("[DEBUG] No summary detected after network run, requesting explicitly...");
+      console.log(
+        "[DEBUG] No summary detected after network run, requesting explicitly...",
+      );
       try {
         result = await network.run(
           "IMPORTANT: You have successfully generated files, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built. This is required to complete the task.",
-          { state: result.state }
+          { state: result.state },
         );
       } catch (summaryError) {
         const errorMessage =
@@ -1509,9 +1522,13 @@ Generate code that matches the approved specification.`;
       summaryText = extractSummaryText(result.state.data.summary ?? "");
 
       if (summaryText) {
-        console.log("[DEBUG] Summary successfully extracted after explicit request");
+        console.log(
+          "[DEBUG] Summary successfully extracted after explicit request",
+        );
       } else {
-        console.warn("[WARN] Summary still missing after explicit request, will use fallback");
+        console.warn(
+          "[WARN] Summary still missing after explicit request, will use fallback",
+        );
       }
     }
 
@@ -1529,7 +1546,9 @@ Generate code that matches the approved specification.`;
     };
 
     const expectedEntryPoints = entryPointsByFramework[selectedFramework] || [];
-    const modifiedEntryPoint = expectedEntryPoints.some(entry => fileKeys.includes(entry));
+    const modifiedEntryPoint = expectedEntryPoints.some((entry) =>
+      fileKeys.includes(entry),
+    );
 
     if (hasGeneratedFiles && !modifiedEntryPoint) {
       console.warn(
@@ -1538,8 +1557,8 @@ Generate code that matches the approved specification.`;
           model: selectedModel,
           expectedFiles: expectedEntryPoints,
           actualFiles: fileKeys.slice(0, 10),
-          userRequest: event.data.value.slice(0, 200)
-        }
+          userRequest: event.data.value.slice(0, 200),
+        },
       );
 
       // Log specific warning for OpenAI models (GPT-5.1)
@@ -1550,8 +1569,8 @@ Generate code that matches the approved specification.`;
             model: selectedModel,
             framework: selectedFramework,
             expectedFiles: expectedEntryPoints,
-            filesGenerated: fileKeys.length
-          }
+            filesGenerated: fileKeys.length,
+          },
         );
       }
     } else if (modifiedEntryPoint) {
@@ -1559,8 +1578,10 @@ Generate code that matches the approved specification.`;
         `[VALIDATION_SUCCESS] Entry point file correctly modified for ${selectedFramework}`,
         {
           model: selectedModel,
-          modifiedFile: fileKeys.find(key => expectedEntryPoints.includes(key))
-        }
+          modifiedFile: fileKeys.find((key) =>
+            expectedEntryPoints.includes(key),
+          ),
+        },
       );
     }
 
@@ -1665,7 +1686,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
             : String(autoFixError);
         console.error(
           `[ERROR] Auto-fix attempt ${autoFixAttempts} failed:`,
-          fixErrorMessage
+          fixErrorMessage,
         );
         // Break out of auto-fix loop on network error
         break;
@@ -1785,6 +1806,18 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     }
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
+      // Ensure the dev server is running before returning the URL
+      try {
+        const sandbox = await getSandbox(sandboxId);
+        await ensureDevServerRunning(sandbox, selectedFramework);
+        console.log(
+          "[DEBUG] Dev server confirmed running, returning sandbox URL",
+        );
+      } catch (error) {
+        console.warn("[WARN] Failed to ensure dev server is running:", error);
+        // Continue anyway - the sandbox URL might still work if the template starts it
+      }
+
       // E2B provides standardized sandbox domain format
       const port = getFrameworkPort(selectedFramework);
       // Standard E2B sandbox domain format: https://{sandboxId}.sandbox.e2b.dev
@@ -1806,7 +1839,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
               : String(adapterError);
           console.error(
             "[ERROR] Failed to initialize model adapter for metadata generation:",
-            errorMessage
+            errorMessage,
           );
           throw adapterError;
         }
@@ -1839,7 +1872,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
             : String(gatewayError);
         console.error(
           "[ERROR] Failed to generate fragment metadata:",
-          errorMessage
+          errorMessage,
         );
         if (gatewayError instanceof Error && gatewayError.stack) {
           console.error("[ERROR] Stack trace:", gatewayError.stack);
@@ -2063,15 +2096,15 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     if (totalSizeMB > MAX_SIZE_MB) {
       throw new Error(
         `Merged files size (${totalSizeMB.toFixed(2)} MB) exceeds maximum limit (${MAX_SIZE_MB} MB). ` +
-        `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
-        `File count: ${fileCount}. Please review the file filtering logic.`,
+          `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
+          `File count: ${fileCount}. Please review the file filtering logic.`,
       );
     }
 
     if (totalSizeMB > WARN_SIZE_MB) {
       console.warn(
         `[WARN] Merged files size (${totalSizeMB.toFixed(2)} MB) is approaching limit (${MAX_SIZE_MB} MB). ` +
-        `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
+          `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
       );
     }
 
@@ -2108,8 +2141,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const warningsNote =
         warningReasons.length > 0
           ? sanitizeTextForDatabase(
-            `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
-          )
+              `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
+            )
           : "";
       const responseContent = sanitizeTextForDatabase(
         `${baseResponseContent}${warningsNote}`,
@@ -2127,8 +2160,13 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         ...(warningReasons.length > 0 && { warnings: warningReasons }),
       };
 
-      console.log(`[DEBUG] Preparing to save fragment with ${Object.keys(finalFiles).length} files`);
-      console.log(`[DEBUG] Sample file paths:`, Object.keys(finalFiles).slice(0, 10));
+      console.log(
+        `[DEBUG] Preparing to save fragment with ${Object.keys(finalFiles).length} files`,
+      );
+      console.log(
+        `[DEBUG] Sample file paths:`,
+        Object.keys(finalFiles).slice(0, 10),
+      );
 
       // Create message first
       const messageId = await convex.mutation(api.messages.createForUser, {
@@ -2140,21 +2178,28 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         status: "COMPLETE",
       });
 
-      console.log(`[DEBUG] Created message ${messageId}, now creating fragment...`);
+      console.log(
+        `[DEBUG] Created message ${messageId}, now creating fragment...`,
+      );
 
       // Then create fragment linked to the message
-      const fragmentId = await convex.mutation(api.messages.createFragmentForUser, {
-        userId: project.userId,
-        messageId: messageId as Id<"messages">,
-        sandboxId: sandboxId || undefined,
-        sandboxUrl: sandboxUrl,
-        title: fragmentTitle,
-        files: finalFiles,
-        framework: frameworkToConvexEnum(selectedFramework),
-        metadata: metadata,
-      });
+      const fragmentId = await convex.mutation(
+        api.messages.createFragmentForUser,
+        {
+          userId: project.userId,
+          messageId: messageId as Id<"messages">,
+          sandboxId: sandboxId || undefined,
+          sandboxUrl: sandboxUrl,
+          title: fragmentTitle,
+          files: finalFiles,
+          framework: frameworkToConvexEnum(selectedFramework),
+          metadata: metadata,
+        },
+      );
 
-      console.log(`[DEBUG] Fragment ${fragmentId} created successfully with ${Object.keys(finalFiles).length} files`);
+      console.log(
+        `[DEBUG] Fragment ${fragmentId} created successfully with ${Object.keys(finalFiles).length} files`,
+      );
 
       return messageId;
     });
@@ -2228,6 +2273,18 @@ export const sandboxTransferFunction = inngest.createFunction(
     });
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
+      // Ensure the dev server is running before returning the URL
+      try {
+        await ensureDevServerRunning(sandbox, framework);
+        console.log("[DEBUG] Dev server confirmed running for resumed sandbox");
+      } catch (error) {
+        console.warn(
+          "[WARN] Failed to ensure dev server is running on resumed sandbox:",
+          error,
+        );
+        // Continue anyway - might still work
+      }
+
       // E2B provides standardized sandbox domain format
       // Standard E2B sandbox domain format: https://{sandboxId}.sandbox.e2b.dev
       return `https://${sandboxId}.sandbox.e2b.dev`;
@@ -2490,22 +2547,29 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
 
       // Post-network fallback: If no summary but files were modified, make one more explicit request
       let summaryText = extractSummaryText(result.state.data.summary ?? "");
-      const hasModifiedFiles = Object.keys(result.state.data.files || {}).length > 0;
+      const hasModifiedFiles =
+        Object.keys(result.state.data.files || {}).length > 0;
 
       if (!summaryText && hasModifiedFiles) {
-        console.log("[DEBUG] No summary detected after error-fix, requesting explicitly...");
+        console.log(
+          "[DEBUG] No summary detected after error-fix, requesting explicitly...",
+        );
         result = await network.run(
           "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
-          { state: result.state }
+          { state: result.state },
         );
 
         // Re-extract summary after explicit request
         summaryText = extractSummaryText(result.state.data.summary ?? "");
 
         if (summaryText) {
-          console.log("[DEBUG] Summary successfully extracted after explicit request");
+          console.log(
+            "[DEBUG] Summary successfully extracted after explicit request",
+          );
         } else {
-          console.warn("[WARN] Summary still missing after explicit request, will use fallback");
+          console.warn(
+            "[WARN] Summary still missing after explicit request, will use fallback",
+          );
         }
       }
 
@@ -2596,14 +2660,14 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           backupMetadata ?? initialMetadata;
         const metadataUpdate = supportsMetadata
           ? {
-            ...baseMetadata,
-            previousFiles: originalFiles,
-            fixedAt: new Date().toISOString(),
-            lastFixSuccess: {
-              summary: result.state.data.summary,
-              occurredAt: new Date().toISOString(),
-            },
-          }
+              ...baseMetadata,
+              previousFiles: originalFiles,
+              fixedAt: new Date().toISOString(),
+              lastFixSuccess: {
+                summary: result.state.data.summary,
+                occurredAt: new Date().toISOString(),
+              },
+            }
           : undefined;
 
         return await convex.mutation(api.messages.createFragmentForUser, {

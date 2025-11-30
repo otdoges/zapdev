@@ -287,3 +287,7 @@ Root-level:
 - Sanitize file paths to prevent directory traversal
 - Keep OAuth tokens encrypted in Convex
 - Never expose API keys in client-side code (use NEXT_PUBLIC_ prefix only for public values)
+
+
+**Extra Things**
+- Never use 'as' or 'as any'
