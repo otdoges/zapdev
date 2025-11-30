@@ -22,6 +22,8 @@ const hasCritters = (() => {
 
 const nextConfig = {
   /* config options here */
+  // Prevent trailing slash redirects on API routes (Polar webhooks don't follow redirects)
+  skipTrailingSlashRedirect: true,
   headers: async () => {
     return [
       {

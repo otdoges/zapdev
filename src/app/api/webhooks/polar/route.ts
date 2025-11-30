@@ -5,11 +5,29 @@ import { api } from "@/convex/_generated/api";
 import { getPolarWebhookSecret } from "@/lib/polar-client";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = ["iad1"];
 
 /**
  * Polar.sh Webhook Handler
  * Handles subscription lifecycle events and syncs to Convex
+ * 
+ * IMPORTANT: Polar does NOT follow 3xx redirects. This endpoint must return
+ * a direct 2xx response without any redirects.
+ * Configured endpoint: https://zapdev.link/api/webhooks/polar
  */
+
+// Handle OPTIONS for CORS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Get the raw body for signature verification
@@ -223,9 +241,17 @@ export async function POST(request: NextRequest) {
         console.log(`⚠️ Unhandled webhook event type: ${event.type}`);
     }
 
-    // Return 200 OK to acknowledge receipt
+    // Return 200 OK to acknowledge receipt - CRITICAL: Polar requires 2xx response
     console.log(`✅ Webhook processed successfully: ${event.type}`);
-    return NextResponse.json({ received: true, eventType: event.type });
+    return NextResponse.json(
+      { received: true, eventType: event.type },
+      { 
+        status: 200,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        }
+      }
+    );
   } catch (error) {
     console.error("Webhook handler error:", error);
     return NextResponse.json(
