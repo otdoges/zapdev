@@ -411,13 +411,13 @@ const getLastAssistantMessage = (
 };
 
 const runLintCheck = async (sandboxId: string): Promise<string | null> => {
-  try {
-    const sandbox = await getSandbox(sandboxId);
-    const buffers: { stdout: string; stderr: string } = {
-      stdout: "",
-      stderr: "",
-    };
+  const sandbox = await getSandbox(sandboxId);
+  const buffers: { stdout: string; stderr: string } = {
+    stdout: "",
+    stderr: "",
+  };
 
+  try {
     const result = await sandbox.commands.run("npm run lint", {
       onStdout: (data: string) => {
         buffers.stdout += data;
@@ -454,24 +454,47 @@ const runLintCheck = async (sandboxId: string): Promise<string | null> => {
     console.log("[DEBUG] Lint check passed with no errors");
     return null;
   } catch (error) {
-    console.error("[DEBUG] Lint check failed:", error);
-    // Don't fail the entire process if lint check fails
+    // E2B SDK throws CommandExitError when command exits with non-zero status
+    // We need to handle this and extract the output that was captured before the error
+    const output = buffers.stdout + buffers.stderr;
+    
+    console.error("[DEBUG] Lint check failed with exception:", error);
+    
+    // If we have output from lint, check if it contains actual errors
+    if (output.trim()) {
+      console.log("[DEBUG] Lint output before exception:\n", output);
+      
+      // Check if output contains actual error indicators (not just warnings)
+      if (/error|✖/i.test(output)) {
+        console.log("[DEBUG] Lint check found ERRORS in exception output");
+        return output;
+      }
+      
+      // Also check for any pattern match indicating a problem
+      if (AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(output))) {
+        console.log("[DEBUG] Lint check found issues in exception output");
+        return output;
+      }
+    }
+    
+    // Don't fail the entire process if lint check fails with no clear errors
+    console.warn("[WARN] Lint check threw exception but no clear errors found, continuing");
     return null;
   }
 };
 
 const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
+  const sandbox = await getSandbox(sandboxId);
+  const buffers: { stdout: string; stderr: string } = {
+    stdout: "",
+    stderr: "",
+  };
+
+  // Try to build the project to catch build-time errors
+  const buildCommand = "npm run build";
+  console.log("[DEBUG] Running build check with command:", buildCommand);
+
   try {
-    const sandbox = await getSandbox(sandboxId);
-    const buffers: { stdout: string; stderr: string } = {
-      stdout: "",
-      stderr: "",
-    };
-
-    // Try to build the project to catch build-time errors
-    const buildCommand = "npm run build";
-    console.log("[DEBUG] Running build check with command:", buildCommand);
-
     const result = await sandbox.commands.run(buildCommand, {
       onStdout: (data: string) => {
         buffers.stdout += data;
@@ -512,16 +535,28 @@ const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
     console.log("[DEBUG] Build check passed successfully");
     return null;
   } catch (error) {
+    // E2B SDK throws CommandExitError when command exits with non-zero status
+    // We need to handle this and extract the output that was captured before the error
+    const output = buffers.stdout + buffers.stderr;
+    
     console.error("[DEBUG] Build check failed with exception:", error);
     if (error instanceof Error && error.stack) {
       console.error("[DEBUG] Stack trace:", error.stack);
-    } else {
-      console.error(
-        "[DEBUG] Serialized exception:",
-        inspect(error, { depth: null }),
-      );
     }
 
+    // If we have output from the build, use it (this is the actual error)
+    if (output.trim()) {
+      console.log("[DEBUG] Build output before exception:\n", output);
+      
+      // Check if output contains error patterns
+      if (AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(output))) {
+        return `Build failed with errors:\n${output}`;
+      }
+      
+      return `Build failed:\n${output}`;
+    }
+
+    // If we don't have output, return the exception details
     const serializedError =
       error instanceof Error
         ? `${error.message}${error.stack ? `\n${error.stack}` : ""}`.trim()
