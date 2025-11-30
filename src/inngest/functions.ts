@@ -1905,9 +1905,20 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     if (!isError && hasSummary && hasFiles) {
       try {
+        // Reuse the already-selected model for metadata generation so we
+        // 1) stay on the Vercel AI gateway and
+        // 2) avoid unsupported Gemini endpoints returning 405.
+        const metadataModelId =
+          (selectedModel in MODEL_CONFIGS
+            ? selectedModel
+            : ("anthropic/claude-haiku-4.5" as keyof typeof MODEL_CONFIGS));
+
         let titleModel;
         try {
-          titleModel = getModelAdapter("google/gemini-2.5-flash-lite", 0.3);
+          titleModel = getModelAdapter(
+            metadataModelId,
+            MODEL_CONFIGS[metadataModelId].temperature,
+          );
         } catch (adapterError) {
           const errorMessage =
             adapterError instanceof Error
@@ -2210,6 +2221,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       }
     }
 
+    let fragmentTitleForReturn: string | null = null;
+
     await step.run("save-result", async () => {
       if (isError) {
         const errorContent = sanitizeTextForDatabase(
@@ -2251,6 +2264,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const sanitizedTitle = sanitizeTextForDatabase(parsedTitle ?? "");
       const fragmentTitle =
         sanitizedTitle.length > 0 ? sanitizedTitle : "Generated Fragment";
+
+      // Capture for function return so preview uses the real fragment title
+      fragmentTitleForReturn = fragmentTitle;
 
       const metadata: FragmentMetadata = {
         model: selectedModel,
@@ -2306,9 +2322,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     return {
       url: sandboxUrl,
-      title: "Fragment",
+      title: fragmentTitleForReturn ?? "Fragment",
       files: finalFiles,
-      summary: result.state.data.summary,
+      summary: summaryText,
     };
   },
 );
