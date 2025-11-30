@@ -136,18 +136,29 @@ export const FileExplorer = ({
   }, [selectedFile, files]);
 
   const handleDownload = useCallback(async () => {
-    if (isDownloading || !fragmentId || !allFiles) {
+    if (isDownloading || !fragmentId) {
+      return;
+    }
+
+    // Prefer the full raw file map when available, but gracefully fall back to
+    // the filtered explorer files so we always export the visible code.
+    const sourceFiles =
+      allFiles && Object.keys(allFiles).length > 0
+        ? allFiles
+        : files;
+
+    if (!sourceFiles || Object.keys(sourceFiles).length === 0) {
       return;
     }
 
     setIsDownloading(true);
 
     try {
-      await downloadFragmentFiles(allFiles, fragmentId);
+      await downloadFragmentFiles(sourceFiles, fragmentId);
     } finally {
       setIsDownloading(false);
     }
-  }, [isDownloading, fragmentId, allFiles]);
+  }, [isDownloading, fragmentId, allFiles, files]);
 
   return (
     <ResizablePanelGroup direction="horizontal">

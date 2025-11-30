@@ -21,8 +21,21 @@ const normalizeFiles = (value: Doc<"fragments">["files"]): Record<string, string
     (acc, [path, content]) => {
       if (typeof content === "string") {
         acc[path] = content;
+      } else if (content !== null && content !== undefined) {
+        // Attempt to recover non-string content so it can be included in the download
+        try {
+          const stringified =
+            typeof content === "object" ? JSON.stringify(content, null, 2) : String(content);
+          acc[path] = stringified;
+          console.warn(`[FragmentWeb] Converted non-string file content to string for: ${path}`, {
+            originalType: typeof content,
+            convertedLength: stringified.length,
+          });
+        } catch (err) {
+          console.error(`[FragmentWeb] Failed to convert file content for: ${path}`, err);
+        }
       } else {
-        console.warn(`[FragmentWeb] Skipping non-string file content for: ${path}`, typeof content);
+        console.warn(`[FragmentWeb] Skipping null/undefined file content for: ${path}`);
       }
       return acc;
     },
