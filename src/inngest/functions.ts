@@ -62,10 +62,6 @@ import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
 import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
 // Multi-agent workflow removed; only single code agent is used.
 
-type SandboxWithHost = Sandbox & {
-  getHost?: (port: number) => string | undefined;
-};
-
 type FragmentMetadata = Record<string, unknown>;
 
 function frameworkToConvexEnum(
@@ -1789,21 +1785,10 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     }
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
-      const sandbox = await getSandbox(sandboxId);
-
-      if (typeof (sandbox as SandboxWithHost).getHost === "function") {
-        const host = (sandbox as SandboxWithHost).getHost(
-          getFrameworkPort(selectedFramework),
-        );
-
-        if (host && host.length > 0) {
-          return host.startsWith("http") ? host : `https://${host}`;
-        }
-      }
-
-      const fallbackHost = `https://${sandboxId}.sandbox.e2b.dev`;
-      console.warn("[WARN] Using fallback sandbox host:", fallbackHost);
-      return fallbackHost;
+      // E2B provides standardized sandbox domain format
+      const port = getFrameworkPort(selectedFramework);
+      // Standard E2B sandbox domain format: https://{sandboxId}.sandbox.e2b.dev
+      return `https://${sandboxId}.sandbox.e2b.dev`;
     });
 
     let fragmentTitleOutput: Message[] | undefined;
@@ -2243,18 +2228,9 @@ export const sandboxTransferFunction = inngest.createFunction(
     });
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
-      if (typeof (sandbox as SandboxWithHost).getHost === "function") {
-        const host = (sandbox as SandboxWithHost).getHost(
-          getFrameworkPort(framework),
-        );
-        if (host && host.length > 0) {
-          return host.startsWith("http") ? host : `https://${host}`;
-        }
-      }
-
-      const fallbackHost = `https://${sandboxId}.sandbox.e2b.dev`;
-      console.warn("[WARN] Using fallback sandbox host:", fallbackHost);
-      return fallbackHost;
+      // E2B provides standardized sandbox domain format
+      // Standard E2B sandbox domain format: https://{sandboxId}.sandbox.e2b.dev
+      return `https://${sandboxId}.sandbox.e2b.dev`;
     });
 
     await step.run("update-fragment", async () => {
