@@ -23,13 +23,15 @@ const hasCritters = (() => {
 
 const nextConfig = {
   /* config options here */
+  // Disable trailing slash enforcement for the entire app
+  trailingSlash: false,
   // Prevent trailing slash redirects on API routes (Polar webhooks don't follow redirects)
   skipTrailingSlashRedirect: true,
-  // Handle webhook requests without trailing slash
+  // Handle webhook requests with or without trailing slash
   rewrites: async () => {
     return {
       beforeFiles: [
-        // Rewrite webhook requests to the correct path
+        // Rewrite webhook requests without trailing slash to the handler
         {
           source: '/api/webhooks/polar',
           destination: '/api/webhooks/polar/',
