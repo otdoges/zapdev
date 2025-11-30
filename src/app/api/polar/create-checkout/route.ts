@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkBotId } from "botid/server";
 import { createPolarClient, getPolarOrganizationId, isPolarConfigured, getOrCreatePolarCustomer } from "@/lib/polar-client";
 import { getUser } from "@/lib/auth-server";
 import { getSanitizedErrorDetails } from "@/lib/env-validation";
@@ -11,6 +12,16 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   try {
+    // Verify request is from a legitimate user, not a bot
+    const botVerification = await checkBotId();
+    if (botVerification.isBot) {
+      console.warn("⚠️ BotID blocked a checkout attempt");
+      return NextResponse.json(
+        { error: "Access denied - suspicious activity detected" },
+        { status: 403 }
+      );
+    }
+
     // Check if Polar is configured
     if (!isPolarConfigured()) {
       console.error('❌ Polar is not properly configured');

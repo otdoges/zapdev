@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkBotId } from "botid/server";
 import { getUser, getConvexClientWithAuth } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -21,6 +22,16 @@ function isFixErrorsRequestBody(value: unknown): value is FixErrorsRequestBody {
 
 export async function POST(request: Request) {
   try {
+    // Verify request is from a legitimate user, not a bot
+    const botVerification = await checkBotId();
+    if (botVerification.isBot) {
+      console.warn("⚠️ BotID blocked an error fix attempt");
+      return NextResponse.json(
+        { error: "Access denied - suspicious activity detected" },
+        { status: 403 }
+      );
+    }
+
     const stackUser = await getUser();
     if (!stackUser) {
       return NextResponse.json(

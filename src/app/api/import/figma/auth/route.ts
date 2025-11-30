@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkBotId } from "botid/server";
 import { getUser } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,16 @@ const FIGMA_REDIRECT_URI = process.env.NODE_ENV === "production"
   : "http://localhost:3000/api/import/figma/callback";
 
 export async function GET() {
+  // Verify request is from a legitimate user, not a bot
+  const botVerification = await checkBotId();
+  if (botVerification.isBot) {
+    console.warn("⚠️ BotID blocked a Figma import auth attempt");
+    return NextResponse.json(
+      { error: "Access denied - suspicious activity detected" },
+      { status: 403 }
+    );
+  }
+
   const stackUser = await getUser();
 
   if (!stackUser) {

@@ -60,6 +60,7 @@
     "@typescript/native-preview": "^7.0.0-dev.20251104.1",
     "@uploadthing/react": "^7.3.3",
     "@vercel/speed-insights": "^1.2.0",
+    "botid": "^1.5.10",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "claude": "^0.1.2",

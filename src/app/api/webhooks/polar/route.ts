@@ -30,8 +30,14 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("🔔 Webhook POST request received at /api/webhooks/polar");
+    console.log("URL:", request.url);
+    console.log("Headers:", Object.fromEntries(request.headers.entries()));
+    
     // Get the raw body for signature verification
     const body = await request.text();
+    console.log("Body length:", body.length);
+    console.log("Body preview:", body.substring(0, 200));
 
     // Convert Next.js headers to plain object for validateEvent
     const headers: Record<string, string> = {};
@@ -43,11 +49,14 @@ export async function POST(request: NextRequest) {
     let event;
     try {
       const secret = getPolarWebhookSecret();
+      console.log("Webhook secret length:", secret.length);
       event = validateEvent(body, headers, secret);
+      console.log("✅ Signature verified");
     } catch (err) {
-      console.error("Webhook signature verification failed:", err);
+      console.error("❌ Webhook signature verification failed:", err);
+      console.error("Error details:", JSON.stringify(err, null, 2));
       return NextResponse.json(
-        { error: "Invalid webhook signature" },
+        { error: "Invalid webhook signature", details: String(err) },
         { status: 401 }
       );
     }

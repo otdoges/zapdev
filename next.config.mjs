@@ -2,6 +2,7 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withBotId } from "botid/next/config";
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -210,4 +211,4 @@ const nextConfig = {
 };
 
 // Sentry disabled temporarily - uncomment to re-enable
-export default nextConfig;
+export default withBotId(nextConfig);
