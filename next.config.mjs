@@ -25,6 +25,18 @@ const nextConfig = {
   /* config options here */
   // Prevent trailing slash redirects on API routes (Polar webhooks don't follow redirects)
   skipTrailingSlashRedirect: true,
+  // Handle webhook requests without trailing slash
+  rewrites: async () => {
+    return {
+      beforeFiles: [
+        // Rewrite webhook requests to the correct path
+        {
+          source: '/api/webhooks/polar',
+          destination: '/api/webhooks/polar/',
+        },
+      ],
+    };
+  },
   headers: async () => {
     return [
       {
