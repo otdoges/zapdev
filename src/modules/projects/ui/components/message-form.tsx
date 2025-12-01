@@ -302,7 +302,7 @@ export const MessageForm = ({ projectId }: Props) => {
                   })()}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-72 p-2" align="start">
+              <PopoverContent className="w-72 p-2" align="start" side="bottom">
                 <div className="flex flex-col gap-1">
                   <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                     Select Model
