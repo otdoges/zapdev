@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
     console.log("✅ Polar webhook event received:", event.type);
+    console.log("Event timestamp:", event.timestamp);
     console.log("Event data preview:", JSON.stringify(event.data).substring(0, 200) + "...");
 
     // Handle different webhook events
