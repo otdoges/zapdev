@@ -15,11 +15,36 @@ export const metadata: Metadata = {
     default: "Zapdev - Build Fast, Scale Smart",
     template: "%s | Zapdev"
   },
-  description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions. Transform your ideas into reality with our expert development team.",
-  keywords: ["software development", "web development", "mobile apps", "enterprise solutions", "Zapdev", "app development", "custom software"],
-  authors: [{ name: "Zapdev" }],
+  description: "Zapdev is an AI-powered development platform specializing in building scalable web applications across React, Vue, Angular, Svelte, and Next.js. Transform your ideas into production-ready code through conversational AI interactions.",
+  keywords: [
+    "AI development platform",
+    "AI code generation",
+    "software development",
+    "web development",
+    "Claude AI",
+    "Next.js development",
+    "React development",
+    "Vue development",
+    "Angular development",
+    "Svelte development",
+    "mobile apps",
+    "enterprise solutions",
+    "Zapdev",
+    "app development",
+    "custom software",
+    "rapid prototyping",
+    "AI coding assistant",
+    "developer tools",
+    "full-stack development",
+    "TypeScript",
+    "Tailwind CSS"
+  ],
+  authors: [{ name: "Zapdev Team" }],
   creator: "Zapdev",
   publisher: "Zapdev",
+  applicationName: "Zapdev",
+  category: "Developer Tools",
+  classification: "AI-Powered Development Platform",
   formatDetection: {
     email: false,
     address: false,
@@ -33,15 +58,22 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: "https://zapdev.link",
-    title: "Zapdev - Build Fast, Scale Smart",
-    description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
+    title: "Zapdev - AI-Powered Development Platform",
+    description: "Create production-ready web applications with AI assistance. Support for React, Vue, Angular, Svelte, and Next.js. Build, test, and deploy in minutes, not days.",
     siteName: "Zapdev",
+    images: [{
+      url: "/og-image.png",
+      width: 1200,
+      height: 630,
+      alt: "Zapdev - AI-Powered Development Platform"
+    }]
   },
   twitter: {
     card: "summary_large_image",
-    title: "Zapdev - Build Fast, Scale Smart",
-    description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
+    title: "Zapdev - AI-Powered Development Platform",
+    description: "Create production-ready web applications with AI assistance. Support for React, Vue, Angular, Svelte, and Next.js. Build, test, and deploy in minutes.",
     creator: "@zapdev",
+    images: ["/og-image.png"]
   },
   robots: {
     index: true,
@@ -57,6 +89,13 @@ export const metadata: Metadata = {
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "",
   },
+  other: {
+    "ai:platform": "Zapdev",
+    "ai:type": "development-platform",
+    "ai:capabilities": "code-generation,multi-framework,real-time-preview,auto-fix",
+    "ai:frameworks": "next.js,react,vue,angular,svelte",
+    "ai:info-url": "https://zapdev.link/ai-info"
+  }
 };
 
 

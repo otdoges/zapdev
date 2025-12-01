@@ -2,7 +2,15 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 
 import PageContent from "./page-content";
-import { generateMetadata as generateSEOMetadata, generateStructuredData, generateFAQStructuredData } from "@/lib/seo";
+import {
+  generateMetadata as generateSEOMetadata,
+  generateStructuredData,
+  generateFAQStructuredData,
+  generateSoftwareApplicationStructuredData,
+  generateProductStructuredData,
+  generateDatasetStructuredData,
+  generateTechStackStructuredData
+} from "@/lib/seo";
 import { StructuredData } from "@/components/seo/structured-data";
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +24,10 @@ export const metadata: Metadata = generateSEOMetadata({
 const Page = () => {
   const structuredData = [
     generateStructuredData('Organization', {}),
+    generateSoftwareApplicationStructuredData(),
+    generateProductStructuredData(),
+    generateDatasetStructuredData(),
+    generateTechStackStructuredData(),
     generateStructuredData('WebApplication', {
       name: 'Zapdev Platform',
       description: 'AI-powered development platform for building web applications',
@@ -44,11 +56,19 @@ const Page = () => {
       },
       {
         question: 'Which frameworks does Zapdev support?',
-        answer: 'Zapdev supports React, Vue.js, Angular, Svelte, and Next.js. We continuously add support for new frameworks and libraries based on community demand.'
+        answer: 'Zapdev supports React 18, Vue 3, Angular 19, Svelte, and Next.js 15. We continuously add support for new frameworks and libraries based on community demand.'
       },
       {
         question: 'Is Zapdev suitable for production applications?',
         answer: 'Absolutely! Zapdev generates clean, maintainable code following industry best practices. Many companies use Zapdev to build and deploy production applications.'
+      },
+      {
+        question: 'What technology stack does Zapdev use?',
+        answer: 'Zapdev uses Next.js 15 with React 19, TypeScript 5.9, Tailwind CSS v4, Convex for real-time database, tRPC for type-safe APIs, and Claude AI via Vercel AI Gateway for code generation. Code runs in isolated E2B sandboxes.'
+      },
+      {
+        question: 'How much does Zapdev cost?',
+        answer: 'Zapdev offers a free tier with 5 AI code generations per 24 hours, and a Pro tier with 100 generations per 24 hours. Both tiers provide access to all frameworks and features.'
       }
     ])
   ];
