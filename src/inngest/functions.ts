@@ -6,6 +6,7 @@ import {
   createAgent,
   createTool,
   createNetwork,
+  createStepWrapper,
   type Tool,
   type Message,
   createState,
