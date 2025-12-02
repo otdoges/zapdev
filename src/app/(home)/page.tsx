@@ -16,9 +16,19 @@ import { StructuredData } from "@/components/seo/structured-data";
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = generateSEOMetadata({
-  title: 'Zapdev - AI-Powered Development Platform | Build Apps 10x Faster',
-  description: 'Create production-ready web applications with AI assistance. Support for React, Vue, Angular, Svelte, and Next.js. Build, test, and deploy in minutes, not days.',
+  title: 'ZapDev - AI Development Platform | Ship Web Apps in Minutes',
+  description: 'Ship your web app today with ZapDev—the AI development platform for rapid application development. AI code generation tool supporting React, Vue, Angular, Svelte, Next.js. Build production-ready code 10x faster.',
   canonical: '/',
+  keywords: [
+    'AI development platform',
+    'AI code generation tool',
+    'low-code platform',
+    'developer productivity',
+    'rapid application development',
+    'full-stack code generator',
+    'web app builder',
+    'no-code alternative'
+  ]
 });
 
 const Page = () => {
