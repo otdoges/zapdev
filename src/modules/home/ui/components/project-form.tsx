@@ -8,7 +8,15 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
-import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, FigmaIcon, GitBranchIcon } from "lucide-react";
+import {
+  ArrowUpIcon,
+  Loader2Icon,
+  ImageIcon,
+  XIcon,
+  DownloadIcon,
+  FigmaIcon,
+  GitBranchIcon,
+} from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
 import { useAction } from "convex/react";
 import { api } from "@/lib/convex-api";
@@ -27,11 +35,12 @@ import { PROJECT_TEMPLATES } from "../../constants";
 import type { OurFileRouter } from "@/lib/uploadthing";
 
 const formSchema = z.object({
-  value: z.string()
+  value: z
+    .string()
     .trim()
     .min(1, { message: "Please enter a message" })
     .max(10000, { message: "Message is too long" }),
-})
+});
 
 interface AttachmentData {
   url: string;
@@ -50,7 +59,9 @@ export const ProjectForm = () => {
     mode: "onTouched",
   });
 
-  const createProjectWithMessageAndAttachments = useAction(api.projects.createWithMessageAndAttachments);
+  const createProjectWithMessageAndAttachments = useAction(
+    api.projects.createWithMessageAndAttachments,
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [attachments, setAttachments] = useState<AttachmentData[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -60,13 +71,49 @@ export const ProjectForm = () => {
 
   // Model configurations matching backend
   const modelOptions = [
-    { id: "auto" as ModelId, name: "Auto", image: "/auto.svg", description: "Auto-selects the best model" },
-    { id: "anthropic/claude-haiku-4.5" as ModelId, name: "Claude Haiku 4.5", image: "/haiku.svg", description: "Fast and efficient" },
-    { id: "openai/gpt-5.1-codex" as ModelId, name: "GPT-5.1 Codex", image: "/openai.svg", description: "OpenAI's flagship model for complex tasks" },
-    { id: "moonshotai/kimi-k2-thinking" as ModelId, name: "Kimi K2 Thinking", image: "/kimi.svg", description: "Fast and efficient for speed-critical tasks" },
-    { id: "google/gemini-3-pro-preview" as ModelId, name: "Gemini 3 Pro", image: "/gemini.svg", description: "Specialized for coding tasks", isProOnly: true },
-    { id: "xai/grok-4-fast-reasoning" as ModelId, name: "Grok 4 Fast", image: "/grok.svg", description: "Experimental model from xAI" },
-    { id: "prime-intellect/intellect-3" as ModelId, name: "Intellect 3", image: "/intellect.svg", description: "Advanced reasoning model from Prime Intellect" },
+    {
+      id: "auto" as ModelId,
+      name: "Auto",
+      image: "/auto.svg",
+      description: "Auto-selects the best model",
+    },
+    {
+      id: "anthropic/claude-haiku-4.5" as ModelId,
+      name: "Claude Haiku 4.5",
+      image: "/haiku.svg",
+      description: "Fast and efficient",
+    },
+    {
+      id: "openai/gpt-5.1-codex" as ModelId,
+      name: "GPT-5.1 Codex",
+      image: "/openai.svg",
+      description: "OpenAI's flagship model for complex tasks",
+    },
+    {
+      id: "moonshotai/kimi-k2-thinking" as ModelId,
+      name: "Kimi K2 Thinking",
+      image: "/kimi.svg",
+      description: "Fast and efficient for speed-critical tasks",
+    },
+    {
+      id: "google/gemini-3-pro-preview" as ModelId,
+      name: "Gemini 3 Pro",
+      image: "/gemini.svg",
+      description: "Specialized for coding tasks",
+      isProOnly: true,
+    },
+    {
+      id: "xai/grok-4-fast-reasoning" as ModelId,
+      name: "Grok 4 Fast",
+      image: "/grok.svg",
+      description: "Experimental model from xAI",
+    },
+    {
+      id: "prime-intellect/intellect-3" as ModelId,
+      name: "Intellect 3",
+      image: "/intellect.svg",
+      description: "Advanced reasoning model from Prime Intellect",
+    },
   ];
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -95,11 +142,18 @@ export const ProjectForm = () => {
       if (error instanceof Error) {
         toast.error(error.message);
 
-        if (error.message.includes("Unauthenticated") || error.message.includes("Not authenticated")) {
-          router.push("/sign-in");
+        if (
+          error.message.includes("Unauthenticated") ||
+          error.message.includes("Not authenticated")
+        ) {
+          toast.error("Please sign in to continue");
+          // Don't redirect - the auth modal should be shown by the parent component
         }
 
-        if (error.message.includes("credits") || error.message.includes("out of credits")) {
+        if (
+          error.message.includes("credits") ||
+          error.message.includes("out of credits")
+        ) {
           router.push("/pricing");
         }
       } else {
@@ -177,7 +231,9 @@ export const ProjectForm = () => {
                       void form.trigger("value");
                       return;
                     }
-                    form.handleSubmit(onSubmit)(e).catch(() => null);
+                    form
+                      .handleSubmit(onSubmit)(e)
+                      .catch(() => null);
                   }
                 }}
               />
@@ -228,7 +284,8 @@ export const ProjectForm = () => {
                   setIsUploading(true);
                 }}
                 appearance={{
-                  button: "size-8 bg-transparent border-none p-0 hover:bg-transparent focus-within:ring-0 focus-within:ring-offset-0",
+                  button:
+                    "size-8 bg-transparent border-none p-0 hover:bg-transparent focus-within:ring-0 focus-within:ring-offset-0",
                   allowedContent: "hidden",
                 }}
                 content={{
@@ -239,7 +296,10 @@ export const ProjectForm = () => {
                   ),
                 }}
               />
-              <Popover open={isImportMenuOpen} onOpenChange={setIsImportMenuOpen}>
+              <Popover
+                open={isImportMenuOpen}
+                onOpenChange={setIsImportMenuOpen}
+              >
                 <PopoverTrigger asChild>
                   <Button
                     variant="ghost"
@@ -283,13 +343,28 @@ export const ProjectForm = () => {
                     title="Select AI Model"
                   >
                     {(() => {
-                      const selectedOption = modelOptions.find((opt) => opt.id === selectedModel);
+                      const selectedOption = modelOptions.find(
+                        (opt) => opt.id === selectedModel,
+                      );
                       const imageSrc = selectedOption?.image || "/auto.svg";
-                      return <Image src={imageSrc} alt="Model" width={16} height={16} className="size-4" unoptimized />;
+                      return (
+                        <Image
+                          src={imageSrc}
+                          alt="Model"
+                          width={16}
+                          height={16}
+                          className="size-4"
+                          unoptimized
+                        />
+                      );
                     })()}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-72 p-2" align="start" side="bottom">
+                <PopoverContent
+                  className="w-72 p-2"
+                  align="start"
+                  side="bottom"
+                >
                   <div className="flex flex-col gap-1">
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                       Select Model
@@ -298,7 +373,7 @@ export const ProjectForm = () => {
                       const isSelected = selectedModel === option.id;
                       // const isGemini = option.id === "google/gemini-3-pro-preview";
                       const isLocked = false; // Gemini 3 Pro restriction removed temporarily
-                      
+
                       return (
                         <button
                           key={option.id}
@@ -313,13 +388,22 @@ export const ProjectForm = () => {
                           className={cn(
                             "flex items-start gap-3 w-full px-3 py-2.5 rounded-md hover:bg-accent text-left transition-colors",
                             isSelected && "bg-accent",
-                            isLocked && "opacity-50 cursor-not-allowed"
+                            isLocked && "opacity-50 cursor-not-allowed",
                           )}
                         >
-                          <Image src={option.image} alt={option.name} width={16} height={16} className="size-4 mt-0.5 flex-shrink-0" unoptimized />
+                          <Image
+                            src={option.image}
+                            alt={option.name}
+                            width={16}
+                            height={16}
+                            className="size-4 mt-0.5 flex-shrink-0"
+                            unoptimized
+                          />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <div className="font-medium text-sm">{option.name}</div>
+                              <div className="font-medium text-sm">
+                                {option.name}
+                              </div>
                               {isLocked && (
                                 <span className="text-[10px] font-medium bg-muted px-1.5 py-0.5 rounded border">
                                   PRO
@@ -347,7 +431,7 @@ export const ProjectForm = () => {
               disabled={isButtonDisabled}
               className={cn(
                 "size-8 rounded-full",
-                isButtonDisabled && "bg-muted-foreground border"
+                isButtonDisabled && "bg-muted-foreground border",
               )}
               type="submit"
             >
@@ -361,7 +445,7 @@ export const ProjectForm = () => {
         </form>
         <div className="flex-wrap justify-center gap-2 hidden md:flex max-w-3xl">
           {PROJECT_TEMPLATES.map((template) => (
-            <Button 
+            <Button
               key={template.title}
               variant="outline"
               size="sm"

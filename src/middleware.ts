@@ -4,15 +4,34 @@ import {
   nextjsMiddlewareRedirect,
 } from "@convex-dev/auth/nextjs/server";
 
-const isSignInPage = createRouteMatcher(["/sign-in"]);
-const isPublicRoute = createRouteMatcher(["/", "/pricing"]);
+// Public routes that don't require authentication
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/pricing",
+  "/frameworks",
+  "/frameworks/(.*)",
+  "/solutions",
+  "/solutions/(.*)",
+  "/showcase",
+  "/ai-info",
+  "/api/(.*)", // API routes should handle their own auth
+]);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
-  if (isSignInPage(request) && (await convexAuth.isAuthenticated())) {
-    return nextjsMiddlewareRedirect(request, "/");
-  }
-  if (!isSignInPage(request) && !isPublicRoute(request) && !(await convexAuth.isAuthenticated())) {
-    return nextjsMiddlewareRedirect(request, "/sign-in");
+  // Redirect authenticated users away from dashboard if not authenticated
+  // All other routes are public or handle their own auth
+  const isAuthenticatedUser = await convexAuth.isAuthenticated();
+
+  // Protected routes that require authentication
+  if (
+    request.nextUrl.pathname.startsWith("/dashboard") ||
+    request.nextUrl.pathname.startsWith("/projects") ||
+    request.nextUrl.pathname.startsWith("/import")
+  ) {
+    if (!isAuthenticatedUser) {
+      // Redirect to home page where auth modal can be shown
+      return nextjsMiddlewareRedirect(request, "/");
+    }
   }
 });
 
