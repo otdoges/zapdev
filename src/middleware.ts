@@ -1,36 +1,23 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import {
+  convexAuthNextjsMiddleware,
+  createRouteMatcher,
+  nextjsMiddlewareRedirect,
+} from "@convex-dev/auth/nextjs/server";
 
-// Public routes that don't require authentication
-const publicRoutes = [
-  '/',
-  '/handler', // Stack Auth handler
-  '/pricing',
-];
+const isSignInPage = createRouteMatcher(["/sign-in"]);
+const isPublicRoute = createRouteMatcher(["/", "/pricing"]);
 
-// Check if route is public
-function isPublicRoute(pathname: string): boolean {
-  return publicRoutes.some(route =>
-    pathname === route || pathname.startsWith(`${route}/`)
-  );
-}
-
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Allow all API routes and public routes
-  if (pathname.startsWith('/api') || isPublicRoute(pathname)) {
-    return NextResponse.next();
+export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+  if (isSignInPage(request) && (await convexAuth.isAuthenticated())) {
+    return nextjsMiddlewareRedirect(request, "/");
   }
-
-  // For protected routes, Stack Auth handles the authentication check
-  // at the component/page level using the useUser hook
-  return NextResponse.next();
-}
+  if (!isSignInPage(request) && !isPublicRoute(request) && !(await convexAuth.isAuthenticated())) {
+    return nextjsMiddlewareRedirect(request, "/sign-in");
+  }
+});
 
 export const config = {
-  matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    '/(api|trpc)(.*)',
-  ],
+  // The following matcher runs middleware on all routes
+  // except static assets.
+  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
 };

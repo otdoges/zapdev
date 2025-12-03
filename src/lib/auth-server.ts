@@ -1,4 +1,6 @@
-import { fetchQuery, fetchMutation } from "convex/nextjs";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
+import type { FunctionReference, FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 
 /**
@@ -9,9 +11,14 @@ import { api } from "@/convex/_generated/api";
  */
 export async function getUser() {
   try {
+    const token = await convexAuthNextjsToken();
+    const options = token ? { token } : undefined;
+
     // Try to fetch current user through Convex
     // This relies on the auth cookie being present
-    const user = await fetchQuery(api.users.getCurrentUser);
+    const user = options
+      ? await fetchQuery(api.users.getCurrentUser, {}, options)
+      : await fetchQuery(api.users.getCurrentUser);
     if (!user) return null;
     
     return {
@@ -35,6 +42,8 @@ export async function getUser() {
  */
 export async function getToken() {
   try {
+    const token = await convexAuthNextjsToken();
+    if (token) return token;
     const user = await getUser();
     return user ? "authenticated" : null;
   } catch (error) {
@@ -73,4 +82,64 @@ export async function fetchMutationWithAuth<T>(
   args: any = {}
 ): Promise<T> {
   return fetchMutation(mutation, args);
+}
+
+type ArgsOf<Func extends FunctionReference<any>> =
+  Func["_args"] extends undefined ? Record<string, never> : Func["_args"];
+
+type ConvexClientWithAuth = {
+  query<Query extends FunctionReference<"query">>(
+    query: Query,
+    args?: ArgsOf<Query>
+  ): Promise<FunctionReturnType<Query>>;
+  mutation<Mutation extends FunctionReference<"mutation">>(
+    mutation: Mutation,
+    args?: ArgsOf<Mutation>
+  ): Promise<FunctionReturnType<Mutation>>;
+  action<Action extends FunctionReference<"action">>(
+    action: Action,
+    args?: ArgsOf<Action>
+  ): Promise<FunctionReturnType<Action>>;
+};
+
+/**
+ * Create a minimal Convex client that forwards the authenticated token
+ * from Convex Auth cookies when calling queries, mutations, or actions.
+ * Use this in API routes and server components that need to talk to Convex.
+ */
+export async function getConvexClientWithAuth(): Promise<ConvexClientWithAuth> {
+  const token = await convexAuthNextjsToken();
+  const options = token ? { token } : undefined;
+
+  const client: ConvexClientWithAuth = {
+    query: async <Query extends FunctionReference<"query">>(
+      query: Query,
+      args?: ArgsOf<Query>
+    ) => {
+      const normalizedArgs = (args ?? {}) as ArgsOf<Query>;
+      return options
+        ? await fetchQuery(query, normalizedArgs, options)
+        : await fetchQuery(query, normalizedArgs);
+    },
+    mutation: async <Mutation extends FunctionReference<"mutation">>(
+      mutation: Mutation,
+      args?: ArgsOf<Mutation>
+    ) => {
+      const normalizedArgs = (args ?? {}) as ArgsOf<Mutation>;
+      return options
+        ? await fetchMutation(mutation, normalizedArgs, options)
+        : await fetchMutation(mutation, normalizedArgs);
+    },
+    action: async <Action extends FunctionReference<"action">>(
+      action: Action,
+      args?: ArgsOf<Action>
+    ) => {
+      const normalizedArgs = (args ?? {}) as ArgsOf<Action>;
+      return options
+        ? await fetchAction(action, normalizedArgs, options)
+        : await fetchAction(action, normalizedArgs);
+    },
+  };
+
+  return client;
 }
