@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SignIn, SignUp } from "@stackframe/stack";
-import { useUser } from "@stackframe/stack";
+import { useUser } from "@/lib/auth-client";
+import { SignInForm } from "@/components/auth/sign-in-form";
 import {
   Dialog,
   DialogContent,
@@ -26,9 +26,7 @@ export function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
   useEffect(() => {
     if (!previousUser && user) {
       // User just signed in
-      toast.success("Welcome back!", {
-        description: `Signed in as ${user.displayName || user.primaryEmail}`,
-      });
+      toast.success("Welcome back!");
       onClose();
     }
     setPreviousUser(user);
@@ -48,7 +46,7 @@ export function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4">
-          {mode === "signin" ? <SignIn /> : <SignUp />}
+          <SignInForm />
         </div>
       </DialogContent>
     </Dialog>

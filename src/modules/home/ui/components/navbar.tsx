@@ -8,7 +8,7 @@ import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
 import { AuthModal } from "@/components/auth-modal";
-import { useUser } from "@stackframe/stack";
+import { useUser } from "@/lib/auth-client";
 import {
   NavigationMenu,
   NavigationMenuItem,

@@ -1,44 +1,22 @@
 "use client";
 
-import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { useStackApp } from "@stackframe/stack";
-import { useMemo } from "react";
+import { ConvexReactClient } from "convex/react";
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 
-let convexClient: ConvexReactClient | null = null;
-
-function getConvexClient(stackApp: any) {
-  if (!convexClient) {
+export function ConvexClientProvider({ children }: { children: ReactNode }) {
+  const convex = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_CONVEX_URL;
     if (!url) {
       throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
     }
-    convexClient = new ConvexReactClient(url, {
-      // Optionally pause queries until the user is authenticated
-      // Set to false if you have public routes
-      expectAuth: false,
-    });
-    // Set up Stack Auth for Convex
-    // IMPORTANT: Must include tokenStore parameter for JWT authentication
-    convexClient.setAuth(stackApp.getConvexClientAuth({ tokenStore: "nextjs-cookie" }));
-  }
-  return convexClient;
-}
+    return new ConvexReactClient(url);
+  }, []);
 
-export function ConvexClientProvider({ children }: { children: ReactNode }) {
-  const stackApp = useStackApp();
-  
-  const convex = useMemo(() => {
-    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-    if (!url) {
-      if (typeof window === "undefined") {
-        return new ConvexReactClient("https://placeholder.convex.cloud");
-      }
-      console.error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
-      return new ConvexReactClient("https://placeholder.convex.cloud");
-    }
-    return getConvexClient(stackApp);
-  }, [stackApp]);
-
-  return <ConvexProvider client={convex}>{children}</ConvexProvider>;
+  return (
+    <ConvexAuthProvider client={convex}>
+      {children}
+    </ConvexAuthProvider>
+  );
 }

@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
 
 // Enum type definitions using unions of literals
 export const frameworkEnum = v.union(
@@ -64,6 +65,9 @@ export const sandboxStateEnum = v.union(
 );
 
 export default defineSchema({
+  // Auth tables from Convex Auth
+  ...authTables,
+  
   // Projects table
   projects: defineTable({
     name: v.string(),

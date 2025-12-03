@@ -1,16 +1,15 @@
 import { QueryCtx, MutationCtx } from "./_generated/server";
 
 /**
- * Get the current authenticated user's ID from Stack Auth
- * Stack Auth automatically sets ctx.auth when a user is authenticated
+ * Get the current authenticated user's ID from Convex Auth
+ * Convex Auth automatically sets ctx.auth when a user is authenticated
  */
 export async function getCurrentUserId(
   ctx: QueryCtx | MutationCtx
 ): Promise<string | null> {
   // Get user ID from Convex auth context
-  // Convex's auth system provides the subject (user ID) via ctx.auth
-  const identity = await ctx.auth.getUserIdentity();
-  return identity?.subject || null;
+  // Returns the user's unique ID from the auth system
+  return (await ctx.auth.getUserIdentity())?.tokenIdentifier ?? null;
 }
 
 /**
@@ -65,11 +64,18 @@ export async function hasProAccess(
 }
 
 /**
- * Legacy compatibility: Get user ID (now just returns Stack Auth user ID)
+ * Legacy compatibility: Get user ID (now just returns Convex Auth user ID)
  * @deprecated Use getCurrentUserId instead
  */
 export async function getCurrentUserClerkId(
   ctx: QueryCtx | MutationCtx
 ): Promise<string | null> {
   return getCurrentUserId(ctx);
+}
+
+/**
+ * Get the current authenticated user's data from Convex Auth
+ */
+export async function getCurrentUser(ctx: QueryCtx | MutationCtx) {
+  return await ctx.auth.getUserIdentity();
 }

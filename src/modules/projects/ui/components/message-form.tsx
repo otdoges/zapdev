@@ -9,7 +9,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import { ArrowUpIcon, Loader2Icon, ImageIcon, XIcon, DownloadIcon, GitBranchIcon, FigmaIcon, SparklesIcon } from "lucide-react";
 import { UploadButton } from "@uploadthing/react";
 import { useQuery, useAction } from "convex/react";
-import { useUser } from "@stackframe/stack";
+import { useUser } from "@/lib/auth-client";
 import { api } from "@/lib/convex-api";
 import type { ModelId } from "@/inngest/functions";
 

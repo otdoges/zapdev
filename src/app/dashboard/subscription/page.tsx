@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useUser } from "@stackframe/stack";
+import { useUser } from "@/lib/auth-client";
 import { format } from "date-fns";
 import {
   Card,

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { Suspense, useMemo, useState } from "react";
 import { EyeIcon, CodeIcon, CrownIcon } from "lucide-react";
 import { useQuery } from "convex/react";
-import { useUser } from "@stackframe/stack";
+import { useUser } from "@/lib/auth-client";
 import { api } from "@/convex/_generated/api";
 
 import { Button } from "@/components/ui/button";

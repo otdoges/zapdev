@@ -1,13 +1,28 @@
-import { ConvexHttpClient } from "convex/browser";
-import { stackServerApp } from "@/stack";
+import { fetchQuery, fetchMutation } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 
 /**
- * Get the authenticated user from Stack Auth
+ * Get the authenticated user from Convex Auth (server-side)
+ * This should be called from Server Components or API routes
+ * Note: With Convex Auth, authentication is primarily client-side
+ * For server-side API routes, users should be verified through Convex queries
  */
 export async function getUser() {
   try {
-    const user = await stackServerApp.getUser();
-    return user;
+    // Try to fetch current user through Convex
+    // This relies on the auth cookie being present
+    const user = await fetchQuery(api.users.getCurrentUser);
+    if (!user) return null;
+    
+    return {
+      id: user.tokenIdentifier,
+      email: user.email,
+      name: user.name,
+      image: user.image,
+      // Compatibility properties
+      primaryEmail: user.email,
+      displayName: user.name,
+    };
   } catch (error) {
     console.error("Failed to get user:", error);
     return null;
@@ -16,13 +31,11 @@ export async function getUser() {
 
 /**
  * Get the authentication token for Convex
- * Stack Auth handles token management automatically for Convex through setAuth
+ * Returns the token if user is authenticated
  */
 export async function getToken() {
   try {
-    const user = await stackServerApp.getUser();
-    // When user exists, they are authenticated
-    // For Convex, use stackServerApp's built-in auth integration
+    const user = await getUser();
     return user ? "authenticated" : null;
   } catch (error) {
     console.error("Failed to get token:", error);
@@ -32,7 +45,7 @@ export async function getToken() {
 
 /**
  * Get auth headers for API calls
- * Stack Auth handles this automatically, this is for manual use if needed
+ * Convex Auth handles this automatically, this is for manual use if needed
  */
 export async function getAuthHeaders() {
   const user = await getUser();
@@ -41,23 +54,23 @@ export async function getAuthHeaders() {
 }
 
 /**
- * Create a Convex HTTP client with Stack Auth authentication
- * Use this in API routes that need to call Convex
+ * Fetch a Convex query with authentication
+ * Use this in Server Components or API routes
  */
-export async function getConvexClientWithAuth() {
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!convexUrl) {
-    throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
-  }
+export async function fetchQueryWithAuth<T>(
+  query: any,
+  args: any = {}
+): Promise<T> {
+  return fetchQuery(query, args);
+}
 
-  const httpClient = new ConvexHttpClient(convexUrl);
-
-  // Set up Stack Auth for the Convex client
-  const authInfo = await stackServerApp.getConvexHttpClientAuth({
-    tokenStore: "nextjs-cookie",
-  });
-
-  httpClient.setAuth(authInfo);
-
-  return httpClient;
+/**
+ * Fetch a Convex mutation with authentication
+ * Use this in Server Components or API routes  
+ */
+export async function fetchMutationWithAuth<T>(
+  mutation: any,
+  args: any = {}
+): Promise<T> {
+  return fetchMutation(mutation, args);
 }
