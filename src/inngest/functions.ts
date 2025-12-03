@@ -6,7 +6,6 @@ import {
   createAgent,
   createTool,
   createNetwork,
-  createStepWrapper,
   type Tool,
   type Message,
   createState,
@@ -50,7 +49,7 @@ import {
 } from "@/prompt";
 
 import { inngest } from "./client";
-import { SANDBOX_TIMEOUT, type Framework, type AgentState } from "./types";
+import { type Framework, type AgentState } from "./types";
 import {
   getSandbox,
   lastAssistantTextMessageContent,
@@ -296,11 +295,12 @@ async function createImageMessages(screenshots: string[]): Promise<Message[]> {
   for (const screenshotUrl of screenshots) {
     try {
       // For URL-based images (OpenAI and Gemini support this)
-      imageMessages.push({
+      const imageMessage: Message = {
         type: "image",
         role: "user",
         content: screenshotUrl,
-      } as any);
+      };
+      imageMessages.push(imageMessage);
     } catch (error) {
       console.error(
         `[ERROR] Failed to create image message for ${screenshotUrl}:`,
@@ -458,28 +458,30 @@ const runLintCheck = async (sandboxId: string): Promise<string | null> => {
     // E2B SDK throws CommandExitError when command exits with non-zero status
     // We need to handle this and extract the output that was captured before the error
     const output = buffers.stdout + buffers.stderr;
-    
+
     console.error("[DEBUG] Lint check failed with exception:", error);
-    
+
     // If we have output from lint, check if it contains actual errors
     if (output.trim()) {
       console.log("[DEBUG] Lint output before exception:\n", output);
-      
+
       // Check if output contains actual error indicators (not just warnings)
       if (/error|✖/i.test(output)) {
         console.log("[DEBUG] Lint check found ERRORS in exception output");
         return output;
       }
-      
+
       // Also check for any pattern match indicating a problem
       if (AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(output))) {
         console.log("[DEBUG] Lint check found issues in exception output");
         return output;
       }
     }
-    
+
     // Don't fail the entire process if lint check fails with no clear errors
-    console.warn("[WARN] Lint check threw exception but no clear errors found, continuing");
+    console.warn(
+      "[WARN] Lint check threw exception but no clear errors found, continuing",
+    );
     return null;
   }
 };
@@ -539,7 +541,7 @@ const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
     // E2B SDK throws CommandExitError when command exits with non-zero status
     // We need to handle this and extract the output that was captured before the error
     const output = buffers.stdout + buffers.stderr;
-    
+
     console.error("[DEBUG] Build check failed with exception:", error);
     if (error instanceof Error && error.stack) {
       console.error("[DEBUG] Stack trace:", error.stack);
@@ -548,12 +550,12 @@ const runBuildCheck = async (sandboxId: string): Promise<string | null> => {
     // If we have output from the build, use it (this is the actual error)
     if (output.trim()) {
       console.log("[DEBUG] Build output before exception:\n", output);
-      
+
       // Check if output contains error patterns
       if (AUTO_FIX_ERROR_PATTERNS.some((pattern) => pattern.test(output))) {
         return `Build failed with errors:\n${output}`;
       }
-      
+
       return `Build failed:\n${output}`;
     }
 
@@ -620,13 +622,15 @@ const getFrameworkPrompt = (framework: Framework): string => {
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const MAX_FILE_COUNT = 500;
 const MAX_SCREENSHOTS = 20;
-const FILE_READ_BATCH_SIZE = 10;
 const FILE_READ_TIMEOUT_MS = 3000; // Reduced from 5000 to 3000ms for faster failure detection
 const BUILD_TIMEOUT_MS = 120000; // 2 minutes for build operations (increased from 60s)
 const INNGEST_STEP_OUTPUT_SIZE_LIMIT = 1024 * 1024;
 const FILES_PER_STEP_BATCH = 50;
 
 const ALLOWED_WORKSPACE_PATHS = ["/home/user", "."];
+type SandboxWithHost = Sandbox & {
+  getHost?: (port: number) => string | undefined;
+};
 
 const escapeShellPattern = (pattern: string): string => {
   return pattern.replace(/'/g, "'\"'\"'");
@@ -976,13 +980,6 @@ export const codeAgentFunction = inngest.createFunction(
       });
     });
 
-    // Get user usage to check for plan type
-    const usage = await step.run("get-user-usage", async () => {
-      return await convex.query(api.usage.getUsageForUser, {
-        userId: project.userId,
-      });
-    });
-
     let selectedFramework: Framework =
       (project?.framework?.toLowerCase() as Framework) || "nextjs";
 
@@ -1077,7 +1074,7 @@ export const codeAgentFunction = inngest.createFunction(
     //   validatedModel = "auto";
     // }
 
-    let selectedModel: keyof typeof MODEL_CONFIGS =
+    const selectedModel: keyof typeof MODEL_CONFIGS =
       validatedModel === "auto"
         ? selectModelForTask(event.data.value, selectedFramework)
         : (validatedModel as keyof typeof MODEL_CONFIGS);
@@ -1202,7 +1199,7 @@ export const codeAgentFunction = inngest.createFunction(
           // Try framework-specific template first
           try {
             return await createSandboxWithRetry(template, 3);
-          } catch (templateError) {
+          } catch {
             // Fallback to default zapdev template if framework-specific doesn't exist
             console.log(
               "[DEBUG] Framework template not found, using default 'zapdev' template",
@@ -1299,26 +1296,33 @@ export const codeAgentFunction = inngest.createFunction(
             });
 
             // Add image attachments if present
-            if (message.Attachment && Array.isArray(message.Attachment) && message.Attachment.length > 0) {
+            if (
+              message.Attachment &&
+              Array.isArray(message.Attachment) &&
+              message.Attachment.length > 0
+            ) {
               const imageAttachments = message.Attachment.filter(
-                (att) => att.type === "IMAGE"
+                (att) => att.type === "IMAGE",
               );
 
               if (imageAttachments.length > 0) {
                 console.log(
-                  `[DEBUG] Found ${imageAttachments.length} image attachment(s) for message ${message._id}`
+                  `[DEBUG] Found ${imageAttachments.length} image attachment(s) for message ${message._id}`,
                 );
 
                 const imageUrls = imageAttachments
                   .map((att) => att.url)
-                  .filter((url): url is string => typeof url === "string" && url.length > 0);
+                  .filter(
+                    (url): url is string =>
+                      typeof url === "string" && url.length > 0,
+                  );
 
                 // Convert image URLs to AI-compatible image messages
                 const imageMessages = await createImageMessages(imageUrls);
                 formattedMessages.push(...imageMessages);
 
                 console.log(
-                  `[DEBUG] Added ${imageMessages.length} image message(s) to context`
+                  `[DEBUG] Added ${imageMessages.length} image message(s) to context`,
                 );
               }
             }
@@ -1887,7 +1891,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       // Ensure the dev server is running before returning the URL
-      let sandbox;
+      let sandbox: Sandbox | null = null;
       try {
         sandbox = await getSandbox(sandboxId);
         await ensureDevServerRunning(sandbox, selectedFramework);
@@ -1902,12 +1906,17 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       // Prefer E2B SDK helper when available so we follow their host format
       try {
         const port = getFrameworkPort(selectedFramework);
+        const sandboxWithHost = sandbox as SandboxWithHost | null;
         const maybeHost =
-          sandbox && typeof (sandbox as any).getHost === "function"
-            ? (sandbox as any).getHost(port)
+          sandboxWithHost && typeof sandboxWithHost.getHost === "function"
+            ? sandboxWithHost.getHost?.(port)
             : undefined;
 
-        if (maybeHost && typeof maybeHost === "string" && maybeHost.length > 0) {
+        if (
+          maybeHost &&
+          typeof maybeHost === "string" &&
+          maybeHost.length > 0
+        ) {
           const host = maybeHost.startsWith("http")
             ? maybeHost
             : `https://${maybeHost}`;
@@ -1936,9 +1945,9 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         // 1) stay on the Vercel AI gateway and
         // 2) avoid unsupported Gemini endpoints returning 405.
         const metadataModelId =
-          (selectedModel in MODEL_CONFIGS
+          selectedModel in MODEL_CONFIGS
             ? selectedModel
-            : ("anthropic/claude-haiku-4.5" as keyof typeof MODEL_CONFIGS));
+            : ("anthropic/claude-haiku-4.5" as keyof typeof MODEL_CONFIGS);
 
         let titleModel;
         try {
@@ -2024,7 +2033,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
     });
 
     let filePathsList: string[] = [];
-    let sandboxFiles: Record<string, string> = {};
+    const sandboxFiles: Record<string, string> = {};
 
     if (!isError && mode === "safe") {
       filePathsList = await step.run("find-sandbox-files", async () => {
@@ -2172,9 +2181,7 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
         console.log(
           `[DEBUG] Agent files overwriting ${overwrittenFiles.length} sandbox files: ${overwrittenFiles
             .slice(0, 5)
-            .join(", ")}${
-            overwrittenFiles.length > 5 ? "..." : ""
-          }`,
+            .join(", ")}${overwrittenFiles.length > 5 ? "..." : ""}`,
         );
       }
 
@@ -2254,9 +2261,10 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       if (isError) {
         // Provide more specific error messages based on the failure reasons
         let errorMessage = "Something went wrong. ";
-        
+
         if (!hasFiles && !hasSummary) {
-          errorMessage = "I wasn't able to generate any code for your request. This could be due to:\n\n" +
+          errorMessage =
+            "I wasn't able to generate any code for your request. This could be due to:\n\n" +
             "• The request was unclear or too complex\n" +
             "• A temporary issue with the AI model\n" +
             "• The dev server failed to start\n\n" +
@@ -2265,11 +2273,13 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
             "• Breaking complex requests into smaller steps\n" +
             "• Trying again in a moment";
         } else if (!hasFiles) {
-          errorMessage = "I understood your request but couldn't generate the code files. Please try again or rephrase your request.";
+          errorMessage =
+            "I understood your request but couldn't generate the code files. Please try again or rephrase your request.";
         } else if (agentReportedError) {
-          errorMessage = "I encountered an error while generating code. The AI agent reported issues. Please try again.";
+          errorMessage =
+            "I encountered an error while generating code. The AI agent reported issues. Please try again.";
         }
-        
+
         const errorContent = sanitizeTextForDatabase(errorMessage);
         const messageContent =
           errorContent.length > 0
@@ -2297,8 +2307,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const warningsNote =
         warningReasons.length > 0
           ? sanitizeTextForDatabase(
-            `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
-          )
+              `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
+            )
           : "";
       const responseContent = sanitizeTextForDatabase(
         `${baseResponseContent}${warningsNote}`,
@@ -2419,7 +2429,7 @@ export const sandboxTransferFunction = inngest.createFunction(
     const framework = (fragment.framework?.toLowerCase() ||
       "nextjs") as Framework;
 
-    const sandbox = await step.run("resume-sandbox", async () => {
+    await step.run("resume-sandbox", async () => {
       try {
         console.log("[DEBUG] Connecting to sandbox to resume:", sandboxId);
         const connection = await getSandbox(sandboxId);
@@ -2433,7 +2443,7 @@ export const sandboxTransferFunction = inngest.createFunction(
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       // Ensure the dev server is running before returning the URL
-      let sandboxInstance;
+      let sandboxInstance: Sandbox | null = null;
       try {
         sandboxInstance = await getSandbox(sandboxId);
         await ensureDevServerRunning(sandboxInstance, framework);
@@ -2449,12 +2459,17 @@ export const sandboxTransferFunction = inngest.createFunction(
       // Prefer E2B SDK helper when available so we follow their host format
       try {
         const port = getFrameworkPort(framework);
+        const sandboxWithHost = sandboxInstance as SandboxWithHost | null;
         const maybeHost =
-          sandboxInstance && typeof (sandboxInstance as any).getHost === "function"
-            ? (sandboxInstance as any).getHost(port)
+          sandboxWithHost && typeof sandboxWithHost.getHost === "function"
+            ? sandboxWithHost.getHost?.(port)
             : undefined;
 
-        if (maybeHost && typeof maybeHost === "string" && maybeHost.length > 0) {
+        if (
+          maybeHost &&
+          typeof maybeHost === "string" &&
+          maybeHost.length > 0
+        ) {
           const host = maybeHost.startsWith("http")
             ? maybeHost
             : `https://${maybeHost}`;
@@ -2844,14 +2859,14 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           backupMetadata ?? initialMetadata;
         const metadataUpdate = supportsMetadata
           ? {
-            ...baseMetadata,
-            previousFiles: originalFiles,
-            fixedAt: new Date().toISOString(),
-            lastFixSuccess: {
-              summary: result.state.data.summary,
-              occurredAt: new Date().toISOString(),
-            },
-          }
+              ...baseMetadata,
+              previousFiles: originalFiles,
+              fixedAt: new Date().toISOString(),
+              lastFixSuccess: {
+                summary: result.state.data.summary,
+                occurredAt: new Date().toISOString(),
+              },
+            }
           : undefined;
 
         return await convex.mutation(api.messages.createFragmentForUser, {
