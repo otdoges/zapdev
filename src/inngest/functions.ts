@@ -294,11 +294,13 @@ async function createImageMessages(screenshots: string[]): Promise<Message[]> {
 
   for (const screenshotUrl of screenshots) {
     try {
-      // For URL-based images (OpenAI and Gemini support this)
+      // Represent screenshot as a text message containing the image URL.
+      // The agent/tooling layer currently supports only text/tool_* messages,
+      // so we encode the image as a markdown link the model can fetch.
       const imageMessage: Message = {
-        type: "image",
+        type: "text",
         role: "user",
-        content: screenshotUrl,
+        content: `Screenshot: ${screenshotUrl}`,
       };
       imageMessages.push(imageMessage);
     } catch (error) {
