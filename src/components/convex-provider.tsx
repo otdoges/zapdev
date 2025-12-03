@@ -11,7 +11,11 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
     if (!url) {
       throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is not set");
     }
-    return new ConvexReactClient(url);
+    const client = new ConvexReactClient(url);
+
+    // Enable automatic re-rendering on auth state changes
+    // This ensures components using useConvexAuth() re-render when auth status changes
+    return client;
   }, []);
 
   return (
