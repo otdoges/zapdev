@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as billing from "../billing.js";
 import type * as e2bRateLimits from "../e2bRateLimits.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
@@ -21,7 +22,6 @@ import type * as projects from "../projects.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as sandboxSessions from "../sandboxSessions.js";
 import type * as specs from "../specs.js";
-import type * as subscriptions from "../subscriptions.js";
 import type * as usage from "../usage.js";
 import type * as users from "../users.js";
 
@@ -33,6 +33,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  billing: typeof billing;
   e2bRateLimits: typeof e2bRateLimits;
   helpers: typeof helpers;
   http: typeof http;
@@ -45,7 +46,6 @@ declare const fullApi: ApiFromModules<{
   rateLimit: typeof rateLimit;
   sandboxSessions: typeof sandboxSessions;
   specs: typeof specs;
-  subscriptions: typeof subscriptions;
   usage: typeof usage;
   users: typeof users;
 }>;

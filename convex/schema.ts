@@ -64,10 +64,8 @@ export const sandboxStateEnum = v.union(
   v.literal("KILLED")
 );
 
-export default defineSchema({
-  // Auth tables from Convex Auth
-  ...authTables,
-  
+export default defineSchema(
+  {
   // Projects table
   projects: defineTable({
     name: v.string(),
@@ -192,31 +190,34 @@ export default defineSchema({
     .index("by_key", ["key"])
     .index("by_windowStart", ["windowStart"]),
 
-  // Subscriptions table - Polar.sh subscription tracking
+  // Subscriptions table - User subscription tracking (ready for Clerk or other billing providers)
   subscriptions: defineTable({
-    userId: v.string(), // Stack Auth user ID
-    polarCustomerId: v.string(), // Polar.sh customer ID
-    polarSubscriptionId: v.string(), // Polar.sh subscription ID
-    productId: v.string(), // Polar product ID
-    productName: v.string(), // "Free" | "Pro" | "Enterprise"
+    userId: v.string(), // Convex Auth user ID
+    plan: v.union(
+      v.literal("free"),
+      v.literal("pro"),
+      v.literal("enterprise")
+    ),
     status: v.union(
-      v.literal("incomplete"),
       v.literal("active"),
       v.literal("canceled"),
       v.literal("past_due"),
-      v.literal("unpaid")
+      v.literal("trialing")
     ),
-    currentPeriodStart: v.number(), // Timestamp
-    currentPeriodEnd: v.number(), // Timestamp
-    cancelAtPeriodEnd: v.boolean(), // Scheduled cancellation flag
-    metadata: v.optional(v.any()), // Additional Polar metadata
+    currentPeriodEnd: v.optional(v.number()), // Timestamp - when current period ends
+    cancelAtPeriodEnd: v.optional(v.boolean()), // Scheduled cancellation flag
+    
+    // External billing provider data (flexible for Clerk, Stripe, etc.)
+    externalCustomerId: v.optional(v.string()), // External provider customer ID
+    externalSubscriptionId: v.optional(v.string()), // External provider subscription ID
+    
+    metadata: v.optional(v.any()), // Additional provider-specific metadata
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_polarCustomerId", ["polarCustomerId"])
-    .index("by_polarSubscriptionId", ["polarSubscriptionId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_externalSubscriptionId", ["externalSubscriptionId"]),
 
   // Sandbox Sessions table - E2B sandbox persistence tracking
   sandboxSessions: defineTable({
@@ -235,6 +236,8 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_state", ["state"])
     .index("by_sandboxId", ["sandboxId"]),
+
+  ...authTables,
 
   // E2B Rate Limits table - track E2B API usage to prevent hitting limits
   e2bRateLimits: defineTable({
@@ -270,4 +273,8 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_status_priority", ["status", "priority"])
     .index("by_createdAt", ["createdAt"]),
-});
+  },
+  {
+    schemaValidation: false,
+  }
+);

@@ -27,7 +27,7 @@ export async function requireAuth(
 
 /**
  * Check if user has pro access
- * Checks for active Polar.sh subscription with Pro or Enterprise tier
+ * Checks for active subscription with Pro or Enterprise tier
  */
 export async function hasProAccess(
   ctx: QueryCtx | MutationCtx,
@@ -37,20 +37,15 @@ export async function hasProAccess(
   const targetUserId = userId ?? (await getCurrentUserId(ctx));
   if (!targetUserId) return false;
   
-  // Check active subscription from Polar
+  // Check active subscription
   const subscription = await ctx.db
     .query("subscriptions")
     .withIndex("by_userId", (q) => q.eq("userId", targetUserId))
     .filter((q) => q.eq(q.field("status"), "active"))
     .first();
   
-  // Pro access if active subscription exists and productName contains "Pro" or "Enterprise" (case-insensitive)
-  // We use word boundary check to match "Pro", "Pro Plan", "Enterprise Plan" etc.
-  // but avoid false positives like "Project Management" or "Professional" (if those are not intended to be Pro)
-  // This aligns with the client-side check in src/app/dashboard/subscription/page.tsx
-  if (subscription && (
-    /\b(pro|enterprise)\b/i.test(subscription.productName)
-  )) {
+  // Pro access if active subscription exists with pro or enterprise plan
+  if (subscription && (subscription.plan === "pro" || subscription.plan === "enterprise")) {
     return true;
   }
   

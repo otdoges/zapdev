@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import Script from "next/script";
-import { ClerkProvider } from "@clerk/nextjs";
 
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
@@ -105,57 +104,55 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
-        <head>
-          {process.env.NODE_ENV === "development" && (
-            <Script
-              src="//unpkg.com/react-grab/dist/index.global.js"
-              crossOrigin="anonymous"
-              strategy="beforeInteractive"
-            />
-          )}
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {process.env.NODE_ENV === "development" && (
           <Script
-            id="ld-json-schema"
-            type="application/ld+json"
-            strategy="afterInteractive"
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                "@context": "https://schema.org",
-                "@type": "Organization",
-                name: "Zapdev",
-                url: "https://zapdev.link",
-                logo: "https://zapdev.link/logo.png",
-                description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
-                contactPoint: {
-                  "@type": "ContactPoint",
-                  contactType: "sales",
-                  availableLanguage: "English"
-                },
-                sameAs: [
-                  "https://twitter.com/zapdev",
-                  "https://linkedin.com/company/zapdev"
-                ]
-              }),
-            }}
+            src="//unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
           />
-        </head>
-        <body className="antialiased">
-          <ConvexClientProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              <Toaster />
-              <WebVitalsReporter />
-              {children}
-            </ThemeProvider>
-          </ConvexClientProvider>
-        </body>
-        <SpeedInsights />
-      </html>
-    </ClerkProvider>
+        )}
+        <Script
+          id="ld-json-schema"
+          type="application/ld+json"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "Zapdev",
+              url: "https://zapdev.link",
+              logo: "https://zapdev.link/logo.png",
+              description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
+              contactPoint: {
+                "@type": "ContactPoint",
+                contactType: "sales",
+                availableLanguage: "English"
+              },
+              sameAs: [
+                "https://twitter.com/zapdev",
+                "https://linkedin.com/company/zapdev"
+              ]
+            }),
+          }}
+        />
+      </head>
+      <body className="antialiased">
+        <ConvexClientProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <Toaster />
+            <WebVitalsReporter />
+            {children}
+          </ThemeProvider>
+        </ConvexClientProvider>
+      </body>
+      <SpeedInsights />
+    </html>
   );
 };
