@@ -1,13 +1,12 @@
- "use client";
+"use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
-import { AuthModal } from "@/components/auth-modal";
 import { useUser } from "@/lib/auth-client";
 import {
   NavigationMenu,
@@ -28,13 +27,6 @@ import { CalendarCheckIcon, MailIcon } from "lucide-react";
 export const Navbar = () => {
   const isScrolled = useScroll();
   const user = useUser();
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-
-  const openAuthModal = (mode: "signin" | "signup") => {
-    setAuthMode(mode);
-    setAuthModalOpen(true);
-  };
 
   return (
     <>
@@ -95,19 +87,24 @@ export const Navbar = () => {
             </DropdownMenu>
             {!user ? (
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openAuthModal("signup")}
+                <SignUpButton
+                  mode="modal"
+                  afterSignUpUrl="/projects"
+                  redirectUrl="/projects"
                 >
-                  Sign up
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => openAuthModal("signin")}
+                  <Button variant="outline" size="sm">
+                    Sign up
+                  </Button>
+                </SignUpButton>
+                <SignInButton
+                  mode="modal"
+                  afterSignInUrl="/projects"
+                  redirectUrl="/projects"
                 >
-                  Sign in
-                </Button>
+                  <Button size="sm">
+                    Sign in
+                  </Button>
+                </SignInButton>
               </div>
             ) : (
               <UserControl showName />
@@ -115,12 +112,6 @@ export const Navbar = () => {
           </div>
         </div>
       </nav>
-      
-      <AuthModal 
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        mode={authMode}
-      />
     </>
   );
 };
