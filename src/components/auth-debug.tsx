@@ -1,7 +1,7 @@
 "use client";
 
 import { useConvexAuth } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { useUser } from "@/lib/auth-client";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -16,6 +16,7 @@ import { api } from "@/convex/_generated/api";
  */
 export function AuthDebug() {
   const convexAuth = useConvexAuth();
+  const clerkAuth = useClerkAuth();
   const user = useUser();
   const userData = useQuery(api.users.getCurrentUser);
 
@@ -31,6 +32,16 @@ export function AuthDebug() {
           </div>
           <div className="pl-2">
             isLoading: <span className="text-yellow-400">{String(convexAuth.isLoading)}</span>
+          </div>
+        </div>
+
+        <div>
+          <div className="text-green-400">Clerk Auth State:</div>
+          <div className="pl-2">
+            isSignedIn: <span className="text-yellow-400">{String(clerkAuth.isSignedIn)}</span>
+          </div>
+          <div className="pl-2">
+            isLoaded: <span className="text-yellow-400">{String(clerkAuth.isLoaded)}</span>
           </div>
         </div>
 

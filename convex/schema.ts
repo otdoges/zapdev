@@ -1,4 +1,4 @@
-import { defineSchema, defineTable } from "convex/server";
+import { defineSchema, defineTable, type TableDefinition } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 
@@ -63,6 +63,11 @@ export const sandboxStateEnum = v.union(
   v.literal("PAUSED"),
   v.literal("KILLED")
 );
+
+const authTablesTyped = authTables as unknown as Record<
+  keyof typeof authTables,
+  TableDefinition
+>;
 
 export default defineSchema(
   {
@@ -237,7 +242,7 @@ export default defineSchema(
     .index("by_state", ["state"])
     .index("by_sandboxId", ["sandboxId"]),
 
-  ...authTables,
+  ...authTablesTyped,
 
   // E2B Rate Limits table - track E2B API usage to prevent hitting limits
   e2bRateLimits: defineTable({

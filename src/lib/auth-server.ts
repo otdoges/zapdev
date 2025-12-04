@@ -1,4 +1,4 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
 import type { FunctionReference, FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
@@ -11,22 +11,22 @@ import { api } from "@/convex/_generated/api";
  */
 export async function getUser() {
   try {
-    const token = await convexAuthNextjsToken();
+    const { getToken, userId } = auth();
+    if (!userId) return null;
+
+    const token = await getToken({ template: "convex" });
     const options = token ? { token } : undefined;
 
-    // Try to fetch current user through Convex
-    // This relies on the auth cookie being present
     const user = options
       ? await fetchQuery(api.users.getCurrentUser, {}, options)
       : await fetchQuery(api.users.getCurrentUser);
     if (!user) return null;
-    
+
     return {
-      id: user.tokenIdentifier,
+      id: user.tokenIdentifier ?? userId,
       email: user.email,
       name: user.name,
       image: user.image,
-      // Compatibility properties
       primaryEmail: user.email,
       displayName: user.name,
     };
@@ -42,10 +42,8 @@ export async function getUser() {
  */
 export async function getToken() {
   try {
-    const token = await convexAuthNextjsToken();
-    if (token) return token;
-    const user = await getUser();
-    return user ? "authenticated" : null;
+    const { getToken } = auth();
+    return await getToken({ template: "convex" });
   } catch (error) {
     console.error("Failed to get token:", error);
     return null;
@@ -70,7 +68,11 @@ export async function fetchQueryWithAuth<T>(
   query: any,
   args: any = {}
 ): Promise<T> {
-  return fetchQuery(query, args);
+  const { getToken } = auth();
+  const token = await getToken({ template: "convex" });
+  const options = token ? { token } : undefined;
+
+  return options ? fetchQuery(query, args, options) : fetchQuery(query, args);
 }
 
 /**
@@ -81,7 +83,13 @@ export async function fetchMutationWithAuth<T>(
   mutation: any,
   args: any = {}
 ): Promise<T> {
-  return fetchMutation(mutation, args);
+  const { getToken } = auth();
+  const token = await getToken({ template: "convex" });
+  const options = token ? { token } : undefined;
+
+  return options
+    ? fetchMutation(mutation, args, options)
+    : fetchMutation(mutation, args);
 }
 
 type ArgsOf<Func extends FunctionReference<any>> =
@@ -108,7 +116,8 @@ type ConvexClientWithAuth = {
  * Use this in API routes and server components that need to talk to Convex.
  */
 export async function getConvexClientWithAuth(): Promise<ConvexClientWithAuth> {
-  const token = await convexAuthNextjsToken();
+  const { getToken } = auth();
+  const token = await getToken({ template: "convex" });
   const options = token ? { token } : undefined;
 
   const client: ConvexClientWithAuth = {
