@@ -13,6 +13,7 @@
     "mcp:playwright": "tsx mcp/playwright-server.ts"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.35.6",
     "@convex-dev/auth": "^0.0.90",
     "@databuddy/sdk": "^2.2.1",
     "@e2b/code-interpreter": "^1.5.1",
