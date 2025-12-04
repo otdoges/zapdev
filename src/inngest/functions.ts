@@ -1557,7 +1557,7 @@ Generate code that matches the approved specification.`;
     console.log("[DEBUG] Running network with input:", event.data.value);
     let result;
     try {
-      result = await network.run(event.data.value, { state });
+      result = await network.run(event.data.value, { state, step });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -1582,7 +1582,7 @@ Generate code that matches the approved specification.`;
       try {
         result = await network.run(
           "IMPORTANT: You have successfully generated files, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built. This is required to complete the task.",
-          { state: result.state },
+          { state: result.state, step },
         );
       } catch (summaryError) {
         const errorMessage =
@@ -2744,7 +2744,7 @@ REQUIRED ACTIONS:
 DO NOT proceed until all errors are completely resolved. Focus on fixing the root cause, not just masking symptoms.`;
 
     try {
-      let result = await network.run(fixPrompt, { state });
+      let result = await network.run(fixPrompt, { state, step });
 
       // Post-network fallback: If no summary but files were modified, make one more explicit request
       let summaryText = extractSummaryText(result.state.data.summary ?? "");
@@ -2757,7 +2757,7 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         );
         result = await network.run(
           "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
-          { state: result.state },
+          { state: result.state, step },
         );
 
         // Re-extract summary after explicit request
