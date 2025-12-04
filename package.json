@@ -13,6 +13,7 @@
     "mcp:playwright": "tsx mcp/playwright-server.ts"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.35.6",
     "@convex-dev/auth": "^0.0.90",
     "@databuddy/sdk": "^2.2.1",
     "@e2b/code-interpreter": "^1.5.1",
@@ -66,7 +67,7 @@
     "client-only": "^0.0.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "convex": "^1.29.0",
+    "convex": "^1.30.0",
     "csv-parse": "^6.1.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
