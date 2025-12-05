@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
-import { requireAuth, getCurrentUserId } from "./helpers";
+import { getAuthInfo, requireAuth, getCurrentUserId, isOwner } from "./helpers";
 import {
   messageRoleEnum,
   messageTypeEnum,
@@ -24,11 +24,14 @@ export const create = mutation({
     selectedModel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    if (!authInfo.normalizedUserId) {
+      throw new Error("Unauthorized");
+    }
 
     // Verify project ownership
     const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -73,12 +76,11 @@ export const createWithAttachments = action({
     ),
   },
   handler: async (ctx, args) => {
-    // Get the authenticated user
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity || !identity.subject) {
+    const authInfo = await getAuthInfo(ctx);
+    if (!authInfo.normalizedUserId) {
       throw new Error("Unauthorized");
     }
-    const userId = identity.subject;
+    const userId = authInfo.normalizedUserId;
 
     // Validate project ID format (Convex ID)
     const projectId = args.projectId as Id<"projects">;
@@ -135,11 +137,11 @@ export const list = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
+    const authInfo = await getAuthInfo(ctx);
 
     // Verify project ownership
     const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       return [];
     }
 
@@ -182,7 +184,10 @@ export const get = query({
     messageId: v.id("messages"),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    if (!authInfo.normalizedUserId) {
+      throw new Error("Unauthorized");
+    }
 
     const message = await ctx.db.get(args.messageId);
     if (!message) {
@@ -191,7 +196,7 @@ export const get = query({
 
     // Verify project ownership
     const project = await ctx.db.get(message.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -208,7 +213,10 @@ export const updateStatus = mutation({
     status: messageStatusEnum,
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    if (!authInfo.normalizedUserId) {
+      throw new Error("Unauthorized");
+    }
 
     const message = await ctx.db.get(args.messageId);
     if (!message) {
@@ -217,7 +225,7 @@ export const updateStatus = mutation({
 
     // Verify project ownership
     const project = await ctx.db.get(message.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -240,7 +248,10 @@ export const updateMessage = mutation({
     status: v.optional(messageStatusEnum),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    if (!authInfo.normalizedUserId) {
+      throw new Error("Unauthorized");
+    }
 
     const message = await ctx.db.get(args.messageId);
     if (!message) {
@@ -249,7 +260,7 @@ export const updateMessage = mutation({
 
     // Verify project ownership
     const project = await ctx.db.get(message.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -277,7 +288,10 @@ export const createFragment = mutation({
     framework: frameworkEnum,
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    if (!authInfo.normalizedUserId) {
+      throw new Error("Unauthorized");
+    }
 
     const message = await ctx.db.get(args.messageId);
     if (!message) {
@@ -286,7 +300,7 @@ export const createFragment = mutation({
 
     // Verify project ownership
     const project = await ctx.db.get(message.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -336,7 +350,10 @@ export const getFragment = query({
     messageId: v.id("messages"),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    if (!authInfo.normalizedUserId) {
+      throw new Error("Unauthorized");
+    }
 
     const message = await ctx.db.get(args.messageId);
     if (!message) {
@@ -345,7 +362,7 @@ export const getFragment = query({
 
     // Verify project ownership
     const project = await ctx.db.get(message.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -373,7 +390,10 @@ export const addAttachment = mutation({
     sourceMetadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    if (!authInfo.normalizedUserId) {
+      throw new Error("Unauthorized");
+    }
 
     const message = await ctx.db.get(args.messageId);
     if (!message) {
@@ -382,7 +402,7 @@ export const addAttachment = mutation({
 
     // Verify project ownership
     const project = await ctx.db.get(message.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -429,7 +449,13 @@ export const addAttachmentInternal = async (
   }
 
   const project = await ctx.db.get(message.projectId);
-  if (!project || project.userId !== userId) {
+  const authInfo = {
+    normalizedUserId: userId,
+    tokenIdentifier: userId,
+    subject: userId,
+  };
+
+  if (!project || !isOwner(project.userId, authInfo)) {
     throw new Error("Unauthorized");
   }
 
@@ -486,7 +512,10 @@ export const getAttachments = query({
     messageId: v.id("messages"),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    if (!authInfo.normalizedUserId) {
+      throw new Error("Unauthorized");
+    }
 
     const message = await ctx.db.get(args.messageId);
     if (!message) {
@@ -495,7 +524,7 @@ export const getAttachments = query({
 
     // Verify project ownership
     const project = await ctx.db.get(message.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -532,7 +561,10 @@ export const getFragmentByIdAuth = query({
     fragmentId: v.id("fragments"),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    if (!authInfo.normalizedUserId) {
+      throw new Error("Unauthorized");
+    }
 
     const fragment = await ctx.db.get(args.fragmentId);
     if (!fragment) {
@@ -546,7 +578,7 @@ export const getFragmentByIdAuth = query({
     }
 
     const project = await ctx.db.get(message.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -585,7 +617,13 @@ export const createInternal = async (
 ): Promise<string> => {
   // Verify project ownership
   const project = await ctx.db.get(projectId as any);
-  if (!project || project.userId !== userId) {
+  const authInfo = {
+    normalizedUserId: userId,
+    tokenIdentifier: userId,
+    subject: userId,
+  };
+
+  if (!project || !isOwner(project.userId, authInfo)) {
     throw new Error("Unauthorized");
   }
 
@@ -625,7 +663,13 @@ export const createFragmentInternal = async (
   }
 
   const project = await ctx.db.get(message.projectId);
-  if (!project || project.userId !== userId) {
+  const authInfo = {
+    normalizedUserId: userId,
+    tokenIdentifier: userId,
+    subject: userId,
+  };
+
+  if (!project || !isOwner(project.userId, authInfo)) {
     throw new Error("Unauthorized");
   }
 
@@ -691,7 +735,13 @@ export const listForUser = query({
   handler: async (ctx, args) => {
     // Verify project ownership
     const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== args.userId) {
+    const authInfo = {
+      normalizedUserId: args.userId,
+      tokenIdentifier: args.userId,
+      subject: args.userId,
+    };
+
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
     const messages = await ctx.db

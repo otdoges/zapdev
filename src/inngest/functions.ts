@@ -881,7 +881,17 @@ const createCodeAgentTools = (sandboxId: string) => [
       { command }: { command: string },
       opts: Tool.Options<AgentState>,
     ) => {
-      return await opts.step?.run("terminal", async () => {
+      const runWithStep = async <T>(
+        label: string,
+        fn: () => Promise<T>,
+      ) => {
+        if (!opts.step) {
+          return undefined as T | undefined;
+        }
+        return opts.step.run(label, fn) as Promise<T>;
+      };
+
+      return await runWithStep("terminal", async () => {
         const buffers: { stdout: string; stderr: string } = {
           stdout: "",
           stderr: "",
@@ -919,7 +929,17 @@ const createCodeAgentTools = (sandboxId: string) => [
       ),
     }),
     handler: async ({ files }, { step, network }: Tool.Options<AgentState>) => {
-      const newFiles = await step?.run("createOrUpdateFiles", async () => {
+      const runWithStep = async <T>(
+        label: string,
+        fn: () => Promise<T>,
+      ) => {
+        if (!step) {
+          return undefined as T | undefined;
+        }
+        return step.run(label, fn) as Promise<T>;
+      };
+
+      const newFiles = await runWithStep("createOrUpdateFiles", async () => {
         try {
           const updatedFiles = network.state.data.files || {};
           const sandbox = await getSandbox(sandboxId);
@@ -946,7 +966,17 @@ const createCodeAgentTools = (sandboxId: string) => [
       files: z.array(z.string()),
     }),
     handler: async ({ files }, { step }) => {
-      return await step?.run("readFiles", async () => {
+      const runWithStep = async <T>(
+        label: string,
+        fn: () => Promise<T>,
+      ) => {
+        if (!step) {
+          return undefined as T | undefined;
+        }
+        return step.run(label, fn) as Promise<T>;
+      };
+
+      return await runWithStep("readFiles", async () => {
         try {
           const sandbox = await getSandbox(sandboxId);
           const contents = [];
@@ -1557,7 +1587,7 @@ Generate code that matches the approved specification.`;
     console.log("[DEBUG] Running network with input:", event.data.value);
     let result;
     try {
-      result = await network.run(event.data.value, { state, step });
+      result = await network.run(event.data.value, { state });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -1582,7 +1612,7 @@ Generate code that matches the approved specification.`;
       try {
         result = await network.run(
           "IMPORTANT: You have successfully generated files, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built. This is required to complete the task.",
-          { state: result.state, step },
+          { state: result.state },
         );
       } catch (summaryError) {
         const errorMessage =
@@ -1738,8 +1768,8 @@ Generate code that matches the approved specification.`;
         );
 
         try {
-          result = await network.run(
-            `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
+        result = await network.run(
+          `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
 
 The previous attempt encountered an error that must be corrected before proceeding.
 
@@ -1762,8 +1792,8 @@ REQUIRED ACTIONS:
 7. Provide an updated <task_summary> only after the error is fully resolved
 
 DO NOT proceed until the error is completely fixed. The fix must be thorough and address the root cause, not just mask the symptoms.`,
-            { state: result.state },
-          );
+          { state: result.state },
+        );
         } catch (autoFixError) {
           const fixErrorMessage =
             autoFixError instanceof Error
@@ -2744,7 +2774,7 @@ REQUIRED ACTIONS:
 DO NOT proceed until all errors are completely resolved. Focus on fixing the root cause, not just masking symptoms.`;
 
     try {
-      let result = await network.run(fixPrompt, { state, step });
+      let result = await network.run(fixPrompt, { state });
 
       // Post-network fallback: If no summary but files were modified, make one more explicit request
       let summaryText = extractSummaryText(result.state.data.summary ?? "");

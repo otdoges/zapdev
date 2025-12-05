@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
-import { requireAuth, getCurrentUserClerkId, getCurrentUserId } from "./helpers";
+import { getAuthInfo, requireAuth, getCurrentUserClerkId, getCurrentUserId, isOwner } from "./helpers";
 import { frameworkEnum } from "./schema";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -38,12 +38,11 @@ export const createWithMessage = action({
     value: v.string(),
   },
   handler: async (ctx, args) => {
-    // Get the authenticated user
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity || !identity.subject) {
+    const { normalizedUserId } = await getAuthInfo(ctx);
+    if (!normalizedUserId) {
       throw new Error("Unauthorized");
     }
-    const userId = identity.subject;
+    const userId = normalizedUserId;
 
     // Check and consume credit first
     const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
@@ -106,12 +105,11 @@ export const createWithMessageAndAttachments = action({
     ),
   },
   handler: async (ctx, args) => {
-    // Get the authenticated user
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity || !identity.subject) {
+    const { normalizedUserId } = await getAuthInfo(ctx);
+    if (!normalizedUserId) {
       throw new Error("Unauthorized");
     }
-    const userId = identity.subject;
+    const userId = normalizedUserId;
 
     // Check and consume credit first
     const creditResult = await ctx.runQuery(api.usage.getUsageForUser, { userId });
@@ -285,7 +283,7 @@ export const get = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const userId = await getCurrentUserId(ctx);
+    const authInfo = await getAuthInfo(ctx);
 
     const project = await ctx.db.get(args.projectId);
     if (!project) {
@@ -293,7 +291,7 @@ export const get = query({
     }
 
     // Ensure user owns the project
-    if (project.userId !== userId) {
+    if (!isOwner(project.userId, authInfo)) {
       return null;
     }
 
@@ -312,7 +310,11 @@ export const update = mutation({
     modelPreference: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    const userId = authInfo.normalizedUserId;
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
 
     const project = await ctx.db.get(args.projectId);
     if (!project) {
@@ -320,7 +322,7 @@ export const update = mutation({
     }
 
     // Ensure user owns the project
-    if (project.userId !== userId) {
+    if (!isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -343,7 +345,11 @@ export const deleteProject = mutation({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    const userId = authInfo.normalizedUserId;
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
 
     const project = await ctx.db.get(args.projectId);
     if (!project) {
@@ -351,7 +357,7 @@ export const deleteProject = mutation({
     }
 
     // Ensure user owns the project
-    if (project.userId !== userId) {
+    if (!isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -409,10 +415,14 @@ export const getOrCreateFragmentDraft = mutation({
     framework: frameworkEnum,
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const authInfo = await getAuthInfo(ctx);
+    const userId = authInfo.normalizedUserId;
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
 
     const project = await ctx.db.get(args.projectId);
-    if (!project || project.userId !== userId) {
+    if (!project || !isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -451,8 +461,13 @@ export const getInternal = async (
     throw new Error("Project not found");
   }
 
-  // Ensure user owns the project
-  if (project.userId !== userId) {
+  const authInfo = {
+    normalizedUserId: userId,
+    tokenIdentifier: userId,
+    subject: userId,
+  };
+
+  if (!isOwner(project.userId, authInfo)) {
     throw new Error("Unauthorized");
   }
 
@@ -526,8 +541,13 @@ export const getForUser = query({
       throw new Error("Project not found");
     }
 
-    // Ensure user owns the project
-    if (project.userId !== args.userId) {
+    const authInfo = {
+      normalizedUserId: args.userId,
+      tokenIdentifier: args.userId,
+      subject: args.userId,
+    };
+
+    if (!isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 
@@ -552,8 +572,13 @@ export const updateForUser = mutation({
       throw new Error("Project not found");
     }
 
-    // Ensure user owns the project
-    if (project.userId !== args.userId) {
+    const authInfo = {
+      normalizedUserId: args.userId,
+      tokenIdentifier: args.userId,
+      subject: args.userId,
+    };
+
+    if (!isOwner(project.userId, authInfo)) {
       throw new Error("Unauthorized");
     }
 

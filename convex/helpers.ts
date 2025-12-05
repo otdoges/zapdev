@@ -1,28 +1,43 @@
-import { QueryCtx, MutationCtx } from "./_generated/server";
+import { ActionCtx, QueryCtx, MutationCtx } from "./_generated/server";
 
-/**
- * Get the current authenticated user's ID from Convex Auth
- * Convex Auth automatically sets ctx.auth when a user is authenticated
- */
+type AuthContext = QueryCtx | MutationCtx | ActionCtx;
+
+interface AuthInfo {
+  normalizedUserId: string | null;
+  tokenIdentifier: string | null;
+  subject: string | null;
+}
+
+export async function getAuthInfo(ctx: AuthContext): Promise<AuthInfo> {
+  const identity = await ctx.auth.getUserIdentity();
+  const tokenIdentifier = identity?.tokenIdentifier ?? null;
+  const subject = identity?.subject ?? null;
+
+  return {
+    normalizedUserId: tokenIdentifier ?? subject ?? null,
+    tokenIdentifier,
+    subject,
+  };
+}
+
 export async function getCurrentUserId(
-  ctx: QueryCtx | MutationCtx
+  ctx: AuthContext
 ): Promise<string | null> {
-  // Get user ID from Convex auth context
-  // Returns the user's unique ID from the auth system
-  return (await ctx.auth.getUserIdentity())?.tokenIdentifier ?? null;
+  const { normalizedUserId } = await getAuthInfo(ctx);
+  return normalizedUserId;
 }
 
 /**
  * Get the current authenticated user's ID or throw an error
  */
 export async function requireAuth(
-  ctx: QueryCtx | MutationCtx
+  ctx: AuthContext
 ): Promise<string> {
-  const userId = await getCurrentUserId(ctx);
-  if (!userId) {
+  const { normalizedUserId } = await getAuthInfo(ctx);
+  if (!normalizedUserId) {
     throw new Error("Unauthorized");
   }
-  return userId;
+  return normalizedUserId;
 }
 
 /**
@@ -66,6 +81,21 @@ export async function getCurrentUserClerkId(
   ctx: QueryCtx | MutationCtx
 ): Promise<string | null> {
   return getCurrentUserId(ctx);
+}
+
+export function isOwner(
+  resourceUserId: string | null | undefined,
+  authInfo: AuthInfo
+): boolean {
+  if (!resourceUserId) {
+    return false;
+  }
+
+  return (
+    resourceUserId === authInfo.normalizedUserId ||
+    resourceUserId === authInfo.tokenIdentifier ||
+    resourceUserId === authInfo.subject
+  );
 }
 
 /**
