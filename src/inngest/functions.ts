@@ -879,16 +879,17 @@ const createCodeAgentTools = (sandboxId: string) => [
     }),
     handler: async (
       { command }: { command: string },
-      opts: Tool.Options<AgentState>,
+      opts?: Tool.Options<AgentState>,
     ) => {
       const runWithStep = async <T>(
         label: string,
         fn: () => Promise<T>,
       ) => {
-        if (!opts.step) {
-          return undefined as T | undefined;
+        const currentStep = opts?.step;
+        if (!currentStep) {
+          return fn();
         }
-        return opts.step.run(label, fn) as Promise<T>;
+        return currentStep.run(label, fn);
       };
 
       return await runWithStep("terminal", async () => {
@@ -928,20 +929,24 @@ const createCodeAgentTools = (sandboxId: string) => [
         }),
       ),
     }),
-    handler: async ({ files }, { step, network }: Tool.Options<AgentState>) => {
+    handler: async ({ files }, opts?: Tool.Options<AgentState>) => {
+      const currentStep = opts?.step;
+      const currentNetwork = opts?.network;
       const runWithStep = async <T>(
         label: string,
         fn: () => Promise<T>,
       ) => {
-        if (!step) {
-          return undefined as T | undefined;
+        if (!currentStep) {
+          return fn();
         }
-        return step.run(label, fn) as Promise<T>;
+        return currentStep.run(label, fn);
       };
 
       const newFiles = await runWithStep("createOrUpdateFiles", async () => {
         try {
-          const updatedFiles = network.state.data.files || {};
+          const updatedFiles = {
+            ...(currentNetwork?.state?.data?.files ?? {}),
+          };
           const sandbox = await getSandbox(sandboxId);
           for (const file of files) {
             await sandbox.files.write(file.path, file.content);
@@ -954,9 +959,11 @@ const createCodeAgentTools = (sandboxId: string) => [
         }
       });
 
-      if (typeof newFiles === "object") {
-        network.state.data.files = newFiles;
+      if (typeof newFiles === "object" && currentNetwork) {
+        currentNetwork.state.data.files = newFiles;
       }
+
+      return newFiles;
     },
   }),
   createTool({
@@ -965,15 +972,16 @@ const createCodeAgentTools = (sandboxId: string) => [
     parameters: z.object({
       files: z.array(z.string()),
     }),
-    handler: async ({ files }, { step }) => {
+    handler: async ({ files }, opts?: Tool.Options<AgentState>) => {
+      const currentStep = opts?.step;
       const runWithStep = async <T>(
         label: string,
         fn: () => Promise<T>,
       ) => {
-        if (!step) {
-          return undefined as T | undefined;
+        if (!currentStep) {
+          return fn();
         }
-        return step.run(label, fn) as Promise<T>;
+        return currentStep.run(label, fn);
       };
 
       return await runWithStep("readFiles", async () => {
