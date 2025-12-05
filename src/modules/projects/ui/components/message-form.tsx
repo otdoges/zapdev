@@ -202,7 +202,7 @@ export const MessageForm = ({ projectId }: Props) => {
               <div key={index} className="relative group">
                 <Image
                   src={attachment.url}
-                  alt="Attachment"
+                  alt={`Uploaded attachment ${index + 1}`}
                   width={80}
                   height={80}
                   className="rounded-lg object-cover border"
@@ -298,7 +298,16 @@ export const MessageForm = ({ projectId }: Props) => {
                   {(() => {
                     const selectedOption = modelOptions.find((opt) => opt.id === selectedModel);
                     const imageSrc = selectedOption?.image || "/auto.svg";
-                    return <Image src={imageSrc} alt="Model" width={16} height={16} className="size-4" unoptimized />;
+                    return (
+                      <Image
+                        src={imageSrc}
+                        alt={selectedOption ? `${selectedOption.name} model icon` : "AI model icon"}
+                        width={16}
+                        height={16}
+                        className="size-4"
+                        unoptimized
+                      />
+                    );
                   })()}
                 </Button>
               </PopoverTrigger>

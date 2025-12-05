@@ -48,8 +48,8 @@ export async function GET() {
 
     <item>
       <title>Pricing - Start Building Today</title>
-      <link>${baseUrl}/home/pricing</link>
-      <guid>${baseUrl}/home/pricing</guid>
+      <link>${baseUrl}/pricing</link>
+      <guid>${baseUrl}/pricing</guid>
       <pubDate>${new Date().toUTCString()}</pubDate>
       <description>Choose the perfect plan for your development needs. Start free with Zapdev and scale as you grow. Transparent pricing for individuals and teams.</description>
     </item>

@@ -227,7 +227,7 @@ export function generateInternalLinks(currentPath: string): InternalLink[] {
     { href: '/frameworks', text: 'Frameworks' },
     { href: '/solutions', text: 'Solutions' },
     { href: '/showcase', text: 'Showcase' },
-    { href: '/home/pricing', text: 'Pricing' },
+    { href: '/pricing', text: 'Pricing' },
   ];
 
   return links.filter(link => link.href !== currentPath);
@@ -278,7 +278,7 @@ export function generateArticleStructuredData(data: {
       name: 'Zapdev',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://zapdev.link/logo.png'
+        url: 'https://zapdev.link/logo.svg'
       }
     }
   };

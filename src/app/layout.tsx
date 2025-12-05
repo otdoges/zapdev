@@ -106,6 +106,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://ai-gateway.vercel.sh" />
+        <link rel="preconnect" href="https://api.convex.dev" />
+        <link rel="preconnect" href="https://sandbox.e2b.dev" />
+        <link rel="dns-prefetch" href="https://clerk.com" />
+        <link rel="dns-prefetch" href="https://vercel.com" />
         {process.env.NODE_ENV === "development" && (
           <Script
             src="//unpkg.com/react-grab/dist/index.global.js"
@@ -123,7 +128,7 @@ export default function RootLayout({
               "@type": "Organization",
               name: "Zapdev",
               url: "https://zapdev.link",
-              logo: "https://zapdev.link/logo.png",
+              logo: "https://zapdev.link/logo.svg",
               description: "Zapdev is a leading software development company specializing in building scalable web applications, mobile apps, and enterprise solutions.",
               contactPoint: {
                 "@type": "ContactPoint",

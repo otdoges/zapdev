@@ -29,11 +29,11 @@ const UserMessage = ({ content, attachments = [] }: UserMessageProps) => (
     <div className="flex flex-col gap-2 max-w-[80%]">
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 justify-end">
-          {attachments.map((attachment) => (
+          {attachments.map((attachment, index) => (
             <div key={attachment._id} className="relative">
               <Image
                 src={attachment.url}
-                alt="Attachment"
+                alt={`Uploaded attachment ${index + 1}`}
                 width={attachment.width ?? 200}
                 height={attachment.height ?? 200}
                 className="rounded-lg object-cover border max-h-48 w-auto"

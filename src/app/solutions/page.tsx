@@ -22,7 +22,15 @@ export const metadata: Metadata = generateSEOMetadata({
   openGraph: {
     title: 'Zapdev Solutions - AI-Powered Development for Everyone',
     description: 'Discover how AI can transform your development workflow',
-    type: 'website'
+    type: 'website',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Zapdev AI Development Solutions'
+      }
+    ]
   }
 });
 
@@ -107,7 +115,7 @@ export default function SolutionsPage() {
             Our AI can help you choose the perfect solution based on your specific needs and requirements.
           </p>
           <div className="flex gap-4 justify-center">
-            <Link href="/home/sign-up">
+            <Link href="/projects">
               <button className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
                 Get Personalized Recommendation
               </button>

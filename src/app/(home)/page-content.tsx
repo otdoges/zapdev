@@ -70,6 +70,7 @@ function PageContent() {
             alt="ZapDev"
             width={50}
             height={50}
+            priority
             className="hidden md:block"
           />
         </div>

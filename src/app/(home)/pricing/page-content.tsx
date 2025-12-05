@@ -25,6 +25,7 @@ export function PricingPageContent() {
             alt="ZapDev - AI Development Platform"
             width={50}
             height={50}
+            priority
             className="hidden md:block"
           />
         </div>

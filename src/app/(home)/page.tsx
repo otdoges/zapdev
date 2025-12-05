@@ -16,7 +16,7 @@ import { StructuredData } from "@/components/seo/structured-data";
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = generateSEOMetadata({
-  title: 'Zapdev - AI-Powered Development Platform | Build Apps 10x Faster',
+  title: 'AI-Powered Web App Development | Zapdev',
   description: 'Create production-ready web applications with AI assistance. Support for React, Vue, Angular, Svelte, and Next.js. Build, test, and deploy in minutes, not days.',
   canonical: '/',
 });

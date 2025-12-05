@@ -17,7 +17,18 @@ Allow: /ai-info
 Allow: /frameworks
 Allow: /solutions
 Allow: /showcase
-Allow: /home/pricing
+Allow: /pricing
+
+# Standard search bots
+User-agent: Googlebot
+Allow: /
+Allow: /ai-info
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Allow: /ai-info
+Crawl-delay: 1
 
 # Block common non-content paths
 Disallow: /api/

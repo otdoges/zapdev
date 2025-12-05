@@ -245,7 +245,7 @@ export const ProjectForm = () => {
                 <div key={index} className="relative group">
                   <Image
                     src={attachment.url}
-                    alt="Attachment"
+                    alt={`Uploaded attachment ${index + 1}`}
                     width={80}
                     height={80}
                     className="rounded-lg object-cover border"
@@ -350,7 +350,7 @@ export const ProjectForm = () => {
                       return (
                         <Image
                           src={imageSrc}
-                          alt="Model"
+                          alt={selectedOption ? `${selectedOption.name} model icon` : "AI model icon"}
                           width={16}
                           height={16}
                           className="size-4"
