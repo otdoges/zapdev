@@ -1012,6 +1012,17 @@ export const codeAgentFunction = inngest.createFunction(
       });
     });
 
+    if (!project) {
+      const missingProjectId = String(event.data.projectId ?? "unknown");
+      console.error(
+        "[ERROR] Project not found for code-agent run:",
+        missingProjectId,
+      );
+      throw new Error(
+        `Project not found. Unable to run code agent for project ${missingProjectId}.`,
+      );
+    }
+
     let selectedFramework: Framework =
       (project?.framework?.toLowerCase() as Framework) || "nextjs";
 
@@ -1451,17 +1462,20 @@ export const codeAgentFunction = inngest.createFunction(
 
     const initialMessages = [...contextMessages, ...previousMessages];
 
-    const state = createState<AgentState>(
-      {
-        summary: "",
-        files: {},
-        selectedFramework,
-        summaryRetryCount: 0,
-      },
-      {
-        messages: initialMessages,
-      },
-    );
+    const buildAgentState = () =>
+      createState<AgentState>(
+        {
+          summary: "",
+          files: {},
+          selectedFramework,
+          summaryRetryCount: 0,
+        },
+        {
+          messages: initialMessages,
+        },
+      );
+
+    type AgentStateInstance = ReturnType<typeof buildAgentState>;
 
     // Check if this message has an approved spec
     const currentMessage = await step.run("get-current-message", async () => {
@@ -1515,79 +1529,104 @@ Generate code that matches the approved specification.`;
       autoSelected: validatedModel === "auto",
     });
 
+    const codeAgentLifecycle = {
+      onResponse: async ({ result, network }) => {
+        const lastAssistantMessageText =
+          lastAssistantTextMessageContent(result);
+
+        if (lastAssistantMessageText && network) {
+          const containsSummaryTag =
+            lastAssistantMessageText.includes("<task_summary>");
+          console.log(
+            `[DEBUG] Agent response received (contains summary tag: ${containsSummaryTag})`,
+          );
+          if (containsSummaryTag) {
+            network.state.data.summary = extractSummaryText(
+              lastAssistantMessageText,
+            );
+            network.state.data.summaryRetryCount = 0;
+          }
+        }
+
+        return result;
+      },
+    };
+
     const codeAgent = createAgent<AgentState>({
       name: `${selectedFramework}-code-agent`,
       description: `An expert ${selectedFramework} coding agent powered by ${modelConfig.name}`,
       system: frameworkPrompt,
       model: getModelAdapter(selectedModel, modelConfig.temperature),
       tools: createCodeAgentTools(sandboxId),
-      lifecycle: {
-        onResponse: async ({ result, network }) => {
-          const lastAssistantMessageText =
-            lastAssistantTextMessageContent(result);
+      lifecycle: codeAgentLifecycle,
+    });
 
-          if (lastAssistantMessageText && network) {
-            const containsSummaryTag =
-              lastAssistantMessageText.includes("<task_summary>");
-            console.log(
-              `[DEBUG] Agent response received (contains summary tag: ${containsSummaryTag})`,
-            );
-            if (containsSummaryTag) {
-              network.state.data.summary = extractSummaryText(
-                lastAssistantMessageText,
-              );
-              network.state.data.summaryRetryCount = 0;
-            }
+    const createCodeAgentNetwork = (
+      agent: ReturnType<typeof createAgent<AgentState>>,
+    ) =>
+      createNetwork<AgentState>({
+        name: "coding-agent-network",
+        agents: [agent],
+        maxIter: 8,
+        defaultState: buildAgentState(),
+        router: async ({ network }) => {
+          const summaryText = extractSummaryText(
+            network.state.data.summary ?? "",
+          );
+          const fileEntries = network.state.data.files ?? {};
+          const fileCount = Object.keys(fileEntries).length;
+
+          if (summaryText.length > 0) {
+            return;
           }
 
-          return result;
-        },
-      },
-    });
+          if (fileCount === 0) {
+            network.state.data.summaryRetryCount = 0;
+            return agent;
+          }
 
-    const network = createNetwork<AgentState>({
-      name: "coding-agent-network",
-      agents: [codeAgent],
-      maxIter: 8,
-      defaultState: state,
-      router: async ({ network }) => {
-        const summaryText = extractSummaryText(
-          network.state.data.summary ?? "",
-        );
-        const fileEntries = network.state.data.files ?? {};
-        const fileCount = Object.keys(fileEntries).length;
+          const currentRetry = network.state.data.summaryRetryCount ?? 0;
+          if (currentRetry >= 2) {
+            console.warn(
+              "[WARN] Missing <task_summary> after multiple attempts despite generated files; proceeding with fallback handling.",
+            );
+            return;
+          }
 
-        if (summaryText.length > 0) {
-          return;
-        }
-
-        if (fileCount === 0) {
-          network.state.data.summaryRetryCount = 0;
-          return codeAgent;
-        }
-
-        const currentRetry = network.state.data.summaryRetryCount ?? 0;
-        if (currentRetry >= 2) {
-          console.warn(
-            "[WARN] Missing <task_summary> after multiple attempts despite generated files; proceeding with fallback handling.",
+          const nextRetry = currentRetry + 1;
+          network.state.data.summaryRetryCount = nextRetry;
+          console.log(
+            `[DEBUG] No <task_summary> yet; retrying agent to request summary (attempt ${nextRetry}).`,
           );
-          return;
-        }
 
-        const nextRetry = currentRetry + 1;
-        network.state.data.summaryRetryCount = nextRetry;
-        console.log(
-          `[DEBUG] No <task_summary> yet; retrying agent to request summary (attempt ${nextRetry}).`,
-        );
+          return agent;
+        },
+      });
 
-        return codeAgent;
-      },
-    });
+    const runNetwork = async (
+      label: string,
+      agent: ReturnType<typeof createAgent<AgentState>>,
+      stateOverride?: AgentStateInstance,
+      userInput?: string,
+    ) => {
+      const network = createCodeAgentNetwork(agent);
+      const stateForRun = stateOverride ?? buildAgentState();
+      const inputForRun = userInput ?? event.data.value;
+      return step.run(label, async () => {
+        return network.run(inputForRun, { state: stateForRun });
+      });
+    };
 
     console.log("[DEBUG] Running network with input:", event.data.value);
     let result;
+    let activeAgent = codeAgent;
     try {
-      result = await network.run(event.data.value, { state });
+      result = await runNetwork(
+        "run-code-agent-network",
+        codeAgent,
+        undefined,
+        event.data.value,
+      );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -1595,8 +1634,38 @@ Generate code that matches the approved specification.`;
       if (error instanceof Error && error.stack) {
         console.error("[ERROR] Stack trace:", error.stack);
       }
-      throw new Error(
-        `Code generation failed: ${errorMessage}. Please ensure API credentials are valid and try again.`,
+      const isStepUndefinedError =
+        error instanceof TypeError &&
+        errorMessage.toLowerCase().includes("step");
+
+      if (!isStepUndefinedError) {
+        throw new Error(
+          `Code generation failed: ${errorMessage}. Please ensure API credentials are valid and try again.`,
+        );
+      }
+
+      const fallbackModelId: ModelId = "anthropic/claude-haiku-4.5";
+      const fallbackConfig = MODEL_CONFIGS[fallbackModelId];
+      console.warn(
+        "[WARN] Step context missing during primary run; retrying with fallback model:",
+        fallbackModelId,
+      );
+
+      const fallbackAgent = createAgent<AgentState>({
+        name: `${selectedFramework}-code-agent-fallback`,
+        description: `Fallback ${selectedFramework} coding agent powered by ${fallbackConfig.name}`,
+        system: frameworkPrompt,
+        model: getModelAdapter(fallbackModelId, fallbackConfig.temperature),
+        tools: createCodeAgentTools(sandboxId),
+        lifecycle: codeAgentLifecycle,
+      });
+      activeAgent = fallbackAgent;
+
+      result = await runNetwork(
+        "run-code-agent-network-fallback",
+        fallbackAgent,
+        undefined,
+        event.data.value,
       );
     }
 
@@ -1610,9 +1679,11 @@ Generate code that matches the approved specification.`;
         "[DEBUG] No summary detected after network run, requesting explicitly...",
       );
       try {
-        result = await network.run(
+        result = await runNetwork(
+          "run-code-agent-network-summary-request",
+          activeAgent,
+          result.state,
           "IMPORTANT: You have successfully generated files, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what you built. This is required to complete the task.",
-          { state: result.state },
         );
       } catch (summaryError) {
         const errorMessage =
