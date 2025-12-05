@@ -285,13 +285,35 @@ export const get = query({
   handler: async (ctx, args) => {
     const authInfo = await getAuthInfo(ctx);
 
+    console.log('[DEBUG] api.projects.get called:', {
+      projectId: args.projectId,
+      authInfo: {
+        normalizedUserId: authInfo.normalizedUserId,
+        tokenIdentifier: authInfo.tokenIdentifier,
+        subject: authInfo.subject,
+      }
+    });
+
     const project = await ctx.db.get(args.projectId);
     if (!project) {
+      console.log('[DEBUG] Project not found in database:', args.projectId);
       return null;
     }
 
+    console.log('[DEBUG] Project found:', {
+      projectId: project._id,
+      projectUserId: project.userId,
+      ownershipCheckPassed: isOwner(project.userId, authInfo),
+    });
+
     // Ensure user owns the project
     if (!isOwner(project.userId, authInfo)) {
+      console.error('[ERROR] Ownership check failed:', {
+        projectUserId: project.userId,
+        authNormalizedUserId: authInfo.normalizedUserId,
+        authTokenIdentifier: authInfo.tokenIdentifier,
+        authSubject: authInfo.subject,
+      });
       return null;
     }
 

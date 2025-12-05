@@ -41,7 +41,15 @@ export const ProjectHeader = ({ projectId }: Props) => {
   }
 
   if (project === null) {
-    return <header className="p-2 flex justify-between items-center border-b">Project not found</header>;
+    return (
+      <header className="p-2 flex flex-col gap-2 border-b">
+        <div>Project not found</div>
+        <p className="text-xs text-muted-foreground">
+          This project may not exist or you don't have access to it.
+          Project ID: {projectId}
+        </p>
+      </header>
+    );
   }
 
   return (

@@ -21,6 +21,13 @@ export const checkAndConsumeCredit = mutation({
     const isPro = await hasProAccess(ctx);
     const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
+    console.log('[DEBUG] Credit consumption attempt:', {
+      userId,
+      isPro,
+      maxPoints,
+      cost: GENERATION_COST,
+    });
+
     // Get current usage
     const usage = await ctx.db
       .query("usage")
@@ -30,12 +37,25 @@ export const checkAndConsumeCredit = mutation({
     const now = Date.now();
     const expiryTime = now + DURATION_MS;
 
+    console.log('[DEBUG] Current usage state:', {
+      found: !!usage,
+      currentPoints: usage?.points,
+      expire: usage?.expire,
+      isExpired: usage?.expire ? usage.expire < now : null,
+    });
+
     // If no usage record or expired, create/reset with max points
     if (!usage || (usage.expire && usage.expire < now)) {
+      const newPoints = maxPoints - GENERATION_COST;
+      console.log('[DEBUG] Creating/resetting usage record:', {
+        action: usage ? 'reset' : 'create',
+        newPoints,
+      });
+
       if (usage) {
         // Reset expired usage
         await ctx.db.patch(usage._id, {
-          points: maxPoints - GENERATION_COST,
+          points: newPoints,
           expire: expiryTime,
           planType: isPro ? "pro" : "free",
         });
@@ -43,17 +63,23 @@ export const checkAndConsumeCredit = mutation({
         // Create new usage record
         await ctx.db.insert("usage", {
           userId,
-          points: maxPoints - GENERATION_COST,
+          points: newPoints,
           expire: expiryTime,
           planType: isPro ? "pro" : "free",
         });
       }
-      return { success: true, remaining: maxPoints - GENERATION_COST };
+      console.log('[DEBUG] Credit consumed successfully (fresh window):', { remaining: newPoints });
+      return { success: true, remaining: newPoints };
     }
 
     // Check if user has enough points
     if (usage.points < GENERATION_COST) {
       const timeUntilReset = usage.expire ? Math.ceil((usage.expire - now) / 1000 / 60) : 0;
+      console.log('[DEBUG] Insufficient credits:', {
+        current: usage.points,
+        required: GENERATION_COST,
+        resetInMinutes: timeUntilReset,
+      });
       return {
         success: false,
         remaining: usage.points,
@@ -62,11 +88,17 @@ export const checkAndConsumeCredit = mutation({
     }
 
     // Consume the credit
+    const newPoints = usage.points - GENERATION_COST;
     await ctx.db.patch(usage._id, {
-      points: usage.points - GENERATION_COST,
+      points: newPoints,
     });
 
-    return { success: true, remaining: usage.points - GENERATION_COST };
+    console.log('[DEBUG] Credit consumed successfully:', {
+      previousPoints: usage.points,
+      newPoints,
+    });
+
+    return { success: true, remaining: newPoints };
   },
 });
 
@@ -81,6 +113,13 @@ export const getUsage = query({
     const isPro = await hasProAccess(ctx);
     const maxPoints = isPro ? PRO_POINTS : FREE_POINTS;
 
+    console.log('[DEBUG] getUsage called:', {
+      userId,
+      isPro,
+      maxPoints,
+      timestamp: Date.now(),
+    });
+
     const usage = await ctx.db
       .query("usage")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -88,9 +127,22 @@ export const getUsage = query({
 
     const now = Date.now();
 
+    console.log('[DEBUG] Usage record:', {
+      found: !!usage,
+      points: usage?.points,
+      expire: usage?.expire,
+      planType: usage?.planType,
+      isExpired: usage?.expire ? usage.expire < now : null,
+    });
+
     // If no usage or expired, return max points
     if (!usage || (usage.expire && usage.expire < now)) {
       const expire = now + DURATION_MS;
+      console.log('[DEBUG] Returning fresh credits (expired or missing):', {
+        points: maxPoints,
+        msBeforeNext: DURATION_MS,
+      });
+
       return {
         points: maxPoints,
         maxPoints,
@@ -104,7 +156,7 @@ export const getUsage = query({
     }
 
     const expire = usage.expire || now + DURATION_MS;
-    return {
+    const result = {
       points: usage.points,
       maxPoints,
       expire,
@@ -114,6 +166,9 @@ export const getUsage = query({
       creditsRemaining: usage.points,
       msBeforeNext: expire - now,
     };
+
+    console.log('[DEBUG] Returning existing credits:', result);
+    return result;
   },
 });
 

@@ -47,6 +47,15 @@ export const ProjectView = ({ projectId }: Props) => {
   const [activeFragment, setActiveFragment] = useState<Doc<"fragments"> | null>(null);
   const [tabState, setTabState] = useState<"preview" | "code">("preview");
 
+  // Add authentication check with loading state
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>Authenticating...</p>
+      </div>
+    );
+  }
+
   const explorerFiles = useMemo(() => {
     if (!activeFragment) {
       console.debug('[ProjectView] No active fragment');
