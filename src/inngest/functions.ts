@@ -12,7 +12,6 @@ import {
   type NetworkRun,
   type AgentResult,
 } from "@inngest/agent-kit";
-import { getAsyncCtx, type AsyncContext } from "inngest/experimental";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -61,86 +60,6 @@ const convex = new Proxy({} as ConvexHttpClient, {
     return getConvexClient()[prop as keyof ConvexHttpClient];
   },
 });
-
-type StepAsyncContext = Partial<AsyncContext> & { ctx?: Record<string, unknown> };
-type AsyncLocalStorageLike = {
-  getStore: () => StepAsyncContext | undefined;
-  run: (store: StepAsyncContext, callback: () => Promise<void>) => void;
-};
-
-let sharedAsyncLocalStorage: AsyncLocalStorageLike | null = null;
-let asyncContextWarningLogged = false;
-
-async function loadAsyncLocalStorage(): Promise<AsyncLocalStorageLike | null> {
-  if (sharedAsyncLocalStorage) {
-    return sharedAsyncLocalStorage;
-  }
-
-  try {
-    const { getAsyncLocalStorage } = (await import("inngest/experimental")) as {
-      getAsyncLocalStorage?: () => Promise<AsyncLocalStorageLike>;
-    };
-
-    sharedAsyncLocalStorage = (await getAsyncLocalStorage?.()) ?? null;
-    return sharedAsyncLocalStorage;
-  } catch (error) {
-    console.warn("[WARN] Failed to load async local storage:", error);
-    return null;
-  }
-}
-
-async function runWithStepContext<T>(
-  step: unknown,
-  runner: () => Promise<T>,
-): Promise<T> {
-  if (!step) {
-    return runner();
-  }
-
-  try {
-    const [storage, existingContext] = await Promise.all([
-      loadAsyncLocalStorage(),
-      getAsyncCtx().catch(() => undefined),
-    ]);
-
-    if (!storage) {
-      if (!asyncContextWarningLogged) {
-        console.warn(
-          "[WARN] Async context not available; proceeding without step binding.",
-        );
-        asyncContextWarningLogged = true;
-      }
-      return runner();
-    }
-
-    const currentContext = existingContext as StepAsyncContext | undefined;
-    const mergedContext: StepAsyncContext = {
-      ...(currentContext ?? {}),
-      ctx: {
-        ...(currentContext?.ctx ?? {}),
-        step: step ?? currentContext?.ctx?.step,
-      },
-    };
-
-    return await new Promise<T>((resolve, reject) => {
-      storage.run(mergedContext, async () => {
-        try {
-          resolve(await runner());
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
-  } catch (ctxError) {
-    const message =
-      ctxError instanceof Error ? ctxError.message : String(ctxError);
-    console.warn(
-      "[WARN] Failed to bind step to async context; continuing without it:",
-      message,
-    );
-    return runner();
-  }
-}
 
 // Multi-agent workflow removed; only single code agent is used.
 
@@ -960,20 +879,9 @@ const createCodeAgentTools = (sandboxId: string) => [
     }),
     handler: async (
       { command }: { command: string },
-      opts?: Tool.Options<AgentState>,
+      { step }: Tool.Options<AgentState>,
     ) => {
-      const runWithStep = async <T>(
-        label: string,
-        fn: () => Promise<T>,
-      ) => {
-        const currentStep = opts?.step;
-        if (!currentStep) {
-          return fn();
-        }
-        return currentStep.run(label, fn);
-      };
-
-      return await runWithStep("terminal", async () => {
+      return await step?.run("terminal", async () => {
         const buffers: { stdout: string; stderr: string } = {
           stdout: "",
           stderr: "",
@@ -1010,23 +918,14 @@ const createCodeAgentTools = (sandboxId: string) => [
         }),
       ),
     }),
-    handler: async ({ files }, opts?: Tool.Options<AgentState>) => {
-      const currentStep = opts?.step;
-      const currentNetwork = opts?.network;
-      const runWithStep = async <T>(
-        label: string,
-        fn: () => Promise<T>,
-      ) => {
-        if (!currentStep) {
-          return fn();
-        }
-        return currentStep.run(label, fn);
-      };
-
-      const newFiles = await runWithStep("createOrUpdateFiles", async () => {
+    handler: async (
+      { files },
+      { step, network }: Tool.Options<AgentState>,
+    ) => {
+      const newFiles = await step?.run("createOrUpdateFiles", async () => {
         try {
           const updatedFiles = {
-            ...(currentNetwork?.state?.data?.files ?? {}),
+            ...(network?.state?.data?.files ?? {}),
           };
           const sandbox = await getSandbox(sandboxId);
           for (const file of files) {
@@ -1040,8 +939,8 @@ const createCodeAgentTools = (sandboxId: string) => [
         }
       });
 
-      if (typeof newFiles === "object" && currentNetwork) {
-        currentNetwork.state.data.files = newFiles;
+      if (typeof newFiles === "object" && network) {
+        network.state.data.files = newFiles;
       }
 
       return newFiles;
@@ -1053,19 +952,8 @@ const createCodeAgentTools = (sandboxId: string) => [
     parameters: z.object({
       files: z.array(z.string()),
     }),
-    handler: async ({ files }, opts?: Tool.Options<AgentState>) => {
-      const currentStep = opts?.step;
-      const runWithStep = async <T>(
-        label: string,
-        fn: () => Promise<T>,
-      ) => {
-        if (!currentStep) {
-          return fn();
-        }
-        return currentStep.run(label, fn);
-      };
-
-      return await runWithStep("readFiles", async () => {
+    handler: async ({ files }, { step }: Tool.Options<AgentState>) => {
+      return await step?.run("readFiles", async () => {
         try {
           const sandbox = await getSandbox(sandboxId);
           const contents = [];
@@ -1707,17 +1595,9 @@ Generate code that matches the approved specification.`;
       const network = createCodeAgentNetwork(agent);
       const stateForRun = stateOverride ?? buildAgentState();
       const inputForRun = userInput ?? event.data.value;
-      const executeNetwork = async (): Promise<NetworkRun<AgentState>> =>
-        network.run(inputForRun, { state: stateForRun });
 
-      return runWithStepContext<NetworkRun<AgentState>>(step, async () => {
-        if (!step) {
-          return executeNetwork();
-        }
-        return (await step.run(
-          label,
-          executeNetwork,
-        )) as unknown as NetworkRun<AgentState>;
+      return await step.run(label, async () => {
+        return await network.run(inputForRun, { state: stateForRun });
       });
     };
 
@@ -1738,38 +1618,8 @@ Generate code that matches the approved specification.`;
       if (error instanceof Error && error.stack) {
         console.error("[ERROR] Stack trace:", error.stack);
       }
-      const isStepUndefinedError =
-        error instanceof TypeError &&
-        errorMessage.toLowerCase().includes("step");
-
-      if (!isStepUndefinedError) {
-        throw new Error(
-          `Code generation failed: ${errorMessage}. Please ensure API credentials are valid and try again.`,
-        );
-      }
-
-      const fallbackModelId: ModelId = "anthropic/claude-haiku-4.5";
-      const fallbackConfig = MODEL_CONFIGS[fallbackModelId];
-      console.warn(
-        "[WARN] Step context missing during primary run; retrying with fallback model:",
-        fallbackModelId,
-      );
-
-      const fallbackAgent = createAgent<AgentState>({
-        name: `${selectedFramework}-code-agent-fallback`,
-        description: `Fallback ${selectedFramework} coding agent powered by ${fallbackConfig.name}`,
-        system: frameworkPrompt,
-        model: getModelAdapter(fallbackModelId, fallbackConfig.temperature),
-        tools: createCodeAgentTools(sandboxId),
-        lifecycle: codeAgentLifecycle,
-      });
-      activeAgent = fallbackAgent;
-
-      result = await runNetwork(
-        "run-code-agent-network-fallback",
-        fallbackAgent,
-        undefined,
-        event.data.value,
+      throw new Error(
+        `Code generation failed: ${errorMessage}. Please ensure API credentials are valid and try again.`,
       );
     }
 
@@ -2951,9 +2801,9 @@ REQUIRED ACTIONS:
 DO NOT proceed until all errors are completely resolved. Focus on fixing the root cause, not just masking symptoms.`;
 
     try {
-      let result = await runWithStepContext(step, () =>
-        network.run(fixPrompt, { state }),
-      );
+      let result = await step.run("retry-with-error-fix", async () => {
+        return await network.run(fixPrompt, { state });
+      });
 
       // Post-network fallback: If no summary but files were modified, make one more explicit request
       let summaryText = extractSummaryText(result.state.data.summary ?? "");
@@ -2964,12 +2814,12 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         console.log(
           "[DEBUG] No summary detected after error-fix, requesting explicitly...",
         );
-        result = await runWithStepContext(step, () =>
-          network.run(
+        result = await step.run("retry-error-fix-summary-request", async () => {
+          return await network.run(
             "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
             { state: result.state },
-          ),
-        );
+          );
+        });
 
         // Re-extract summary after explicit request
         summaryText = extractSummaryText(result.state.data.summary ?? "");
@@ -3345,27 +3195,25 @@ Remember to wrap your complete specification in <spec>...</spec> tags.`;
     );
 
     // Run the planning agent
-    const result = await runWithStepContext(step, () =>
-      step.run("generate-spec", async () => {
-        const state = createState<AgentState>(
-          {
-            summary: "",
-            files: {},
-            selectedFramework,
-            summaryRetryCount: 0,
-          },
-          {
-            messages: previousMessages,
-          },
-        );
+    const result = await step.run("generate-spec", async () => {
+      const state = createState<AgentState>(
+        {
+          summary: "",
+          files: {},
+          selectedFramework,
+          summaryRetryCount: 0,
+        },
+        {
+          messages: previousMessages,
+        },
+      );
 
-        const planResult = await planningAgent.run(event.data.value, {
-          state,
-          step,
-        });
-        return planResult;
-      }),
-    );
+      const planResult = await planningAgent.run(event.data.value, {
+        state,
+        step,
+      });
+      return planResult;
+    });
 
     // Extract spec content from response
     const specContent = extractSpecContent(result.output);
