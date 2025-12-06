@@ -52,3 +52,5 @@ next-env.d.ts
 # Database exports and migrations
 /neon-thing/
 .env*.local
+
+assets/

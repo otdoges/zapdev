@@ -11,6 +11,7 @@ import {
   createState,
   type NetworkRun,
 } from "@inngest/agent-kit";
+import { getAsyncLocalStorage } from "inngest/components/execution/als";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -1611,6 +1612,39 @@ Generate code that matches the approved specification.`;
         },
       });
 
+    let asyncLocalStorage:
+      | Awaited<ReturnType<typeof getAsyncLocalStorage>>
+      | null = null;
+
+    const runWithStepContext = async <T>(runner: () => Promise<T>) => {
+      if (!step) {
+        return runner();
+      }
+
+      try {
+        asyncLocalStorage =
+          asyncLocalStorage ?? (await getAsyncLocalStorage());
+
+        return await new Promise<T>((resolve, reject) => {
+          asyncLocalStorage?.run({ ctx: { step } }, async () => {
+            try {
+              resolve(await runner());
+            } catch (error) {
+              reject(error);
+            }
+          });
+        });
+      } catch (ctxError) {
+        const message =
+          ctxError instanceof Error ? ctxError.message : String(ctxError);
+        console.warn(
+          "[WARN] Failed to bind step to async context; continuing without it:",
+          message,
+        );
+        return runner();
+      }
+    };
+
     const runNetwork = async (
       label: string,
       agent: ReturnType<typeof createAgent<AgentState>>,
@@ -1620,8 +1654,14 @@ Generate code that matches the approved specification.`;
       const network = createCodeAgentNetwork(agent);
       const stateForRun = stateOverride ?? buildAgentState();
       const inputForRun = userInput ?? event.data.value;
-      return step.run(label, async () => {
-        return network.run(inputForRun, { state: stateForRun });
+      const executeNetwork = async () =>
+        network.run(inputForRun, { state: stateForRun });
+
+      return runWithStepContext(() => {
+        if (!step) {
+          return executeNetwork();
+        }
+        return step.run(label, executeNetwork);
       });
     };
 
