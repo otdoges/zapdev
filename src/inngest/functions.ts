@@ -10,6 +10,7 @@ import {
   type Message,
   createState,
   type NetworkRun,
+  type AgentResult,
 } from "@inngest/agent-kit";
 import { getAsyncCtx, type AsyncContext } from "inngest/experimental";
 import { ConvexHttpClient } from "convex/browser";
@@ -60,6 +61,86 @@ const convex = new Proxy({} as ConvexHttpClient, {
     return getConvexClient()[prop as keyof ConvexHttpClient];
   },
 });
+
+type StepAsyncContext = Partial<AsyncContext> & { ctx?: Record<string, unknown> };
+type AsyncLocalStorageLike = {
+  getStore: () => StepAsyncContext | undefined;
+  run: (store: StepAsyncContext, callback: () => Promise<void>) => void;
+};
+
+let sharedAsyncLocalStorage: AsyncLocalStorageLike | null = null;
+let asyncContextWarningLogged = false;
+
+async function loadAsyncLocalStorage(): Promise<AsyncLocalStorageLike | null> {
+  if (sharedAsyncLocalStorage) {
+    return sharedAsyncLocalStorage;
+  }
+
+  try {
+    const { getAsyncLocalStorage } = (await import("inngest/experimental")) as {
+      getAsyncLocalStorage?: () => Promise<AsyncLocalStorageLike>;
+    };
+
+    sharedAsyncLocalStorage = (await getAsyncLocalStorage?.()) ?? null;
+    return sharedAsyncLocalStorage;
+  } catch (error) {
+    console.warn("[WARN] Failed to load async local storage:", error);
+    return null;
+  }
+}
+
+async function runWithStepContext<T>(
+  step: unknown,
+  runner: () => Promise<T>,
+): Promise<T> {
+  if (!step) {
+    return runner();
+  }
+
+  try {
+    const [storage, existingContext] = await Promise.all([
+      loadAsyncLocalStorage(),
+      getAsyncCtx().catch(() => undefined),
+    ]);
+
+    if (!storage) {
+      if (!asyncContextWarningLogged) {
+        console.warn(
+          "[WARN] Async context not available; proceeding without step binding.",
+        );
+        asyncContextWarningLogged = true;
+      }
+      return runner();
+    }
+
+    const currentContext = existingContext as StepAsyncContext | undefined;
+    const mergedContext: StepAsyncContext = {
+      ...(currentContext ?? {}),
+      ctx: {
+        ...(currentContext?.ctx ?? {}),
+        step: step ?? currentContext?.ctx?.step,
+      },
+    };
+
+    return await new Promise<T>((resolve, reject) => {
+      storage.run(mergedContext, async () => {
+        try {
+          resolve(await runner());
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+  } catch (ctxError) {
+    const message =
+      ctxError instanceof Error ? ctxError.message : String(ctxError);
+    console.warn(
+      "[WARN] Failed to bind step to async context; continuing without it:",
+      message,
+    );
+    return runner();
+  }
+}
 
 // Multi-agent workflow removed; only single code agent is used.
 
@@ -1538,7 +1619,13 @@ Generate code that matches the approved specification.`;
     });
 
     const codeAgentLifecycle = {
-      onResponse: async ({ result, network }) => {
+      onResponse: async ({
+        result,
+        network,
+      }: {
+        result: AgentResult;
+        network?: NetworkRun<AgentState>;
+      }) => {
         const lastAssistantMessageText =
           lastAssistantTextMessageContent(result);
 
@@ -1611,81 +1698,6 @@ Generate code that matches the approved specification.`;
         },
       });
 
-    type StepAsyncContext = AsyncContext & {
-      ctx?: Record<string, unknown>;
-    };
-
-    type AsyncLocalStorageLike = {
-      getStore: () => StepAsyncContext | undefined;
-      run: (store: StepAsyncContext, callback: () => Promise<void>) => void;
-    };
-
-    let asyncLocalStorage: AsyncLocalStorageLike | null = null;
-    let asyncContextWarningLogged = false;
-
-    const loadAsyncLocalStorage = async () => {
-      if (asyncLocalStorage) {
-        return asyncLocalStorage;
-      }
-
-      const { getAsyncLocalStorage } = (await import("inngest/experimental")) as {
-        getAsyncLocalStorage?: () => Promise<AsyncLocalStorageLike>;
-      };
-
-      asyncLocalStorage = (await getAsyncLocalStorage?.()) ?? null;
-      return asyncLocalStorage;
-    };
-
-    const runWithStepContext = async <T>(runner: () => Promise<T>) => {
-      if (!step) {
-        return runner();
-      }
-
-      try {
-        const [storage, existingContext] = await Promise.all([
-          loadAsyncLocalStorage(),
-          getAsyncCtx().catch(() => undefined),
-        ]);
-
-        if (!storage) {
-          if (!asyncContextWarningLogged) {
-            console.warn(
-              "[WARN] Async context not available; proceeding without step binding.",
-            );
-            asyncContextWarningLogged = true;
-          }
-          return runner();
-        }
-
-        const currentContext = existingContext as StepAsyncContext | undefined;
-        const mergedContext: StepAsyncContext = {
-          ...(currentContext ?? {}),
-          ctx: {
-            ...(currentContext?.ctx ?? {}),
-            step,
-          },
-        };
-
-        return await new Promise<T>((resolve, reject) => {
-          storage.run(mergedContext, async () => {
-            try {
-              resolve(await runner());
-            } catch (error) {
-              reject(error);
-            }
-          });
-        });
-      } catch (ctxError) {
-        const message =
-          ctxError instanceof Error ? ctxError.message : String(ctxError);
-        console.warn(
-          "[WARN] Failed to bind step to async context; continuing without it:",
-          message,
-        );
-        return runner();
-      }
-    };
-
     const runNetwork = async (
       label: string,
       agent: ReturnType<typeof createAgent<AgentState>>,
@@ -1695,14 +1707,17 @@ Generate code that matches the approved specification.`;
       const network = createCodeAgentNetwork(agent);
       const stateForRun = stateOverride ?? buildAgentState();
       const inputForRun = userInput ?? event.data.value;
-      const executeNetwork = async () =>
+      const executeNetwork = async (): Promise<NetworkRun<AgentState>> =>
         network.run(inputForRun, { state: stateForRun });
 
-      return runWithStepContext(() => {
+      return runWithStepContext<NetworkRun<AgentState>>(step, async () => {
         if (!step) {
           return executeNetwork();
         }
-        return step.run(label, executeNetwork);
+        return (await step.run(
+          label,
+          executeNetwork,
+        )) as unknown as NetworkRun<AgentState>;
       });
     };
 
@@ -1746,7 +1761,7 @@ Generate code that matches the approved specification.`;
         system: frameworkPrompt,
         model: getModelAdapter(fallbackModelId, fallbackConfig.temperature),
         tools: createCodeAgentTools(sandboxId),
-        lifecycle: codeAgentLifecycle as Lifecycle<AgentState>,
+        lifecycle: codeAgentLifecycle,
       });
       activeAgent = fallbackAgent;
 
@@ -1928,7 +1943,10 @@ Generate code that matches the approved specification.`;
         );
 
         try {
-          result = await network.run(
+          result = await runNetwork(
+            `run-code-agent-network-auto-fix-${autoFixAttempts}`,
+            activeAgent,
+            result.state,
             `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
 
 The previous attempt encountered an error that must be corrected before proceeding.
@@ -1952,7 +1970,6 @@ REQUIRED ACTIONS:
 7. Provide an updated <task_summary> only after the error is fully resolved
 
 DO NOT proceed until the error is completely fixed. The fix must be thorough and address the root cause, not just mask the symptoms.`,
-            { state: result.state },
           );
         } catch (autoFixError) {
           const fixErrorMessage =
@@ -2934,7 +2951,9 @@ REQUIRED ACTIONS:
 DO NOT proceed until all errors are completely resolved. Focus on fixing the root cause, not just masking symptoms.`;
 
     try {
-      let result = await network.run(fixPrompt, { state });
+      let result = await runWithStepContext(step, () =>
+        network.run(fixPrompt, { state }),
+      );
 
       // Post-network fallback: If no summary but files were modified, make one more explicit request
       let summaryText = extractSummaryText(result.state.data.summary ?? "");
@@ -2945,9 +2964,11 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         console.log(
           "[DEBUG] No summary detected after error-fix, requesting explicitly...",
         );
-        result = await network.run(
-          "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
-          { state: result.state, step },
+        result = await runWithStepContext(step, () =>
+          network.run(
+            "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
+            { state: result.state },
+          ),
         );
 
         // Re-extract summary after explicit request
@@ -3324,22 +3345,27 @@ Remember to wrap your complete specification in <spec>...</spec> tags.`;
     );
 
     // Run the planning agent
-    const result = await step.run("generate-spec", async () => {
-      const state = createState<AgentState>(
-        {
-          summary: "",
-          files: {},
-          selectedFramework,
-          summaryRetryCount: 0,
-        },
-        {
-          messages: previousMessages,
-        },
-      );
+    const result = await runWithStepContext(step, () =>
+      step.run("generate-spec", async () => {
+        const state = createState<AgentState>(
+          {
+            summary: "",
+            files: {},
+            selectedFramework,
+            summaryRetryCount: 0,
+          },
+          {
+            messages: previousMessages,
+          },
+        );
 
-      const planResult = await planningAgent.run(event.data.value, { state });
-      return planResult;
-    });
+        const planResult = await planningAgent.run(event.data.value, {
+          state,
+          step,
+        });
+        return planResult;
+      }),
+    );
 
     // Extract spec content from response
     const specContent = extractSpecContent(result.output);
