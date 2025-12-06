@@ -11,6 +11,7 @@ import {
   createState,
   type NetworkRun,
 } from "@inngest/agent-kit";
+import { getAsyncCtx, type AsyncContext } from "inngest/experimental";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -1610,7 +1611,30 @@ Generate code that matches the approved specification.`;
         },
       });
 
-    let asyncLocalStorage: StepAsyncLocalStorage | null = null;
+    type StepAsyncContext = AsyncContext & {
+      ctx?: Record<string, unknown>;
+    };
+
+    type AsyncLocalStorageLike = {
+      getStore: () => StepAsyncContext | undefined;
+      run: (store: StepAsyncContext, callback: () => Promise<void>) => void;
+    };
+
+    let asyncLocalStorage: AsyncLocalStorageLike | null = null;
+    let asyncContextWarningLogged = false;
+
+    const loadAsyncLocalStorage = async () => {
+      if (asyncLocalStorage) {
+        return asyncLocalStorage;
+      }
+
+      const { getAsyncLocalStorage } = (await import("inngest/experimental")) as {
+        getAsyncLocalStorage?: () => Promise<AsyncLocalStorageLike>;
+      };
+
+      asyncLocalStorage = (await getAsyncLocalStorage?.()) ?? null;
+      return asyncLocalStorage;
+    };
 
     const runWithStepContext = async <T>(runner: () => Promise<T>) => {
       if (!step) {
@@ -1618,11 +1642,32 @@ Generate code that matches the approved specification.`;
       }
 
       try {
-        asyncLocalStorage =
-          asyncLocalStorage ?? (await getStepAsyncLocalStorage());
+        const [storage, existingContext] = await Promise.all([
+          loadAsyncLocalStorage(),
+          getAsyncCtx().catch(() => undefined),
+        ]);
+
+        if (!storage) {
+          if (!asyncContextWarningLogged) {
+            console.warn(
+              "[WARN] Async context not available; proceeding without step binding.",
+            );
+            asyncContextWarningLogged = true;
+          }
+          return runner();
+        }
+
+        const currentContext = existingContext as StepAsyncContext | undefined;
+        const mergedContext: StepAsyncContext = {
+          ...(currentContext ?? {}),
+          ctx: {
+            ...(currentContext?.ctx ?? {}),
+            step,
+          },
+        };
 
         return await new Promise<T>((resolve, reject) => {
-          asyncLocalStorage?.run({ ctx: { step } }, async () => {
+          storage.run(mergedContext, async () => {
             try {
               resolve(await runner());
             } catch (error) {
@@ -1701,7 +1746,7 @@ Generate code that matches the approved specification.`;
         system: frameworkPrompt,
         model: getModelAdapter(fallbackModelId, fallbackConfig.temperature),
         tools: createCodeAgentTools(sandboxId),
-        lifecycle: codeAgentLifecycle,
+        lifecycle: codeAgentLifecycle as Lifecycle<AgentState>,
       });
       activeAgent = fallbackAgent;
 
