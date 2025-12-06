@@ -11,13 +11,35 @@ import {
   createState,
   type NetworkRun,
 } from "@inngest/agent-kit";
-import { getAsyncLocalStorage } from "inngest/components/execution/als";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { inspect } from "util";
-
+import {
+  FRAGMENT_TITLE_PROMPT,
+  RESPONSE_PROMPT,
+  FRAMEWORK_SELECTOR_PROMPT,
+  NEXTJS_PROMPT,
+  ANGULAR_PROMPT,
+  REACT_PROMPT,
+  VUE_PROMPT,
+  SVELTE_PROMPT,
+  SPEC_MODE_PROMPT,
+} from "@/prompt";
 import { crawlUrl, type CrawledContent } from "@/lib/firecrawl";
+import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
+import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
+import { inngest } from "./client";
+import { type Framework, type AgentState } from "./types";
+import {
+  getSandbox,
+  lastAssistantTextMessageContent,
+  parseAgentOutput,
+  createSandboxWithRetry,
+  validateSandboxHealth,
+  ensureDevServerRunning,
+} from "./utils";
+import { e2bCircuitBreaker } from "./circuit-breaker";
 
 // Get Convex client lazily to avoid build-time errors
 let convexClient: ConvexHttpClient | null = null;
@@ -37,31 +59,50 @@ const convex = new Proxy({} as ConvexHttpClient, {
     return getConvexClient()[prop as keyof ConvexHttpClient];
   },
 });
-import {
-  FRAGMENT_TITLE_PROMPT,
-  RESPONSE_PROMPT,
-  FRAMEWORK_SELECTOR_PROMPT,
-  NEXTJS_PROMPT,
-  ANGULAR_PROMPT,
-  REACT_PROMPT,
-  VUE_PROMPT,
-  SVELTE_PROMPT,
-  SPEC_MODE_PROMPT,
-} from "@/prompt";
 
-import { inngest } from "./client";
-import { type Framework, type AgentState } from "./types";
-import {
-  getSandbox,
-  lastAssistantTextMessageContent,
-  parseAgentOutput,
-  createSandboxWithRetry,
-  validateSandboxHealth,
-  ensureDevServerRunning,
-} from "./utils";
-import { e2bCircuitBreaker } from "./circuit-breaker";
-import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
-import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
+type StepAsyncContextStore = { ctx: { step: unknown } };
+
+type StepAsyncLocalStorage = {
+  getStore: () => StepAsyncContextStore | undefined;
+  run: (
+    store: StepAsyncContextStore,
+    callback: () => void | Promise<void>,
+  ) => void;
+};
+
+const stepAlsSymbol = Symbol.for("zapdev:inngest:als");
+
+const getStepAsyncLocalStorage = async (): Promise<StepAsyncLocalStorage> => {
+  const globalWithAls = globalThis as typeof globalThis & {
+    [stepAlsSymbol]?: Promise<StepAsyncLocalStorage>;
+  };
+
+  if (globalWithAls[stepAlsSymbol]) {
+    return globalWithAls[stepAlsSymbol] as Promise<StepAsyncLocalStorage>;
+  }
+
+  const created = new Promise<StepAsyncLocalStorage>(async (resolve) => {
+    try {
+      const { AsyncLocalStorage } = await import("node:async_hooks");
+      resolve(
+        new AsyncLocalStorage<StepAsyncContextStore>() as unknown as StepAsyncLocalStorage,
+      );
+    } catch {
+      console.warn(
+        "node:async_hooks is not available; step async context disabled.",
+      );
+      resolve({
+        getStore: () => undefined,
+        run: (_store, callback) => {
+          callback();
+        },
+      });
+    }
+  });
+
+  globalWithAls[stepAlsSymbol] = created;
+  return created;
+};
 // Multi-agent workflow removed; only single code agent is used.
 
 type FragmentMetadata = Record<string, unknown>;
@@ -1612,9 +1653,7 @@ Generate code that matches the approved specification.`;
         },
       });
 
-    let asyncLocalStorage:
-      | Awaited<ReturnType<typeof getAsyncLocalStorage>>
-      | null = null;
+    let asyncLocalStorage: StepAsyncLocalStorage | null = null;
 
     const runWithStepContext = async <T>(runner: () => Promise<T>) => {
       if (!step) {
@@ -1623,7 +1662,7 @@ Generate code that matches the approved specification.`;
 
       try {
         asyncLocalStorage =
-          asyncLocalStorage ?? (await getAsyncLocalStorage());
+          asyncLocalStorage ?? (await getStepAsyncLocalStorage());
 
         return await new Promise<T>((resolve, reject) => {
           asyncLocalStorage?.run({ ctx: { step } }, async () => {
