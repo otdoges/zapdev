@@ -10,13 +10,38 @@ import {
   type Message,
   createState,
   type NetworkRun,
+  type AgentResult,
 } from "@inngest/agent-kit";
+import { getAsyncCtx, type AsyncContext } from "inngest/experimental";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { inspect } from "util";
-
+import {
+  FRAGMENT_TITLE_PROMPT,
+  RESPONSE_PROMPT,
+  FRAMEWORK_SELECTOR_PROMPT,
+  NEXTJS_PROMPT,
+  ANGULAR_PROMPT,
+  REACT_PROMPT,
+  VUE_PROMPT,
+  SVELTE_PROMPT,
+  SPEC_MODE_PROMPT,
+} from "@/prompt";
 import { crawlUrl, type CrawledContent } from "@/lib/firecrawl";
+import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
+import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
+import { inngest } from "./client";
+import { type Framework, type AgentState } from "./types";
+import {
+  getSandbox,
+  lastAssistantTextMessageContent,
+  parseAgentOutput,
+  createSandboxWithRetry,
+  validateSandboxHealth,
+  ensureDevServerRunning,
+} from "./utils";
+import { e2bCircuitBreaker } from "./circuit-breaker";
 
 // Get Convex client lazily to avoid build-time errors
 let convexClient: ConvexHttpClient | null = null;
@@ -36,31 +61,87 @@ const convex = new Proxy({} as ConvexHttpClient, {
     return getConvexClient()[prop as keyof ConvexHttpClient];
   },
 });
-import {
-  FRAGMENT_TITLE_PROMPT,
-  RESPONSE_PROMPT,
-  FRAMEWORK_SELECTOR_PROMPT,
-  NEXTJS_PROMPT,
-  ANGULAR_PROMPT,
-  REACT_PROMPT,
-  VUE_PROMPT,
-  SVELTE_PROMPT,
-  SPEC_MODE_PROMPT,
-} from "@/prompt";
 
-import { inngest } from "./client";
-import { type Framework, type AgentState } from "./types";
-import {
-  getSandbox,
-  lastAssistantTextMessageContent,
-  parseAgentOutput,
-  createSandboxWithRetry,
-  validateSandboxHealth,
-  ensureDevServerRunning,
-} from "./utils";
-import { e2bCircuitBreaker } from "./circuit-breaker";
-import { sanitizeTextForDatabase, sanitizeJsonForDatabase } from "@/lib/utils";
-import { filterAIGeneratedFiles } from "@/lib/filter-ai-files";
+type StepAsyncContext = Partial<AsyncContext> & { ctx?: Record<string, unknown> };
+type AsyncLocalStorageLike = {
+  getStore: () => StepAsyncContext | undefined;
+  run: (store: StepAsyncContext, callback: () => Promise<void>) => void;
+};
+
+let sharedAsyncLocalStorage: AsyncLocalStorageLike | null = null;
+let asyncContextWarningLogged = false;
+
+async function loadAsyncLocalStorage(): Promise<AsyncLocalStorageLike | null> {
+  if (sharedAsyncLocalStorage) {
+    return sharedAsyncLocalStorage;
+  }
+
+  try {
+    const { getAsyncLocalStorage } = (await import("inngest/experimental")) as {
+      getAsyncLocalStorage?: () => Promise<AsyncLocalStorageLike>;
+    };
+
+    sharedAsyncLocalStorage = (await getAsyncLocalStorage?.()) ?? null;
+    return sharedAsyncLocalStorage;
+  } catch (error) {
+    console.warn("[WARN] Failed to load async local storage:", error);
+    return null;
+  }
+}
+
+async function runWithStepContext<T>(
+  step: unknown,
+  runner: () => Promise<T>,
+): Promise<T> {
+  if (!step) {
+    return runner();
+  }
+
+  try {
+    const [storage, existingContext] = await Promise.all([
+      loadAsyncLocalStorage(),
+      getAsyncCtx().catch(() => undefined),
+    ]);
+
+    if (!storage) {
+      if (!asyncContextWarningLogged) {
+        console.warn(
+          "[WARN] Async context not available; proceeding without step binding.",
+        );
+        asyncContextWarningLogged = true;
+      }
+      return runner();
+    }
+
+    const currentContext = existingContext as StepAsyncContext | undefined;
+    const mergedContext: StepAsyncContext = {
+      ...(currentContext ?? {}),
+      ctx: {
+        ...(currentContext?.ctx ?? {}),
+        step: step ?? currentContext?.ctx?.step,
+      },
+    };
+
+    return await new Promise<T>((resolve, reject) => {
+      storage.run(mergedContext, async () => {
+        try {
+          resolve(await runner());
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+  } catch (ctxError) {
+    const message =
+      ctxError instanceof Error ? ctxError.message : String(ctxError);
+    console.warn(
+      "[WARN] Failed to bind step to async context; continuing without it:",
+      message,
+    );
+    return runner();
+  }
+}
+
 // Multi-agent workflow removed; only single code agent is used.
 
 type FragmentMetadata = Record<string, unknown>;
@@ -1538,7 +1619,13 @@ Generate code that matches the approved specification.`;
     });
 
     const codeAgentLifecycle = {
-      onResponse: async ({ result, network }) => {
+      onResponse: async ({
+        result,
+        network,
+      }: {
+        result: AgentResult;
+        network?: NetworkRun<AgentState>;
+      }) => {
         const lastAssistantMessageText =
           lastAssistantTextMessageContent(result);
 
@@ -1620,8 +1707,17 @@ Generate code that matches the approved specification.`;
       const network = createCodeAgentNetwork(agent);
       const stateForRun = stateOverride ?? buildAgentState();
       const inputForRun = userInput ?? event.data.value;
-      return step.run(label, async () => {
-        return network.run(inputForRun, { state: stateForRun });
+      const executeNetwork = async (): Promise<NetworkRun<AgentState>> =>
+        network.run(inputForRun, { state: stateForRun });
+
+      return runWithStepContext<NetworkRun<AgentState>>(step, async () => {
+        if (!step) {
+          return executeNetwork();
+        }
+        return (await step.run(
+          label,
+          executeNetwork,
+        )) as unknown as NetworkRun<AgentState>;
       });
     };
 
@@ -1847,8 +1943,11 @@ Generate code that matches the approved specification.`;
         );
 
         try {
-        result = await network.run(
-          `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
+          result = await runNetwork(
+            `run-code-agent-network-auto-fix-${autoFixAttempts}`,
+            activeAgent,
+            result.state,
+            `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
 
 The previous attempt encountered an error that must be corrected before proceeding.
 
@@ -1871,8 +1970,7 @@ REQUIRED ACTIONS:
 7. Provide an updated <task_summary> only after the error is fully resolved
 
 DO NOT proceed until the error is completely fixed. The fix must be thorough and address the root cause, not just mask the symptoms.`,
-          { state: result.state },
-        );
+          );
         } catch (autoFixError) {
           const fixErrorMessage =
             autoFixError instanceof Error
@@ -2336,15 +2434,15 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       if (totalSizeMB > MAX_SIZE_MB) {
         throw new Error(
           `Merged files size (${totalSizeMB.toFixed(2)} MB) exceeds maximum limit (${MAX_SIZE_MB} MB). ` +
-            `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
-            `File count: ${fileCount}. Please review the file filtering logic.`,
+          `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
+          `File count: ${fileCount}. Please review the file filtering logic.`,
         );
       }
 
       if (totalSizeMB > WARN_SIZE_MB) {
         console.warn(
           `[WARN] Merged files size (${totalSizeMB.toFixed(2)} MB) is approaching limit (${MAX_SIZE_MB} MB). ` +
-            `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
+          `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
         );
       }
 
@@ -2418,8 +2516,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const warningsNote =
         warningReasons.length > 0
           ? sanitizeTextForDatabase(
-              `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
-            )
+            `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
+          )
           : "";
       const responseContent = sanitizeTextForDatabase(
         `${baseResponseContent}${warningsNote}`,
@@ -2853,7 +2951,9 @@ REQUIRED ACTIONS:
 DO NOT proceed until all errors are completely resolved. Focus on fixing the root cause, not just masking symptoms.`;
 
     try {
-      let result = await network.run(fixPrompt, { state });
+      let result = await runWithStepContext(step, () =>
+        network.run(fixPrompt, { state }),
+      );
 
       // Post-network fallback: If no summary but files were modified, make one more explicit request
       let summaryText = extractSummaryText(result.state.data.summary ?? "");
@@ -2864,9 +2964,11 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
         console.log(
           "[DEBUG] No summary detected after error-fix, requesting explicitly...",
         );
-        result = await network.run(
-          "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
-          { state: result.state, step },
+        result = await runWithStepContext(step, () =>
+          network.run(
+            "IMPORTANT: You have successfully fixed the errors, but you forgot to provide the <task_summary> tag. Please provide it now with a brief description of what errors you fixed. This is required to complete the task.",
+            { state: result.state },
+          ),
         );
 
         // Re-extract summary after explicit request
@@ -2970,14 +3072,14 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           backupMetadata ?? initialMetadata;
         const metadataUpdate = supportsMetadata
           ? {
-              ...baseMetadata,
-              previousFiles: originalFiles,
-              fixedAt: new Date().toISOString(),
-              lastFixSuccess: {
-                summary: result.state.data.summary,
-                occurredAt: new Date().toISOString(),
-              },
-            }
+            ...baseMetadata,
+            previousFiles: originalFiles,
+            fixedAt: new Date().toISOString(),
+            lastFixSuccess: {
+              summary: result.state.data.summary,
+              occurredAt: new Date().toISOString(),
+            },
+          }
           : undefined;
 
         return await convex.mutation(api.messages.createFragmentForUser, {
@@ -3243,22 +3345,27 @@ Remember to wrap your complete specification in <spec>...</spec> tags.`;
     );
 
     // Run the planning agent
-    const result = await step.run("generate-spec", async () => {
-      const state = createState<AgentState>(
-        {
-          summary: "",
-          files: {},
-          selectedFramework,
-          summaryRetryCount: 0,
-        },
-        {
-          messages: previousMessages,
-        },
-      );
+    const result = await runWithStepContext(step, () =>
+      step.run("generate-spec", async () => {
+        const state = createState<AgentState>(
+          {
+            summary: "",
+            files: {},
+            selectedFramework,
+            summaryRetryCount: 0,
+          },
+          {
+            messages: previousMessages,
+          },
+        );
 
-      const planResult = await planningAgent.run(event.data.value, { state });
-      return planResult;
-    });
+        const planResult = await planningAgent.run(event.data.value, {
+          state,
+          step,
+        });
+        return planResult;
+      }),
+    );
 
     // Extract spec content from response
     const specContent = extractSpecContent(result.output);
