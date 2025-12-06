@@ -60,49 +60,6 @@ const convex = new Proxy({} as ConvexHttpClient, {
   },
 });
 
-type StepAsyncContextStore = { ctx: { step: unknown } };
-
-type StepAsyncLocalStorage = {
-  getStore: () => StepAsyncContextStore | undefined;
-  run: (
-    store: StepAsyncContextStore,
-    callback: () => void | Promise<void>,
-  ) => void;
-};
-
-const stepAlsSymbol = Symbol.for("zapdev:inngest:als");
-
-const getStepAsyncLocalStorage = async (): Promise<StepAsyncLocalStorage> => {
-  const globalWithAls = globalThis as typeof globalThis & {
-    [stepAlsSymbol]?: Promise<StepAsyncLocalStorage>;
-  };
-
-  if (globalWithAls[stepAlsSymbol]) {
-    return globalWithAls[stepAlsSymbol] as Promise<StepAsyncLocalStorage>;
-  }
-
-  const created = new Promise<StepAsyncLocalStorage>(async (resolve) => {
-    try {
-      const { AsyncLocalStorage } = await import("node:async_hooks");
-      resolve(
-        new AsyncLocalStorage<StepAsyncContextStore>() as unknown as StepAsyncLocalStorage,
-      );
-    } catch {
-      console.warn(
-        "node:async_hooks is not available; step async context disabled.",
-      );
-      resolve({
-        getStore: () => undefined,
-        run: (_store, callback) => {
-          callback();
-        },
-      });
-    }
-  });
-
-  globalWithAls[stepAlsSymbol] = created;
-  return created;
-};
 // Multi-agent workflow removed; only single code agent is used.
 
 type FragmentMetadata = Record<string, unknown>;
@@ -1926,8 +1883,8 @@ Generate code that matches the approved specification.`;
         );
 
         try {
-        result = await network.run(
-          `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
+          result = await network.run(
+            `CRITICAL ERROR DETECTED - IMMEDIATE FIX REQUIRED
 
 The previous attempt encountered an error that must be corrected before proceeding.
 
@@ -1950,8 +1907,8 @@ REQUIRED ACTIONS:
 7. Provide an updated <task_summary> only after the error is fully resolved
 
 DO NOT proceed until the error is completely fixed. The fix must be thorough and address the root cause, not just mask the symptoms.`,
-          { state: result.state },
-        );
+            { state: result.state },
+          );
         } catch (autoFixError) {
           const fixErrorMessage =
             autoFixError instanceof Error
@@ -2415,15 +2372,15 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       if (totalSizeMB > MAX_SIZE_MB) {
         throw new Error(
           `Merged files size (${totalSizeMB.toFixed(2)} MB) exceeds maximum limit (${MAX_SIZE_MB} MB). ` +
-            `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
-            `File count: ${fileCount}. Please review the file filtering logic.`,
+          `This usually indicates that large build artifacts or dependencies were not filtered out. ` +
+          `File count: ${fileCount}. Please review the file filtering logic.`,
         );
       }
 
       if (totalSizeMB > WARN_SIZE_MB) {
         console.warn(
           `[WARN] Merged files size (${totalSizeMB.toFixed(2)} MB) is approaching limit (${MAX_SIZE_MB} MB). ` +
-            `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
+          `Current file count: ${fileCount}. Consider reviewing file filtering to reduce size.`,
         );
       }
 
@@ -2497,8 +2454,8 @@ DO NOT proceed until the error is completely fixed. The fix must be thorough and
       const warningsNote =
         warningReasons.length > 0
           ? sanitizeTextForDatabase(
-              `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
-            )
+            `\n\nWarnings:\n- ${warningReasons.join("\n- ")}`,
+          )
           : "";
       const responseContent = sanitizeTextForDatabase(
         `${baseResponseContent}${warningsNote}`,
@@ -3049,14 +3006,14 @@ DO NOT proceed until all errors are completely resolved. Focus on fixing the roo
           backupMetadata ?? initialMetadata;
         const metadataUpdate = supportsMetadata
           ? {
-              ...baseMetadata,
-              previousFiles: originalFiles,
-              fixedAt: new Date().toISOString(),
-              lastFixSuccess: {
-                summary: result.state.data.summary,
-                occurredAt: new Date().toISOString(),
-              },
-            }
+            ...baseMetadata,
+            previousFiles: originalFiles,
+            fixedAt: new Date().toISOString(),
+            lastFixSuccess: {
+              summary: result.state.data.summary,
+              occurredAt: new Date().toISOString(),
+            },
+          }
           : undefined;
 
         return await convex.mutation(api.messages.createFragmentForUser, {
